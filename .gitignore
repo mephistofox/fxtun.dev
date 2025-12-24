@@ -1,0 +1,4 @@
+.claude
+bin/
+configs/server.yaml
+configs/nginx-mfdev.conf
