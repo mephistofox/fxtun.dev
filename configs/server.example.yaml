@@ -1,0 +1,65 @@
+# fxTunnel Server Configuration
+
+server:
+  # Port for control plane connections (clients connect here)
+  control_port: 4443
+
+  # Port for HTTP traffic (nginx proxies here)
+  http_port: 8080
+
+  # TCP tunnel port range
+  tcp_port_range:
+    min: 10000
+    max: 20000
+
+  # UDP tunnel port range
+  udp_port_range:
+    min: 20001
+    max: 30000
+
+# Domain settings for HTTP tunnels
+domain:
+  # Base domain - tunnels will be accessible at *.base
+  base: "tunnel.example.com"
+
+  # Enable wildcard subdomain support
+  wildcard: true
+
+# Authentication settings
+auth:
+  # Enable authentication (recommended for production)
+  enabled: true
+
+  # Authentication tokens
+  tokens:
+    # Admin token - can use any subdomain
+    - name: "admin"
+      token: "sk_admin_supersecrettoken123"
+      allowed_subdomains: ["*"]
+      max_tunnels: 100
+
+    # Regular user - limited to their subdomains
+    - name: "user1"
+      token: "sk_user1_token456"
+      allowed_subdomains: ["user1-*", "myapp"]
+      max_tunnels: 5
+
+    # Developer token
+    - name: "dev"
+      token: "sk_dev_token789"
+      allowed_subdomains: ["dev-*", "test-*"]
+      max_tunnels: 10
+
+# TLS settings (optional - use nginx for TLS termination instead)
+tls:
+  enabled: false
+  # cert_file: "/etc/letsencrypt/live/tunnel.example.com/fullchain.pem"
+  # key_file: "/etc/letsencrypt/live/tunnel.example.com/privkey.pem"
+
+# Logging settings
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Log format: console (human readable) or json
+  format: "console"

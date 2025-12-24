@@ -1,0 +1,61 @@
+# fxTunnel Client Configuration
+
+# Server connection settings
+server:
+  # Server address (host:port)
+  address: "tunnel.example.com:4443"
+
+  # Authentication token
+  token: "sk_user1_token456"
+
+  # Skip TLS verification (not recommended for production)
+  insecure: false
+
+# Tunnel definitions
+tunnels:
+  # HTTP tunnel - exposes local web server
+  - name: "webapp"
+    type: "http"
+    local_port: 3000
+    subdomain: "myapp"  # Accessible at myapp.tunnel.example.com
+
+  # HTTP tunnel with auto-generated subdomain
+  - name: "dev-server"
+    type: "http"
+    local_port: 8080
+    # subdomain will be auto-generated
+
+  # TCP tunnel - exposes SSH
+  - name: "ssh"
+    type: "tcp"
+    local_port: 22
+    remote_port: 0  # Auto-assign remote port
+
+  # TCP tunnel - exposes database
+  - name: "database"
+    type: "tcp"
+    local_addr: "127.0.0.1"  # Optional, defaults to 127.0.0.1
+    local_port: 5432
+    remote_port: 15432  # Request specific port
+
+  # UDP tunnel
+  - name: "dns"
+    type: "udp"
+    local_port: 53
+    remote_port: 5353
+
+# Reconnection settings
+reconnect:
+  # Enable automatic reconnection
+  enabled: true
+
+  # Reconnection interval
+  interval: 5s
+
+  # Maximum reconnection attempts (0 = unlimited)
+  max_attempts: 0
+
+# Logging settings
+logging:
+  level: "info"
+  format: "console"
