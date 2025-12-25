@@ -57,3 +57,9 @@ type TOTPVerifyRequest struct {
 type TOTPDisableRequest struct {
 	Code string `json:"code" validate:"required,min=6,max=8"`
 }
+
+// UpdateUserRequest represents an admin user update request
+type UpdateUserRequest struct {
+	IsAdmin  *bool `json:"is_admin,omitempty"`
+	IsActive *bool `json:"is_active,omitempty"`
+}

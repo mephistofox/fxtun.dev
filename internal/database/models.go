@@ -146,4 +146,6 @@ const (
 	ActionTOTPDisabled    = "totp_disabled"
 	ActionInviteCreated   = "invite_created"
 	ActionInviteUsed      = "invite_used"
+	ActionUserUpdated     = "user_updated"
+	ActionUserDeleted     = "user_deleted"
 )

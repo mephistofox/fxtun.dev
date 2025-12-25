@@ -179,3 +179,259 @@ func (s *Server) handleDeleteInviteCode(w http.ResponseWriter, r *http.Request) 
 		Message: "invite code deleted successfully",
 	})
 }
+
+// handleListAuditLogs returns a list of audit logs
+func (s *Server) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	// Parse optional user_id filter
+	userIDStr := r.URL.Query().Get("user_id")
+
+	var logs []*database.AuditLog
+	var total int
+	var err error
+
+	if userIDStr != "" {
+		userID, parseErr := strconv.ParseInt(userIDStr, 10, 64)
+		if parseErr != nil {
+			s.respondError(w, http.StatusBadRequest, "invalid user_id")
+			return
+		}
+		logs, total, err = s.db.Audit.GetByUserID(userID, limit, offset)
+	} else {
+		logs, total, err = s.db.Audit.List(limit, offset)
+	}
+
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list audit logs")
+		s.respondError(w, http.StatusInternalServerError, "failed to list audit logs")
+		return
+	}
+
+	// Get user phones for logs
+	logDTOs := make([]*dto.AuditLogDTO, len(logs))
+	for i, log := range logs {
+		var userPhone string
+		if log.UserID != nil {
+			user, err := s.db.Users.GetByID(*log.UserID)
+			if err == nil {
+				userPhone = user.Phone
+			}
+		}
+		logDTOs[i] = dto.AuditLogFromModel(log, userPhone)
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AuditLogsListResponse{
+		Logs:  logDTOs,
+		Total: total,
+	})
+}
+
+// handleListAllTunnels returns all active tunnels for admin
+func (s *Server) handleListAllTunnels(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelProvider == nil {
+		s.respondJSON(w, http.StatusOK, dto.AdminTunnelsListResponse{
+			Tunnels: []*dto.AdminTunnelDTO{},
+			Total:   0,
+		})
+		return
+	}
+
+	// Get all tunnels (userID 0 means all users)
+	tunnels := s.tunnelProvider.GetAllTunnels()
+
+	tunnelDTOs := make([]*dto.AdminTunnelDTO, len(tunnels))
+	for i, t := range tunnels {
+		var userPhone string
+		if t.UserID > 0 {
+			user, err := s.db.Users.GetByID(t.UserID)
+			if err == nil {
+				userPhone = user.Phone
+			}
+		}
+
+		url := ""
+		if t.Type == "http" && t.Subdomain != "" {
+			url = "https://" + t.Subdomain + "." + s.baseDomain
+		} else if t.RemotePort > 0 {
+			url = t.Type + "://" + s.baseDomain + ":" + strconv.Itoa(t.RemotePort)
+		}
+
+		tunnelDTOs[i] = &dto.AdminTunnelDTO{
+			ID:         t.ID,
+			Type:       t.Type,
+			Name:       t.Name,
+			Subdomain:  t.Subdomain,
+			RemotePort: t.RemotePort,
+			LocalPort:  t.LocalPort,
+			URL:        url,
+			ClientID:   t.ClientID,
+			UserID:     t.UserID,
+			UserPhone:  userPhone,
+			CreatedAt:  t.CreatedAt,
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminTunnelsListResponse{
+		Tunnels: tunnelDTOs,
+		Total:   len(tunnelDTOs),
+	})
+}
+
+// handleUpdateUser updates a user's admin status or active status
+func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	// Prevent self-modification of admin status
+	if id == currentUser.ID {
+		s.respondError(w, http.StatusForbidden, "cannot modify your own account")
+		return
+	}
+
+	var req dto.UpdateUserRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	// Update fields
+	if req.IsAdmin != nil {
+		user.IsAdmin = *req.IsAdmin
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+
+	if err := s.db.Users.Update(user); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update user")
+		s.respondError(w, http.StatusInternalServerError, "failed to update user")
+		return
+	}
+
+	// Log audit
+	ipAddress := auth.GetClientIP(r)
+	details := map[string]interface{}{
+		"target_user_id": id,
+	}
+	if req.IsAdmin != nil {
+		details["is_admin"] = *req.IsAdmin
+	}
+	if req.IsActive != nil {
+		details["is_active"] = *req.IsActive
+	}
+	s.db.Audit.Log(&currentUser.ID, database.ActionUserUpdated, details, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.UserFromModel(user))
+}
+
+// handleDeleteUser deletes a user
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	// Prevent self-deletion
+	if id == currentUser.ID {
+		s.respondError(w, http.StatusForbidden, "cannot delete your own account")
+		return
+	}
+
+	// Get user info before deletion for audit
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	if err := s.db.Users.Delete(id); err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to delete user")
+		s.respondError(w, http.StatusInternalServerError, "failed to delete user")
+		return
+	}
+
+	// Log audit
+	ipAddress := auth.GetClientIP(r)
+	s.db.Audit.Log(&currentUser.ID, database.ActionUserDeleted, map[string]interface{}{
+		"deleted_user_id":    id,
+		"deleted_user_phone": user.Phone,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "user deleted successfully",
+	})
+}
+
+// handleAdminCloseTunnel closes any tunnel (admin only)
+func (s *Server) handleAdminCloseTunnel(w http.ResponseWriter, r *http.Request) {
+	tunnelID := chi.URLParam(r, "id")
+	if tunnelID == "" {
+		s.respondError(w, http.StatusBadRequest, "tunnel id required")
+		return
+	}
+
+	if s.tunnelProvider == nil {
+		s.respondError(w, http.StatusServiceUnavailable, "tunnel provider not available")
+		return
+	}
+
+	// Admin can close any tunnel (userID 0 bypasses user check)
+	if err := s.tunnelProvider.AdminCloseTunnel(tunnelID); err != nil {
+		s.respondError(w, http.StatusNotFound, "tunnel not found")
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "tunnel closed",
+	})
+}
