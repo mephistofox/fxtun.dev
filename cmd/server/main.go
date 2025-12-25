@@ -241,6 +241,7 @@ func (a *serverAdapter) GetTunnelsByUserID(userID int64) []api.TunnelInfo {
 			RemotePort: t.RemotePort,
 			LocalPort:  t.LocalPort,
 			ClientID:   t.ClientID,
+			UserID:     t.UserID,
 			CreatedAt:  t.CreatedAt,
 		}
 	}
@@ -260,4 +261,27 @@ func (a *serverAdapter) GetStats() api.Stats {
 		TCPTunnels:    s.TCPTunnels,
 		UDPTunnels:    s.UDPTunnels,
 	}
+}
+
+func (a *serverAdapter) GetAllTunnels() []api.TunnelInfo {
+	serverTunnels := a.srv.GetAllTunnels()
+	result := make([]api.TunnelInfo, len(serverTunnels))
+	for i, t := range serverTunnels {
+		result[i] = api.TunnelInfo{
+			ID:         t.ID,
+			Type:       t.Type,
+			Name:       t.Name,
+			Subdomain:  t.Subdomain,
+			RemotePort: t.RemotePort,
+			LocalPort:  t.LocalPort,
+			ClientID:   t.ClientID,
+			UserID:     t.UserID,
+			CreatedAt:  t.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (a *serverAdapter) AdminCloseTunnel(tunnelID string) error {
+	return a.srv.AdminCloseTunnel(tunnelID)
 }
