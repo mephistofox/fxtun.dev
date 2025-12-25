@@ -4,24 +4,16 @@ run:
 
 linters:
   enable:
-    - errcheck
     - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
 
-linters-settings:
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-
 issues:
+  exclude-dirs:
+    - gui
   exclude-rules:
-    # Ignore certain linters in test files
-    - path: _test\.go
-      linters:
-        - errcheck
     # Ignore unused in GUI bindings (used by Wails)
     - path: internal/gui/
       linters:

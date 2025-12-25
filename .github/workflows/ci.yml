@@ -89,7 +89,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=5m --skip-dirs=gui ./cmd/... ./internal/...
+          args: --timeout=5m ./cmd/... ./internal/...
 
   build-check:
     needs: build-frontends
