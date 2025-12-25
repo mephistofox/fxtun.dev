@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/mephistofox/fxTunnel/compare/v1.0.0...v1.0.1) (2025-12-25)
+
+
+### Bug Fixes
+
+* **ci:** handle different Wails output paths on macOS ([ccfe16e](https://github.com/mephistofox/fxTunnel/commit/ccfe16ed6c27fe196cfae5054b4570dad831a5f9))
+
 ## 1.0.0 (2025-12-25)
 
 
