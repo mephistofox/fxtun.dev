@@ -212,3 +212,62 @@ type HealthResponse struct {
 	Version   string `json:"version"`
 	Timestamp int64  `json:"timestamp"`
 }
+
+// AuditLogDTO represents an audit log entry in API responses
+type AuditLogDTO struct {
+	ID        int64                  `json:"id"`
+	UserID    *int64                 `json:"user_id,omitempty"`
+	UserPhone string                 `json:"user_phone,omitempty"`
+	Action    string                 `json:"action"`
+	Details   map[string]interface{} `json:"details,omitempty"`
+	IPAddress string                 `json:"ip_address"`
+	CreatedAt time.Time              `json:"created_at"`
+}
+
+// AuditLogFromModel converts a database AuditLog to AuditLogDTO
+func AuditLogFromModel(a *database.AuditLog, userPhone string) *AuditLogDTO {
+	return &AuditLogDTO{
+		ID:        a.ID,
+		UserID:    a.UserID,
+		UserPhone: userPhone,
+		Action:    a.Action,
+		Details:   a.Details,
+		IPAddress: a.IPAddress,
+		CreatedAt: a.CreatedAt,
+	}
+}
+
+// AuditLogsListResponse represents a list of audit logs
+type AuditLogsListResponse struct {
+	Logs  []*AuditLogDTO `json:"logs"`
+	Total int            `json:"total"`
+}
+
+// AdminTunnelDTO represents a tunnel with owner info in API responses
+type AdminTunnelDTO struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	Name       string    `json:"name"`
+	Subdomain  string    `json:"subdomain,omitempty"`
+	RemotePort int       `json:"remote_port,omitempty"`
+	LocalPort  int       `json:"local_port"`
+	URL        string    `json:"url,omitempty"`
+	ClientID   string    `json:"client_id"`
+	UserID     int64     `json:"user_id"`
+	UserPhone  string    `json:"user_phone"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// AdminTunnelsListResponse represents a list of all tunnels for admin
+type AdminTunnelsListResponse struct {
+	Tunnels []*AdminTunnelDTO `json:"tunnels"`
+	Total   int               `json:"total"`
+}
+
+// UsersListResponse represents a list of users for admin
+type UsersListResponse struct {
+	Users []*UserDTO `json:"users"`
+	Total int        `json:"total"`
+	Page  int        `json:"page"`
+	Limit int        `json:"limit"`
+}

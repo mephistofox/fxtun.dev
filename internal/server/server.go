@@ -839,6 +839,7 @@ type TunnelInfo struct {
 	RemotePort int
 	LocalPort  int
 	ClientID   string
+	UserID     int64
 	CreatedAt  time.Time
 }
 
@@ -878,6 +879,7 @@ func (s *Server) GetTunnelsByUserID(userID int64) []TunnelInfo {
 				RemotePort: tunnel.RemotePort,
 				LocalPort:  tunnel.LocalPort,
 				ClientID:   tunnel.ClientID,
+				UserID:     client.UserID,
 				CreatedAt:  tunnel.Created,
 			})
 		}
@@ -885,6 +887,53 @@ func (s *Server) GetTunnelsByUserID(userID int64) []TunnelInfo {
 	}
 
 	return tunnels
+}
+
+// GetAllTunnels returns all tunnels from all clients (for admin)
+func (s *Server) GetAllTunnels() []TunnelInfo {
+	var tunnels []TunnelInfo
+
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	for _, client := range s.clients {
+		client.TunnelsMu.RLock()
+		for _, tunnel := range client.Tunnels {
+			tunnels = append(tunnels, TunnelInfo{
+				ID:         tunnel.ID,
+				Type:       string(tunnel.Type),
+				Name:       tunnel.Name,
+				Subdomain:  tunnel.Subdomain,
+				RemotePort: tunnel.RemotePort,
+				LocalPort:  tunnel.LocalPort,
+				ClientID:   tunnel.ClientID,
+				UserID:     client.UserID,
+				CreatedAt:  tunnel.Created,
+			})
+		}
+		client.TunnelsMu.RUnlock()
+	}
+
+	return tunnels
+}
+
+// AdminCloseTunnel closes any tunnel by ID (admin only, no user check)
+func (s *Server) AdminCloseTunnel(tunnelID string) error {
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	for _, client := range s.clients {
+		client.TunnelsMu.RLock()
+		_, exists := client.Tunnels[tunnelID]
+		client.TunnelsMu.RUnlock()
+
+		if exists {
+			client.closeTunnel(tunnelID)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("tunnel not found")
 }
 
 // CloseTunnelByID closes a tunnel by ID for a specific user

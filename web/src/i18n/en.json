@@ -18,7 +18,12 @@
     "domains": "Domains",
     "tokens": "Tokens",
     "downloads": "Downloads",
-    "profile": "Profile"
+    "profile": "Profile",
+    "admin": "Admin",
+    "adminUsers": "Users",
+    "adminInvites": "Invites",
+    "adminTunnels": "Tunnels",
+    "adminAudit": "Audit"
   },
   "auth": {
     "signIn": "Sign In",
@@ -156,5 +161,90 @@
   "language": {
     "en": "English",
     "ru": "Русский"
+  },
+  "admin": {
+    "failedToLoad": "Failed to load data",
+    "dashboard": {
+      "title": "Admin Dashboard",
+      "subtitle": "Server overview and statistics",
+      "activeClients": "Active Clients",
+      "activeTunnels": "Active Tunnels",
+      "totalUsers": "Total Users",
+      "httpTunnels": "HTTP Tunnels",
+      "tcpTunnels": "TCP Tunnels",
+      "udpTunnels": "UDP Tunnels"
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "Manage all registered users",
+      "phone": "Phone",
+      "name": "Name",
+      "status": "Status",
+      "role": "Role",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
+      "active": "Active",
+      "blocked": "Blocked",
+      "admin": "Admin",
+      "user": "User",
+      "block": "Block user",
+      "unblock": "Unblock user",
+      "makeAdmin": "Make admin",
+      "removeAdmin": "Remove admin",
+      "noUsers": "No users found",
+      "failedToUpdate": "Failed to update user",
+      "failedToDelete": "Failed to delete user",
+      "confirmDelete": "Are you sure you want to delete user {phone}? This action cannot be undone."
+    },
+    "invites": {
+      "title": "Invite Codes",
+      "subtitle": "Manage invitation codes for registration",
+      "create": "Create Invite",
+      "createTitle": "Create Invite Code",
+      "expiresIn": "Expires in (days)",
+      "noExpiry": "Leave empty for no expiry",
+      "expiresHint": "Leave empty for codes that never expire",
+      "codeCreated": "Invite Code Created!",
+      "showAll": "Show All",
+      "showUnused": "Unused Only",
+      "used": "Used",
+      "available": "Available",
+      "created": "Created",
+      "expires": "Expires",
+      "usedAt": "Used at",
+      "noInvites": "No invite codes found",
+      "failedToCreate": "Failed to create invite code",
+      "failedToDelete": "Failed to delete invite code",
+      "confirmDelete": "Are you sure you want to delete this invite code?"
+    },
+    "tunnels": {
+      "title": "All Tunnels",
+      "subtitle": "View and manage all active tunnels",
+      "type": "Type",
+      "url": "URL",
+      "localPort": "Local Port",
+      "owner": "Owner",
+      "close": "Close tunnel",
+      "noTunnels": "No active tunnels",
+      "failedToClose": "Failed to close tunnel",
+      "confirmClose": "Are you sure you want to close this tunnel?",
+      "total": "{count} active tunnel(s)"
+    },
+    "audit": {
+      "title": "Audit Logs",
+      "subtitle": "System activity and security logs",
+      "time": "Time",
+      "action": "Action",
+      "user": "User",
+      "ip": "IP Address",
+      "details": "Event Details",
+      "detailsData": "Details",
+      "noLogs": "No audit logs found"
+    },
+    "pagination": {
+      "showing": "Showing {from}-{to} of {total}",
+      "prev": "Previous",
+      "next": "Next"
+    }
   }
 }

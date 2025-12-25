@@ -29,6 +29,7 @@ type TunnelInfo struct {
 	RemotePort int
 	LocalPort  int
 	ClientID   string
+	UserID     int64
 	CreatedAt  time.Time
 }
 
@@ -46,6 +47,8 @@ type TunnelProvider interface {
 	GetTunnelsByUserID(userID int64) []TunnelInfo
 	CloseTunnelByID(tunnelID string, userID int64) error
 	GetStats() Stats
+	GetAllTunnels() []TunnelInfo
+	AdminCloseTunnel(tunnelID string) error
 }
 
 // Server represents the API server
@@ -165,6 +168,11 @@ func (s *Server) setupRoutes() {
 
 				r.Get("/stats", s.handleGetStats)
 				r.Get("/users", s.handleListUsers)
+				r.Put("/users/{id}", s.handleUpdateUser)
+				r.Delete("/users/{id}", s.handleDeleteUser)
+				r.Get("/audit-logs", s.handleListAuditLogs)
+				r.Get("/tunnels", s.handleListAllTunnels)
+				r.Delete("/tunnels/{id}", s.handleAdminCloseTunnel)
 
 				r.Route("/invite-codes", func(r chi.Router) {
 					r.Get("/", s.handleListInviteCodes)

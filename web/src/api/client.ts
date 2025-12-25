@@ -173,4 +173,90 @@ export const downloadsApi = {
   list: () => api.get<DownloadsResponse>('/downloads'),
 }
 
+// Admin API types
+export interface AdminStats {
+  active_clients: number
+  active_tunnels: number
+  http_tunnels: number
+  tcp_tunnels: number
+  udp_tunnels: number
+  total_users: number
+}
+
+export interface AdminUser {
+  id: number
+  phone: string
+  display_name: string
+  is_admin: boolean
+  is_active: boolean
+  created_at: string
+  last_login_at?: string
+}
+
+export interface InviteCode {
+  id: number
+  code: string
+  used: boolean
+  used_at?: string
+  expires_at?: string
+  created_at: string
+}
+
+export interface AuditLog {
+  id: number
+  user_id?: number
+  user_phone?: string
+  action: string
+  details?: Record<string, unknown>
+  ip_address: string
+  created_at: string
+}
+
+export interface AdminTunnel {
+  id: string
+  type: string
+  name: string
+  subdomain?: string
+  remote_port?: number
+  local_port: number
+  url?: string
+  client_id: string
+  user_id: number
+  user_phone: string
+  created_at: string
+}
+
+export const adminApi = {
+  // Stats
+  getStats: () => api.get<AdminStats>('/admin/stats'),
+
+  // Users
+  listUsers: (page = 1, limit = 20) =>
+    api.get<{ users: AdminUser[]; total: number; page: number; limit: number }>('/admin/users', {
+      params: { page, limit },
+    }),
+  updateUser: (id: number, data: { is_admin?: boolean; is_active?: boolean }) =>
+    api.put<AdminUser>(`/admin/users/${id}`, data),
+  deleteUser: (id: number) => api.delete(`/admin/users/${id}`),
+
+  // Invite codes
+  listInvites: (page = 1, limit = 20, unused?: boolean) =>
+    api.get<{ codes: InviteCode[]; total: number }>('/admin/invite-codes', {
+      params: { page, limit, unused: unused ? 'true' : undefined },
+    }),
+  createInvite: (expiresInDays?: number) =>
+    api.post<InviteCode>('/admin/invite-codes', { expires_in_days: expiresInDays }),
+  deleteInvite: (id: number) => api.delete(`/admin/invite-codes/${id}`),
+
+  // Audit logs
+  listAuditLogs: (page = 1, limit = 20, userId?: number) =>
+    api.get<{ logs: AuditLog[]; total: number }>('/admin/audit-logs', {
+      params: { page, limit, user_id: userId },
+    }),
+
+  // Tunnels
+  listTunnels: () => api.get<{ tunnels: AdminTunnel[]; total: number }>('/admin/tunnels'),
+  closeTunnel: (id: string) => api.delete(`/admin/tunnels/${id}`),
+}
+
 export default api
