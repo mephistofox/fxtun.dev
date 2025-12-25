@@ -30,8 +30,6 @@ var (
 	logFormat  string
 
 	// Quick tunnel flags
-	tunnelType string
-	localPort  int
 	remotePort int
 	subdomain  string
 )
