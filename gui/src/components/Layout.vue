@@ -9,6 +9,7 @@ import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
   LayoutDashboard,
   Boxes,
+  Globe,
   History,
   Settings,
   FileText,
@@ -25,6 +26,7 @@ const tunnelsStore = useTunnelsStore()
 const navItems = computed(() => [
   { name: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { name: 'bundles', labelKey: 'nav.bundles', icon: Boxes },
+  { name: 'domains', labelKey: 'nav.domains', icon: Globe },
   { name: 'history', labelKey: 'nav.history', icon: History },
   { name: 'settings', labelKey: 'nav.settings', icon: Settings },
   { name: 'logs', labelKey: 'nav.logs', icon: FileText },

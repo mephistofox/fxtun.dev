@@ -166,32 +166,65 @@ onMounted(loadDomains)
         </Card>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-muted-foreground">{{ t('common.loading') }}</div>
+      <div v-if="loading" class="text-center py-12 text-muted-foreground">
+        <div class="animate-pulse">{{ t('common.loading') }}</div>
+      </div>
 
-      <div v-else-if="domains.length === 0" class="text-center py-8">
-        <p class="text-muted-foreground">{{ t('domains.noDomains') }}</p>
+      <div v-else-if="domains.length === 0" class="text-center py-12">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+        </div>
+        <p class="text-muted-foreground font-medium">{{ t('domains.noDomains') }}</p>
         <p class="text-sm text-muted-foreground mt-2">
           {{ t('domains.noDomainsHint') }}
         </p>
       </div>
 
       <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card v-for="domain in domains" :key="domain.id" class="p-4">
-          <div class="flex items-start justify-between">
-            <div class="space-y-1">
-              <h3 class="font-medium">{{ domain.subdomain }}.mfdev.ru</h3>
-              <p class="text-sm text-muted-foreground">
-                {{ t('domains.reserved') }}: {{ formatDate(domain.created_at) }}
-              </p>
+        <div
+          v-for="domain in domains"
+          :key="domain.id"
+          class="group relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+        >
+          <!-- Top accent line -->
+          <div class="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+
+          <div class="p-4 pt-5">
+            <div class="flex items-start justify-between">
+              <div class="flex items-start gap-3">
+                <!-- Icon container -->
+                <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                </div>
+                <div class="space-y-1 min-w-0">
+                  <h3 class="font-semibold text-foreground truncate">{{ domain.subdomain }}</h3>
+                  <p class="text-xs text-muted-foreground">.mfdev.ru</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" @click="releaseDomain(domain.id)" :title="t('domains.releaseDomain')" class="opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" @click="releaseDomain(domain.id)" :title="t('domains.releaseDomain')">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </Button>
+
+            <div class="mt-4 pt-3 border-t border-emerald-500/20">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-muted-foreground">{{ t('domains.reserved') }}</span>
+                <span class="font-medium text-emerald-600 dark:text-emerald-400">{{ formatDate(domain.created_at) }}</span>
+              </div>
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   </Layout>

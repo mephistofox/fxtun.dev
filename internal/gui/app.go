@@ -22,12 +22,17 @@ type App struct {
 	keyring *keyring.Keyring
 	client  *client.Client
 
+	// Auth state
+	serverAddress string
+	authToken     string
+
 	// Services exposed to frontend
 	TunnelService   *TunnelService
 	AuthService     *AuthService
 	BundleService   *BundleService
 	SettingsService *SettingsService
 	HistoryService  *HistoryService
+	DomainService   *DomainService
 }
 
 // NewApp creates a new App instance
@@ -43,6 +48,7 @@ func NewApp(log zerolog.Logger) *App {
 	app.BundleService = NewBundleService(app)
 	app.SettingsService = NewSettingsService(app)
 	app.HistoryService = NewHistoryService(app)
+	app.DomainService = NewDomainService(app)
 
 	return app
 }
