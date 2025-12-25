@@ -148,6 +148,11 @@ func run(cmd *cobra.Command, args []string) error {
 		srv.SetDatabase(db)
 	}
 
+	// Set auth service for JWT validation
+	if authService != nil {
+		srv.SetAuthService(authService)
+	}
+
 	// Start server
 	if err := srv.Start(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to start server")
