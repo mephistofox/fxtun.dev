@@ -33,6 +33,7 @@ type App struct {
 	SettingsService *SettingsService
 	HistoryService  *HistoryService
 	DomainService   *DomainService
+	SyncService     *SyncService
 }
 
 // NewApp creates a new App instance
@@ -49,6 +50,7 @@ func NewApp(log zerolog.Logger) *App {
 	app.SettingsService = NewSettingsService(app)
 	app.HistoryService = NewHistoryService(app)
 	app.DomainService = NewDomainService(app)
+	app.SyncService = NewSyncService(app)
 
 	return app
 }

@@ -162,6 +162,17 @@ func (s *Server) setupRoutes() {
 				r.Delete("/{id}", s.handleCloseTunnel)
 			})
 
+			// Sync
+			r.Route("/sync", func(r chi.Router) {
+				r.Get("/", s.handleGetSyncData)
+				r.Post("/", s.handleSync)
+				r.Put("/bundles", s.handleSyncBundles)
+				r.Put("/settings", s.handleSyncSettings)
+				r.Post("/history", s.handleAddHistory)
+				r.Delete("/history", s.handleClearHistory)
+				r.Get("/history/stats", s.handleGetHistoryStats)
+			})
+
 			// Admin routes
 			r.Route("/admin", func(r chi.Router) {
 				r.Use(auth.AdminMiddleware)

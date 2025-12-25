@@ -141,6 +141,35 @@ func (r *BundleRepository) Delete(id int64) error {
 	return nil
 }
 
+// GetByName returns a bundle by name
+func (r *BundleRepository) GetByName(name string) (*Bundle, error) {
+	var b Bundle
+	var subdomain sql.NullString
+	var remotePort sql.NullInt64
+
+	err := r.db.db.QueryRow(`
+		SELECT id, name, type, local_port, subdomain, remote_port, auto_connect, created_at, updated_at
+		FROM bundles
+		WHERE name = ?
+	`, name).Scan(&b.ID, &b.Name, &b.Type, &b.LocalPort, &subdomain, &remotePort, &b.AutoConnect, &b.CreatedAt, &b.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query bundle: %w", err)
+	}
+
+	if subdomain.Valid {
+		b.Subdomain = subdomain.String
+	}
+	if remotePort.Valid {
+		b.RemotePort = int(remotePort.Int64)
+	}
+
+	return &b, nil
+}
+
 // GetAutoConnect returns all bundles marked for auto-connect
 func (r *BundleRepository) GetAutoConnect() ([]Bundle, error) {
 	rows, err := r.db.db.Query(`
