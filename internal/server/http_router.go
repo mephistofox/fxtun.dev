@@ -191,9 +191,7 @@ func (r *HTTPRouter) extractSubdomain(host string) string {
 	// Check if host ends with base domain
 	if !strings.HasSuffix(host, "."+baseDomain) && host != baseDomain {
 		// Try without www
-		if strings.HasPrefix(host, "www.") {
-			host = host[4:]
-		}
+		host = strings.TrimPrefix(host, "www.")
 		if !strings.HasSuffix(host, "."+baseDomain) {
 			return ""
 		}
