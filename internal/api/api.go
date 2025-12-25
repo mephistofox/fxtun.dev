@@ -1,0 +1,305 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/rs/zerolog"
+
+	"github.com/mephistofox/fxtunnel/internal/api/dto"
+	"github.com/mephistofox/fxtunnel/internal/auth"
+	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/web"
+)
+
+// TunnelInfo represents tunnel information from the server
+type TunnelInfo struct {
+	ID         string
+	Type       string
+	Name       string
+	Subdomain  string
+	RemotePort int
+	LocalPort  int
+	ClientID   string
+	CreatedAt  time.Time
+}
+
+// Stats represents server statistics
+type Stats struct {
+	ActiveClients int
+	ActiveTunnels int
+	HTTPTunnels   int
+	TCPTunnels    int
+	UDPTunnels    int
+}
+
+// TunnelProvider is an interface for getting tunnel information
+type TunnelProvider interface {
+	GetTunnelsByUserID(userID int64) []TunnelInfo
+	CloseTunnelByID(tunnelID string, userID int64) error
+	GetStats() Stats
+}
+
+// Server represents the API server
+type Server struct {
+	cfg            *config.ServerConfig
+	db             *database.Database
+	authService    *auth.Service
+	tunnelProvider TunnelProvider
+	router         chi.Router
+	httpServer     *http.Server
+	log            zerolog.Logger
+	baseDomain     string
+	downloadsPath  string
+}
+
+// New creates a new API server
+func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, log zerolog.Logger) *Server {
+	s := &Server{
+		cfg:            cfg,
+		db:             db,
+		authService:    authService,
+		tunnelProvider: tunnelProvider,
+		log:            log.With().Str("component", "api").Logger(),
+		baseDomain:     cfg.Domain.Base,
+		downloadsPath:  cfg.Downloads.Path,
+	}
+
+	s.setupRoutes()
+	return s
+}
+
+// setupRoutes configures all API routes
+func (s *Server) setupRoutes() {
+	r := chi.NewRouter()
+
+	// Middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(s.loggingMiddleware)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Compress(5))
+	r.Use(middleware.Timeout(30 * time.Second))
+
+	// CORS
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	// Health check
+	r.Get("/health", s.handleHealth)
+
+	// API routes
+	r.Route("/api", func(r chi.Router) {
+		// Public routes
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", s.handleRegister)
+			r.Post("/login", s.handleLogin)
+			r.Post("/refresh", s.handleRefresh)
+		})
+
+		// Downloads (public)
+		r.Route("/downloads", func(r chi.Router) {
+			r.Get("/", s.handleListDownloads)
+			r.Get("/{platform}", s.handleDownload)
+		})
+
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(auth.Middleware(s.authService))
+
+			// Auth
+			r.Post("/auth/logout", s.handleLogout)
+
+			// TOTP
+			r.Route("/auth/totp", func(r chi.Router) {
+				r.Post("/enable", s.handleTOTPEnable)
+				r.Post("/verify", s.handleTOTPVerify)
+				r.Post("/disable", s.handleTOTPDisable)
+			})
+
+			// Profile
+			r.Route("/profile", func(r chi.Router) {
+				r.Get("/", s.handleGetProfile)
+				r.Put("/", s.handleUpdateProfile)
+				r.Put("/password", s.handleChangePassword)
+			})
+
+			// Tokens
+			r.Route("/tokens", func(r chi.Router) {
+				r.Get("/", s.handleListTokens)
+				r.Post("/", s.handleCreateToken)
+				r.Delete("/{id}", s.handleDeleteToken)
+			})
+
+			// Domains
+			r.Route("/domains", func(r chi.Router) {
+				r.Get("/", s.handleListDomains)
+				r.Post("/", s.handleReserveDomain)
+				r.Delete("/{id}", s.handleReleaseDomain)
+				r.Get("/check/{subdomain}", s.handleCheckDomain)
+			})
+
+			// Tunnels
+			r.Route("/tunnels", func(r chi.Router) {
+				r.Get("/", s.handleListTunnels)
+				r.Delete("/{id}", s.handleCloseTunnel)
+			})
+
+			// Admin routes
+			r.Route("/admin", func(r chi.Router) {
+				r.Use(auth.AdminMiddleware)
+
+				r.Get("/stats", s.handleGetStats)
+				r.Get("/users", s.handleListUsers)
+
+				r.Route("/invite-codes", func(r chi.Router) {
+					r.Get("/", s.handleListInviteCodes)
+					r.Post("/", s.handleCreateInviteCode)
+					r.Delete("/{id}", s.handleDeleteInviteCode)
+				})
+			})
+		})
+	})
+
+	// Serve embedded web UI for all other routes
+	r.Get("/*", s.serveWebUI())
+
+	s.router = r
+}
+
+// serveWebUI returns a handler that serves the embedded web UI with SPA support
+func (s *Server) serveWebUI() http.HandlerFunc {
+	webFS := web.GetFileSystem()
+	fileServer := http.FileServer(webFS)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if path == "" {
+			path = "index.html"
+		}
+
+		// Try to open the file to check if it exists
+		f, err := webFS.Open(path)
+		if err != nil {
+			// File not found, serve index.html for SPA routing
+			r.URL.Path = "/"
+		} else {
+			stat, _ := f.Stat()
+			f.Close()
+			if stat != nil && stat.IsDir() {
+				r.URL.Path = "/"
+			}
+		}
+
+		fileServer.ServeHTTP(w, r)
+	}
+}
+
+// Start starts the API server
+func (s *Server) Start(ctx context.Context) error {
+	addr := fmt.Sprintf(":%d", s.cfg.Web.Port)
+
+	s.httpServer = &http.Server{
+		Addr:         addr,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	s.log.Info().Str("addr", addr).Msg("Starting API server")
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return s.Shutdown(context.Background())
+	}
+}
+
+// Shutdown gracefully stops the API server
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.log.Info().Msg("Stopping API server")
+	if s.httpServer != nil {
+		return s.httpServer.Shutdown(ctx)
+	}
+	return nil
+}
+
+// Router returns the chi router for embedding
+func (s *Server) Router() chi.Router {
+	return s.router
+}
+
+// loggingMiddleware logs HTTP requests
+func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+
+		defer func() {
+			s.log.Debug().
+				Str("method", r.Method).
+				Str("path", r.URL.Path).
+				Int("status", ww.Status()).
+				Dur("duration", time.Since(start)).
+				Msg("HTTP request")
+		}()
+
+		next.ServeHTTP(ww, r)
+	})
+}
+
+// Helper functions for JSON responses
+
+func (s *Server) respondJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if data != nil {
+		json.NewEncoder(w).Encode(data)
+	}
+}
+
+func (s *Server) respondError(w http.ResponseWriter, status int, message string) {
+	s.respondJSON(w, status, dto.ErrorResponse{Error: message})
+}
+
+func (s *Server) respondErrorWithCode(w http.ResponseWriter, status int, code, message string) {
+	s.respondJSON(w, status, dto.ErrorResponse{Error: message, Code: code})
+}
+
+func (s *Server) decodeJSON(r *http.Request, v interface{}) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
+}
+
+// handleHealth handles health check requests
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	s.respondJSON(w, http.StatusOK, dto.HealthResponse{
+		Status:    "ok",
+		Version:   "1.0.0",
+		Timestamp: time.Now().Unix(),
+	})
+}

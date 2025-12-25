@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/fxcode/fxtunnel/internal/client"
-	"github.com/fxcode/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/client"
+	"github.com/mephistofox/fxtunnel/internal/config"
 )
+
+const defaultControlPort = "4443"
 
 var (
 	Version   = "dev"
@@ -20,17 +23,17 @@ var (
 )
 
 var (
-	configFile  string
-	serverAddr  string
-	token       string
-	logLevel    string
-	logFormat   string
+	configFile string
+	serverAddr string
+	token      string
+	logLevel   string
+	logFormat  string
 
 	// Quick tunnel flags
-	tunnelType  string
-	localPort   int
-	remotePort  int
-	subdomain   string
+	tunnelType string
+	localPort  int
+	remotePort int
+	subdomain  string
 )
 
 func main() {
@@ -51,13 +54,15 @@ Examples:
   fxtunnel tcp 22
 
   # Use config file
-  fxtunnel --config client.yaml`,
+  fxtunnel --config client.yaml
+
+For GUI mode, use fxtunnel-gui binary.`,
 		RunE: runConfig,
 	}
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file path")
-	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "", "Server address (host:port)")
+	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "", "Server address (host or host:port, default port: 4443)")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Authentication token")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
@@ -124,6 +129,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 		cfg.Server.Token = token
 	}
 
+	// Normalize server address (add default port if missing)
+	cfg.Server.Address = normalizeServerAddr(cfg.Server.Address)
+
 	if len(cfg.Tunnels) == 0 {
 		cmd.Help()
 		return nil
@@ -189,7 +197,7 @@ func runUDP(cmd *cobra.Command, args []string) error {
 func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 	cfg := &config.ClientConfig{
 		Server: config.ClientServerSettings{
-			Address: serverAddr,
+			Address: normalizeServerAddr(serverAddr),
 			Token:   token,
 		},
 		Tunnels: []config.TunnelConfig{tunnel},
@@ -200,11 +208,19 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 		},
 	}
 
-	if cfg.Server.Address == "" {
-		cfg.Server.Address = "localhost:4443"
-	}
-
 	return cfg
+}
+
+// normalizeServerAddr adds default port if not specified
+func normalizeServerAddr(addr string) string {
+	if addr == "" {
+		return "localhost:" + defaultControlPort
+	}
+	// Check if port is already specified
+	if !strings.Contains(addr, ":") {
+		return addr + ":" + defaultControlPort
+	}
+	return addr
 }
 
 func parsePort(s string) (int, error) {

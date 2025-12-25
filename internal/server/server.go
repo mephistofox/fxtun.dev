@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -12,8 +13,9 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/fxcode/fxtunnel/internal/config"
-	"github.com/fxcode/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
 // Server is the main tunnel server
@@ -34,6 +36,11 @@ type Server struct {
 	tcpManager  *TCPManager
 	udpManager  *UDPManager
 
+	// Database integration
+	db            *database.Database
+	userClients   map[int64][]string // userID -> clientIDs
+	userClientsMu sync.RWMutex
+
 	// Shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -52,6 +59,11 @@ type Client struct {
 	TunnelsMu    sync.RWMutex
 	Connected    time.Time
 	LastPing     time.Time
+
+	// Database integration
+	UserID     int64              // 0 if legacy token
+	APITokenID int64              // 0 if legacy token
+	DBToken    *database.APIToken // nil if legacy token
 
 	server *Server
 	conn   net.Conn
@@ -82,11 +94,12 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Server{
-		cfg:     cfg,
-		log:     log.With().Str("component", "server").Logger(),
-		clients: make(map[string]*Client),
-		ctx:     ctx,
-		cancel:  cancel,
+		cfg:         cfg,
+		log:         log.With().Str("component", "server").Logger(),
+		clients:     make(map[string]*Client),
+		userClients: make(map[int64][]string),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 
 	s.httpRouter = NewHTTPRouter(s, log)
@@ -94,6 +107,21 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s.udpManager = NewUDPManager(s, log)
 
 	return s
+}
+
+// SetDatabase sets the database for the server
+func (s *Server) SetDatabase(db *database.Database) {
+	s.db = db
+}
+
+// GetDatabase returns the database
+func (s *Server) GetDatabase() *database.Database {
+	return s.db
+}
+
+// GetConfig returns the server configuration
+func (s *Server) GetConfig() *config.ServerConfig {
+	return s.cfg
 }
 
 // Start starts the server
@@ -202,8 +230,12 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
 
-	// Create yamux session FIRST (server mode)
-	session, err := yamux.Server(conn, yamux.DefaultConfig())
+	// Create yamux session FIRST (server mode) with optimized config
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = 10 * time.Second
+	yamuxCfg.MaxStreamWindowSize = 1024 * 1024 // 1MB window for better throughput
+	session, err := yamux.Server(conn, yamuxCfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create yamux session")
 		conn.Close()
@@ -265,7 +297,40 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 }
 
 func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
-	// Check if auth is enabled
+	// First, try to authenticate with database token (new system)
+	if s.db != nil {
+		tokenHash := hashToken(authMsg.Token)
+		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
+		if err == nil && apiToken != nil {
+			// Valid DB token found
+			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
+
+			// Update last used
+			s.db.Tokens.UpdateLastUsed(apiToken.ID)
+
+			// Link user to client
+			s.linkUserClient(apiToken.UserID, client.ID)
+
+			// Send success
+			result := &protocol.AuthResultMessage{
+				Message:    protocol.NewMessage(protocol.MsgAuthResult),
+				Success:    true,
+				ClientID:   client.ID,
+				MaxTunnels: apiToken.MaxTunnels,
+				ServerName: s.cfg.Domain.Base,
+				SessionID:  client.ID,
+			}
+			if err := codec.Encode(result); err != nil {
+				client.Close()
+				return nil, fmt.Errorf("send auth result: %w", err)
+			}
+
+			log.Info().Int64("user_id", apiToken.UserID).Str("token_name", apiToken.Name).Msg("Authenticated with DB token")
+			return client, nil
+		}
+	}
+
+	// Fallback: Check YAML config tokens (legacy system)
 	if s.cfg.Auth.Enabled {
 		tokenCfg := s.cfg.FindToken(authMsg.Token)
 		if tokenCfg == nil {
@@ -278,7 +343,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			return nil, fmt.Errorf("invalid token")
 		}
 
-		// Create client
+		// Create client with legacy token
 		client := s.createClient(conn, session, controlStream, codec, tokenCfg, log)
 
 		// Send success
@@ -315,6 +380,38 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 	}
 
 	return client, nil
+}
+
+// createClientFromDBToken creates a client authenticated with a database token
+func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
+	clientID := generateID()
+	ctx, cancel := context.WithCancel(s.ctx)
+
+	client := &Client{
+		ID:           clientID,
+		RemoteAddr:   conn.RemoteAddr().String(),
+		Token:        nil, // No legacy token
+		Session:      session,
+		ControlCodec: codec,
+		ControlConn:  controlStream,
+		Tunnels:      make(map[string]*Tunnel),
+		Connected:    time.Now(),
+		LastPing:     time.Now(),
+		UserID:       apiToken.UserID,
+		APITokenID:   apiToken.ID,
+		DBToken:      apiToken,
+		server:       s,
+		conn:         conn,
+		log:          log.With().Str("client_id", clientID).Int64("user_id", apiToken.UserID).Logger(),
+		ctx:          ctx,
+		cancel:       cancel,
+	}
+
+	s.clientsMu.Lock()
+	s.clients[clientID] = client
+	s.clientsMu.Unlock()
+
+	return client
 }
 
 func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
@@ -704,6 +801,9 @@ func (c *Client) Close() {
 		c.conn.Close()
 	}
 
+	// Unlink user from client
+	c.server.unlinkUserClient(c.UserID, c.ID)
+
 	c.server.removeClient(c.ID)
 	c.log.Info().Msg("Client disconnected")
 }
@@ -720,4 +820,159 @@ func generateShortID() string {
 	b := make([]byte, 4)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// hashToken creates a SHA256 hash of a token for database lookup
+func hashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
+// API Integration methods
+
+// TunnelInfo represents tunnel information for the API
+type TunnelInfo struct {
+	ID         string
+	Type       string
+	Name       string
+	Subdomain  string
+	RemotePort int
+	LocalPort  int
+	ClientID   string
+	CreatedAt  time.Time
+}
+
+// Stats represents server statistics
+type Stats struct {
+	ActiveClients int
+	ActiveTunnels int
+	HTTPTunnels   int
+	TCPTunnels    int
+	UDPTunnels    int
+}
+
+// GetTunnelsByUserID returns all tunnels for a user
+func (s *Server) GetTunnelsByUserID(userID int64) []TunnelInfo {
+	var tunnels []TunnelInfo
+
+	s.userClientsMu.RLock()
+	clientIDs := s.userClients[userID]
+	s.userClientsMu.RUnlock()
+
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	for _, clientID := range clientIDs {
+		client, ok := s.clients[clientID]
+		if !ok {
+			continue
+		}
+
+		client.TunnelsMu.RLock()
+		for _, tunnel := range client.Tunnels {
+			tunnels = append(tunnels, TunnelInfo{
+				ID:         tunnel.ID,
+				Type:       string(tunnel.Type),
+				Name:       tunnel.Name,
+				Subdomain:  tunnel.Subdomain,
+				RemotePort: tunnel.RemotePort,
+				LocalPort:  tunnel.LocalPort,
+				ClientID:   tunnel.ClientID,
+				CreatedAt:  tunnel.Created,
+			})
+		}
+		client.TunnelsMu.RUnlock()
+	}
+
+	return tunnels
+}
+
+// CloseTunnelByID closes a tunnel by ID for a specific user
+func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
+	s.userClientsMu.RLock()
+	clientIDs := s.userClients[userID]
+	s.userClientsMu.RUnlock()
+
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	for _, clientID := range clientIDs {
+		client, ok := s.clients[clientID]
+		if !ok {
+			continue
+		}
+
+		client.TunnelsMu.RLock()
+		_, exists := client.Tunnels[tunnelID]
+		client.TunnelsMu.RUnlock()
+
+		if exists {
+			client.closeTunnel(tunnelID)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("tunnel not found")
+}
+
+// GetStats returns server statistics
+func (s *Server) GetStats() Stats {
+	s.clientsMu.RLock()
+	defer s.clientsMu.RUnlock()
+
+	stats := Stats{
+		ActiveClients: len(s.clients),
+	}
+
+	for _, client := range s.clients {
+		client.TunnelsMu.RLock()
+		for _, tunnel := range client.Tunnels {
+			stats.ActiveTunnels++
+			switch tunnel.Type {
+			case protocol.TunnelHTTP:
+				stats.HTTPTunnels++
+			case protocol.TunnelTCP:
+				stats.TCPTunnels++
+			case protocol.TunnelUDP:
+				stats.UDPTunnels++
+			}
+		}
+		client.TunnelsMu.RUnlock()
+	}
+
+	return stats
+}
+
+// linkUserClient links a user ID to a client ID
+func (s *Server) linkUserClient(userID int64, clientID string) {
+	if userID == 0 {
+		return
+	}
+
+	s.userClientsMu.Lock()
+	defer s.userClientsMu.Unlock()
+
+	s.userClients[userID] = append(s.userClients[userID], clientID)
+}
+
+// unlinkUserClient removes a client ID from a user's client list
+func (s *Server) unlinkUserClient(userID int64, clientID string) {
+	if userID == 0 {
+		return
+	}
+
+	s.userClientsMu.Lock()
+	defer s.userClientsMu.Unlock()
+
+	clients := s.userClients[userID]
+	for i, id := range clients {
+		if id == clientID {
+			s.userClients[userID] = append(clients[:i], clients[i+1:]...)
+			break
+		}
+	}
+
+	if len(s.userClients[userID]) == 0 {
+		delete(s.userClients, userID)
+	}
 }

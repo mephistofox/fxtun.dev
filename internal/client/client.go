@@ -13,14 +13,15 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/fxcode/fxtunnel/internal/config"
-	"github.com/fxcode/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
 // Client is the tunnel client
 type Client struct {
 	cfg    *config.ClientConfig
 	log    zerolog.Logger
+	events *EventEmitter
 
 	conn          net.Conn
 	session       *yamux.Session
@@ -61,6 +62,7 @@ func New(cfg *config.ClientConfig, log zerolog.Logger) *Client {
 	return &Client{
 		cfg:             cfg,
 		log:             log.With().Str("component", "client").Logger(),
+		events:          NewEventEmitter(),
 		tunnels:         make(map[string]*ActiveTunnel),
 		pendingRequests: make(map[string]chan *protocol.TunnelCreatedMessage),
 		ctx:             ctx,
@@ -68,19 +70,30 @@ func New(cfg *config.ClientConfig, log zerolog.Logger) *Client {
 	}
 }
 
+// Events returns the event emitter for subscribing to client events
+func (c *Client) Events() *EventEmitter {
+	return c.events
+}
+
 // Connect connects to the server
 func (c *Client) Connect() error {
 	c.log.Info().Str("server", c.cfg.Server.Address).Msg("Connecting to server")
+	c.events.EmitType(EventConnecting)
 
 	// Dial server
 	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, 30*time.Second)
 	if err != nil {
+		c.events.EmitError(err)
 		return fmt.Errorf("dial server: %w", err)
 	}
 	c.conn = conn
 
-	// Create yamux session FIRST (client mode)
-	c.session, err = yamux.Client(conn, yamux.DefaultConfig())
+	// Create yamux session FIRST (client mode) with optimized config
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = 10 * time.Second
+	yamuxCfg.MaxStreamWindowSize = 1024 * 1024 // 1MB window for better throughput
+	c.session, err = yamux.Client(conn, yamuxCfg)
 	if err != nil {
 		conn.Close()
 		return fmt.Errorf("create yamux session: %w", err)
@@ -102,6 +115,11 @@ func (c *Client) Connect() error {
 	}
 
 	c.log.Info().Str("client_id", c.clientID).Msg("Connected to server")
+	c.events.EmitWithPayload(EventConnected, map[string]interface{}{
+		"client_id":  c.clientID,
+		"session_id": c.sessionID,
+		"server":     c.cfg.Server.Address,
+	})
 
 	// Start message handler
 	c.wg.Add(1)
@@ -211,6 +229,9 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		c.tunnels[resp.TunnelID] = tunnel
 		c.tunnelsMu.Unlock()
 
+		// Emit tunnel created event
+		c.events.EmitTunnelCreated(tunnel)
+
 		if resp.URL != "" {
 			c.log.Info().
 				Str("name", tunnelCfg.Name).
@@ -316,6 +337,9 @@ func (c *Client) handleTunnelClosed(data []byte) {
 	c.tunnelsMu.Lock()
 	delete(c.tunnels, msg.TunnelID)
 	c.tunnelsMu.Unlock()
+
+	// Emit tunnel closed event
+	c.events.EmitTunnelClosed(msg.TunnelID)
 
 	c.log.Info().Str("tunnel_id", msg.TunnelID).Msg("Tunnel closed")
 }
@@ -452,6 +476,7 @@ func (c *Client) handleDisconnect() {
 	c.reconnectMu.Unlock()
 
 	c.log.Warn().Msg("Disconnected from server")
+	c.events.EmitType(EventDisconnected)
 
 	if !c.cfg.Reconnect.Enabled {
 		c.Close()
@@ -484,6 +509,9 @@ func (c *Client) reconnect() {
 		}
 
 		c.log.Info().Int("attempt", attempts).Msg("Attempting to reconnect...")
+		c.events.EmitWithPayload(EventReconnecting, map[string]interface{}{
+			"attempt": attempts,
+		})
 
 		// Close existing connections
 		if c.controlStream != nil {

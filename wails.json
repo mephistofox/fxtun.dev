@@ -1,0 +1,24 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "fxTunnel",
+  "outputfilename": "fxtunnel-gui",
+  "frontend:dir": "gui",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./gui/src/wailsjs",
+  "assetdir": "./gui/dist",
+  "reloaddirs": "./internal",
+  "author": {
+    "name": "fxTunnel",
+    "email": "noreply@fxtunnel.local"
+  },
+  "info": {
+    "companyName": "fxTunnel",
+    "productName": "fxTunnel",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright 2024",
+    "comments": "Reverse tunneling client"
+  }
+}

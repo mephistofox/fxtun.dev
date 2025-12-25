@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,8 +13,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/fxcode/fxtunnel/internal/config"
-	"github.com/fxcode/fxtunnel/internal/server"
+	"github.com/mephistofox/fxtunnel/internal/api"
+	"github.com/mephistofox/fxtunnel/internal/auth"
+	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/server"
 )
 
 var (
@@ -75,8 +81,72 @@ func run(cmd *cobra.Command, args []string) error {
 		log = setupLogging(cfg.Logging.Level, cfg.Logging.Format)
 	}
 
+	// Generate JWT secret if not configured
+	if cfg.Auth.JWTSecret == "" {
+		secret := make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			log.Fatal().Err(err).Msg("Failed to generate JWT secret")
+		}
+		cfg.Auth.JWTSecret = hex.EncodeToString(secret)
+		log.Warn().Msg("No JWT secret configured, using auto-generated (will change on restart)")
+	}
+
+	// Initialize database if web panel is enabled
+	var db *database.Database
+	var authService *auth.Service
+	var apiServer *api.Server
+
+	if cfg.Web.Enabled {
+		log.Info().Str("path", cfg.Database.Path).Msg("Initializing database")
+
+		db, err = database.New(cfg.Database.Path, log)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to initialize database")
+		}
+		defer db.Close()
+
+		// Parse token TTLs
+		accessTTL, err := time.ParseDuration(cfg.Auth.AccessTokenTTL)
+		if err != nil {
+			accessTTL = 15 * time.Minute
+		}
+		refreshTTL, err := time.ParseDuration(cfg.Auth.RefreshTokenTTL)
+		if err != nil {
+			refreshTTL = 7 * 24 * time.Hour
+		}
+
+		// Generate TOTP encryption key if not configured
+		totpKey := []byte(cfg.TOTP.EncryptionKey)
+		if len(totpKey) == 0 {
+			totpKey = make([]byte, 32)
+			if _, err := rand.Read(totpKey); err != nil {
+				log.Fatal().Err(err).Msg("Failed to generate TOTP encryption key")
+			}
+			log.Warn().Msg("No TOTP encryption key configured, using auto-generated (TOTP secrets will be lost on restart)")
+		}
+
+		// Create auth service
+		authService = auth.NewService(
+			db,
+			cfg.Auth.JWTSecret,
+			accessTTL,
+			refreshTTL,
+			cfg.TOTP.Issuer,
+			totpKey,
+			cfg.Auth.MaxDomains,
+			log,
+		)
+
+		log.Info().Msg("Database and auth service initialized")
+	}
+
 	// Create server
 	srv := server.New(cfg, log)
+
+	// Set database if initialized
+	if db != nil {
+		srv.SetDatabase(db)
+	}
 
 	// Start server
 	if err := srv.Start(); err != nil {
@@ -90,6 +160,25 @@ func run(cmd *cobra.Command, args []string) error {
 		Bool("auth_enabled", cfg.Auth.Enabled).
 		Msg("Server started")
 
+	// Start API server if web panel is enabled
+	if cfg.Web.Enabled && authService != nil {
+		tunnelProvider := &serverAdapter{srv: srv}
+		apiServer = api.New(cfg, db, authService, tunnelProvider, log)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		go func() {
+			if err := apiServer.Start(ctx); err != nil {
+				log.Error().Err(err).Msg("API server error")
+			}
+		}()
+
+		log.Info().
+			Int("port", cfg.Web.Port).
+			Msg("Web panel API started")
+	}
+
 	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -98,6 +187,12 @@ func run(cmd *cobra.Command, args []string) error {
 	log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
 
 	// Graceful shutdown
+	if apiServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		apiServer.Shutdown(shutdownCtx)
+	}
+
 	if err := srv.Stop(); err != nil {
 		log.Error().Err(err).Msg("Error during shutdown")
 		return err
@@ -127,4 +222,42 @@ func setupLogging(level, format string) zerolog.Logger {
 	}
 
 	return log
+}
+
+// serverAdapter wraps *server.Server to implement api.TunnelProvider
+type serverAdapter struct {
+	srv *server.Server
+}
+
+func (a *serverAdapter) GetTunnelsByUserID(userID int64) []api.TunnelInfo {
+	serverTunnels := a.srv.GetTunnelsByUserID(userID)
+	result := make([]api.TunnelInfo, len(serverTunnels))
+	for i, t := range serverTunnels {
+		result[i] = api.TunnelInfo{
+			ID:         t.ID,
+			Type:       t.Type,
+			Name:       t.Name,
+			Subdomain:  t.Subdomain,
+			RemotePort: t.RemotePort,
+			LocalPort:  t.LocalPort,
+			ClientID:   t.ClientID,
+			CreatedAt:  t.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (a *serverAdapter) CloseTunnelByID(tunnelID string, userID int64) error {
+	return a.srv.CloseTunnelByID(tunnelID, userID)
+}
+
+func (a *serverAdapter) GetStats() api.Stats {
+	s := a.srv.GetStats()
+	return api.Stats{
+		ActiveClients: s.ActiveClients,
+		ActiveTunnels: s.ActiveTunnels,
+		HTTPTunnels:   s.HTTPTunnels,
+		TCPTunnels:    s.TCPTunnels,
+		UDPTunnels:    s.UDPTunnels,
+	}
 }
