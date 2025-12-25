@@ -44,6 +44,10 @@ func (s *SettingsService) Set(key, value string) error {
 	}
 
 	s.log.Debug().Str("key", key).Msg("Setting saved")
+
+	// Sync settings to server
+	go s.app.SyncService.SyncSettings()
+
 	return nil
 }
 
@@ -74,7 +78,14 @@ func (s *SettingsService) SetBool(key string, value bool) error {
 	}
 
 	repo := storage.NewSettingsRepository(s.app.db)
-	return repo.SetBool(key, value)
+	if err := repo.SetBool(key, value); err != nil {
+		return err
+	}
+
+	// Sync settings to server
+	go s.app.SyncService.SyncSettings()
+
+	return nil
 }
 
 // Settings keys

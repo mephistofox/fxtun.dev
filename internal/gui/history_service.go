@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -79,5 +80,61 @@ func (s *HistoryService) Clear() error {
 	}
 
 	s.log.Info().Msg("History cleared")
+
+	// Clear history on server
+	go s.app.SyncService.ClearHistory()
+
+	return nil
+}
+
+// RecordConnect records a new tunnel connection to history
+func (s *HistoryService) RecordConnect(bundleName, tunnelType string, localPort int, remoteAddr, url string) (*storage.HistoryEntry, error) {
+	if s.app.db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	repo := storage.NewHistoryRepository(s.app.db)
+	entry := &storage.HistoryEntry{
+		BundleName:  bundleName,
+		TunnelType:  tunnelType,
+		LocalPort:   localPort,
+		RemoteAddr:  remoteAddr,
+		URL:         url,
+		ConnectedAt: time.Now(),
+	}
+
+	if err := repo.RecordConnect(entry); err != nil {
+		return nil, err
+	}
+
+	s.log.Debug().
+		Str("bundle", bundleName).
+		Str("type", tunnelType).
+		Int("local_port", localPort).
+		Msg("Connection recorded")
+
+	// Push history entry to server
+	go s.app.SyncService.PushHistoryEntry(entry)
+
+	return entry, nil
+}
+
+// RecordDisconnect updates a history entry with disconnect time and stats
+func (s *HistoryService) RecordDisconnect(entryID int64, bytesSent, bytesReceived int64) error {
+	if s.app.db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+
+	repo := storage.NewHistoryRepository(s.app.db)
+	if err := repo.RecordDisconnect(entryID, bytesSent, bytesReceived); err != nil {
+		return err
+	}
+
+	s.log.Debug().
+		Int64("entry_id", entryID).
+		Int64("bytes_sent", bytesSent).
+		Int64("bytes_received", bytesReceived).
+		Msg("Disconnect recorded")
+
 	return nil
 }

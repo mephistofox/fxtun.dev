@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useTunnelsStore } from '@/stores/tunnels'
+import { useSyncStore } from '@/stores/sync'
 import { Button, Tooltip } from '@/components/ui'
 import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
@@ -14,7 +15,10 @@ import {
   Settings,
   FileText,
   LogOut,
-  Wifi
+  Wifi,
+  RefreshCw,
+  Check,
+  AlertCircle
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -22,6 +26,20 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const tunnelsStore = useTunnelsStore()
+const syncStore = useSyncStore()
+
+let stopPolling: (() => void) | null = null
+
+onMounted(() => {
+  syncStore.getStatus()
+  stopPolling = syncStore.startPolling()
+})
+
+onUnmounted(() => {
+  if (stopPolling) {
+    stopPolling()
+  }
+})
 
 const navItems = computed(() => [
   { name: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
@@ -65,6 +83,24 @@ async function logout() {
         <span class="text-sm font-semibold tracking-tight">fxTunnel</span>
       </div>
       <div class="flex items-center gap-3">
+        <!-- Sync indicator -->
+        <Tooltip :content="syncStore.lastError || (syncStore.isSyncing ? t('sync.syncing') : t('sync.synced'))" :delay-duration="300">
+          <div class="flex items-center gap-1.5 rounded-full bg-background/50 px-2 py-1">
+            <RefreshCw
+              v-if="syncStore.isSyncing"
+              class="h-3 w-3 animate-spin text-primary"
+            />
+            <AlertCircle
+              v-else-if="syncStore.lastError"
+              class="h-3 w-3 text-destructive"
+            />
+            <Check
+              v-else
+              class="h-3 w-3 text-green-500"
+            />
+          </div>
+        </Tooltip>
+        <!-- Connection status -->
         <div class="flex items-center gap-2 rounded-full bg-background/50 px-3 py-1">
           <StatusIndicator :status="connectionStatus" size="sm" />
           <span class="text-xs font-medium">{{ statusText }}</span>

@@ -136,6 +136,16 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		}
 	}
 
+	// Pull data from server and apply to local storage
+	go func() {
+		if syncData, err := s.app.SyncService.Pull(); err == nil {
+			s.app.SyncService.ApplyServerData(syncData)
+			s.log.Info().Msg("Server data synced after login")
+		} else {
+			s.log.Debug().Err(err).Msg("Failed to sync data after login")
+		}
+	}()
+
 	return &LoginResponse{
 		Success:  true,
 		ClientID: "", // Will be set after connect
