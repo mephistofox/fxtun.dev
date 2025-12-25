@@ -9,7 +9,7 @@ dist/
 gui/dist/
 gui/node_modules/
 gui/src/wailsjs/
-build/
+build/bin/
 
 # Data
 *.db
