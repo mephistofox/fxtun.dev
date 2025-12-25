@@ -10,10 +10,6 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-  disable:
-    - deadcode
-    - varcheck
-    - structcheck
 
 linters-settings:
   errcheck:
