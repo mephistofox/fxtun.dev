@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -104,6 +105,10 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 			Interval: 5 * time.Second,
 		},
 	}
+
+	// Save auth state
+	s.app.serverAddress = req.ServerAddress
+	s.app.authToken = token
 
 	// Create and connect client
 	s.app.client = client.New(cfg, s.log)
@@ -225,8 +230,12 @@ func (s *AuthService) GetServerAddress() string {
 
 // authenticateWithPassword authenticates with phone/password and returns JWT
 func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totpCode string) (string, error) {
-	// Build API URL
-	apiURL := fmt.Sprintf("https://%s/api/auth/login", serverAddr)
+	// Build API URL - extract hostname without port
+	host := serverAddr
+	if idx := strings.Index(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	apiURL := fmt.Sprintf("https://%s/api/auth/login", host)
 
 	// Create request body
 	reqBody := map[string]string{

@@ -139,7 +139,7 @@ async function handleSubmit() {
               <Input
                 id="phone"
                 v-model="phone"
-                type="tel"
+                phone
                 :placeholder="t('auth.phonePlaceholder')"
               />
             </div>
