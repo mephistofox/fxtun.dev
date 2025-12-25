@@ -147,7 +147,8 @@ jobs:
           wails build -tags webkit2_41 -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
             -o ${{ matrix.artifact }}
-          mv build/bin/${{ matrix.artifact }} .
+          ls -la build/bin/
+          cp build/bin/${{ matrix.artifact }} .
 
       - name: Build GUI (Windows)
         if: matrix.type == 'gui' && matrix.os == 'windows-latest'
@@ -157,7 +158,8 @@ jobs:
           wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
             -o ${{ matrix.artifact }}
-          mv build/bin/${{ matrix.artifact }} .
+          ls -la build/bin/
+          cp build/bin/${{ matrix.artifact }} .
 
       - name: Build GUI (macOS)
         if: matrix.type == 'gui' && matrix.os == 'macos-latest'
@@ -166,7 +168,16 @@ jobs:
           wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
             -o ${{ matrix.artifact }}
-          mv build/bin/${{ matrix.artifact }} .
+          ls -la build/bin/
+          # macOS binary might be in .app bundle or direct binary
+          if [ -f "build/bin/${{ matrix.artifact }}" ]; then
+            cp build/bin/${{ matrix.artifact }} .
+          elif [ -f "build/bin/${{ matrix.artifact }}.app/Contents/MacOS/${{ matrix.artifact }}" ]; then
+            cp "build/bin/${{ matrix.artifact }}.app/Contents/MacOS/${{ matrix.artifact }}" .
+          else
+            # Find the binary
+            find build/bin -type f -perm +111 | head -1 | xargs -I {} cp {} ${{ matrix.artifact }}
+          fi
 
       # Upload artifact
       - name: Upload artifact
