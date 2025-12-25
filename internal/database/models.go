@@ -149,3 +149,40 @@ const (
 	ActionUserUpdated     = "user_updated"
 	ActionUserDeleted     = "user_deleted"
 )
+
+// UserBundle represents a tunnel configuration bundle for a user
+type UserBundle struct {
+	ID          int64     `json:"id"`
+	UserID      int64     `json:"user_id"`
+	Name        string    `json:"name"`
+	Type        string    `json:"type"`
+	LocalPort   int       `json:"local_port"`
+	Subdomain   string    `json:"subdomain,omitempty"`
+	RemotePort  int       `json:"remote_port,omitempty"`
+	AutoConnect bool      `json:"auto_connect"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// UserHistoryEntry represents a connection history entry for a user
+type UserHistoryEntry struct {
+	ID             int64      `json:"id"`
+	UserID         int64      `json:"user_id"`
+	BundleName     string     `json:"bundle_name,omitempty"`
+	TunnelType     string     `json:"tunnel_type"`
+	LocalPort      int        `json:"local_port"`
+	RemoteAddr     string     `json:"remote_addr,omitempty"`
+	URL            string     `json:"url,omitempty"`
+	ConnectedAt    time.Time  `json:"connected_at"`
+	DisconnectedAt *time.Time `json:"disconnected_at,omitempty"`
+	BytesSent      int64      `json:"bytes_sent"`
+	BytesReceived  int64      `json:"bytes_received"`
+}
+
+// UserSetting represents a user setting key-value pair
+type UserSetting struct {
+	UserID    int64     `json:"user_id"`
+	Key       string    `json:"key"`
+	Value     string    `json:"value"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

@@ -247,6 +247,12 @@
     "minutesShort": "m",
     "secondsShort": "s"
   },
+  "sync": {
+    "syncing": "Syncing...",
+    "synced": "Synced",
+    "syncError": "Sync error",
+    "lastSynced": "Last synced"
+  },
   "errors": {
     "general": "Something went wrong",
     "network": "Network error",

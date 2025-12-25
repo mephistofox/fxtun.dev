@@ -59,6 +59,9 @@ func (s *BundleService) Create(bundle *storage.Bundle) (*storage.Bundle, error) 
 		Str("name", bundle.Name).
 		Msg("Bundle created")
 
+	// Sync bundles to server
+	go s.app.SyncService.SyncBundles()
+
 	return bundle, nil
 }
 
@@ -78,6 +81,9 @@ func (s *BundleService) Update(bundle *storage.Bundle) error {
 		Str("name", bundle.Name).
 		Msg("Bundle updated")
 
+	// Sync bundles to server
+	go s.app.SyncService.SyncBundles()
+
 	return nil
 }
 
@@ -93,6 +99,10 @@ func (s *BundleService) Delete(id int64) error {
 	}
 
 	s.log.Info().Int64("id", id).Msg("Bundle deleted")
+
+	// Sync bundles to server
+	go s.app.SyncService.SyncBundles()
+
 	return nil
 }
 

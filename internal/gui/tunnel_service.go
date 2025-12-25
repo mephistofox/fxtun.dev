@@ -107,7 +107,7 @@ func (s *TunnelService) CreateTunnel(cfg TunnelConfig) (*TunnelInfo, error) {
 	tunnels := s.app.client.GetTunnels()
 	for _, t := range tunnels {
 		if t.Config.Name == cfg.Name {
-			return &TunnelInfo{
+			info := &TunnelInfo{
 				ID:         t.ID,
 				Name:       t.Config.Name,
 				Type:       t.Config.Type,
@@ -115,7 +115,12 @@ func (s *TunnelService) CreateTunnel(cfg TunnelConfig) (*TunnelInfo, error) {
 				RemoteAddr: t.RemoteAddr,
 				URL:        t.URL,
 				Connected:  t.Connected.Format(time.RFC3339),
-			}, nil
+			}
+
+			// Record connection in history
+			s.app.HistoryService.RecordConnect(cfg.Name, cfg.Type, cfg.LocalPort, t.RemoteAddr, t.URL)
+
+			return info, nil
 		}
 	}
 
@@ -128,9 +133,12 @@ func (s *TunnelService) CloseTunnel(tunnelID string) error {
 		return fmt.Errorf("not connected")
 	}
 
-	// Note: The current client implementation doesn't support closing individual tunnels
-	// This would need to be implemented in the client
-	s.log.Warn().Str("tunnel_id", tunnelID).Msg("Close tunnel not implemented")
+	if err := s.app.client.CloseTunnel(tunnelID); err != nil {
+		s.log.Error().Err(err).Str("tunnel_id", tunnelID).Msg("Failed to close tunnel")
+		return err
+	}
+
+	s.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel close requested")
 	return nil
 }
 
