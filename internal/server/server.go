@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
+	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
@@ -38,6 +39,7 @@ type Server struct {
 
 	// Database integration
 	db            *database.Database
+	authService   *auth.Service
 	userClients   map[int64][]string // userID -> clientIDs
 	userClientsMu sync.RWMutex
 
@@ -112,6 +114,11 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 // SetDatabase sets the database for the server
 func (s *Server) SetDatabase(db *database.Database) {
 	s.db = db
+}
+
+// SetAuthService sets the auth service for JWT validation
+func (s *Server) SetAuthService(authService *auth.Service) {
+	s.authService = authService
 }
 
 // GetDatabase returns the database
@@ -330,6 +337,35 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		}
 	}
 
+	// Try JWT authentication (for GUI login with phone/password)
+	if s.authService != nil && isJWT(authMsg.Token) {
+		claims, err := s.authService.ValidateAccessToken(authMsg.Token)
+		if err == nil && claims != nil {
+			// Valid JWT - create client for user
+			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
+
+			// Link user to client
+			s.linkUserClient(claims.UserID, client.ID)
+
+			// Send success
+			result := &protocol.AuthResultMessage{
+				Message:    protocol.NewMessage(protocol.MsgAuthResult),
+				Success:    true,
+				ClientID:   client.ID,
+				MaxTunnels: 10, // Default for JWT auth
+				ServerName: s.cfg.Domain.Base,
+				SessionID:  client.ID,
+			}
+			if err := codec.Encode(result); err != nil {
+				client.Close()
+				return nil, fmt.Errorf("send auth result: %w", err)
+			}
+
+			log.Info().Int64("user_id", claims.UserID).Str("phone", claims.Phone).Msg("Authenticated with JWT")
+			return client, nil
+		}
+	}
+
 	// Fallback: Check YAML config tokens (legacy system)
 	if s.cfg.Auth.Enabled {
 		tokenCfg := s.cfg.FindToken(authMsg.Token)
@@ -412,6 +448,47 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 	s.clientsMu.Unlock()
 
 	return client
+}
+
+// createClientFromJWT creates a client authenticated with a JWT token
+func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
+	clientID := generateID()
+	ctx, cancel := context.WithCancel(s.ctx)
+
+	client := &Client{
+		ID:           clientID,
+		RemoteAddr:   conn.RemoteAddr().String(),
+		Token:        nil, // No legacy token
+		Session:      session,
+		ControlCodec: codec,
+		ControlConn:  controlStream,
+		Tunnels:      make(map[string]*Tunnel),
+		Connected:    time.Now(),
+		LastPing:     time.Now(),
+		UserID:       claims.UserID,
+		server:       s,
+		conn:         conn,
+		log:          log.With().Str("client_id", clientID).Int64("user_id", claims.UserID).Logger(),
+		ctx:          ctx,
+		cancel:       cancel,
+	}
+
+	s.clientsMu.Lock()
+	s.clients[clientID] = client
+	s.clientsMu.Unlock()
+
+	return client
+}
+
+// isJWT checks if a token looks like a JWT (has 3 dot-separated parts)
+func isJWT(token string) bool {
+	parts := 0
+	for _, c := range token {
+		if c == '.' {
+			parts++
+		}
+	}
+	return parts == 2
 }
 
 func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
