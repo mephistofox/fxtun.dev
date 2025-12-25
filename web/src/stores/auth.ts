@@ -19,7 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (token) {
       try {
         const response = await profileApi.get()
-        user.value = response.data
+        user.value = response.data.user
       } catch {
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
@@ -82,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function refreshProfile() {
     try {
       const response = await profileApi.get()
-      user.value = response.data
+      user.value = response.data.user
     } catch {
       // Ignore errors
     }

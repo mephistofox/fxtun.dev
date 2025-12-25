@@ -25,6 +25,7 @@ type UserDTO struct {
 	Phone       string     `json:"phone"`
 	DisplayName string     `json:"display_name"`
 	IsAdmin     bool       `json:"is_admin"`
+	IsActive    bool       `json:"is_active"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
@@ -36,6 +37,7 @@ func UserFromModel(u *database.User) *UserDTO {
 		Phone:       u.Phone,
 		DisplayName: u.DisplayName,
 		IsAdmin:     u.IsAdmin,
+		IsActive:    u.IsActive,
 		CreatedAt:   u.CreatedAt,
 		LastLoginAt: u.LastLoginAt,
 	}

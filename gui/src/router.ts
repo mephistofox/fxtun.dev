@@ -28,6 +28,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/domains',
+    name: 'domains',
+    component: () => import('./views/DomainsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/history',
     name: 'history',
     component: () => import('./views/HistoryView.vue'),
