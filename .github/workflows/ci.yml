@@ -9,11 +9,52 @@ on:
       - master
 
 jobs:
-  test:
+  # Build frontends first (needed for Go embed)
+  build-frontends:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            gui/package-lock.json
+
+      - name: Build web frontend
+        run: |
+          cd web && npm ci && npm run build
+          mkdir -p ../internal/web/dist
+          cp -r dist/* ../internal/web/dist/
+
+      - name: Build GUI frontend
+        run: cd gui && npm ci && npm run build
+
+      - name: Upload frontends
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontends
+          path: |
+            internal/web/dist
+            gui/dist
+          retention-days: 1
+
+  test:
+    needs: build-frontends
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download frontends
+        uses: actions/download-artifact@v4
+        with:
+          name: frontends
+          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -28,10 +69,17 @@ jobs:
         run: go vet ./...
 
   lint:
+    needs: build-frontends
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download frontends
+        uses: actions/download-artifact@v4
+        with:
+          name: frontends
+          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -46,10 +94,17 @@ jobs:
           args: --timeout=5m
 
   build-check:
+    needs: build-frontends
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download frontends
+        uses: actions/download-artifact@v4
+        with:
+          name: frontends
+          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5
