@@ -52,6 +52,7 @@ func main() {
 			app.SettingsService,
 			app.HistoryService,
 			app.DomainService,
+			app.SyncService,
 		},
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{

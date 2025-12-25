@@ -104,6 +104,9 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 
 // Login authenticates a user and returns tokens
 func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+	// Normalize phone number (remove spaces, parentheses, dashes)
+	phone = normalizePhone(phone)
+
 	// Get user by phone
 	user, err := s.db.Users.GetByPhone(phone)
 	if err != nil {
@@ -419,4 +422,22 @@ func (s *Service) GetMaxDomains() int {
 // GetJWTManager returns the JWT manager
 func (s *Service) GetJWTManager() *JWTManager {
 	return s.jwt
+}
+
+// normalizePhone removes all non-digit characters except leading +
+func normalizePhone(phone string) string {
+	if len(phone) == 0 {
+		return phone
+	}
+
+	result := make([]byte, 0, len(phone))
+	for i := 0; i < len(phone); i++ {
+		c := phone[i]
+		if c >= '0' && c <= '9' {
+			result = append(result, c)
+		} else if c == '+' && len(result) == 0 {
+			result = append(result, c)
+		}
+	}
+	return string(result)
 }

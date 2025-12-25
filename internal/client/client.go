@@ -557,6 +557,29 @@ func (c *Client) GetTunnels() []*ActiveTunnel {
 	return tunnels
 }
 
+// CloseTunnel closes a specific tunnel by ID
+func (c *Client) CloseTunnel(tunnelID string) error {
+	c.tunnelsMu.RLock()
+	_, exists := c.tunnels[tunnelID]
+	c.tunnelsMu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("tunnel not found: %s", tunnelID)
+	}
+
+	msg := &protocol.TunnelCloseMessage{
+		Message:  protocol.NewMessage(protocol.MsgTunnelClose),
+		TunnelID: tunnelID,
+	}
+
+	if err := c.sendControl(msg); err != nil {
+		return fmt.Errorf("send tunnel close: %w", err)
+	}
+
+	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel close requested")
+	return nil
+}
+
 // Wait waits for the client to close
 func (c *Client) Wait() {
 	c.wg.Wait()

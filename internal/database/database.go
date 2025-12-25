@@ -12,15 +12,18 @@ import (
 
 // Database holds the database connection and repositories
 type Database struct {
-	db       *sql.DB
-	log      zerolog.Logger
-	Users    *UserRepository
-	Sessions *SessionRepository
-	Tokens   *APITokenRepository
-	Domains  *DomainRepository
-	Invites  *InviteRepository
-	TOTP     *TOTPRepository
-	Audit    *AuditRepository
+	db           *sql.DB
+	log          zerolog.Logger
+	Users        *UserRepository
+	Sessions     *SessionRepository
+	Tokens       *APITokenRepository
+	Domains      *DomainRepository
+	Invites      *InviteRepository
+	TOTP         *TOTPRepository
+	Audit        *AuditRepository
+	UserBundles  *UserBundleRepository
+	UserHistory  *UserHistoryRepository
+	UserSettings *UserSettingsRepository
 }
 
 // New creates a new database connection and initializes repositories
@@ -65,6 +68,9 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	database.Invites = NewInviteRepository(db)
 	database.TOTP = NewTOTPRepository(db)
 	database.Audit = NewAuditRepository(db)
+	database.UserBundles = NewUserBundleRepository(db)
+	database.UserHistory = NewUserHistoryRepository(db)
+	database.UserSettings = NewUserSettingsRepository(db)
 
 	log.Info().Str("path", dbPath).Msg("Database initialized")
 
@@ -92,6 +98,9 @@ func (d *Database) migrate() error {
 		migrationCreateTOTPSecrets,
 		migrationCreateAuditLogs,
 		migrationCreateIndexes,
+		migrationCreateUserBundles,
+		migrationCreateUserHistory,
+		migrationCreateUserSettings,
 	}
 
 	for i, migration := range migrations {
@@ -201,4 +210,52 @@ CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+`
+
+const migrationCreateUserBundles = `
+CREATE TABLE IF NOT EXISTS user_bundles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('http', 'tcp', 'udp')),
+    local_port INTEGER NOT NULL,
+    subdomain TEXT,
+    remote_port INTEGER,
+    auto_connect BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_user_bundles_user ON user_bundles(user_id);
+`
+
+const migrationCreateUserHistory = `
+CREATE TABLE IF NOT EXISTS user_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    bundle_name TEXT,
+    tunnel_type TEXT NOT NULL,
+    local_port INTEGER NOT NULL,
+    remote_addr TEXT,
+    url TEXT,
+    connected_at TIMESTAMP NOT NULL,
+    disconnected_at TIMESTAMP,
+    bytes_sent INTEGER DEFAULT 0,
+    bytes_received INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_user_history_user ON user_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_history_connected ON user_history(connected_at);
+`
+
+const migrationCreateUserSettings = `
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 `

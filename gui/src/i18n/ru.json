@@ -247,6 +247,12 @@
     "minutesShort": "м",
     "secondsShort": "с"
   },
+  "sync": {
+    "syncing": "Синхронизация...",
+    "synced": "Синхронизировано",
+    "syncError": "Ошибка синхронизации",
+    "lastSynced": "Последняя синхронизация"
+  },
   "errors": {
     "general": "Что-то пошло не так",
     "network": "Ошибка сети",
