@@ -27,11 +27,13 @@
     "import": "Import",
     "export": "Export",
     "clear": "Clear",
-    "all": "All"
+    "all": "All",
+    "check": "Check"
   },
   "nav": {
     "dashboard": "Dashboard",
     "bundles": "Bundles",
+    "domains": "Domains",
     "history": "History",
     "settings": "Settings",
     "logs": "Logs",
@@ -267,6 +269,27 @@
     "historyCleared": "History cleared",
     "logsCleared": "Logs cleared",
     "logsExported": "Logs exported successfully",
-    "logCopied": "Log entry copied"
+    "logCopied": "Log entry copied",
+    "domainReserved": "Domain reserved",
+    "domainReleased": "Domain released"
+  },
+  "domains": {
+    "title": "My Domains",
+    "subtitle": "Reserved subdomains",
+    "reserve": "Reserve",
+    "reserveTitle": "Reserve Domain",
+    "subdomain": "Subdomain",
+    "willBeAvailable": "Will be available at:",
+    "available": "Domain is available",
+    "notAvailable": "Domain is taken",
+    "reserved": "Reserved",
+    "releaseDomain": "Release domain",
+    "noDomains": "No reserved domains",
+    "noDomainsHint": "Reserve a subdomain for permanent use",
+    "confirmRelease": "Are you sure you want to release this domain?",
+    "failedToLoad": "Failed to load domains",
+    "failedToReserve": "Failed to reserve domain",
+    "failedToRelease": "Failed to release domain",
+    "copyUrl": "Copy URL"
   }
 }

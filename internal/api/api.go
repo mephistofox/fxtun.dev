@@ -122,7 +122,7 @@ func (s *Server) setupRoutes() {
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			r.Use(auth.Middleware(s.authService))
+			r.Use(auth.MiddlewareWithDB(s.authService, s.db))
 
 			// Auth
 			r.Post("/auth/logout", s.handleLogout)

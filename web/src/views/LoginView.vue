@@ -124,7 +124,7 @@ function cycleTheme() {
 
         <div class="space-y-2">
           <label class="text-sm font-medium">{{ t('auth.phone') }}</label>
-          <Input v-model="phone" type="tel" placeholder="+7 (999) 123-45-67" required />
+          <Input v-model="phone" phone placeholder="+7 (999) 123-45-67" required />
         </div>
 
         <div class="space-y-2">

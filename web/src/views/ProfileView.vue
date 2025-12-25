@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
@@ -26,7 +26,7 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 
 // TOTP
-const totpEnabled = computed(() => authStore.user?.totp_enabled)
+const totpEnabled = ref(false)
 const showTotpSetup = ref(false)
 const totpSecret = ref('')
 const totpQrCode = ref('')
@@ -103,6 +103,7 @@ async function verifyTotp() {
   try {
     const response = await totpApi.verify(totpCode.value)
     totpBackupCodes.value = response.data.backup_codes
+    totpEnabled.value = true
     await authStore.refreshProfile()
     totpCode.value = ''
   } catch (e: unknown) {
@@ -118,6 +119,7 @@ async function disableTotp() {
   totpError.value = ''
   try {
     await totpApi.disable(disableCode.value)
+    totpEnabled.value = false
     await authStore.refreshProfile()
     showDisableTotp.value = false
     disableCode.value = ''
@@ -136,6 +138,19 @@ function closeTotpSetup() {
   totpCode.value = ''
   totpBackupCodes.value = []
 }
+
+async function loadProfile() {
+  try {
+    const response = await profileApi.get()
+    totpEnabled.value = response.data.totp_enabled
+  } catch {
+    // Ignore errors
+  }
+}
+
+onMounted(() => {
+  loadProfile()
+})
 </script>
 
 <template>

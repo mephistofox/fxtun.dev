@@ -76,8 +76,15 @@ export interface User {
   phone: string
   display_name: string
   is_admin: boolean
-  totp_enabled: boolean
   created_at: string
+}
+
+export interface ProfileResponse {
+  user: User
+  totp_enabled: boolean
+  reserved_domains: Domain[]
+  max_domains: number
+  token_count: number
 }
 
 export interface Tunnel {
@@ -139,7 +146,7 @@ export const authApi = {
 }
 
 export const profileApi = {
-  get: () => api.get<User>('/profile'),
+  get: () => api.get<ProfileResponse>('/profile'),
   update: (data: { display_name?: string }) => api.put<User>('/profile', data),
   changePassword: (data: { current_password: string; new_password: string }) =>
     api.put('/profile/password', data),
