@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  modelValue?: string
+  modelValue?: string | number
   type?: string
   placeholder?: string
   disabled?: boolean
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
+  'update:modelValue': [value: string | number]
 }>()
 
 const classes = computed(() =>

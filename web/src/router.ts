@@ -46,6 +46,37 @@ const router = createRouter({
       component: () => import('./views/ProfileView.vue'),
       meta: { requiresAuth: true },
     },
+    // Admin routes
+    {
+      path: '/admin',
+      name: 'admin',
+      component: () => import('./views/admin/AdminDashboardView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('./views/admin/AdminUsersView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/invites',
+      name: 'admin-invites',
+      component: () => import('./views/admin/AdminInvitesView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/tunnels',
+      name: 'admin-tunnels',
+      component: () => import('./views/admin/AdminTunnelsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/audit',
+      name: 'admin-audit',
+      component: () => import('./views/admin/AdminAuditView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
   ],
 })
 
@@ -60,6 +91,8 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login' })
   } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
+    next({ name: 'dashboard' })
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next({ name: 'dashboard' })
   } else {
     next()
