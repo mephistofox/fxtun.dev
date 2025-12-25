@@ -1,0 +1,20 @@
+# Changelog
+
+## 1.0.0 (2025-12-25)
+
+
+### Features
+
+* **admin:** add admin panel with tunnels, audit logs and user management ([8f4ac55](https://github.com/mephistofox/fxTunnel/commit/8f4ac55d5de0b533515c74814e248259fc26bd96))
+* **gui,web:** add management panel and desktop application ([536e074](https://github.com/mephistofox/fxTunnel/commit/536e07426333dedcd3eea4b2fccb6b5c71b88a22))
+* initial implementation of fxTunnel reverse tunneling system ([9e851ab](https://github.com/mephistofox/fxTunnel/commit/9e851ab38d60d94ed9b15e80f796b7f61a909bfd))
+* **sync:** add data synchronization between GUI and server ([af415a4](https://github.com/mephistofox/fxTunnel/commit/af415a48959b40574a8d801443053d05a07682c1))
+
+
+### Bug Fixes
+
+* **ci:** build frontends before tests and lint ([7cf0ff9](https://github.com/mephistofox/fxTunnel/commit/7cf0ff9e15c563c15f3476b719db429447d08fd0))
+* **ci:** disable errcheck linter, use exclude-dirs ([e0d1af8](https://github.com/mephistofox/fxTunnel/commit/e0d1af8677d8a0e136b265eeaa9016e9adf58bf8))
+* **ci:** exclude GUI from CI checks, use placeholder dist ([4927b8c](https://github.com/mephistofox/fxTunnel/commit/4927b8c3e34b0ce73190f81e211a7831901f7996))
+* **ci:** explicitly disable errcheck linter ([4485f22](https://github.com/mephistofox/fxTunnel/commit/4485f223e4449267d604eb1a62aaae97d2a8d075))
+* remove unused variables and apply gosimple suggestion ([b652e8b](https://github.com/mephistofox/fxTunnel/commit/b652e8b03a858f0b54eb21c9612393e4f695be09))
