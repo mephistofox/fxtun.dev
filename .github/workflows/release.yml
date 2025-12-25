@@ -1,0 +1,287 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # Determine version and create release PR (on push to master)
+  release-please:
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: go
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build on tag push or after release-please creates a release
+  build:
+    needs: [release-please]
+    if: |
+      always() &&
+      (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v'))
+    strategy:
+      matrix:
+        include:
+          # CLI builds
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            artifact: fxtunnel-linux-amd64
+            type: cli
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            artifact: fxtunnel-linux-arm64
+            type: cli
+          - os: ubuntu-latest
+            goos: darwin
+            goarch: amd64
+            artifact: fxtunnel-darwin-amd64
+            type: cli
+          - os: ubuntu-latest
+            goos: darwin
+            goarch: arm64
+            artifact: fxtunnel-darwin-arm64
+            type: cli
+          - os: ubuntu-latest
+            goos: windows
+            goarch: amd64
+            artifact: fxtunnel-windows-amd64.exe
+            type: cli
+          # GUI builds (require native OS)
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            artifact: fxtunnel-gui-linux-amd64
+            type: gui
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            artifact: fxtunnel-gui-windows-amd64.exe
+            type: gui
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            artifact: fxtunnel-gui-darwin-amd64
+            type: gui
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            artifact: fxtunnel-gui-darwin-arm64
+            type: gui
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Setup Node.js
+        if: matrix.type == 'gui'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Linux GUI dependencies
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.type == 'gui'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      # Install Wails
+      - name: Install Wails
+        if: matrix.type == 'gui'
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # Get version from tag or release-please
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          elif [[ -n "${{ needs.release-please.outputs.version }}" ]]; then
+            VERSION="v${{ needs.release-please.outputs.version }}"
+          else
+            VERSION="v0.0.0-dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      # Build CLI
+      - name: Build CLI
+        if: matrix.type == 'cli'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -o ${{ matrix.artifact }} ./cmd/client
+
+      # Build GUI
+      - name: Build GUI (Linux)
+        if: matrix.type == 'gui' && matrix.os == 'ubuntu-latest'
+        run: |
+          cd gui && npm install && cd ..
+          wails build -tags webkit2_41 -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -o ${{ matrix.artifact }}
+          mv build/bin/${{ matrix.artifact }} .
+
+      - name: Build GUI (Windows)
+        if: matrix.type == 'gui' && matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd gui && npm install && cd ..
+          wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -o ${{ matrix.artifact }}
+          mv build/bin/${{ matrix.artifact }} .
+
+      - name: Build GUI (macOS)
+        if: matrix.type == 'gui' && matrix.os == 'macos-latest'
+        run: |
+          cd gui && npm install && cd ..
+          wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -o ${{ matrix.artifact }}
+          mv build/bin/${{ matrix.artifact }} .
+
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          retention-days: 1
+
+  # Build server
+  build-server:
+    needs: [release-please]
+    if: |
+      always() &&
+      (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          elif [[ -n "${{ needs.release-please.outputs.version }}" ]]; then
+            VERSION="v${{ needs.release-please.outputs.version }}"
+          else
+            VERSION="v0.0.0-dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build web frontend
+        run: |
+          cd web && npm install && npm run build
+          mkdir -p ../internal/web/dist
+          cp -r dist/* ../internal/web/dist/
+
+      - name: Build server
+        env:
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -o fxtunnel-server-linux-amd64 ./cmd/server
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fxtunnel-server-linux-amd64
+          path: fxtunnel-server-linux-amd64
+          retention-days: 1
+
+  # Create GitHub Release
+  create-release:
+    needs: [release-please, build, build-server]
+    if: |
+      always() &&
+      (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v')) &&
+      needs.build.result == 'success' &&
+      needs.build-server.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+          elif [[ -n "${{ needs.release-please.outputs.version }}" ]]; then
+            VERSION="v${{ needs.release-please.outputs.version }}"
+          else
+            VERSION="v0.0.0-dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # Move all artifacts to release folder
+          for dir in artifacts/*/; do
+            cp "$dir"* release/ 2>/dev/null || true
+          done
+          ls -la release/
+          # Create checksums
+          cd release
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: fxTunnel ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
