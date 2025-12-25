@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/fxcode/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
 // TCPManager manages TCP tunnel ports

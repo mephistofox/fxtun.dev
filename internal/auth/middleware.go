@@ -1,0 +1,176 @@
+package auth
+
+import (
+	"context"
+	"net/http"
+	"strings"
+)
+
+// Context keys for authentication
+type contextKey string
+
+const (
+	UserContextKey   contextKey = "user"
+	ClaimsContextKey contextKey = "claims"
+)
+
+// AuthenticatedUser represents the authenticated user in context
+type AuthenticatedUser struct {
+	ID      int64
+	Phone   string
+	IsAdmin bool
+}
+
+// Middleware creates an authentication middleware
+func Middleware(authService *Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Get token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, `{"error": "missing authorization header"}`, http.StatusUnauthorized)
+				return
+			}
+
+			// Check Bearer scheme
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				http.Error(w, `{"error": "invalid authorization header format"}`, http.StatusUnauthorized)
+				return
+			}
+
+			token := parts[1]
+
+			// Validate token
+			claims, err := authService.ValidateAccessToken(token)
+			if err != nil {
+				if err == ErrTokenExpired {
+					http.Error(w, `{"error": "token expired"}`, http.StatusUnauthorized)
+					return
+				}
+				http.Error(w, `{"error": "invalid token"}`, http.StatusUnauthorized)
+				return
+			}
+
+			// Add user to context
+			user := &AuthenticatedUser{
+				ID:      claims.UserID,
+				Phone:   claims.Phone,
+				IsAdmin: claims.IsAdmin,
+			}
+
+			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, ClaimsContextKey, claims)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// OptionalMiddleware creates a middleware that authenticates if token is present but doesn't require it
+func OptionalMiddleware(authService *Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			token := parts[1]
+			claims, err := authService.ValidateAccessToken(token)
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			user := &AuthenticatedUser{
+				ID:      claims.UserID,
+				Phone:   claims.Phone,
+				IsAdmin: claims.IsAdmin,
+			}
+
+			ctx := context.WithValue(r.Context(), UserContextKey, user)
+			ctx = context.WithValue(ctx, ClaimsContextKey, claims)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// AdminMiddleware creates a middleware that requires admin privileges
+func AdminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUserFromContext(r.Context())
+		if user == nil {
+			http.Error(w, `{"error": "unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		if !user.IsAdmin {
+			http.Error(w, `{"error": "admin access required"}`, http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// GetUserFromContext retrieves the authenticated user from context
+func GetUserFromContext(ctx context.Context) *AuthenticatedUser {
+	user, ok := ctx.Value(UserContextKey).(*AuthenticatedUser)
+	if !ok {
+		return nil
+	}
+	return user
+}
+
+// GetClaimsFromContext retrieves the JWT claims from context
+func GetClaimsFromContext(ctx context.Context) *Claims {
+	claims, ok := ctx.Value(ClaimsContextKey).(*Claims)
+	if !ok {
+		return nil
+	}
+	return claims
+}
+
+// GetClientIP extracts the client IP address from the request
+func GetClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (for proxies)
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// Take the first IP in the list
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+
+	// Check X-Real-IP header
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	// Remove port if present
+	addr := r.RemoteAddr
+	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
+		// Check if this is IPv6
+		if strings.Contains(addr, "[") {
+			// IPv6 format: [::1]:port
+			if bracketIdx := strings.LastIndex(addr, "]"); bracketIdx != -1 {
+				return addr[1:bracketIdx]
+			}
+		}
+		return addr[:colonIdx]
+	}
+
+	return addr
+}

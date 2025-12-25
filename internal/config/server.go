@@ -12,11 +12,15 @@ import (
 
 // ServerConfig holds all server configuration
 type ServerConfig struct {
-	Server   ServerSettings   `mapstructure:"server"`
-	Domain   DomainSettings   `mapstructure:"domain"`
-	Auth     AuthSettings     `mapstructure:"auth"`
-	TLS      TLSSettings      `mapstructure:"tls"`
-	Logging  LoggingSettings  `mapstructure:"logging"`
+	Server    ServerSettings    `mapstructure:"server"`
+	Domain    DomainSettings    `mapstructure:"domain"`
+	Auth      AuthSettings      `mapstructure:"auth"`
+	TLS       TLSSettings       `mapstructure:"tls"`
+	Logging   LoggingSettings   `mapstructure:"logging"`
+	Web       WebSettings       `mapstructure:"web"`
+	Database  DatabaseSettings  `mapstructure:"database"`
+	TOTP      TOTPSettings      `mapstructure:"totp"`
+	Downloads DownloadsSettings `mapstructure:"downloads"`
 }
 
 // ServerSettings contains network settings
@@ -41,8 +45,37 @@ type DomainSettings struct {
 
 // AuthSettings contains authentication configuration
 type AuthSettings struct {
-	Enabled bool          `mapstructure:"enabled"`
-	Tokens  []TokenConfig `mapstructure:"tokens"`
+	Enabled         bool          `mapstructure:"enabled"`
+	Tokens          []TokenConfig `mapstructure:"tokens"`
+	JWTSecret       string        `mapstructure:"jwt_secret"`
+	AccessTokenTTL  string        `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL string        `mapstructure:"refresh_token_ttl"`
+	InviteOnly      bool          `mapstructure:"invite_only"`
+	MaxDomains      int           `mapstructure:"max_domains_per_user"`
+}
+
+// WebSettings contains web panel configuration
+type WebSettings struct {
+	Enabled bool `mapstructure:"enabled"`
+	Port    int  `mapstructure:"port"`
+}
+
+// DatabaseSettings contains database configuration
+type DatabaseSettings struct {
+	Path string `mapstructure:"path"`
+}
+
+// TOTPSettings contains TOTP 2FA configuration
+type TOTPSettings struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	Issuer        string `mapstructure:"issuer"`
+	EncryptionKey string `mapstructure:"encryption_key"`
+}
+
+// DownloadsSettings contains client downloads configuration
+type DownloadsSettings struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Path    string `mapstructure:"path"`
 }
 
 // TokenConfig defines a single auth token
@@ -80,9 +113,22 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("domain.base", "localhost")
 	v.SetDefault("domain.wildcard", true)
 	v.SetDefault("auth.enabled", false)
+	v.SetDefault("auth.jwt_secret", "")
+	v.SetDefault("auth.access_token_ttl", "15m")
+	v.SetDefault("auth.refresh_token_ttl", "168h")
+	v.SetDefault("auth.invite_only", true)
+	v.SetDefault("auth.max_domains_per_user", 3)
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "console")
+	v.SetDefault("web.enabled", false)
+	v.SetDefault("web.port", 8081)
+	v.SetDefault("database.path", "./data/fxtunnel.db")
+	v.SetDefault("totp.enabled", true)
+	v.SetDefault("totp.issuer", "fxTunnel")
+	v.SetDefault("totp.encryption_key", "")
+	v.SetDefault("downloads.enabled", true)
+	v.SetDefault("downloads.path", "./downloads")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)

@@ -12,7 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/fxcode/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
 // HTTPRouter routes HTTP requests to the appropriate tunnel
@@ -151,21 +151,26 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		stream.Write(buffered)
 	}
 
-	// Bidirectional copy
-	done := make(chan struct{})
+	// Bidirectional copy - wait for BOTH directions to complete
+	var wg sync.WaitGroup
+	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		io.Copy(stream, conn)
-		done <- struct{}{}
+		// Signal EOF to the client by closing write side
+		if tcpConn, ok := stream.(interface{ CloseWrite() error }); ok {
+			tcpConn.CloseWrite()
+		}
 	}()
 
 	go func() {
+		defer wg.Done()
 		io.Copy(conn, stream)
-		done <- struct{}{}
 	}()
 
-	// Wait for either direction to finish
-	<-done
+	// Wait for both directions to complete
+	wg.Wait()
 
 	r.log.Debug().
 		Str("subdomain", subdomain).

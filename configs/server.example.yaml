@@ -5,12 +5,12 @@ server:
   control_port: 4443
 
   # Port for HTTP traffic (nginx proxies here)
-  http_port: 8080
+  http_port: 10080
 
   # TCP tunnel port range
   tcp_port_range:
-    min: 10000
-    max: 20000
+    min: 11000
+    max: 12000
 
   # UDP tunnel port range
   udp_port_range:
@@ -30,7 +30,8 @@ auth:
   # Enable authentication (recommended for production)
   enabled: true
 
-  # Authentication tokens
+  # Legacy YAML tokens (optional, for backwards compatibility)
+  # New tokens should be created via web panel
   tokens:
     # Admin token - can use any subdomain
     - name: "admin"
@@ -38,17 +39,21 @@ auth:
       allowed_subdomains: ["*"]
       max_tunnels: 100
 
-    # Regular user - limited to their subdomains
-    - name: "user1"
-      token: "sk_user1_token456"
-      allowed_subdomains: ["user1-*", "myapp"]
-      max_tunnels: 5
+  # JWT secret for web panel authentication
+  # Auto-generated if empty (will change on restart!)
+  jwt_secret: ""
 
-    # Developer token
-    - name: "dev"
-      token: "sk_dev_token789"
-      allowed_subdomains: ["dev-*", "test-*"]
-      max_tunnels: 10
+  # Access token lifetime
+  access_token_ttl: "15m"
+
+  # Refresh token lifetime
+  refresh_token_ttl: "168h"  # 7 days
+
+  # Require invite code for registration
+  invite_only: true
+
+  # Maximum reserved domains per user
+  max_domains_per_user: 3
 
 # TLS settings (optional - use nginx for TLS termination instead)
 tls:
@@ -63,3 +68,36 @@ logging:
 
   # Log format: console (human readable) or json
   format: "console"
+
+# Web panel settings
+web:
+  # Enable web panel
+  enabled: true
+
+  # Port for web panel API (should be in allowed range or proxied via nginx)
+  port: 10081
+
+# Database settings
+database:
+  # SQLite database path
+  path: "./data/fxtunnel.db"
+
+# TOTP 2FA settings
+totp:
+  # Enable TOTP support
+  enabled: true
+
+  # Issuer name shown in authenticator apps
+  issuer: "fxTunnel"
+
+  # Encryption key for TOTP secrets (32 bytes hex)
+  # Auto-generated if empty (TOTP secrets will be lost on restart!)
+  encryption_key: ""
+
+# Client downloads settings
+downloads:
+  # Enable client downloads via web panel
+  enabled: true
+
+  # Path to client binaries directory
+  path: "./downloads"
