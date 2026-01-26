@@ -412,11 +412,10 @@ func (c *Client) handleStream(stream net.Conn) {
 		return
 	}
 
-	// Connect to local service
-	localAddr := tunnel.Config.GetLocalAddress()
-	local, err := net.DialTimeout("tcp", localAddr, 10*time.Second)
+	// Connect to local service with IPv4/IPv6 fallback
+	local, err := dialLocalWithFallback(c.log, tunnel.Config.LocalAddr, tunnel.Config.LocalPort, 10*time.Second)
 	if err != nil {
-		c.log.Error().Err(err).Str("addr", localAddr).Msg("Failed to connect to local service")
+		c.log.Error().Err(err).Int("port", tunnel.Config.LocalPort).Msg("Failed to connect to local service")
 		return
 	}
 	defer local.Close()
@@ -424,7 +423,7 @@ func (c *Client) handleStream(stream net.Conn) {
 	c.log.Debug().
 		Str("tunnel", tunnel.Config.Name).
 		Str("remote", msg.RemoteAddr).
-		Str("local", localAddr).
+		Str("local", local.RemoteAddr().String()).
 		Msg("Forwarding connection")
 
 	// Bidirectional copy

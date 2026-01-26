@@ -212,7 +212,7 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 // normalizeServerAddr adds default port if not specified
 func normalizeServerAddr(addr string) string {
 	if addr == "" {
-		return "localhost:" + defaultControlPort
+		return "127.0.0.1:" + defaultControlPort
 	}
 	// Check if port is already specified
 	if !strings.Contains(addr, ":") {
