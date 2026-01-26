@@ -5,6 +5,12 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/',
+      name: 'landing',
+      component: () => import('./views/LandingView.vue'),
+      meta: { requiresGuest: true },
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('./views/LoginView.vue'),
@@ -17,7 +23,7 @@ const router = createRouter({
       meta: { requiresGuest: true },
     },
     {
-      path: '/',
+      path: '/dashboard',
       name: 'dashboard',
       component: () => import('./views/DashboardView.vue'),
       meta: { requiresAuth: true },
@@ -91,6 +97,7 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login' })
   } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
+    // Redirect authenticated users from guest pages to dashboard
     next({ name: 'dashboard' })
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next({ name: 'dashboard' })

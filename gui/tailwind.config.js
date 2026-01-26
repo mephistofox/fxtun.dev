@@ -60,11 +60,23 @@ export default {
           DEFAULT: 'hsl(var(--info))',
           foreground: 'hsl(var(--info-foreground))',
         },
+        // Protocol type colors (synced with web)
+        'type-http': 'hsl(var(--type-http))',
+        'type-tcp': 'hsl(var(--type-tcp))',
+        'type-udp': 'hsl(var(--type-udp))',
+        // Glow colors
+        'glow-primary': 'hsl(var(--glow-primary))',
+        'glow-accent': 'hsl(var(--glow-accent))',
+      },
+      fontFamily: {
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)',
+        '2xl': 'calc(var(--radius) + 8px)',
       },
       keyframes: {
         'accordion-down': {

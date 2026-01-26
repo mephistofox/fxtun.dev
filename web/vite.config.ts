@@ -14,6 +14,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    allowedHosts: ['tun.mfdev.ru', 'mfdev.ru'],
     proxy: {
       '/api': {
         target: 'http://localhost:8081',
