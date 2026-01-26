@@ -213,10 +213,14 @@ func (s *AuthService) AutoLogin() (*LoginResponse, error) {
 		}, nil
 	}
 
+	// Always use token method for auto-login since we already have the token saved.
+	// The original auth method (password/token) was used to obtain the token,
+	// but for reconnection we just need the token itself.
 	return s.Login(LoginRequest{
-		Method:        AuthMethod(creds.AuthMethod),
+		Method:        AuthMethodToken,
 		ServerAddress: creds.ServerAddress,
 		Token:         creds.Token,
+		Phone:         creds.Phone, // Keep phone for display purposes
 		Remember:      true,
 	})
 }
