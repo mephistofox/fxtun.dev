@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/mephistofox/fxTunnel/compare/v1.1.1...v1.2.0) (2026-01-26)
+
+
+### Features
+
+* **ci:** sync client downloads from latest release on deploy ([ed3ef19](https://github.com/mephistofox/fxTunnel/commit/ed3ef19ac789ca7a79467338e9bc7f8f66f65cdf))
+
+
+### Bug Fixes
+
+* **ci:** remove conflicting --skip-existing flag from gh release download ([6de8a31](https://github.com/mephistofox/fxTunnel/commit/6de8a31221c3814a8ed7c19a09eed79d54225615))
+
 ## [1.1.1](https://github.com/mephistofox/fxTunnel/compare/v1.1.0...v1.1.1) (2026-01-26)
 
 
