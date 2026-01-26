@@ -52,6 +52,7 @@ web:
 
 # Build client binaries for all platforms (for downloads)
 build-clients:
+	@rm -rf downloads/fxtunnel-*
 	@mkdir -p downloads
 	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o downloads/fxtunnel-linux-amd64 ./cmd/client
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o downloads/fxtunnel-linux-arm64 ./cmd/client
@@ -90,6 +91,7 @@ gui: gui-frontend
 
 # Build GUI client for all platforms (macOS requires building on macOS)
 gui-all: gui-frontend
+	@rm -rf downloads/fxtunnel-gui-*
 	@mkdir -p downloads
 	$(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64
 	mv build/bin/$(BINARY_GUI)-linux-amd64 downloads/
