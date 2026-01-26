@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/mephistofox/fxTunnel/compare/v1.2.0...v1.3.0) (2026-01-26)
+
+
+### Features
+
+* **gui:** add refresh token support for persistent sessions ([c3b6eba](https://github.com/mephistofox/fxTunnel/commit/c3b6eba8ff894e4c2cc9d96f24f9750520b91c39))
+
+
+### Bug Fixes
+
+* **ci:** make downloads sync non-fatal when assets not ready yet ([f0da8f4](https://github.com/mephistofox/fxTunnel/commit/f0da8f492d666eff63f86f43f667ad800b3fc520))
+* **gui:** use token method for auto-login to fix session persistence ([04e64fa](https://github.com/mephistofox/fxTunnel/commit/04e64fabcd4df1ffcb239b5498cdda8d0f2f327f))
+
 ## [1.2.0](https://github.com/mephistofox/fxTunnel/compare/v1.1.1...v1.2.0) (2026-01-26)
 
 
