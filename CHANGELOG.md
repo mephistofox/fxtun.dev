@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/mephistofox/fxTunnel/compare/v1.1.0...v1.1.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* **ci:** enable CGO for server build (required by go-sqlite3) ([88fce88](https://github.com/mephistofox/fxTunnel/commit/88fce887dcc2f3327173f8553098861d2ffc5284))
+* **ci:** use workflow_run trigger for deploy instead of wait-on-check ([62dd81a](https://github.com/mephistofox/fxTunnel/commit/62dd81a436a2e7fecaab8b88c0784fdd6b96a497))
+* **client:** add IPv4/IPv6 fallback for local service connections ([766ba87](https://github.com/mephistofox/fxTunnel/commit/766ba871e1fb513bc2f1b2b5a7fc02a86877d4a3))
+
 ## [1.1.0](https://github.com/mephistofox/fxTunnel/compare/v1.0.0...v1.1.0) (2025-12-25)
 
 
