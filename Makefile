@@ -82,7 +82,7 @@ gui-frontend:
 
 # Development mode for GUI (hot reload)
 gui-dev:
-	wails dev
+	wails dev -tags webkit2_41
 
 # Build GUI client for current platform
 gui: gui-frontend
