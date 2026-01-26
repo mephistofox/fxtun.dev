@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/mephistofox/fxTunnel/compare/v1.3.0...v1.3.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* **build:** clean old files before building to downloads/ ([667e278](https://github.com/mephistofox/fxTunnel/commit/667e278f9dc8201d4fffd4fd2dfa1c89b0855788))
+
 ## [1.3.0](https://github.com/mephistofox/fxTunnel/compare/v1.2.0...v1.3.0) (2026-01-26)
 
 
