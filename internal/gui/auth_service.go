@@ -47,6 +47,7 @@ type LoginRequest struct {
 	Method        AuthMethod `json:"method"`
 	ServerAddress string     `json:"server_address"`
 	Token         string     `json:"token,omitempty"`
+	RefreshToken  string     `json:"refresh_token,omitempty"`
 	Phone         string     `json:"phone,omitempty"`
 	Password      string     `json:"password,omitempty"`
 	TOTPCode      string     `json:"totp_code,omitempty"`
@@ -70,13 +71,15 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		Msg("Login attempt")
 
 	var token string
+	var refreshToken string
 
 	if req.Method == AuthMethodToken {
 		// Direct token authentication
 		token = req.Token
+		refreshToken = req.RefreshToken
 	} else {
 		// Password authentication - get JWT from server
-		jwt, err := s.authenticateWithPassword(req.ServerAddress, req.Phone, req.Password, req.TOTPCode)
+		tokens, err := s.authenticateWithPassword(req.ServerAddress, req.Phone, req.Password, req.TOTPCode)
 		if err != nil {
 			if errors.Is(err, ErrTOTPRequired) {
 				return &LoginResponse{
@@ -91,7 +94,8 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 				Error:   err.Error(),
 			}, nil
 		}
-		token = jwt
+		token = tokens.AccessToken
+		refreshToken = tokens.RefreshToken
 	}
 
 	// Create client config
@@ -127,6 +131,7 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 			ServerAddress: req.ServerAddress,
 			AuthMethod:    string(req.Method),
 			Token:         token,
+			RefreshToken:  refreshToken,
 		}
 		if req.Method == AuthMethodPassword {
 			creds.Phone = req.Phone
@@ -213,16 +218,44 @@ func (s *AuthService) AutoLogin() (*LoginResponse, error) {
 		}, nil
 	}
 
-	// Always use token method for auto-login since we already have the token saved.
-	// The original auth method (password/token) was used to obtain the token,
-	// but for reconnection we just need the token itself.
-	return s.Login(LoginRequest{
+	// Try login with saved token
+	resp, err := s.Login(LoginRequest{
 		Method:        AuthMethodToken,
 		ServerAddress: creds.ServerAddress,
 		Token:         creds.Token,
-		Phone:         creds.Phone, // Keep phone for display purposes
+		RefreshToken:  creds.RefreshToken,
+		Phone:         creds.Phone,
 		Remember:      true,
 	})
+
+	// If login failed and we have refresh token, try to refresh
+	if (err != nil || !resp.Success) && creds.RefreshToken != "" {
+		s.log.Info().Msg("Token may be expired, attempting refresh")
+
+		tokens, refreshErr := s.refreshAccessToken(creds.ServerAddress, creds.RefreshToken)
+		if refreshErr != nil {
+			s.log.Warn().Err(refreshErr).Msg("Token refresh failed")
+			// Return original error
+			if err != nil {
+				return nil, err
+			}
+			return resp, nil
+		}
+
+		s.log.Info().Msg("Token refreshed successfully")
+
+		// Retry with new token
+		return s.Login(LoginRequest{
+			Method:        AuthMethodToken,
+			ServerAddress: creds.ServerAddress,
+			Token:         tokens.AccessToken,
+			RefreshToken:  tokens.RefreshToken,
+			Phone:         creds.Phone,
+			Remember:      true,
+		})
+	}
+
+	return resp, err
 }
 
 // IsConnected returns true if the client is connected
@@ -242,14 +275,15 @@ func (s *AuthService) GetServerAddress() string {
 	return ""
 }
 
-// authenticateWithPassword authenticates with phone/password and returns JWT
-func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totpCode string) (string, error) {
-	// Build API URL - extract hostname without port
-	host := serverAddr
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-	apiURL := fmt.Sprintf("https://%s/api/auth/login", host)
+// authTokens holds access and refresh tokens
+type authTokens struct {
+	AccessToken  string
+	RefreshToken string
+}
+
+// authenticateWithPassword authenticates with phone/password and returns tokens
+func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totpCode string) (*authTokens, error) {
+	apiURL := s.buildAPIURL(serverAddr, "/api/auth/login")
 
 	// Create request body
 	reqBody := map[string]string{
@@ -262,20 +296,20 @@ func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totp
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
 	// Make HTTP request
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Post(apiURL, "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", fmt.Errorf("login request failed: %w", err)
+		return nil, fmt.Errorf("login request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -285,12 +319,12 @@ func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totp
 		}
 		json.Unmarshal(body, &errResp)
 		if errResp.Code == "TOTP_REQUIRED" {
-			return "", ErrTOTPRequired
+			return nil, ErrTOTPRequired
 		}
 		if errResp.Error != "" {
-			return "", fmt.Errorf(errResp.Error)
+			return nil, fmt.Errorf(errResp.Error)
 		}
-		return "", fmt.Errorf("login failed with status %d", resp.StatusCode)
+		return nil, fmt.Errorf("login failed with status %d", resp.StatusCode)
 	}
 
 	var loginResp struct {
@@ -298,10 +332,63 @@ func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totp
 		RefreshToken string `json:"refresh_token"`
 	}
 	if err := json.Unmarshal(body, &loginResp); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
+		return nil, fmt.Errorf("parse response: %w", err)
 	}
 
-	// For now, use access token as the tunnel auth token
-	// In production, you might need to exchange this for an API token
-	return loginResp.AccessToken, nil
+	return &authTokens{
+		AccessToken:  loginResp.AccessToken,
+		RefreshToken: loginResp.RefreshToken,
+	}, nil
+}
+
+// refreshAccessToken uses refresh token to get a new access token
+func (s *AuthService) refreshAccessToken(serverAddr, refreshToken string) (*authTokens, error) {
+	apiURL := s.buildAPIURL(serverAddr, "/api/auth/refresh")
+
+	reqBody := map[string]string{
+		"refresh_token": refreshToken,
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(apiURL, "application/json", bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("refresh request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("refresh failed with status %d", resp.StatusCode)
+	}
+
+	var refreshResp struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(body, &refreshResp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	return &authTokens{
+		AccessToken:  refreshResp.AccessToken,
+		RefreshToken: refreshResp.RefreshToken,
+	}, nil
+}
+
+// buildAPIURL constructs API URL from server address
+func (s *AuthService) buildAPIURL(serverAddr, path string) string {
+	host := serverAddr
+	if idx := strings.Index(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	return fmt.Sprintf("https://%s%s", host, path)
 }
