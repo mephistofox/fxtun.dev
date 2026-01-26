@@ -51,12 +51,12 @@ function cycleTheme() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-background p-4">
+  <div class="min-h-screen flex items-center justify-center hero-gradient p-4">
     <!-- Theme and Language Switchers -->
     <div class="fixed top-4 right-4 flex items-center space-x-2">
       <button
         @click="cycleTheme"
-        class="p-2 rounded-md hover:bg-accent transition-colors"
+        class="p-2 rounded-lg hover:bg-accent/10 transition-colors"
         :title="t(`theme.${themeStore.mode}`)"
       >
         <svg
@@ -105,20 +105,36 @@ function cycleTheme() {
       </button>
       <button
         @click="toggleLocale"
-        class="px-2 py-1 text-sm font-medium rounded-md hover:bg-accent transition-colors"
+        class="px-2 py-1 text-sm font-medium rounded-lg hover:bg-accent/10 transition-colors"
       >
         {{ getLocale() === 'en' ? 'RU' : 'EN' }}
       </button>
     </div>
 
-    <Card class="w-full max-w-md p-6">
-      <div class="text-center mb-6">
+    <!-- Back to landing -->
+    <RouterLink
+      to="/"
+      class="fixed top-4 left-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+      </svg>
+      {{ t('landing.nav.backToHome') }}
+    </RouterLink>
+
+    <Card variant="glass" class="w-full max-w-md p-8 animate-fade-in-up">
+      <div class="text-center mb-8">
+        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
         <h1 class="text-2xl font-bold">fxTunnel</h1>
-        <p class="text-muted-foreground mt-1">{{ t('auth.signInTitle') }}</p>
+        <p class="text-muted-foreground mt-2">{{ t('auth.signInTitle') }}</p>
       </div>
 
-      <form @submit.prevent="handleSubmit" class="space-y-4">
-        <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+      <form @submit.prevent="handleSubmit" class="space-y-5">
+        <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-lg text-sm border border-destructive/20">
           {{ error }}
         </div>
 
@@ -137,12 +153,14 @@ function cycleTheme() {
           <Input v-model="totpCode" type="text" placeholder="123456" maxlength="6" required />
         </div>
 
-        <Button type="submit" class="w-full" :loading="authStore.loading">{{ t('auth.signIn') }}</Button>
+        <Button type="submit" variant="glow" class="w-full" size="lg" :loading="authStore.loading">
+          {{ t('auth.signIn') }}
+        </Button>
       </form>
 
-      <p class="text-center text-sm text-muted-foreground mt-4">
+      <p class="text-center text-sm text-muted-foreground mt-6">
         {{ t('auth.noAccount') }}
-        <RouterLink to="/register" class="text-primary hover:underline">{{ t('auth.signUp') }}</RouterLink>
+        <RouterLink to="/register" class="text-primary hover:underline font-medium">{{ t('auth.signUp') }}</RouterLink>
       </p>
     </Card>
   </div>

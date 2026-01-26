@@ -1,4 +1,123 @@
 {
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "howItWorks": "How It Works",
+      "protocols": "Protocols",
+      "download": "Download",
+      "backToHome": "Back to home"
+    },
+    "hero": {
+      "badge": "Self-hosted",
+      "titleLine1": "Expose your",
+      "titleLine2": "localhost",
+      "titleLine3": "to the world",
+      "subtitle": "Self-hosted reverse tunneling solution. Share your localhost with anyone, anywhere, using your own infrastructure.",
+      "getStarted": "Get Started",
+      "learnMore": "Learn More"
+    },
+    "features": {
+      "label": "Why fxTunnel",
+      "title": "Why fxTunnel?",
+      "subtitle": "A modern tunneling solution built for developers who value control, security, and simplicity.",
+      "control": {
+        "title": "Full Control",
+        "desc": "Run on your own infrastructure. No third-party dependencies, complete data ownership, and zero vendor lock-in.",
+        "highlight1": "Self-hosted on your servers",
+        "highlight2": "No data leaves your infrastructure",
+        "highlight3": "Custom domain support"
+      },
+      "protocols": {
+        "title": "Multi-Protocol",
+        "desc": "Support for HTTP, TCP, and UDP tunnels. Expose any service you need, from web apps to game servers.",
+        "highlight1": "HTTP with custom subdomains",
+        "highlight2": "TCP for SSH, databases, APIs",
+        "highlight3": "UDP for gaming and real-time"
+      },
+      "security": {
+        "title": "Secure by Design",
+        "desc": "Enterprise-grade security with TLS encryption, token-based authentication, and two-factor authentication.",
+        "highlight1": "TLS encryption everywhere",
+        "highlight2": "Token-based authentication",
+        "highlight3": "Two-factor authentication"
+      },
+      "fast": {
+        "title": "Lightning Fast",
+        "short": "Go + yamux"
+      },
+      "multiUser": {
+        "title": "Multi-User",
+        "short": "Admin panel"
+      },
+      "subdomains": {
+        "title": "Custom Subdomains",
+        "short": "Reserve yours"
+      },
+      "gui": {
+        "title": "GUI & CLI",
+        "short": "Your choice"
+      }
+    },
+    "howItWorks": {
+      "label": "Quick Start",
+      "title": "Get Started in Minutes",
+      "subtitle": "Three simple steps to expose your local services to the world.",
+      "step1": {
+        "title": "Download the Client",
+        "desc": "Get the CLI or GUI client for your platform."
+      },
+      "step2": {
+        "title": "Authenticate",
+        "desc": "Create an account and generate an API token."
+      },
+      "step3": {
+        "title": "Create a Tunnel",
+        "desc": "Run a single command to go live."
+      }
+    },
+    "protocols": {
+      "label": "Multi-Protocol",
+      "title": "Flexible Protocol Support",
+      "subtitle": "Whether you need to expose a web app, SSH server, or game server - we've got you covered.",
+      "http": {
+        "title": "HTTP Tunnels",
+        "desc": "Expose web applications with custom subdomains. Perfect for webhooks, demos, and development.",
+        "feature1": "Custom subdomain support",
+        "feature2": "Automatic HTTPS",
+        "feature3": "WebSocket support"
+      },
+      "tcp": {
+        "title": "TCP Tunnels",
+        "desc": "Forward any TCP-based service with dedicated ports. Ideal for SSH, databases, and custom protocols.",
+        "feature1": "SSH, databases, APIs",
+        "feature2": "Dedicated port allocation",
+        "feature3": "Persistent connections"
+      },
+      "udp": {
+        "title": "UDP Tunnels",
+        "desc": "Support for real-time and gaming applications. Low-latency forwarding for demanding use cases.",
+        "feature1": "Game servers, VoIP",
+        "feature2": "Low-latency forwarding",
+        "feature3": "DNS tunneling"
+      }
+    },
+    "download": {
+      "badge": "Ready to start?",
+      "title": "Ready to Start?",
+      "subtitle": "Create an account and download the client to begin tunneling.",
+      "createAccount": "Create Account",
+      "signIn": "Sign In",
+      "note": "After registration, download the client and generate API tokens from your dashboard.",
+      "openSource": "Open source and self-hosted",
+      "secure": "Self-hosted & Secure"
+    },
+    "footer": {
+      "tagline": "Self-hosted tunneling",
+      "releases": "Releases",
+      "issues": "Issues",
+      "rights": "All rights reserved."
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
