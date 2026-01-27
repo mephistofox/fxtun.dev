@@ -7,59 +7,59 @@
 
 @layer base {
   :root {
-    /* Cyber-Industrial Noir - Light Theme */
-    --background: 0 0% 98%;
-    --foreground: 220 20% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    /* Cyber-Industrial Noir - Light Theme (softer, less harsh) */
+    --background: 220 20% 95%;
+    --foreground: 220 25% 12%;
+    --card: 220 20% 98%;
+    --card-foreground: 220 25% 12%;
+    --popover: 220 20% 98%;
+    --popover-foreground: 220 25% 12%;
 
     /* Primary - Electric Lime */
-    --primary: 75 100% 45%;
+    --primary: 75 85% 40%;
     --primary-foreground: 220 20% 5%;
-    --primary-dim: 75 70% 35%;
+    --primary-dim: 75 70% 32%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 10%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 45%;
+    --secondary: 220 18% 92%;
+    --secondary-foreground: 220 25% 12%;
+    --muted: 220 18% 92%;
+    --muted-foreground: 220 15% 40%;
 
     /* Accent - Vivid Purple */
-    --accent: 280 100% 60%;
+    --accent: 280 80% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 75 100% 45%;
+    --border: 220 18% 85%;
+    --input: 220 18% 88%;
+    --ring: 75 85% 40%;
     --radius: 0.625rem;
 
     /* Surface colors */
-    --surface: 220 14% 96%;
-    --surface-elevated: 0 0% 100%;
+    --surface: 220 18% 92%;
+    --surface-elevated: 220 20% 98%;
 
     /* Status colors */
-    --success: 160 84% 39%;
+    --success: 160 72% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 85% 48%;
     --warning-foreground: 0 0% 0%;
-    --info: 217 91% 60%;
+    --info: 217 80% 55%;
     --info-foreground: 0 0% 100%;
 
-    /* Protocol type colors */
-    --type-http: 160 84% 39%;
-    --type-tcp: 217 91% 60%;
-    --type-udp: 280 100% 60%;
+    /* Protocol type colors - slightly muted for light theme */
+    --type-http: 160 72% 36%;
+    --type-tcp: 217 80% 50%;
+    --type-udp: 280 70% 55%;
 
     /* Glow effects */
-    --glow-primary: 75 100% 45%;
-    --glow-accent: 280 100% 60%;
+    --glow-primary: 75 85% 40%;
+    --glow-accent: 280 80% 55%;
 
     /* Glass effect */
-    --glass-bg: 0 0% 100% / 0.8;
-    --glass-border: 220 13% 90% / 0.5;
+    --glass-bg: 220 20% 98% / 0.85;
+    --glass-border: 220 18% 80% / 0.6;
   }
 
   .dark {
