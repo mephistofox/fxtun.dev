@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0](https://github.com/mephistofox/fxTunnel/compare/v1.3.1...v1.4.0) (2026-01-27)
+
+
+### Features
+
+* **client:** add automatic JWT token refresh on reconnect ([1feff99](https://github.com/mephistofox/fxTunnel/commit/1feff9990a6bd0c937e0241c30e53f72acb752fd))
+* **server:** add custom styled 404 error page ([2b5d08a](https://github.com/mephistofox/fxTunnel/commit/2b5d08ab24d122fc507b22d9d2b520dd87a9a177))
+* **web:** redesign landing page with modern cyber-industrial theme ([2f76e15](https://github.com/mephistofox/fxTunnel/commit/2f76e15a8791382c168985386d56e3e428ee751c))
+* **web:** update landing page fonts and add animated card borders ([fdcb6d7](https://github.com/mephistofox/fxTunnel/commit/fdcb6d7d5712ddb524a30af5c6baf8d410c2633e))
+
 ## [1.3.1](https://github.com/mephistofox/fxTunnel/compare/v1.3.0...v1.3.1) (2026-01-26)
 
 
