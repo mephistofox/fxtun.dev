@@ -113,10 +113,16 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	// Save auth state
 	s.app.serverAddress = req.ServerAddress
 	s.app.authToken = token
+	s.app.refreshToken = refreshToken
 
 	// Create and connect client
 	s.app.client = client.New(cfg, s.log)
 	s.app.subscribeToClientEvents()
+
+	// Set token refresher for automatic token renewal on reconnect
+	if refreshToken != "" {
+		s.app.client.SetTokenRefresher(s.createTokenRefresher(req.ServerAddress, req.Remember))
+	}
 
 	if err := s.app.client.Connect(); err != nil {
 		return &LoginResponse{
@@ -155,6 +161,46 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		Success:  true,
 		ClientID: "", // Will be set after connect
 	}, nil
+}
+
+// createTokenRefresher creates a callback function that refreshes the access token
+func (s *AuthService) createTokenRefresher(serverAddr string, saveToKeyring bool) client.TokenRefresher {
+	return func(_ string) (string, error) {
+		s.log.Info().Msg("Token expired, attempting refresh...")
+
+		// Use the stored refresh token
+		refreshToken := s.app.refreshToken
+		if refreshToken == "" {
+			return "", fmt.Errorf("no refresh token available")
+		}
+
+		// Refresh the token
+		tokens, err := s.refreshAccessToken(serverAddr, refreshToken)
+		if err != nil {
+			s.log.Error().Err(err).Msg("Failed to refresh token")
+			return "", err
+		}
+
+		s.log.Info().Msg("Token refreshed successfully")
+
+		// Update stored tokens
+		s.app.authToken = tokens.AccessToken
+		s.app.refreshToken = tokens.RefreshToken
+
+		// Save to keyring if remember is enabled
+		if saveToKeyring {
+			creds, _ := s.app.keyring.LoadCredentials()
+			if creds != nil {
+				creds.Token = tokens.AccessToken
+				creds.RefreshToken = tokens.RefreshToken
+				if err := s.app.keyring.SaveCredentials(*creds); err != nil {
+					s.log.Error().Err(err).Msg("Failed to update credentials in keyring")
+				}
+			}
+		}
+
+		return tokens.AccessToken, nil
+	}
 }
 
 // Logout disconnects and clears credentials

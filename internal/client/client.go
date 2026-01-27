@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -16,6 +17,10 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
+
+// TokenRefresher is a callback function that refreshes the authentication token.
+// It receives the server address and should return a new token or an error.
+type TokenRefresher func(serverAddr string) (newToken string, err error)
 
 // Client is the tunnel client
 type Client struct {
@@ -41,9 +46,11 @@ type Client struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	reconnecting bool
-	reconnectMu  sync.Mutex
-	mu           sync.Mutex // for writing to control stream
+	reconnecting   bool
+	reconnectMu    sync.Mutex
+	mu             sync.Mutex // for writing to control stream
+	tokenRefresher TokenRefresher
+	tokenMu        sync.RWMutex
 }
 
 // ActiveTunnel represents an active tunnel on the client side
@@ -73,6 +80,22 @@ func New(cfg *config.ClientConfig, log zerolog.Logger) *Client {
 // Events returns the event emitter for subscribing to client events
 func (c *Client) Events() *EventEmitter {
 	return c.events
+}
+
+// SetTokenRefresher sets a callback function that will be called when the token expires.
+// The callback should return a new valid token.
+func (c *Client) SetTokenRefresher(refresher TokenRefresher) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	c.tokenRefresher = refresher
+}
+
+// UpdateToken updates the token used for authentication.
+// This is useful when the token has been refreshed externally.
+func (c *Client) UpdateToken(newToken string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	c.cfg.Server.Token = newToken
 }
 
 // Connect connects to the server
@@ -144,9 +167,13 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) authenticate() error {
+	c.tokenMu.RLock()
+	token := c.cfg.Server.Token
+	c.tokenMu.RUnlock()
+
 	authMsg := &protocol.AuthMessage{
 		Message:   protocol.NewMessage(protocol.MsgAuth),
-		Token:     c.cfg.Server.Token,
+		Token:     token,
 		ClientID:  generateID(),
 		UserAgent: "fxtunnel-client/1.0",
 	}
@@ -175,6 +202,10 @@ func (c *Client) authenticate() error {
 
 	result := parsed.(*protocol.AuthResultMessage)
 	if !result.Success {
+		// Check if the error is due to an expired token
+		if result.Code == protocol.ErrCodeTokenExpired {
+			return NewAuthError(result.Code, result.Error)
+		}
 		return fmt.Errorf("authentication failed: %s", result.Error)
 	}
 
@@ -530,6 +561,34 @@ func (c *Client) reconnect() {
 
 		// Try to connect
 		if err := c.Connect(); err != nil {
+			// Check if the error is due to an expired token (directly or wrapped)
+			var authErr *AuthError
+			if errors.As(err, &authErr) && authErr.IsTokenExpired() {
+				c.log.Warn().Msg("Token expired, attempting refresh...")
+
+				c.tokenMu.RLock()
+				refresher := c.tokenRefresher
+				c.tokenMu.RUnlock()
+
+				if refresher != nil {
+					newToken, refreshErr := refresher(c.cfg.Server.Address)
+					if refreshErr != nil {
+						c.log.Error().Err(refreshErr).Msg("Failed to refresh token")
+						time.Sleep(interval)
+						continue
+					}
+
+					c.UpdateToken(newToken)
+					c.log.Info().Msg("Token refreshed successfully, retrying connection...")
+					// Don't sleep, try immediately with new token
+					continue
+				} else {
+					c.log.Error().Msg("Token expired but no token refresher configured")
+					c.Close()
+					return
+				}
+			}
+
 			c.log.Error().Err(err).Msg("Reconnection failed")
 			time.Sleep(interval)
 			continue
