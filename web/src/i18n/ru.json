@@ -10,7 +10,7 @@
     "hero": {
       "badge": "Self-hosted",
       "titleLine1": "Откройте ваш",
-      "titleLine2": "localhost",
+      "titleLine2": "проект",
       "titleLine3": "всему миру",
       "subtitle": "Self-hosted решение для туннелирования. Полный контроль над данными, ваша инфраструктура, нулевая зависимость от сторонних сервисов.",
       "getStarted": "Начать",

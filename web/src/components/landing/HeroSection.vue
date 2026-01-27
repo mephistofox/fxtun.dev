@@ -56,7 +56,7 @@ onMounted(() => {
           <!-- Headline -->
           <div class="space-y-4">
             <h1
-              class="text-display-xl font-display"
+              class="text-display-lg font-display"
               :style="isVisible ? 'animation: fade-in-up 0.8s ease-out 0.2s forwards; opacity: 0' : ''"
             >
               <span class="block text-foreground">{{ t('landing.hero.titleLine1') || 'Expose your' }}</span>

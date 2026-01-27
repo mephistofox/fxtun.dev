@@ -70,8 +70,8 @@ export default {
         '3xl': '1.5rem',
       },
       fontFamily: {
-        display: ['Clash Display', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Satoshi', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Unbounded', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       fontSize: {

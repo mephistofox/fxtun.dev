@@ -31,11 +31,11 @@ const steps = [
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
 const cardsContainerRef = ref<HTMLElement | null>(null)
+const isHovering = ref(false)
 
 function handleMouseMove(e: MouseEvent) {
   if (!cardsContainerRef.value) return
 
-  const containerRect = cardsContainerRef.value.getBoundingClientRect()
   const cards = cardsContainerRef.value.querySelectorAll<HTMLElement>('[data-card]')
 
   cards.forEach((card) => {
@@ -45,6 +45,14 @@ function handleMouseMove(e: MouseEvent) {
     card.style.setProperty('--mouse-x', `${x}px`)
     card.style.setProperty('--mouse-y', `${y}px`)
   })
+}
+
+function handleMouseEnter() {
+  isHovering.value = true
+}
+
+function handleMouseLeave() {
+  isHovering.value = false
 }
 
 onMounted(() => {
@@ -66,12 +74,16 @@ onMounted(() => {
 
   if (cardsContainerRef.value) {
     cardsContainerRef.value.addEventListener('mousemove', handleMouseMove)
+    cardsContainerRef.value.addEventListener('mouseenter', handleMouseEnter)
+    cardsContainerRef.value.addEventListener('mouseleave', handleMouseLeave)
   }
 })
 
 onUnmounted(() => {
   if (cardsContainerRef.value) {
     cardsContainerRef.value.removeEventListener('mousemove', handleMouseMove)
+    cardsContainerRef.value.removeEventListener('mouseenter', handleMouseEnter)
+    cardsContainerRef.value.removeEventListener('mouseleave', handleMouseLeave)
   }
 })
 </script>
@@ -115,6 +127,7 @@ onUnmounted(() => {
         <div
           ref="cardsContainerRef"
           class="cards-spotlight grid md:grid-cols-3 gap-4 md:gap-5"
+          :class="{ 'is-hovering': isHovering }"
         >
           <div
             v-for="(step, index) in steps"
@@ -126,6 +139,9 @@ onUnmounted(() => {
               `reveal-delay-${3 + index}`
             ]"
           >
+            <!-- Animated border glow -->
+            <div class="card-border-glow" />
+
             <!-- Card inner content -->
             <div class="spotlight-card-content">
               <!-- Step number badge -->
@@ -173,11 +189,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Mobile connectors -->
-        <div class="md:hidden flex flex-col items-center -mt-2">
-          <div v-for="i in 2" :key="i" class="w-px h-8 bg-gradient-to-b from-primary/50 to-border my-2" />
-        </div>
-
         <!-- Result showcase -->
         <div
           class="mt-16 text-center reveal reveal-delay-7"
@@ -197,6 +208,33 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* CSS Custom Property for animation */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --glow-position {
+  syntax: "<percentage>";
+  initial-value: 0%;
+  inherits: true;
+}
+
+.cards-spotlight {
+  --glow-position: 0%;
+  animation: glow-sweep 6s ease-in-out infinite;
+}
+
+@keyframes glow-sweep {
+  0%, 100% {
+    --glow-position: -20%;
+  }
+  50% {
+    --glow-position: 120%;
+  }
+}
+
 .spotlight-card {
   --mouse-x: 50%;
   --mouse-y: 50%;
@@ -206,17 +244,17 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* Animated gradient border */
-.spotlight-card::before {
-  content: '';
+/* Animated border with rotating gradient */
+.card-border-glow {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(
-    180deg,
-    hsl(var(--border)) 0%,
-    hsl(var(--border) / 0.3) 100%
+  background: conic-gradient(
+    from var(--border-angle),
+    transparent 40%,
+    hsl(var(--primary)) 50%,
+    transparent 60%
   );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -227,10 +265,37 @@ onUnmounted(() => {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+  opacity: 0;
+  animation: border-spin 4s linear infinite;
+  transition: opacity 0.5s;
+}
+
+.spotlight-card:hover .card-border-glow {
+  opacity: 1;
+}
+
+@keyframes border-spin {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Traveling glow effect across all cards */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    300px circle at var(--glow-position) 50%,
+    hsl(var(--primary) / 0.12),
+    transparent 60%
+  );
+  pointer-events: none;
   transition: opacity 0.3s;
 }
 
-/* Spotlight glow effect on hover */
+/* Mouse-follow spotlight on hover */
 .spotlight-card::after {
   content: '';
   position: absolute;
@@ -239,24 +304,21 @@ onUnmounted(() => {
   opacity: 0;
   transition: opacity 0.4s;
   background: radial-gradient(
-    600px circle at var(--mouse-x) var(--mouse-y),
-    hsl(var(--primary) / 0.15),
+    400px circle at var(--mouse-x) var(--mouse-y),
+    hsl(var(--primary) / 0.2),
     transparent 40%
   );
   pointer-events: none;
 }
 
-.cards-spotlight:hover .spotlight-card::after {
+/* Show mouse spotlight when hovering container */
+.cards-spotlight.is-hovering .spotlight-card::after {
   opacity: 1;
 }
 
-/* Border glow on hover */
-.spotlight-card:hover::before {
-  background: linear-gradient(
-    180deg,
-    hsl(var(--primary) / 0.5) 0%,
-    hsl(var(--primary) / 0.1) 100%
-  );
+/* Hide traveling glow when hovering */
+.cards-spotlight.is-hovering .spotlight-card::before {
+  opacity: 0;
 }
 
 .spotlight-card-content {
@@ -266,15 +328,11 @@ onUnmounted(() => {
   height: 100%;
   background: hsl(var(--background));
   border-radius: inherit;
+  border: 1px solid hsl(var(--border) / 0.5);
+  transition: border-color 0.3s;
 }
 
-/* Subtle inner shadow for depth */
-.spotlight-card-content::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 1px 1px hsl(var(--foreground) / 0.03);
-  pointer-events: none;
+.spotlight-card:hover .spotlight-card-content {
+  border-color: hsl(var(--primary) / 0.3);
 }
 </style>
