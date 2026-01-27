@@ -25,6 +25,7 @@ type App struct {
 	// Auth state
 	serverAddress string
 	authToken     string
+	refreshToken  string
 
 	// Services exposed to frontend
 	TunnelService   *TunnelService
