@@ -208,16 +208,7 @@ func (r *HTTPRouter) extractSubdomain(host string) string {
 
 // sendErrorResponse sends an HTTP error response
 func (r *HTTPRouter) sendErrorResponse(conn net.Conn, status int, message string) {
-	body := fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head><title>%d %s</title></head>
-<body>
-<h1>%d %s</h1>
-<p>%s</p>
-<hr>
-<p>fxTunnel</p>
-</body>
-</html>`, status, http.StatusText(status), status, http.StatusText(status), message)
+	body := r.buildErrorPage(status, message)
 
 	response := fmt.Sprintf("HTTP/1.1 %d %s\r\n"+
 		"Content-Type: text/html; charset=utf-8\r\n"+
@@ -226,4 +217,246 @@ func (r *HTTPRouter) sendErrorResponse(conn net.Conn, status int, message string
 		"\r\n%s", status, http.StatusText(status), len(body), body)
 
 	conn.Write([]byte(response))
+}
+
+// buildErrorPage generates a styled error page
+func (r *HTTPRouter) buildErrorPage(status int, message string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%d %s | fxTunnel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: hsl(220 20%% 4%%);
+            --foreground: hsl(0 0%% 95%%);
+            --primary: hsl(75 100%% 50%%);
+            --primary-dim: hsl(75 80%% 35%%);
+            --accent: hsl(280 100%% 65%%);
+            --muted: hsl(220 10%% 55%%);
+            --card: hsl(220 15%% 8%%);
+            --border: hsl(220 15%% 15%%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--background);
+            color: var(--foreground);
+            font-family: 'Onest', system-ui, sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated grid background */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.3;
+            animation: grid-move 20s linear infinite;
+        }
+
+        @keyframes grid-move {
+            0%% { transform: translate(0, 0); }
+            100%% { transform: translate(60px, 60px); }
+        }
+
+        /* Glowing orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--primary);
+            top: -200px;
+            right: -100px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--accent);
+            bottom: -150px;
+            left: -100px;
+            animation-delay: -4s;
+        }
+
+        @keyframes float {
+            0%%, 100%% { transform: translate(0, 0) scale(1); }
+            50%% { transform: translate(30px, -30px) scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .error-code {
+            font-family: 'Unbounded', sans-serif;
+            font-size: clamp(8rem, 20vw, 14rem);
+            font-weight: 700;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--primary) 0%%, var(--accent) 100%%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 80px hsla(75, 100%%, 50%%, 0.3);
+            animation: glow-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+            0%%, 100%% { filter: brightness(1); }
+            50%% { filter: brightness(1.2); }
+        }
+
+        .error-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 500;
+            margin-top: 1rem;
+            color: var(--foreground);
+        }
+
+        .error-message {
+            font-size: 1.125rem;
+            color: var(--muted);
+            margin-top: 1rem;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .card {
+            margin-top: 2.5rem;
+            padding: 1.5rem 2rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            display: inline-block;
+        }
+
+        .card-content {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 50%%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%%, 100%% { opacity: 1; transform: scale(1); }
+            50%% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .brand {
+            margin-top: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .brand-logo {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--primary) 0%%, var(--accent) 100%%);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .brand-logo svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .brand-name {
+            font-family: 'Unbounded', sans-serif;
+            font-weight: 500;
+            color: var(--foreground);
+        }
+
+        /* Scan line effect */
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.1;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0%% { top: 0; }
+            100%% { top: 100%%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="scanline"></div>
+
+    <div class="container">
+        <div class="error-code">%d</div>
+        <h1 class="error-title">%s</h1>
+        <p class="error-message">%s</p>
+
+        <div class="card">
+            <div class="card-content">
+                <div class="pulse-dot"></div>
+                <span>No active tunnel on this subdomain</span>
+            </div>
+        </div>
+
+        <div class="brand">
+            <div class="brand-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="hsl(220, 20%%, 4%%)"/>
+                </svg>
+            </div>
+            <span>Powered by <span class="brand-name">fxTunnel</span></span>
+        </div>
+    </div>
+</body>
+</html>`, status, http.StatusText(status), status, http.StatusText(status), message)
 }
