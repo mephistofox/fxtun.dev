@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,6 +30,22 @@ const steps = [
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
+const cardsContainerRef = ref<HTMLElement | null>(null)
+
+function handleMouseMove(e: MouseEvent) {
+  if (!cardsContainerRef.value) return
+
+  const containerRect = cardsContainerRef.value.getBoundingClientRect()
+  const cards = cardsContainerRef.value.querySelectorAll<HTMLElement>('[data-card]')
+
+  cards.forEach((card) => {
+    const cardRect = card.getBoundingClientRect()
+    const x = e.clientX - cardRect.left
+    const y = e.clientY - cardRect.top
+    card.style.setProperty('--mouse-x', `${x}px`)
+    card.style.setProperty('--mouse-y', `${y}px`)
+  })
+}
 
 onMounted(() => {
   const observer = new IntersectionObserver(
@@ -46,6 +62,16 @@ onMounted(() => {
 
   if (sectionRef.value) {
     observer.observe(sectionRef.value)
+  }
+
+  if (cardsContainerRef.value) {
+    cardsContainerRef.value.addEventListener('mousemove', handleMouseMove)
+  }
+})
+
+onUnmounted(() => {
+  if (cardsContainerRef.value) {
+    cardsContainerRef.value.removeEventListener('mousemove', handleMouseMove)
   }
 })
 </script>
@@ -83,35 +109,32 @@ onMounted(() => {
         </p>
       </div>
 
-      <!-- Steps - Horizontal on desktop, vertical on mobile -->
+      <!-- Steps -->
       <div class="max-w-5xl mx-auto">
-        <div class="grid md:grid-cols-3 gap-8 md:gap-6 relative">
-          <!-- Connection line (desktop only) -->
-          <div class="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px">
-            <div class="data-flow-line h-0.5" />
-          </div>
-
-          <!-- Steps -->
+        <!-- Cards container with spotlight effect -->
+        <div
+          ref="cardsContainerRef"
+          class="cards-spotlight grid md:grid-cols-3 gap-4 md:gap-5"
+        >
           <div
             v-for="(step, index) in steps"
             :key="index"
-            class="relative reveal"
+            data-card
+            class="spotlight-card reveal"
             :class="[
               { 'visible': isVisible },
               `reveal-delay-${3 + index}`
             ]"
           >
-            <!-- Step card -->
-            <div class="glass-card-glow p-6 h-full">
+            <!-- Card inner content -->
+            <div class="spotlight-card-content">
               <!-- Step number badge -->
               <div class="flex items-center justify-between mb-6">
                 <div class="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center relative">
                   <span class="text-lg font-display font-bold text-primary">{{ step.number }}</span>
-                  <!-- Pulse effect on first step -->
                   <div v-if="index === 0" class="absolute inset-0 rounded-xl animate-pulse-ring bg-primary/20" />
                 </div>
 
-                <!-- Icon -->
                 <div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center text-muted-foreground">
                   <svg v-if="step.icon === 'download'" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -138,7 +161,6 @@ onMounted(() => {
                 <div class="bg-[hsl(220,20%,6%)] rounded-lg p-3 font-mono text-sm overflow-x-auto border border-border">
                   <code class="text-primary">{{ step.code }}</code>
                 </div>
-                <!-- Copy hint on hover -->
                 <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button class="p-1.5 rounded bg-surface/80 text-muted-foreground hover:text-foreground">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -148,12 +170,12 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-
-            <!-- Vertical connector (mobile only) -->
-            <div v-if="index < steps.length - 1" class="md:hidden flex justify-center py-4">
-              <div class="w-px h-8 bg-gradient-to-b from-primary/50 to-border" />
-            </div>
           </div>
+        </div>
+
+        <!-- Mobile connectors -->
+        <div class="md:hidden flex flex-col items-center -mt-2">
+          <div v-for="i in 2" :key="i" class="w-px h-8 bg-gradient-to-b from-primary/50 to-border my-2" />
         </div>
 
         <!-- Result showcase -->
@@ -173,3 +195,86 @@ onMounted(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.spotlight-card {
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  position: relative;
+  border-radius: 1rem;
+  background: hsl(var(--background));
+  overflow: hidden;
+}
+
+/* Animated gradient border */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    180deg,
+    hsl(var(--border)) 0%,
+    hsl(var(--border) / 0.3) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+/* Spotlight glow effect on hover */
+.spotlight-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.4s;
+  background: radial-gradient(
+    600px circle at var(--mouse-x) var(--mouse-y),
+    hsl(var(--primary) / 0.15),
+    transparent 40%
+  );
+  pointer-events: none;
+}
+
+.cards-spotlight:hover .spotlight-card::after {
+  opacity: 1;
+}
+
+/* Border glow on hover */
+.spotlight-card:hover::before {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--primary) / 0.5) 0%,
+    hsl(var(--primary) / 0.1) 100%
+  );
+}
+
+.spotlight-card-content {
+  position: relative;
+  z-index: 10;
+  padding: 1.5rem;
+  height: 100%;
+  background: hsl(var(--background));
+  border-radius: inherit;
+}
+
+/* Subtle inner shadow for depth */
+.spotlight-card-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 1px hsl(var(--foreground) / 0.03);
+  pointer-events: none;
+}
+</style>
