@@ -10,7 +10,7 @@
     "hero": {
       "badge": "Self-hosted",
       "titleLine1": "Expose your",
-      "titleLine2": "localhost",
+      "titleLine2": "project",
       "titleLine3": "to the world",
       "subtitle": "Self-hosted reverse tunneling solution. Share your localhost with anyone, anywhere, using your own infrastructure.",
       "getStarted": "Get Started",
