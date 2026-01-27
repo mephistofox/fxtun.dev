@@ -340,7 +340,21 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 	// Try JWT authentication (for GUI login with phone/password)
 	if s.authService != nil && isJWT(authMsg.Token) {
 		claims, err := s.authService.ValidateAccessToken(authMsg.Token)
-		if err == nil && claims != nil {
+		if err != nil {
+			// Check if token is expired - don't fallback to legacy tokens
+			if err == auth.ErrTokenExpired {
+				result := &protocol.AuthResultMessage{
+					Message: protocol.NewMessage(protocol.MsgAuthResult),
+					Success: false,
+					Error:   "token expired",
+					Code:    protocol.ErrCodeTokenExpired,
+				}
+				codec.Encode(result)
+				return nil, fmt.Errorf("token expired")
+			}
+			// Other JWT errors - continue to legacy token check
+			log.Debug().Err(err).Msg("JWT validation failed, trying legacy tokens")
+		} else if claims != nil {
 			// Valid JWT - create client for user
 			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
 

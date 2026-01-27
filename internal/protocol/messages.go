@@ -68,6 +68,7 @@ type AuthResultMessage struct {
 	Success     bool   `json:"success"`
 	ClientID    string `json:"client_id,omitempty"`
 	Error       string `json:"error,omitempty"`
+	Code        string `json:"code,omitempty"`
 	MaxTunnels  int    `json:"max_tunnels,omitempty"`
 	ServerName  string `json:"server_name,omitempty"`
 	SessionID   string `json:"session_id,omitempty"`
@@ -171,6 +172,7 @@ type ErrorMessage struct {
 const (
 	ErrCodeAuthFailed       = "AUTH_FAILED"
 	ErrCodeInvalidToken     = "INVALID_TOKEN"
+	ErrCodeTokenExpired     = "TOKEN_EXPIRED"
 	ErrCodeTunnelLimit      = "TUNNEL_LIMIT"
 	ErrCodeSubdomainTaken   = "SUBDOMAIN_TAKEN"
 	ErrCodeSubdomainInvalid = "SUBDOMAIN_INVALID"
