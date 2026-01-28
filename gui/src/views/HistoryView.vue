@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useHistoryStore } from '@/stores/history'
 import { toast } from '@/composables/useToast'
 import {
-  Button, Badge, Tooltip,
+  Button, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui'
 import { Trash2, RefreshCw, History, ArrowUpRight, ArrowDownRight, Clock, Globe, Server, Radio } from 'lucide-vue-next'
@@ -66,7 +66,7 @@ function formatBytes(bytes: number): string {
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
@@ -83,123 +83,106 @@ function getTunnelIcon(type: TunnelType) {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-5">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="relative">
-          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-20 blur-lg" />
-          <div class="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30">
-            <History class="h-7 w-7 text-primary" />
-          </div>
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
+          <History class="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 class="font-display text-2xl font-bold tracking-tight">{{ t('history.title') }}</h1>
-          <p class="text-sm text-muted-foreground">View your tunnel connection history</p>
+          <h1 class="font-display text-xl font-bold">{{ t('history.title') }}</h1>
+          <p class="text-xs text-muted-foreground">{{ t('history.subtitle') }}</p>
         </div>
       </div>
-      <div class="flex gap-2">
-        <!-- Filter -->
-        <div class="flex items-center gap-1 rounded-xl border border-border/50 bg-muted/30 p-1">
-          <Tooltip :content="t('history.filterAll')">
-            <Button
-              :variant="filterType === 'all' ? 'default' : 'ghost'"
-              :class="filterType === 'all' ? 'bg-gradient-to-r from-primary to-primary shadow-md shadow-primary/25' : ''"
-              size="xs"
-              @click="filterType = 'all'"
-            >
-              {{ t('common.all') }}
-            </Button>
-          </Tooltip>
-          <Tooltip :content="t('history.filterHttp')">
-            <Button
-              :variant="filterType === 'http' ? 'default' : 'ghost'"
-              :class="filterType === 'http' ? 'bg-type-http shadow-md shadow-type-http/25' : ''"
-              size="xs"
-              @click="filterType = 'http'"
-            >
-              HTTP
-            </Button>
-          </Tooltip>
-          <Tooltip :content="t('history.filterTcp')">
-            <Button
-              :variant="filterType === 'tcp' ? 'default' : 'ghost'"
-              :class="filterType === 'tcp' ? 'bg-type-tcp shadow-md shadow-type-tcp/25' : ''"
-              size="xs"
-              @click="filterType = 'tcp'"
-            >
-              TCP
-            </Button>
-          </Tooltip>
-          <Tooltip :content="t('history.filterUdp')">
-            <Button
-              :variant="filterType === 'udp' ? 'default' : 'ghost'"
-              :class="filterType === 'udp' ? 'bg-type-udp shadow-md shadow-type-udp/25' : ''"
-              size="xs"
-              @click="filterType = 'udp'"
-            >
-              UDP
-            </Button>
-          </Tooltip>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Filter buttons -->
+        <div class="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/30 p-0.5">
+          <Button
+            :variant="filterType === 'all' ? 'default' : 'ghost'"
+            size="xs"
+            class="h-7 px-2 text-xs"
+            @click="filterType = 'all'"
+          >
+            {{ t('common.all') }}
+          </Button>
+          <Button
+            :variant="filterType === 'http' ? 'default' : 'ghost'"
+            :class="filterType === 'http' ? 'bg-type-http hover:bg-type-http/90' : ''"
+            size="xs"
+            class="h-7 px-2 text-xs"
+            @click="filterType = 'http'"
+          >
+            HTTP
+          </Button>
+          <Button
+            :variant="filterType === 'tcp' ? 'default' : 'ghost'"
+            :class="filterType === 'tcp' ? 'bg-type-tcp hover:bg-type-tcp/90' : ''"
+            size="xs"
+            class="h-7 px-2 text-xs"
+            @click="filterType = 'tcp'"
+          >
+            TCP
+          </Button>
+          <Button
+            :variant="filterType === 'udp' ? 'default' : 'ghost'"
+            :class="filterType === 'udp' ? 'bg-type-udp hover:bg-type-udp/90' : ''"
+            size="xs"
+            class="h-7 px-2 text-xs"
+            @click="filterType = 'udp'"
+          >
+            UDP
+          </Button>
         </div>
 
-        <Tooltip :content="t('common.refresh')">
-          <Button variant="outline" size="sm" class="border-border/50 hover:border-primary/50 hover:bg-primary/5" @click="historyStore.loadHistory()">
-            <RefreshCw class="h-4 w-4 sm:mr-2" />
-            <span class="hidden sm:inline">{{ t('common.refresh') }}</span>
-          </Button>
-        </Tooltip>
+        <Button variant="outline" size="sm" @click="historyStore.loadHistory()">
+          <RefreshCw class="h-4 w-4" />
+        </Button>
         <Button
           variant="destructive"
           size="sm"
-          class="shadow-lg shadow-destructive/25"
           :disabled="historyStore.entries.length === 0"
           @click="showClearDialog = true"
         >
-          <Trash2 class="h-4 w-4 sm:mr-2" />
-          <span class="hidden sm:inline">{{ t('history.clearHistory') }}</span>
+          <Trash2 class="h-4 w-4" />
         </Button>
       </div>
     </div>
 
     <!-- History Table -->
-    <div class="cyber-card rounded-2xl overflow-hidden">
-      <div v-if="filteredEntries.length === 0" class="p-12 text-center">
-        <div class="relative mx-auto mb-6 w-fit">
-          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-10 blur-xl" />
-          <div class="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50 border border-border/30">
-            <History class="h-8 w-8 text-muted-foreground" />
-          </div>
+    <div class="rounded-xl border border-border/50 bg-card/80 overflow-hidden">
+      <div v-if="filteredEntries.length === 0" class="p-10 text-center">
+        <div class="mx-auto mb-4 h-14 w-14 rounded-xl bg-muted/50 flex items-center justify-center">
+          <History class="h-7 w-7 text-muted-foreground" />
         </div>
-        <p class="font-display font-semibold text-lg text-muted-foreground">{{ t('history.noHistory') }}</p>
-        <p class="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
-          {{ t('history.noHistoryHint') }}
-        </p>
+        <p class="font-semibold">{{ t('history.noHistory') }}</p>
+        <p class="mt-1 text-sm text-muted-foreground">{{ t('history.noHistoryHint') }}</p>
       </div>
 
       <div v-else class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full text-sm">
           <thead class="border-b border-border/50 bg-muted/30">
             <tr>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.bundle') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.type') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.localPort') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.remote') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.connected') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.duration') }}
               </th>
-              <th class="px-4 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th class="px-3 py-2.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {{ t('history.traffic') }}
               </th>
             </tr>
@@ -208,65 +191,65 @@ function getTunnelIcon(type: TunnelType) {
             <tr
               v-for="entry in filteredEntries"
               :key="entry.id"
-              class="transition-all duration-200 hover:bg-primary/5"
+              class="transition-colors hover:bg-muted/30"
             >
-              <td class="px-4 py-4">
-                <div class="flex items-center gap-3">
+              <td class="px-3 py-2.5">
+                <div class="flex items-center gap-2">
                   <div :class="[
-                    'flex h-8 w-8 items-center justify-center rounded-lg',
+                    'flex h-6 w-6 items-center justify-center rounded',
                     entry.tunnelType === 'http' ? 'bg-type-http/20' : entry.tunnelType === 'tcp' ? 'bg-type-tcp/20' : 'bg-type-udp/20'
                   ]">
                     <component
                       :is="getTunnelIcon(entry.tunnelType)"
                       :class="[
-                        'h-4 w-4',
+                        'h-3 w-3',
                         entry.tunnelType === 'http' ? 'text-type-http' : entry.tunnelType === 'tcp' ? 'text-type-tcp' : 'text-type-udp'
                       ]"
                     />
                   </div>
-                  <span class="font-medium">{{ entry.bundleName || '-' }}</span>
+                  <span class="font-medium text-xs truncate max-w-[100px]">{{ entry.bundleName || '-' }}</span>
                 </div>
               </td>
-              <td class="px-4 py-4">
-                <Badge :variant="getTunnelTypeBadge(entry.tunnelType)">
+              <td class="px-3 py-2.5">
+                <Badge :variant="getTunnelTypeBadge(entry.tunnelType)" class="text-[10px]">
                   {{ entry.tunnelType.toUpperCase() }}
                 </Badge>
               </td>
-              <td class="px-4 py-4">
-                <code class="rounded-lg bg-muted/50 px-2 py-1 text-xs font-mono border border-border/30">{{ entry.localPort }}</code>
+              <td class="px-3 py-2.5">
+                <code class="text-xs font-mono">:{{ entry.localPort }}</code>
               </td>
-              <td class="px-4 py-4">
-                <code class="max-w-[200px] truncate rounded-lg bg-muted/50 px-2 py-1 text-xs font-mono border border-border/30">
+              <td class="px-3 py-2.5">
+                <code class="text-xs font-mono truncate max-w-[150px] block">
                   {{ entry.url || entry.remoteAddr || '-' }}
                 </code>
               </td>
-              <td class="px-4 py-4">
-                <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock class="h-3.5 w-3.5" />
+              <td class="px-3 py-2.5">
+                <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock class="h-3 w-3" />
                   {{ formatDate(entry.connectedAt) }}
                 </div>
               </td>
-              <td class="px-4 py-4">
-                <span v-if="entry.disconnectedAt" class="text-sm text-muted-foreground">
+              <td class="px-3 py-2.5">
+                <span v-if="entry.disconnectedAt" class="text-xs text-muted-foreground">
                   {{ formatDuration(entry.connectedAt, entry.disconnectedAt) }}
                 </span>
-                <div v-else class="flex items-center gap-1.5">
-                  <span class="relative flex h-2 w-2">
+                <div v-else class="flex items-center gap-1">
+                  <span class="relative flex h-1.5 w-1.5">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
                   </span>
-                  <span class="text-sm font-medium text-success">{{ t('history.active') }}</span>
+                  <span class="text-xs font-medium text-success">{{ t('history.active') }}</span>
                 </div>
               </td>
-              <td class="px-4 py-4">
-                <div class="flex items-center gap-3 text-sm">
-                  <span class="flex items-center gap-1 text-type-http">
-                    <ArrowUpRight class="h-3.5 w-3.5" />
+              <td class="px-3 py-2.5">
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="flex items-center gap-0.5 text-type-http">
+                    <ArrowUpRight class="h-3 w-3" />
                     {{ formatBytes(entry.bytesSent) }}
                   </span>
                   <span class="text-muted-foreground/50">/</span>
-                  <span class="flex items-center gap-1 text-type-tcp">
-                    <ArrowDownRight class="h-3.5 w-3.5" />
+                  <span class="flex items-center gap-0.5 text-type-tcp">
+                    <ArrowDownRight class="h-3 w-3" />
                     {{ formatBytes(entry.bytesReceived) }}
                   </span>
                 </div>
@@ -278,39 +261,27 @@ function getTunnelIcon(type: TunnelType) {
     </div>
 
     <!-- Pagination -->
-    <div v-if="historyStore.totalCount > 50" class="flex items-center justify-center gap-4">
-      <Button variant="outline" size="sm" class="border-border/50">
-        {{ t('common.previous') }}
-      </Button>
-      <span class="text-sm text-muted-foreground">
+    <div v-if="historyStore.totalCount > 50" class="flex items-center justify-center gap-3 text-sm">
+      <Button variant="outline" size="sm">{{ t('common.previous') }}</Button>
+      <span class="text-muted-foreground">
         {{ t('history.showing', { count: historyStore.entries.length, total: historyStore.totalCount }) }}
       </span>
-      <Button variant="outline" size="sm" class="border-border/50">
-        {{ t('common.next') }}
-      </Button>
+      <Button variant="outline" size="sm">{{ t('common.next') }}</Button>
     </div>
 
     <!-- Clear History Dialog -->
     <Dialog v-model:open="showClearDialog">
-      <DialogContent class="border-destructive/30 bg-card/95 backdrop-blur-xl">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle class="flex items-center gap-3 font-display">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/20 border border-destructive/30">
-              <Trash2 class="h-5 w-5 text-destructive" />
-            </div>
+          <DialogTitle class="flex items-center gap-2 text-destructive">
+            <Trash2 class="h-5 w-5" />
             {{ t('history.clearHistory') }}
           </DialogTitle>
-          <DialogDescription>
-            {{ t('history.confirmClear') }}
-          </DialogDescription>
+          <DialogDescription>{{ t('history.confirmClear') }}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" class="border-border/50" @click="showClearDialog = false">
-            {{ t('common.cancel') }}
-          </Button>
-          <Button variant="destructive" class="shadow-lg shadow-destructive/25" @click="clearHistory">
-            {{ t('common.clear') }}
-          </Button>
+          <Button variant="outline" @click="showClearDialog = false">{{ t('common.cancel') }}</Button>
+          <Button variant="destructive" @click="clearHistory">{{ t('common.clear') }}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
