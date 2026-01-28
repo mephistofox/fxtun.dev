@@ -64,11 +64,18 @@ export default {
         'type-http': 'hsl(var(--type-http))',
         'type-tcp': 'hsl(var(--type-tcp))',
         'type-udp': 'hsl(var(--type-udp))',
+        // Surface colors
+        surface: {
+          DEFAULT: 'hsl(var(--surface))',
+          elevated: 'hsl(var(--surface-elevated))',
+        },
         // Glow colors
         'glow-primary': 'hsl(var(--glow-primary))',
         'glow-accent': 'hsl(var(--glow-accent))',
       },
       fontFamily: {
+        sans: ['Onest', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Unbounded', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       borderRadius: {
