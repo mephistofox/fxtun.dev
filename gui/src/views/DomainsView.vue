@@ -7,7 +7,7 @@ import {
   Button, Input, Label, Tooltip,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '@/components/ui'
-import { Globe, Plus, Trash2, Copy, Check, RefreshCw, ExternalLink } from 'lucide-vue-next'
+import { Globe, Plus, Trash2, Copy, Check, RefreshCw, ExternalLink, Calendar } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
 const domainsStore = useDomainsStore()
@@ -92,22 +92,34 @@ function openReserveDialog() {
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold flex items-center gap-2">
-          <Globe class="h-6 w-6 text-emerald-500" />
-          {{ t('domains.title') }}
-        </h1>
-        <p class="text-muted-foreground mt-1">
-          {{ t('domains.subtitle') }} ({{ domainsStore.domains.length }}/{{ domainsStore.maxDomains }})
-        </p>
+      <div class="flex items-center gap-4">
+        <div class="relative">
+          <div class="absolute inset-0 rounded-2xl bg-type-http opacity-20 blur-lg" />
+          <div class="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-type-http/20 border border-type-http/30">
+            <Globe class="h-7 w-7 text-type-http" />
+          </div>
+        </div>
+        <div>
+          <h1 class="font-display text-2xl font-bold tracking-tight">{{ t('domains.title') }}</h1>
+          <p class="text-sm text-muted-foreground">
+            {{ t('domains.subtitle') }}
+            <span class="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-type-http/10 text-type-http text-xs font-medium">
+              {{ domainsStore.domains.length }}/{{ domainsStore.maxDomains }}
+            </span>
+          </p>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <Tooltip :content="t('common.refresh')">
-          <Button variant="outline" size="sm" @click="domainsStore.loadDomains">
+          <Button variant="outline" size="sm" class="border-border/50 hover:border-type-http/50 hover:bg-type-http/5" @click="domainsStore.loadDomains">
             <RefreshCw class="h-4 w-4" />
           </Button>
         </Tooltip>
-        <Button @click="openReserveDialog" :disabled="!canReserve">
+        <Button
+          @click="openReserveDialog"
+          :disabled="!canReserve"
+          class="bg-type-http hover:bg-type-http/90 shadow-lg shadow-type-http/25 transition-all duration-300"
+        >
           <Plus class="h-4 w-4 mr-2" />
           {{ t('domains.reserve') }}
         </Button>
@@ -115,49 +127,64 @@ function openReserveDialog() {
     </div>
 
     <!-- Error -->
-    <div v-if="domainsStore.error" class="bg-destructive/10 text-destructive p-4 rounded-lg text-sm">
+    <div v-if="domainsStore.error" class="flex items-center gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/20">
+        <Globe class="h-4 w-4" />
+      </div>
       {{ domainsStore.error }}
     </div>
 
     <!-- Loading -->
-    <div v-if="domainsStore.isLoading" class="text-center py-12 text-muted-foreground">
-      <div class="animate-pulse">{{ t('common.loading') }}</div>
+    <div v-if="domainsStore.isLoading" class="text-center py-12">
+      <div class="relative mx-auto w-fit">
+        <div class="absolute inset-0 rounded-full bg-type-http/30 blur-lg animate-pulse" />
+        <div class="relative flex h-16 w-16 items-center justify-center rounded-full bg-type-http/20 border border-type-http/30">
+          <RefreshCw class="h-8 w-8 text-type-http animate-spin" />
+        </div>
+      </div>
+      <p class="mt-4 text-muted-foreground">{{ t('common.loading') }}</p>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="domainsStore.domains.length === 0" class="rounded-lg border border-dashed p-12 text-center">
-      <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
-        <Globe class="h-8 w-8 text-emerald-500" />
+    <div v-else-if="domainsStore.domains.length === 0" class="cyber-card rounded-2xl border-2 border-dashed border-type-http/20 p-12 text-center">
+      <div class="relative mx-auto mb-6 w-fit">
+        <div class="absolute inset-0 rounded-2xl bg-type-http opacity-20 blur-xl" />
+        <div class="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-type-http/10 border border-type-http/20">
+          <Globe class="h-10 w-10 text-type-http" />
+        </div>
       </div>
-      <p class="font-semibold text-lg text-muted-foreground">{{ t('domains.noDomains') }}</p>
-      <p class="mt-2 text-sm text-muted-foreground">
+      <p class="font-display text-xl font-semibold">{{ t('domains.noDomains') }}</p>
+      <p class="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
         {{ t('domains.noDomainsHint') }}
       </p>
-      <Button class="mt-4" @click="openReserveDialog">
+      <Button class="mt-6 bg-type-http hover:bg-type-http/90 shadow-lg shadow-type-http/25" @click="openReserveDialog">
         <Plus class="h-4 w-4 mr-2" />
         {{ t('domains.reserve') }}
       </Button>
     </div>
 
     <!-- Domains grid -->
-    <TransitionGroup v-else name="list" tag="div" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <TransitionGroup v-else name="list" tag="div" class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
       <div
         v-for="domain in domainsStore.domains"
         :key="domain.id"
-        class="group relative overflow-hidden rounded-xl border-2 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+        class="group relative overflow-hidden rounded-2xl border-2 bg-gradient-to-br from-type-http/15 to-type-http/5 border-type-http/30 hover:border-type-http/60 transition-all duration-300 hover:shadow-2xl hover:shadow-type-http/10"
       >
         <!-- Top accent line -->
-        <div class="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+        <div class="absolute top-0 left-0 right-0 h-1 bg-type-http" />
 
-        <div class="p-5 pt-6">
+        <!-- Hover glow effect -->
+        <div class="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-type-http/10 to-transparent" />
+
+        <div class="relative p-5 pt-6">
           <!-- Header -->
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 transition-transform group-hover:scale-110">
-                <Globe class="h-5 w-5 text-emerald-500" />
+              <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-type-http/20 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-type-http/30">
+                <Globe class="h-6 w-6 text-type-http" />
               </div>
               <div>
-                <h3 class="font-semibold text-foreground">{{ domain.subdomain }}</h3>
+                <h3 class="font-display font-bold text-lg">{{ domain.subdomain }}</h3>
                 <p class="text-xs text-muted-foreground">.mfdev.ru</p>
               </div>
             </div>
@@ -165,7 +192,7 @@ function openReserveDialog() {
               <Button
                 variant="ghost"
                 size="icon"
-                class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 @click="releaseDomain(domain.id)"
               >
                 <Trash2 class="h-4 w-4" />
@@ -174,8 +201,8 @@ function openReserveDialog() {
           </div>
 
           <!-- URL -->
-          <div class="flex items-center gap-2 p-3 rounded-lg bg-background/80 border border-border/50">
-            <code class="flex-1 truncate text-xs font-medium">
+          <div class="flex items-center gap-2 p-3 rounded-xl bg-background/60 backdrop-blur-sm border border-border/30">
+            <code class="flex-1 truncate text-xs font-mono font-medium text-type-http">
               {{ domain.url }}
             </code>
             <div class="flex items-center gap-1">
@@ -183,12 +210,12 @@ function openReserveDialog() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="h-7 w-7"
+                  class="h-7 w-7 hover:bg-type-http/10"
                   @click="copyUrl(domain.url, domain.id)"
                 >
                   <component
                     :is="copiedId === domain.id ? Check : Copy"
-                    :class="['h-3.5 w-3.5', copiedId === domain.id ? 'text-emerald-500' : '']"
+                    :class="['h-3.5 w-3.5', copiedId === domain.id ? 'text-type-http' : 'text-muted-foreground']"
                   />
                 </Button>
               </Tooltip>
@@ -196,20 +223,23 @@ function openReserveDialog() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="h-7 w-7"
+                  class="h-7 w-7 hover:bg-type-http/10"
                   @click="openUrl(domain.url)"
                 >
-                  <ExternalLink class="h-3.5 w-3.5" />
+                  <ExternalLink class="h-3.5 w-3.5 text-muted-foreground" />
                 </Button>
               </Tooltip>
             </div>
           </div>
 
           <!-- Footer -->
-          <div class="mt-4 pt-3 border-t border-emerald-500/20">
+          <div class="mt-4 pt-3 border-t border-type-http/20">
             <div class="flex items-center justify-between text-xs">
-              <span class="text-muted-foreground">{{ t('domains.reserved') }}</span>
-              <span class="font-medium text-emerald-600 dark:text-emerald-400">
+              <span class="flex items-center gap-1.5 text-muted-foreground">
+                <Calendar class="h-3.5 w-3.5" />
+                {{ t('domains.reserved') }}
+              </span>
+              <span class="font-medium text-type-http">
                 {{ formatDate(domain.createdAt) }}
               </span>
             </div>
@@ -220,27 +250,31 @@ function openReserveDialog() {
 
     <!-- Reserve Dialog -->
     <Dialog v-model:open="showReserveDialog">
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class="sm:max-w-md border-type-http/30 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle class="flex items-center gap-2">
-            <Globe class="h-5 w-5 text-emerald-500" />
+          <DialogTitle class="flex items-center gap-3 font-display">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-type-http/20 border border-type-http/30">
+              <Globe class="h-5 w-5 text-type-http" />
+            </div>
             {{ t('domains.reserveTitle') }}
           </DialogTitle>
         </DialogHeader>
 
         <form @submit.prevent="reserveDomain" class="space-y-4">
-          <div class="space-y-2">
-            <Label>{{ t('domains.subdomain') }}</Label>
+          <div class="space-y-3">
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('domains.subdomain') }}</Label>
             <div class="flex gap-2">
               <Input
                 v-model="newSubdomain"
                 placeholder="my-app"
+                class="bg-muted/30 border-border/50 font-mono"
                 @input="availabilityResult = null"
                 required
               />
               <Button
                 type="button"
                 variant="outline"
+                class="border-type-http/30 hover:border-type-http/50 hover:bg-type-http/5"
                 @click="checkAvailability"
                 :loading="isCheckingAvailability"
                 :disabled="!newSubdomain"
@@ -249,27 +283,35 @@ function openReserveDialog() {
               </Button>
             </div>
             <p class="text-xs text-muted-foreground">
-              {{ t('domains.willBeAvailable') }} {{ newSubdomain || 'xxx' }}.mfdev.ru
+              {{ t('domains.willBeAvailable') }}
+              <code class="px-1.5 py-0.5 rounded bg-type-http/10 text-type-http font-mono">{{ newSubdomain || 'xxx' }}.mfdev.ru</code>
             </p>
-            <p v-if="availabilityResult?.available === true" class="text-sm text-emerald-600 dark:text-emerald-400">
-              {{ t('domains.available') }}
-            </p>
-            <p v-if="availabilityResult?.available === false" class="text-sm text-red-600 dark:text-red-400">
-              {{ t('domains.notAvailable') }}
-              <span v-if="availabilityResult.reason" class="text-muted-foreground">
-                ({{ availabilityResult.reason }})
+
+            <!-- Availability result -->
+            <div v-if="availabilityResult?.available === true" class="flex items-center gap-2 p-3 rounded-xl bg-success/10 border border-success/30">
+              <Check class="h-4 w-4 text-success" />
+              <span class="text-sm font-medium text-success">{{ t('domains.available') }}</span>
+            </div>
+            <div v-if="availabilityResult?.available === false" class="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/30">
+              <Globe class="h-4 w-4 text-destructive" />
+              <span class="text-sm text-destructive">
+                {{ t('domains.notAvailable') }}
+                <span v-if="availabilityResult.reason" class="text-muted-foreground">
+                  ({{ availabilityResult.reason }})
+                </span>
               </span>
-            </p>
+            </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" @click="showReserveDialog = false">
+            <Button type="button" variant="outline" class="border-border/50" @click="showReserveDialog = false">
               {{ t('common.cancel') }}
             </Button>
             <Button
               type="submit"
               :loading="isReserving"
               :disabled="!newSubdomain || availabilityResult?.available === false"
+              class="bg-type-http hover:bg-type-http/90 shadow-lg shadow-type-http/25"
             >
               {{ t('domains.reserve') }}
             </Button>

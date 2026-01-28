@@ -6,11 +6,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useHistoryStore } from '@/stores/history'
 import { toast } from '@/composables/useToast'
 import {
-  Button, Card, CardHeader, CardTitle, CardContent, Input, Label, Switch, Separator,
+  Button, Input, Label, Switch, Separator,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui'
 import {
-  Moon, Sun, Monitor, Trash2, Palette, Globe, Server, Bell, Shield, Info, Languages
+  Moon, Sun, Monitor, Trash2, Palette, Globe, Server, Bell, Shield, Languages, Settings, Zap
 } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -78,25 +78,48 @@ async function clearHistory() {
 
 <template>
   <div class="mx-auto max-w-2xl space-y-6">
-    <h1 class="text-2xl font-bold">{{ t('settings.title') }}</h1>
+    <!-- Header -->
+    <div class="flex items-center gap-4 mb-8">
+      <div class="relative">
+        <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-20 blur-lg" />
+        <div class="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30">
+          <Settings class="h-7 w-7 text-primary" />
+        </div>
+      </div>
+      <div>
+        <h1 class="font-display text-2xl font-bold tracking-tight">{{ t('settings.title') }}</h1>
+        <p class="text-sm text-muted-foreground">Configure your preferences</p>
+      </div>
+    </div>
 
     <!-- Appearance -->
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="flex items-center gap-2 text-base">
-          <Palette class="h-4 w-4 text-muted-foreground" />
-          {{ t('settings.appearance') }}
-        </CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
+    <div class="cyber-card rounded-2xl overflow-hidden">
+      <div class="p-5 border-b border-border/50">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+            <Palette class="h-5 w-5 text-accent" />
+          </div>
+          <div>
+            <h2 class="font-display font-semibold">{{ t('settings.appearance') }}</h2>
+            <p class="text-xs text-muted-foreground">Customize how fxTunnel looks</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-5 space-y-5">
         <!-- Theme -->
         <div>
-          <Label class="mb-2 block">{{ t('settings.theme') }}</Label>
+          <Label class="mb-3 block text-xs uppercase tracking-wider text-muted-foreground">{{ t('settings.theme') }}</Label>
           <div class="flex flex-wrap gap-2">
             <Button
               v-for="theme in themes"
               :key="theme.value"
               :variant="settingsStore.theme === theme.value ? 'default' : 'outline'"
+              :class="[
+                'transition-all duration-300',
+                settingsStore.theme === theme.value
+                  ? 'bg-gradient-to-r from-primary to-primary shadow-lg shadow-primary/25'
+                  : 'border-border/50 hover:border-primary/50 hover:bg-primary/5'
+              ]"
               size="sm"
               @click="selectTheme(theme.value)"
             >
@@ -106,12 +129,12 @@ async function clearHistory() {
           </div>
         </div>
 
-        <Separator />
+        <Separator class="bg-border/30" />
 
         <!-- Language -->
         <div>
-          <Label class="mb-2 flex items-center gap-2">
-            <Languages class="h-4 w-4 text-muted-foreground" />
+          <Label class="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+            <Languages class="h-3.5 w-3.5" />
             {{ t('settings.language') }}
           </Label>
           <div class="flex flex-wrap gap-2">
@@ -119,6 +142,12 @@ async function clearHistory() {
               v-for="lang in languages"
               :key="lang.value"
               :variant="settingsStore.locale === lang.value ? 'default' : 'outline'"
+              :class="[
+                'transition-all duration-300',
+                settingsStore.locale === lang.value
+                  ? 'bg-gradient-to-r from-primary to-primary shadow-lg shadow-primary/25'
+                  : 'border-border/50 hover:border-primary/50 hover:bg-primary/5'
+              ]"
               size="sm"
               @click="selectLanguage(lang.value)"
             >
@@ -127,21 +156,26 @@ async function clearHistory() {
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     <!-- Connection -->
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="flex items-center gap-2 text-base">
-          <Globe class="h-4 w-4 text-muted-foreground" />
-          {{ t('settings.connection') }}
-        </CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="space-y-2">
-          <Label class="flex items-center gap-2">
-            <Server class="h-4 w-4 text-muted-foreground" />
+    <div class="cyber-card rounded-2xl overflow-hidden">
+      <div class="p-5 border-b border-border/50">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-type-http/10 border border-type-http/20">
+            <Globe class="h-5 w-5 text-type-http" />
+          </div>
+          <div>
+            <h2 class="font-display font-semibold">{{ t('settings.connection') }}</h2>
+            <p class="text-xs text-muted-foreground">Server connection settings</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="space-y-3">
+          <Label class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+            <Server class="h-3.5 w-3.5" />
             {{ t('settings.defaultServer') }}
           </Label>
           <p class="text-xs text-muted-foreground">{{ t('settings.defaultServerHint') }}</p>
@@ -149,26 +183,36 @@ async function clearHistory() {
             <Input
               v-model="serverAddress"
               :placeholder="t('settings.defaultServerPlaceholder')"
-              class="flex-1"
+              class="flex-1 bg-muted/30 border-border/50 font-mono"
             />
-            <Button @click="saveServerAddress">{{ t('common.save') }}</Button>
+            <Button
+              @click="saveServerAddress"
+              class="bg-gradient-to-r from-primary to-primary hover:to-accent shadow-lg shadow-primary/25 transition-all duration-300"
+            >
+              {{ t('common.save') }}
+            </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     <!-- System -->
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="flex items-center gap-2 text-base">
-          <Bell class="h-4 w-4 text-muted-foreground" />
-          {{ t('settings.system') }}
-        </CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="flex items-center justify-between">
+    <div class="cyber-card rounded-2xl overflow-hidden">
+      <div class="p-5 border-b border-border/50">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10 border border-warning/20">
+            <Bell class="h-5 w-5 text-warning" />
+          </div>
+          <div>
+            <h2 class="font-display font-semibold">{{ t('settings.system') }}</h2>
+            <p class="text-xs text-muted-foreground">System behavior settings</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/30 transition-all hover:border-primary/30">
           <div class="space-y-0.5">
-            <Label>{{ t('settings.minimizeToTray') }}</Label>
+            <Label class="font-medium">{{ t('settings.minimizeToTray') }}</Label>
             <p class="text-xs text-muted-foreground">
               {{ t('settings.minimizeToTrayHint') }}
             </p>
@@ -179,11 +223,9 @@ async function clearHistory() {
           />
         </div>
 
-        <Separator />
-
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/30 transition-all hover:border-primary/30">
           <div class="space-y-0.5">
-            <Label>{{ t('settings.notifications') }}</Label>
+            <Label class="font-medium">{{ t('settings.notifications') }}</Label>
             <p class="text-xs text-muted-foreground">
               {{ t('settings.notificationsHint') }}
             </p>
@@ -193,88 +235,104 @@ async function clearHistory() {
             @update:model-value="settingsStore.saveNotifications($event)"
           />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     <!-- Data Management -->
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="flex items-center gap-2 text-base">
-          <Shield class="h-4 w-4 text-muted-foreground" />
-          {{ t('settings.data') }}
-        </CardTitle>
-      </CardHeader>
-      <CardContent class="space-y-4">
-        <div class="flex items-center justify-between">
+    <div class="cyber-card rounded-2xl overflow-hidden">
+      <div class="p-5 border-b border-border/50">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 border border-destructive/20">
+            <Shield class="h-5 w-5 text-destructive" />
+          </div>
+          <div>
+            <h2 class="font-display font-semibold">{{ t('settings.data') }}</h2>
+            <p class="text-xs text-muted-foreground">Manage your data and credentials</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-destructive/5 border border-destructive/20 transition-all hover:border-destructive/40">
           <div class="space-y-0.5">
-            <Label>{{ t('settings.clearCredentials') }}</Label>
+            <Label class="font-medium">{{ t('settings.clearCredentials') }}</Label>
             <p class="text-xs text-muted-foreground">
               {{ t('settings.clearCredentialsHint') }}
             </p>
           </div>
-          <Button variant="destructive" size="sm" @click="showClearCredentialsDialog = true">
+          <Button variant="destructive" size="sm" class="shadow-lg shadow-destructive/25" @click="showClearCredentialsDialog = true">
             <Trash2 class="mr-2 h-4 w-4" />
             {{ t('common.clear') }}
           </Button>
         </div>
 
-        <Separator />
-
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-destructive/5 border border-destructive/20 transition-all hover:border-destructive/40">
           <div class="space-y-0.5">
-            <Label>{{ t('settings.clearHistory') }}</Label>
+            <Label class="font-medium">{{ t('settings.clearHistory') }}</Label>
             <p class="text-xs text-muted-foreground">
               {{ t('settings.clearHistoryHint') }}
             </p>
           </div>
-          <Button variant="destructive" size="sm" @click="showClearHistoryDialog = true">
+          <Button variant="destructive" size="sm" class="shadow-lg shadow-destructive/25" @click="showClearHistoryDialog = true">
             <Trash2 class="mr-2 h-4 w-4" />
             {{ t('common.clear') }}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     <!-- About -->
-    <Card>
-      <CardHeader class="pb-3">
-        <CardTitle class="flex items-center gap-2 text-base">
-          <Info class="h-4 w-4 text-muted-foreground" />
-          {{ t('settings.about') }}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-muted-foreground">{{ t('settings.version') }}</span>
-            <span class="font-medium">1.0.0</span>
+    <div class="cyber-card rounded-2xl overflow-hidden">
+      <div class="p-5 border-b border-border/50">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent opacity-30 blur-md" />
+            <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
+              <Zap class="h-5 w-5 text-primary-foreground" />
+            </div>
           </div>
-          <div class="flex justify-between">
-            <span class="text-muted-foreground">{{ t('settings.build') }}</span>
-            <span class="font-mono text-xs">2024.01.01</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-muted-foreground">{{ t('settings.platform') }}</span>
-            <span class="font-mono text-xs">{{ platform }}</span>
+          <div>
+            <h2 class="font-display font-semibold">{{ t('settings.about') }}</h2>
+            <p class="text-xs text-muted-foreground">Application information</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div class="p-5">
+        <div class="space-y-3">
+          <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+            <span class="text-sm text-muted-foreground">{{ t('settings.version') }}</span>
+            <span class="font-display font-semibold gradient-text">v1.5.0</span>
+          </div>
+          <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+            <span class="text-sm text-muted-foreground">{{ t('settings.build') }}</span>
+            <span class="font-mono text-xs text-muted-foreground">2024.01.28</span>
+          </div>
+          <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+            <span class="text-sm text-muted-foreground">{{ t('settings.platform') }}</span>
+            <span class="font-mono text-xs text-muted-foreground">{{ platform }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Clear Credentials Dialog -->
     <Dialog v-model:open="showClearCredentialsDialog">
-      <DialogContent>
+      <DialogContent class="border-destructive/30 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle>{{ t('settings.clearCredentials') }}</DialogTitle>
+          <DialogTitle class="flex items-center gap-3 font-display">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/20 border border-destructive/30">
+              <Shield class="h-5 w-5 text-destructive" />
+            </div>
+            {{ t('settings.clearCredentials') }}
+          </DialogTitle>
           <DialogDescription>
             {{ t('settings.confirmClearCredentials') }}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" @click="showClearCredentialsDialog = false">
+          <Button variant="outline" class="border-border/50" @click="showClearCredentialsDialog = false">
             {{ t('common.cancel') }}
           </Button>
-          <Button variant="destructive" @click="clearCredentials">
+          <Button variant="destructive" class="shadow-lg shadow-destructive/25" @click="clearCredentials">
             {{ t('common.confirm') }}
           </Button>
         </DialogFooter>
@@ -283,18 +341,23 @@ async function clearHistory() {
 
     <!-- Clear History Dialog -->
     <Dialog v-model:open="showClearHistoryDialog">
-      <DialogContent>
+      <DialogContent class="border-destructive/30 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle>{{ t('settings.clearHistory') }}</DialogTitle>
+          <DialogTitle class="flex items-center gap-3 font-display">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/20 border border-destructive/30">
+              <Trash2 class="h-5 w-5 text-destructive" />
+            </div>
+            {{ t('settings.clearHistory') }}
+          </DialogTitle>
           <DialogDescription>
             {{ t('settings.confirmClearHistory') }}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" @click="showClearHistoryDialog = false">
+          <Button variant="outline" class="border-border/50" @click="showClearHistoryDialog = false">
             {{ t('common.cancel') }}
           </Button>
-          <Button variant="destructive" @click="clearHistory">
+          <Button variant="destructive" class="shadow-lg shadow-destructive/25" @click="clearHistory">
             {{ t('common.confirm') }}
           </Button>
         </DialogFooter>
@@ -302,3 +365,12 @@ async function clearHistory() {
     </Dialog>
   </div>
 </template>
+
+<style scoped>
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+</style>
