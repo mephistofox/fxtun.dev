@@ -132,14 +132,36 @@ async function logout() {
 
       <!-- Navigation -->
       <nav class="flex-1 overflow-y-auto p-3 space-y-1">
-        <Tooltip
-          v-for="item in navItems"
-          :key="item.name"
-          :content="sidebarCollapsed ? t(item.labelKey) : ''"
-          :delay-duration="0"
-          side="right"
-        >
+        <template v-for="item in navItems" :key="item.name">
+          <!-- With tooltip when collapsed -->
+          <Tooltip
+            v-if="sidebarCollapsed"
+            :content="t(item.labelKey)"
+            :delay-duration="0"
+            side="right"
+          >
+            <button
+              @click="router.push({ name: item.name })"
+              :class="[
+                'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                route.name === item.name
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ]"
+            >
+              <div
+                v-if="route.name === item.name"
+                class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary"
+              />
+              <component
+                :is="item.icon"
+                :class="['h-5 w-5 transition-transform duration-200', route.name === item.name && 'scale-110']"
+              />
+            </button>
+          </Tooltip>
+          <!-- Without tooltip when expanded -->
           <button
+            v-else
             @click="router.push({ name: item.name })"
             :class="[
               'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -148,24 +170,17 @@ async function logout() {
                 : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
             ]"
           >
-            <!-- Active indicator -->
             <div
               v-if="route.name === item.name"
               class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary"
             />
-
             <component
               :is="item.icon"
-              :class="[
-                'h-5 w-5 transition-transform duration-200',
-                route.name === item.name && 'scale-110'
-              ]"
+              :class="['h-5 w-5 transition-transform duration-200', route.name === item.name && 'scale-110']"
             />
-            <Transition name="fade">
-              <span v-if="!sidebarCollapsed">{{ t(item.labelKey) }}</span>
-            </Transition>
+            <span>{{ t(item.labelKey) }}</span>
           </button>
-        </Tooltip>
+        </template>
       </nav>
 
       <!-- Bottom section -->

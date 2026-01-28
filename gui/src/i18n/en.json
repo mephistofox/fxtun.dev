@@ -100,6 +100,8 @@
   },
   "bundles": {
     "title": "Saved Bundles",
+    "subtitle": "Quick connect configurations",
+    "active": "Active",
     "newBundle": "New Bundle",
     "editBundle": "Edit Bundle",
     "createBundle": "Create Bundle",
@@ -139,6 +141,7 @@
   },
   "history": {
     "title": "Connection History",
+    "subtitle": "View your tunnel connections",
     "clearHistory": "Clear History",
     "noHistory": "No connection history yet",
     "noHistoryHint": "Your tunnel connections will appear here",
