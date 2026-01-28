@@ -248,15 +248,21 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
             box-sizing: border-box;
         }
 
+        html, body {
+            overflow: hidden;
+            width: 100%%;
+            height: 100%%;
+        }
+
         body {
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
             background: var(--background);
             color: var(--foreground);
             font-family: 'Onest', system-ui, sans-serif;
-            overflow: hidden;
             position: relative;
         }
 
@@ -306,7 +312,31 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
 
         @keyframes float {
             0%%, 100%% { transform: translate(0, 0) scale(1); }
-            50%% { transform: translate(30px, -30px) scale(1.1); }
+            50%% { transform: translate(20px, -20px) scale(1.05); }
+        }
+
+        /* Mobile: smaller orbs, no animation */
+        @media (max-width: 640px) {
+            .orb-1 {
+                width: 200px;
+                height: 200px;
+                top: -100px;
+                right: -50px;
+                animation: none;
+            }
+            .orb-2 {
+                width: 150px;
+                height: 150px;
+                bottom: -75px;
+                left: -50px;
+                animation: none;
+            }
+            .grid-bg {
+                animation: none;
+            }
+            .scanline {
+                display: none;
+            }
         }
 
         .container {
