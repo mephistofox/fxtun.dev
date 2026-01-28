@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/mephistofox/fxTunnel/compare/v1.4.0...v1.5.0) (2026-01-28)
+
+
+### Features
+
+* **gui:** redesign to cyber-industrial theme ([758fe35](https://github.com/mephistofox/fxTunnel/commit/758fe35f4bea1b7feb63431f984bc399b9c7377a))
+
+
+### Bug Fixes
+
+* **server:** prevent 404 page layout shift on mobile ([4109f81](https://github.com/mephistofox/fxTunnel/commit/4109f81b3bfc06dc4967b0f0b980559888a12029))
+
 ## [1.4.0](https://github.com/mephistofox/fxTunnel/compare/v1.3.1...v1.4.0) (2026-01-27)
 
 
