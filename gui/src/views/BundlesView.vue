@@ -50,39 +50,48 @@ function getTunnelIcon(type: TunnelType) {
   }
 }
 
-// Get tunnel accent color
+// Get tunnel accent color - using theme colors
 function getTunnelAccent(type: TunnelType): string {
   switch (type) {
-    case 'http': return 'text-emerald-500'
-    case 'tcp': return 'text-blue-500'
-    case 'udp': return 'text-purple-500'
+    case 'http': return 'text-type-http'
+    case 'tcp': return 'text-type-tcp'
+    case 'udp': return 'text-type-udp'
   }
 }
 
 // Get tunnel gradient class
 function getTunnelGradient(type: TunnelType): string {
   switch (type) {
-    case 'http': return 'from-emerald-500/15 to-emerald-500/5'
-    case 'tcp': return 'from-blue-500/15 to-blue-500/5'
-    case 'udp': return 'from-purple-500/15 to-purple-500/5'
+    case 'http': return 'from-type-http/15 to-type-http/5'
+    case 'tcp': return 'from-type-tcp/15 to-type-tcp/5'
+    case 'udp': return 'from-type-udp/15 to-type-udp/5'
   }
 }
 
 // Get tunnel border color
 function getTunnelBorder(type: TunnelType): string {
   switch (type) {
-    case 'http': return 'border-emerald-500/30 hover:border-emerald-500/50'
-    case 'tcp': return 'border-blue-500/30 hover:border-blue-500/50'
-    case 'udp': return 'border-purple-500/30 hover:border-purple-500/50'
+    case 'http': return 'border-type-http/30 hover:border-type-http/60'
+    case 'tcp': return 'border-type-tcp/30 hover:border-type-tcp/60'
+    case 'udp': return 'border-type-udp/30 hover:border-type-udp/60'
   }
 }
 
 // Get tunnel bg for buttons
-function getTunnelBg(type: TunnelType): string {
+function getTunnelBgClass(type: TunnelType): string {
   switch (type) {
-    case 'http': return 'bg-emerald-500 hover:bg-emerald-600'
-    case 'tcp': return 'bg-blue-500 hover:bg-blue-600'
-    case 'udp': return 'bg-purple-500 hover:bg-purple-600'
+    case 'http': return 'bg-type-http hover:bg-type-http/90 shadow-lg shadow-type-http/25'
+    case 'tcp': return 'bg-type-tcp hover:bg-type-tcp/90 shadow-lg shadow-type-tcp/25'
+    case 'udp': return 'bg-type-udp hover:bg-type-udp/90 shadow-lg shadow-type-udp/25'
+  }
+}
+
+// Get glow color
+function getGlowColor(type: TunnelType): string {
+  switch (type) {
+    case 'http': return 'group-hover:shadow-type-http/20'
+    case 'tcp': return 'group-hover:shadow-type-tcp/20'
+    case 'udp': return 'group-hover:shadow-type-udp/20'
   }
 }
 
@@ -185,29 +194,33 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-          <Boxes class="h-5 w-5 text-primary" />
+      <div class="flex items-center gap-4">
+        <!-- Icon with glow -->
+        <div class="relative">
+          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-20 blur-lg" />
+          <div class="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30">
+            <Boxes class="h-7 w-7 text-primary" />
+          </div>
         </div>
         <div>
-          <h1 class="text-2xl font-bold">{{ t('bundles.title') }}</h1>
+          <h1 class="font-display text-2xl font-bold tracking-tight">{{ t('bundles.title') }}</h1>
           <p class="text-sm text-muted-foreground">{{ t('bundles.subtitle') || 'Manage your saved tunnel configurations' }}</p>
         </div>
       </div>
       <div class="flex gap-2">
         <Tooltip :content="t('bundles.import')">
-          <Button variant="outline" size="sm" @click="importBundles">
+          <Button variant="outline" size="sm" class="border-border/50 hover:border-primary/50 hover:bg-primary/5" @click="importBundles">
             <Upload class="h-4 w-4 sm:mr-2" />
             <span class="hidden sm:inline">{{ t('bundles.import') }}</span>
           </Button>
         </Tooltip>
         <Tooltip :content="t('bundles.export')">
-          <Button variant="outline" size="sm" @click="exportBundles">
+          <Button variant="outline" size="sm" class="border-border/50 hover:border-primary/50 hover:bg-primary/5" @click="exportBundles">
             <Download class="h-4 w-4 sm:mr-2" />
             <span class="hidden sm:inline">{{ t('bundles.export') }}</span>
           </Button>
         </Tooltip>
-        <Button @click="openCreateModal">
+        <Button class="bg-gradient-to-r from-primary to-primary hover:to-accent shadow-lg shadow-primary/25 transition-all duration-300" @click="openCreateModal">
           <Plus class="h-4 w-4 sm:mr-2" />
           <span class="hidden sm:inline">{{ t('bundles.newBundle') }}</span>
         </Button>
@@ -215,15 +228,18 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
     </div>
 
     <!-- Empty State -->
-    <div v-if="bundlesStore.bundles.length === 0" class="rounded-2xl border-2 border-dashed border-muted-foreground/20 p-12 text-center">
-      <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-        <Boxes class="h-8 w-8 text-muted-foreground" />
+    <div v-if="bundlesStore.bundles.length === 0" class="cyber-card rounded-2xl border-2 border-dashed border-primary/20 p-12 text-center">
+      <div class="relative mx-auto mb-6 w-fit">
+        <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-20 blur-xl" />
+        <div class="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
+          <Boxes class="h-10 w-10 text-primary" />
+        </div>
       </div>
-      <p class="text-lg font-semibold text-muted-foreground">{{ t('bundles.noSaved') }}</p>
-      <p class="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
+      <p class="font-display text-xl font-semibold">{{ t('bundles.noSaved') }}</p>
+      <p class="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
         {{ t('bundles.noSavedHint') }}
       </p>
-      <Button class="mt-6" size="lg" @click="openCreateModal">
+      <Button class="mt-6 bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/25" size="lg" @click="openCreateModal">
         <Plus class="mr-2 h-5 w-5" />
         {{ t('bundles.createBundle') }}
       </Button>
@@ -235,36 +251,41 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
         v-for="bundle in bundlesStore.bundles"
         :key="bundle.id"
         :class="[
-          'group relative overflow-hidden rounded-2xl border-2 bg-gradient-to-br transition-all duration-300 hover:shadow-xl hover:scale-[1.02]',
+          'group relative overflow-hidden rounded-2xl border-2 bg-gradient-to-br transition-all duration-300 hover:shadow-2xl',
           getTunnelGradient(bundle.type),
-          getTunnelBorder(bundle.type)
+          getTunnelBorder(bundle.type),
+          getGlowColor(bundle.type)
         ]"
       >
+        <!-- Animated border glow on hover -->
+        <div class="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+             :class="bundle.type === 'http' ? 'bg-gradient-to-br from-type-http/10 to-transparent' : bundle.type === 'tcp' ? 'bg-gradient-to-br from-type-tcp/10 to-transparent' : 'bg-gradient-to-br from-type-udp/10 to-transparent'" />
+
         <!-- Top accent line -->
-        <div :class="['absolute top-0 left-0 right-0 h-1', bundle.type === 'http' ? 'bg-emerald-500' : bundle.type === 'tcp' ? 'bg-blue-500' : 'bg-purple-500']" />
+        <div :class="['absolute top-0 left-0 right-0 h-1', bundle.type === 'http' ? 'bg-type-http' : bundle.type === 'tcp' ? 'bg-type-tcp' : 'bg-type-udp']" />
 
         <!-- Connected indicator -->
-        <div v-if="isBundleConnected(bundle)" class="absolute top-3 right-3">
-          <div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-500 text-xs font-medium">
+        <div v-if="isBundleConnected(bundle)" class="absolute top-4 right-4 z-10">
+          <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/20 text-success text-xs font-medium border border-success/30">
             <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
             </span>
             {{ t('bundles.active') || 'Active' }}
           </div>
         </div>
 
-        <div class="p-5">
+        <div class="relative p-5 pt-6">
           <!-- Header with Icon -->
           <div class="flex items-start gap-4 mb-5">
             <div :class="[
-              'flex h-14 w-14 items-center justify-center rounded-2xl transition-transform group-hover:scale-110',
-              bundle.type === 'http' ? 'bg-emerald-500/20' : bundle.type === 'tcp' ? 'bg-blue-500/20' : 'bg-purple-500/20'
+              'flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg',
+              bundle.type === 'http' ? 'bg-type-http/20 group-hover:shadow-type-http/30' : bundle.type === 'tcp' ? 'bg-type-tcp/20 group-hover:shadow-type-tcp/30' : 'bg-type-udp/20 group-hover:shadow-type-udp/30'
             ]">
               <component :is="getTunnelIcon(bundle.type)" :class="['h-7 w-7', getTunnelAccent(bundle.type)]" />
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="text-lg font-bold truncate">{{ bundle.name }}</h3>
+              <h3 class="font-display text-lg font-bold truncate">{{ bundle.name }}</h3>
               <Badge :variant="getTunnelTypeBadge(bundle.type)" class="mt-1">
                 {{ bundle.type.toUpperCase() }}
               </Badge>
@@ -272,26 +293,26 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
           </div>
 
           <!-- Port mapping visualization -->
-          <div class="flex items-center gap-3 p-4 rounded-xl bg-background/60 border border-border/30 mb-4">
+          <div class="flex items-center gap-3 p-4 rounded-xl bg-background/60 backdrop-blur-sm border border-border/30 mb-4">
             <div class="flex-1 text-center">
-              <p class="text-xs text-muted-foreground mb-1">{{ t('bundles.localPort') }}</p>
-              <p class="font-mono text-lg font-bold">:{{ bundle.localPort }}</p>
+              <p class="text-xs text-muted-foreground mb-1 uppercase tracking-wider">{{ t('bundles.localPort') }}</p>
+              <p class="font-mono text-xl font-bold">:{{ bundle.localPort }}</p>
             </div>
             <div class="flex flex-col items-center">
-              <ArrowRight :class="['h-5 w-5', getTunnelAccent(bundle.type)]" />
+              <ArrowRight :class="['h-6 w-6 transition-transform group-hover:translate-x-1', getTunnelAccent(bundle.type)]" />
             </div>
             <div class="flex-1 text-center">
-              <p class="text-xs text-muted-foreground mb-1">{{ bundle.type === 'http' ? t('bundles.subdomain') : t('bundles.remotePort') }}</p>
-              <p :class="['font-mono text-lg font-bold', getTunnelAccent(bundle.type)]">
+              <p class="text-xs text-muted-foreground mb-1 uppercase tracking-wider">{{ bundle.type === 'http' ? t('bundles.subdomain') : t('bundles.remotePort') }}</p>
+              <p :class="['font-mono text-xl font-bold', getTunnelAccent(bundle.type)]">
                 {{ bundle.type === 'http' ? (bundle.subdomain || 'auto') : (bundle.remotePort || 'auto') }}
               </p>
             </div>
           </div>
 
           <!-- Auto-connect badge -->
-          <div v-if="bundle.autoConnect" class="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <Zap class="h-4 w-4 text-amber-500" />
-            <span class="text-sm text-amber-600 dark:text-amber-400 font-medium">{{ t('bundles.autoConnectEnabled') || 'Auto-connect enabled' }}</span>
+          <div v-if="bundle.autoConnect" class="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
+            <Zap class="h-4 w-4 text-warning" />
+            <span class="text-sm text-warning font-medium">{{ t('bundles.autoConnectEnabled') || 'Auto-connect enabled' }}</span>
           </div>
 
           <!-- Actions -->
@@ -299,15 +320,15 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
             <Button
               v-if="isBundleConnected(bundle)"
               variant="outline"
-              class="flex-1"
+              class="flex-1 border-success/30 text-success bg-success/5"
               disabled
             >
-              <Check class="mr-2 h-4 w-4 text-emerald-500" />
+              <Check class="mr-2 h-4 w-4" />
               {{ t('bundles.connected') }}
             </Button>
             <Button
               v-else
-              :class="['flex-1 text-white', getTunnelBg(bundle.type)]"
+              :class="['flex-1 text-white transition-all duration-300', getTunnelBgClass(bundle.type)]"
               @click="connectBundle(bundle.id)"
             >
               <Play class="mr-2 h-4 w-4" />
@@ -318,7 +339,7 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-10 w-10"
+                class="h-10 w-10 border-border/50 hover:border-primary/50 hover:bg-primary/10"
                 @click="openEditModal(bundle)"
               >
                 <Settings2 class="h-4 w-4" />
@@ -328,7 +349,7 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-10 w-10 hover:border-destructive hover:text-destructive hover:bg-destructive/10"
+                class="h-10 w-10 border-border/50 hover:border-destructive hover:text-destructive hover:bg-destructive/10"
                 @click="confirmDeleteBundle(bundle.id)"
               >
                 <Trash2 class="h-4 w-4" />
@@ -341,11 +362,11 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
 
     <!-- Create/Edit Modal -->
     <Dialog v-model:open="showModal">
-      <DialogContent>
+      <DialogContent class="border-border/50 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Boxes class="h-4 w-4 text-primary" />
+          <DialogTitle class="flex items-center gap-3 font-display">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30">
+              <Boxes class="h-5 w-5 text-primary" />
             </div>
             {{ editingBundle ? t('bundles.editBundle') : t('bundles.createBundle') }}
           </DialogTitle>
@@ -356,55 +377,66 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
 
         <form @submit.prevent="saveBundle" class="space-y-4">
           <div class="space-y-2">
-            <Label>{{ t('bundles.name') }}</Label>
-            <Input v-model="formData.name" :placeholder="t('bundles.namePlaceholder')" />
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('bundles.name') }}</Label>
+            <Input v-model="formData.name" :placeholder="t('bundles.namePlaceholder')" class="bg-muted/30 border-border/50" />
           </div>
 
           <div class="space-y-2">
-            <Label>{{ t('bundles.type') }}</Label>
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('bundles.type') }}</Label>
             <Select
               v-model="formData.type"
               :options="tunnelTypes"
+              class="bg-muted/30"
             />
           </div>
 
           <div class="space-y-2">
-            <Label>{{ t('bundles.localPort') }}</Label>
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('bundles.localPort') }}</Label>
             <Input
               v-model.number="formData.localPort"
               type="number"
               placeholder="3000"
+              class="bg-muted/30 border-border/50 font-mono"
             />
           </div>
 
           <div v-if="formData.type === 'http'" class="space-y-2">
-            <Label>{{ t('bundles.subdomain') }} <span class="text-muted-foreground text-xs">{{ t('dashboard.optional') }}</span></Label>
-            <Input v-model="formData.subdomain" :placeholder="t('bundles.subdomainPlaceholder')" />
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">
+              {{ t('bundles.subdomain') }}
+              <span class="text-muted-foreground/60 lowercase">{{ t('dashboard.optional') }}</span>
+            </Label>
+            <Input v-model="formData.subdomain" :placeholder="t('bundles.subdomainPlaceholder')" class="bg-muted/30 border-border/50 font-mono" />
           </div>
 
           <div v-else class="space-y-2">
-            <Label>{{ t('bundles.remotePort') }} <span class="text-muted-foreground text-xs">{{ t('dashboard.optional') }}</span></Label>
+            <Label class="text-xs uppercase tracking-wider text-muted-foreground">
+              {{ t('bundles.remotePort') }}
+              <span class="text-muted-foreground/60 lowercase">{{ t('dashboard.optional') }}</span>
+            </Label>
             <Input
               v-model.number="formData.remotePort"
               type="number"
               placeholder="0"
+              class="bg-muted/30 border-border/50 font-mono"
             />
             <p class="text-xs text-muted-foreground">{{ t('bundles.remotePortHint') }}</p>
           </div>
 
-          <div class="flex items-center justify-between p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-            <div class="flex items-center gap-2">
-              <Zap class="h-4 w-4 text-amber-500" />
-              <Label class="cursor-pointer">{{ t('bundles.autoConnectOnStartup') }}</Label>
+          <div class="flex items-center justify-between p-4 rounded-xl bg-warning/5 border border-warning/20">
+            <div class="flex items-center gap-3">
+              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/20">
+                <Zap class="h-4 w-4 text-warning" />
+              </div>
+              <Label class="cursor-pointer font-medium">{{ t('bundles.autoConnectOnStartup') }}</Label>
             </div>
             <Switch v-model="formData.autoConnect" />
           </div>
 
           <DialogFooter class="pt-4">
-            <Button type="button" variant="outline" @click="showModal = false">
+            <Button type="button" variant="outline" class="border-border/50" @click="showModal = false">
               {{ t('common.cancel') }}
             </Button>
-            <Button type="submit" :disabled="!formData.name || !formData.localPort">
+            <Button type="submit" class="bg-gradient-to-r from-primary to-primary hover:to-accent shadow-lg shadow-primary/25" :disabled="!formData.name || !formData.localPort">
               {{ editingBundle ? t('common.save') : t('common.create') }}
             </Button>
           </DialogFooter>
@@ -414,10 +446,12 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
 
     <!-- Delete Confirmation Dialog -->
     <Dialog v-model:open="showDeleteDialog">
-      <DialogContent>
+      <DialogContent class="border-destructive/30 bg-card/95 backdrop-blur-xl">
         <DialogHeader>
-          <DialogTitle class="flex items-center gap-2 text-destructive">
-            <Trash2 class="h-5 w-5" />
+          <DialogTitle class="flex items-center gap-3 text-destructive font-display">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/20 border border-destructive/30">
+              <Trash2 class="h-5 w-5" />
+            </div>
             {{ t('bundles.deleteBundle') }}
           </DialogTitle>
           <DialogDescription>
@@ -425,10 +459,10 @@ function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" @click="showDeleteDialog = false">
+          <Button variant="outline" class="border-border/50" @click="showDeleteDialog = false">
             {{ t('common.cancel') }}
           </Button>
-          <Button variant="destructive" @click="deleteBundle">
+          <Button variant="destructive" class="shadow-lg shadow-destructive/25" @click="deleteBundle">
             {{ t('common.delete') }}
           </Button>
         </DialogFooter>

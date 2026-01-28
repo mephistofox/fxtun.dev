@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useTunnelsStore } from '@/stores/tunnels'
 import { useSyncStore } from '@/stores/sync'
-import { Button, Tooltip } from '@/components/ui'
+import { Tooltip } from '@/components/ui'
 import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
   LayoutDashboard,
@@ -18,8 +18,12 @@ import {
   Wifi,
   RefreshCw,
   Check,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-vue-next'
+import { ref } from 'vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -28,6 +32,7 @@ const authStore = useAuthStore()
 const tunnelsStore = useTunnelsStore()
 const syncStore = useSyncStore()
 
+const sidebarCollapsed = ref(false)
 let stopPolling: (() => void) | null = null
 
 onMounted(() => {
@@ -73,87 +78,176 @@ async function logout() {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col">
-    <!-- Title bar (draggable) -->
-    <div class="wails-drag flex h-10 items-center justify-between border-b bg-gradient-to-r from-muted/80 to-muted/50 px-4">
-      <div class="flex items-center gap-2">
-        <div class="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
-          <Wifi class="h-3.5 w-3.5 text-primary" />
-        </div>
-        <span class="text-sm font-semibold tracking-tight">fxTunnel</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <!-- Sync indicator -->
-        <Tooltip :content="syncStore.lastError || (syncStore.isSyncing ? t('sync.syncing') : t('sync.synced'))" :delay-duration="300">
-          <div class="flex items-center gap-1.5 rounded-full bg-background/50 px-2 py-1">
-            <RefreshCw
-              v-if="syncStore.isSyncing"
-              class="h-3 w-3 animate-spin text-primary"
-            />
-            <AlertCircle
-              v-else-if="syncStore.lastError"
-              class="h-3 w-3 text-destructive"
-            />
-            <Check
-              v-else
-              class="h-3 w-3 text-green-500"
-            />
-          </div>
-        </Tooltip>
-        <!-- Connection status -->
-        <div class="flex items-center gap-2 rounded-full bg-background/50 px-3 py-1">
-          <StatusIndicator :status="connectionStatus" size="sm" />
-          <span class="text-xs font-medium">{{ statusText }}</span>
-        </div>
-      </div>
-    </div>
+  <div class="flex h-screen bg-background overflow-hidden">
+    <!-- Animated grid background -->
+    <div class="fixed inset-0 grid-pattern opacity-30 pointer-events-none" />
 
-    <!-- Navigation -->
-    <nav class="flex items-center justify-between border-b bg-background/50 px-4 py-2">
-      <div class="flex gap-1">
+    <!-- Sidebar -->
+    <aside
+      :class="[
+        'relative z-20 flex flex-col border-r border-border/50 bg-card/80 backdrop-blur-xl transition-all duration-300',
+        sidebarCollapsed ? 'w-16' : 'w-56'
+      ]"
+    >
+      <!-- Logo & Title bar (draggable) -->
+      <div class="wails-drag flex h-14 items-center gap-3 border-b border-border/50 px-4">
+        <div class="relative flex h-9 w-9 items-center justify-center">
+          <!-- Animated glow ring -->
+          <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-accent opacity-20 blur-md animate-pulse" />
+          <div class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent">
+            <Zap class="h-5 w-5 text-primary-foreground" />
+          </div>
+        </div>
+        <Transition name="fade">
+          <div v-if="!sidebarCollapsed" class="flex flex-col">
+            <span class="font-display font-bold text-sm tracking-tight">fxTunnel</span>
+            <span class="text-[10px] text-muted-foreground">v1.5.0</span>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- Connection Status -->
+      <div class="p-3 border-b border-border/50">
+        <div
+          :class="[
+            'flex items-center gap-3 rounded-xl p-3 transition-all duration-300',
+            connectionStatus === 'connected'
+              ? 'bg-success/10 border border-success/20'
+              : connectionStatus === 'connecting'
+                ? 'bg-warning/10 border border-warning/20'
+                : 'bg-muted/50 border border-border/50'
+          ]"
+        >
+          <StatusIndicator :status="connectionStatus" size="md" />
+          <Transition name="fade">
+            <div v-if="!sidebarCollapsed" class="flex-1 min-w-0">
+              <p class="text-xs font-medium truncate">{{ statusText }}</p>
+              <p class="text-[10px] text-muted-foreground truncate">
+                {{ tunnelsStore.activeTunnels.length }} {{ t('status.activeTunnels').toLowerCase() }}
+              </p>
+            </div>
+          </Transition>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 overflow-y-auto p-3 space-y-1">
         <Tooltip
           v-for="item in navItems"
           :key="item.name"
-          :content="t(item.labelKey)"
-          :delay-duration="500"
+          :content="sidebarCollapsed ? t(item.labelKey) : ''"
+          :delay-duration="0"
+          side="right"
         >
-          <Button
-            :variant="route.name === item.name ? 'secondary' : 'ghost'"
-            size="sm"
-            :class="['transition-all duration-200', route.name === item.name && 'shadow-sm']"
+          <button
             @click="router.push({ name: item.name })"
+            :class="[
+              'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+              route.name === item.name
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            ]"
           >
-            <component :is="item.icon" class="h-4 w-4 sm:mr-2" />
-            <span class="hidden sm:inline">{{ t(item.labelKey) }}</span>
-          </Button>
+            <!-- Active indicator -->
+            <div
+              v-if="route.name === item.name"
+              class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary"
+            />
+
+            <component
+              :is="item.icon"
+              :class="[
+                'h-5 w-5 transition-transform duration-200',
+                route.name === item.name && 'scale-110'
+              ]"
+            />
+            <Transition name="fade">
+              <span v-if="!sidebarCollapsed">{{ t(item.labelKey) }}</span>
+            </Transition>
+          </button>
         </Tooltip>
+      </nav>
+
+      <!-- Bottom section -->
+      <div class="p-3 space-y-2 border-t border-border/50">
+        <!-- Sync Status -->
+        <div
+          :class="[
+            'flex items-center gap-3 rounded-xl px-3 py-2 text-xs',
+            syncStore.lastError ? 'bg-destructive/10' : 'bg-muted/30'
+          ]"
+        >
+          <RefreshCw
+            v-if="syncStore.isSyncing"
+            class="h-4 w-4 animate-spin text-primary"
+          />
+          <AlertCircle
+            v-else-if="syncStore.lastError"
+            class="h-4 w-4 text-destructive"
+          />
+          <Check
+            v-else
+            class="h-4 w-4 text-success"
+          />
+          <Transition name="fade">
+            <span v-if="!sidebarCollapsed" class="text-muted-foreground">
+              {{ syncStore.isSyncing ? t('sync.syncing') : syncStore.lastError || t('sync.synced') }}
+            </span>
+          </Transition>
+        </div>
+
+        <!-- Logout -->
+        <Tooltip :content="sidebarCollapsed ? t('nav.logout') : ''" :delay-duration="0" side="right">
+          <button
+            @click="logout"
+            class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut class="h-5 w-5" />
+            <Transition name="fade">
+              <span v-if="!sidebarCollapsed">{{ t('nav.logout') }}</span>
+            </Transition>
+          </button>
+        </Tooltip>
+
+        <!-- Collapse toggle -->
+        <button
+          @click="sidebarCollapsed = !sidebarCollapsed"
+          class="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all"
+        >
+          <component :is="sidebarCollapsed ? ChevronRight : ChevronLeft" class="h-4 w-4" />
+        </button>
       </div>
-      <Tooltip :content="t('nav.logout')" :delay-duration="500">
-        <Button variant="ghost" size="sm" @click="logout">
-          <LogOut class="h-4 w-4 sm:mr-2" />
-          <span class="hidden sm:inline">{{ t('nav.logout') }}</span>
-        </Button>
-      </Tooltip>
-    </nav>
+    </aside>
 
     <!-- Main content -->
-    <main class="flex-1 overflow-auto p-4">
-      <slot />
-    </main>
+    <div class="relative flex-1 flex flex-col overflow-hidden">
+      <!-- Top bar -->
+      <header class="relative z-10 flex h-14 items-center justify-between border-b border-border/50 bg-card/50 backdrop-blur-sm px-6">
+        <div class="flex items-center gap-3">
+          <h1 class="font-display font-semibold text-lg">
+            {{ t(navItems.find(i => i.name === route.name)?.labelKey || 'nav.dashboard') }}
+          </h1>
+        </div>
 
-    <!-- Status bar -->
-    <footer class="flex h-8 items-center justify-between border-t bg-muted/30 px-4 text-xs text-muted-foreground">
-      <div class="flex items-center gap-4">
-        <span class="flex items-center gap-1.5">
-          <span class="opacity-60">{{ t('status.server') }}:</span>
-          <span class="font-medium">{{ authStore.serverAddress || t('status.noServer') }}</span>
-        </span>
-        <span v-if="tunnelsStore.activeTunnels.length" class="flex items-center gap-1.5">
-          <span class="opacity-60">{{ t('status.activeTunnels') }}:</span>
-          <span class="font-medium text-primary">{{ tunnelsStore.activeTunnels.length }}</span>
-        </span>
-      </div>
-      <span class="opacity-60">v1.0.0</span>
-    </footer>
+        <div class="flex items-center gap-2 text-xs text-muted-foreground">
+          <Wifi class="h-3.5 w-3.5" />
+          <span>{{ authStore.serverAddress || t('status.noServer') }}</span>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-auto p-6">
+        <slot />
+      </main>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.grid-pattern {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+</style>
