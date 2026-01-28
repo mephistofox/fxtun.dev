@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/mephistofox/fxTunnel/compare/v1.5.0...v1.6.0) (2026-01-28)
+
+
+### Features
+
+* **gui:** complete redesign with cyber-industrial theme ([39bb251](https://github.com/mephistofox/fxTunnel/commit/39bb251628e3f2b40d963dced4f5810d752a8256))
+
 ## [1.5.0](https://github.com/mephistofox/fxTunnel/compare/v1.4.0...v1.5.0) (2026-01-28)
 
 
