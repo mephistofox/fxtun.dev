@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { Button, Card, Input, Label, Tabs, Alert, AlertDescription } from '@/components/ui'
-import { Wifi, Eye, EyeOff, Server, Key, Phone, Lock, Shield } from 'lucide-vue-next'
+import { Wifi, Eye, EyeOff, Server, Key, Phone, Lock, Shield, Zap, ArrowRight } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -27,14 +27,12 @@ const tabs = computed(() => [
   { value: 'password', label: t('auth.loginWithPassword') },
 ])
 
-// Reset TOTP state when switching auth method
 watch(authMethod, () => {
   authStore.resetTotpRequired()
   totpCode.value = ''
   showError.value = false
 })
 
-// Show error animation
 watch(() => authStore.error, (error) => {
   if (error) {
     showError.value = true
@@ -74,146 +72,239 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
+  <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+    <!-- Animated grid background -->
+    <div class="absolute inset-0 grid-pattern opacity-40" />
+
+    <!-- Glowing orbs -->
+    <div class="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-primary/20 blur-[120px] animate-float" />
+    <div class="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-accent/20 blur-[100px] animate-float-delayed" />
+
+    <!-- Scanline effect -->
+    <div class="absolute inset-0 pointer-events-none overflow-hidden">
+      <div class="scanline" />
+    </div>
+
+    <!-- Main card -->
     <Card
-      :class="['w-full max-w-md overflow-hidden', showError && 'animate-shake']"
+      :class="[
+        'relative z-10 w-full max-w-md overflow-hidden border-border/50 bg-card/80 backdrop-blur-xl',
+        showError && 'animate-shake'
+      ]"
     >
-      <!-- Header with gradient -->
-      <div class="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 pb-4">
-        <div class="mb-2 flex items-center justify-center gap-3">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shadow-sm">
-            <Wifi class="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight">{{ t('auth.title') }}</h1>
-            <p class="text-sm text-muted-foreground">{{ t('auth.subtitle') }}</p>
-          </div>
-        </div>
-      </div>
+      <!-- Gradient border effect -->
+      <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 pointer-events-none" />
+      <div class="absolute inset-[1px] rounded-xl bg-card" />
 
-      <form @submit.prevent="handleSubmit" class="space-y-4 p-6 pt-4">
-        <!-- Server Address -->
-        <div class="space-y-2">
-          <Label for="server" class="flex items-center gap-2">
-            <Server class="h-3.5 w-3.5 text-muted-foreground" />
-            {{ t('auth.serverAddress') }}
-          </Label>
-          <Input
-            id="server"
-            v-model="serverAddress"
-            :placeholder="t('auth.serverAddressPlaceholder')"
+      <div class="relative">
+        <!-- Header -->
+        <div class="relative p-8 pb-6 text-center">
+          <!-- Logo with glow -->
+          <div class="relative mx-auto mb-6 w-fit">
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-30 blur-xl animate-pulse" />
+            <div class="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-2xl">
+              <Zap class="h-10 w-10 text-primary-foreground" />
+            </div>
+          </div>
+
+          <h1 class="font-display text-3xl font-bold tracking-tight">
+            <span class="gradient-text">fxTunnel</span>
+          </h1>
+          <p class="mt-2 text-sm text-muted-foreground">{{ t('auth.subtitle') }}</p>
+        </div>
+
+        <form @submit.prevent="handleSubmit" class="space-y-5 p-8 pt-0">
+          <!-- Server Address -->
+          <div class="space-y-2">
+            <Label for="server" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Server class="h-3.5 w-3.5" />
+              {{ t('auth.serverAddress') }}
+            </Label>
+            <div class="relative">
+              <Input
+                id="server"
+                v-model="serverAddress"
+                :placeholder="t('auth.serverAddressPlaceholder')"
+                class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 pl-4 pr-10 font-mono text-sm"
+              />
+              <Wifi class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            </div>
+          </div>
+
+          <!-- Auth Method Tabs -->
+          <Tabs
+            v-model="authMethod"
+            :tabs="tabs"
+            class="w-full"
           />
-        </div>
 
-        <!-- Auth Method Tabs -->
-        <Tabs
-          v-model="authMethod"
-          :tabs="tabs"
-          class="w-full"
-        />
-
-        <!-- Token Auth -->
-        <Transition name="fade" mode="out-in">
-          <div v-if="authMethod === 'token'" key="token" class="space-y-4">
-            <div class="space-y-2">
-              <Label for="token" class="flex items-center gap-2">
-                <Key class="h-3.5 w-3.5 text-muted-foreground" />
-                {{ t('auth.token') }}
-              </Label>
-              <Input
-                id="token"
-                v-model="token"
-                type="password"
-                :placeholder="t('auth.tokenPlaceholder')"
-              />
-            </div>
-          </div>
-
-          <!-- Password Auth -->
-          <div v-else key="password" class="space-y-4">
-            <div class="space-y-2">
-              <Label for="phone" class="flex items-center gap-2">
-                <Phone class="h-3.5 w-3.5 text-muted-foreground" />
-                {{ t('auth.phone') }}
-              </Label>
-              <Input
-                id="phone"
-                v-model="phone"
-                phone
-                :placeholder="t('auth.phonePlaceholder')"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="password" class="flex items-center gap-2">
-                <Lock class="h-3.5 w-3.5 text-muted-foreground" />
-                {{ t('auth.password') }}
-              </Label>
-              <div class="relative">
-                <Input
-                  id="password"
-                  v-model="password"
-                  :type="showPassword ? 'text' : 'password'"
-                  class="pr-10"
-                />
-                <button
-                  type="button"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                  @click="showPassword = !showPassword"
-                >
-                  <component :is="showPassword ? EyeOff : Eye" class="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <Transition name="slide-up">
-              <div v-if="authStore.totpRequired" class="space-y-2">
-                <Label for="totp" class="flex items-center gap-2">
-                  <Shield class="h-3.5 w-3.5 text-muted-foreground" />
-                  {{ t('auth.totpCode') }}
+          <!-- Token Auth -->
+          <Transition name="fade" mode="out-in">
+            <div v-if="authMethod === 'token'" key="token" class="space-y-4">
+              <div class="space-y-2">
+                <Label for="token" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  <Key class="h-3.5 w-3.5" />
+                  {{ t('auth.token') }}
                 </Label>
                 <Input
-                  id="totp"
-                  v-model="totpCode"
-                  :placeholder="t('auth.totpPlaceholder')"
-                  maxlength="6"
-                  required
-                  class="text-center font-mono text-lg tracking-widest"
+                  id="token"
+                  v-model="token"
+                  type="password"
+                  :placeholder="t('auth.tokenPlaceholder')"
+                  class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 font-mono text-sm"
                 />
-                <p class="text-xs text-muted-foreground">{{ t('auth.totpHint') }}</p>
               </div>
-            </Transition>
-          </div>
-        </Transition>
+            </div>
 
-        <!-- Remember Me -->
-        <div class="flex items-center gap-2">
-          <input
-            id="remember"
-            v-model="remember"
-            type="checkbox"
-            class="h-4 w-4 rounded border-input accent-primary"
-          />
-          <Label for="remember" class="cursor-pointer text-sm">{{ t('auth.remember') }}</Label>
-        </div>
+            <!-- Password Auth -->
+            <div v-else key="password" class="space-y-4">
+              <div class="space-y-2">
+                <Label for="phone" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  <Phone class="h-3.5 w-3.5" />
+                  {{ t('auth.phone') }}
+                </Label>
+                <Input
+                  id="phone"
+                  v-model="phone"
+                  phone
+                  :placeholder="t('auth.phonePlaceholder')"
+                  class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20"
+                />
+              </div>
 
-        <!-- Error -->
-        <Transition name="slide-up">
-          <Alert v-if="authStore.error" variant="destructive">
-            <AlertDescription>{{ authStore.error }}</AlertDescription>
-          </Alert>
-        </Transition>
+              <div class="space-y-2">
+                <Label for="password" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  <Lock class="h-3.5 w-3.5" />
+                  {{ t('auth.password') }}
+                </Label>
+                <div class="relative">
+                  <Input
+                    id="password"
+                    v-model="password"
+                    :type="showPassword ? 'text' : 'password'"
+                    class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 pr-10"
+                  />
+                  <button
+                    type="button"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                    @click="showPassword = !showPassword"
+                  >
+                    <component :is="showPassword ? EyeOff : Eye" class="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
-        <!-- Submit -->
-        <Button
-          type="submit"
-          class="w-full"
-          :loading="authStore.isLoading"
-          :disabled="authStore.isLoading"
-        >
-          {{ authStore.isLoading ? t('auth.connecting') : t('auth.login') }}
-        </Button>
-      </form>
+              <Transition name="slide-up">
+                <div v-if="authStore.totpRequired" class="space-y-2">
+                  <Label for="totp" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                    <Shield class="h-3.5 w-3.5" />
+                    {{ t('auth.totpCode') }}
+                  </Label>
+                  <Input
+                    id="totp"
+                    v-model="totpCode"
+                    :placeholder="t('auth.totpPlaceholder')"
+                    maxlength="6"
+                    required
+                    class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 text-center font-mono text-xl tracking-[0.5em]"
+                  />
+                  <p class="text-xs text-muted-foreground text-center">{{ t('auth.totpHint') }}</p>
+                </div>
+              </Transition>
+            </div>
+          </Transition>
+
+          <!-- Remember Me -->
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <div class="relative">
+              <input
+                id="remember"
+                v-model="remember"
+                type="checkbox"
+                class="peer sr-only"
+              />
+              <div class="h-5 w-5 rounded-md border-2 border-border/50 bg-muted/30 transition-all peer-checked:border-primary peer-checked:bg-primary/20" />
+              <svg
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 text-primary opacity-0 transition-opacity peer-checked:opacity-100"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="3"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span class="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              {{ t('auth.remember') }}
+            </span>
+          </label>
+
+          <!-- Error -->
+          <Transition name="slide-up">
+            <Alert v-if="authStore.error" variant="destructive" class="border-destructive/50 bg-destructive/10">
+              <AlertDescription>{{ authStore.error }}</AlertDescription>
+            </Alert>
+          </Transition>
+
+          <!-- Submit -->
+          <Button
+            type="submit"
+            class="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-accent transition-all duration-300 shadow-lg shadow-primary/25 hover:shadow-primary/40"
+            :loading="authStore.isLoading"
+            :disabled="authStore.isLoading"
+          >
+            <span class="flex items-center gap-2">
+              {{ authStore.isLoading ? t('auth.connecting') : t('auth.login') }}
+              <ArrowRight v-if="!authStore.isLoading" class="h-4 w-4" />
+            </span>
+          </Button>
+        </form>
+      </div>
     </Card>
   </div>
 </template>
+
+<style scoped>
+.grid-pattern {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -30px) scale(1.1); }
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 8s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent);
+  animation: scan 4s linear infinite;
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+</style>
