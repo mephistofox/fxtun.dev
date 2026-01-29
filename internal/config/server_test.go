@@ -102,6 +102,34 @@ func TestTokenCanUseSubdomain(t *testing.T) {
 	}
 }
 
+func TestValidate_MissingJWTSecret(t *testing.T) {
+	cfg := validServerConfig()
+	cfg.Web.Enabled = true
+	cfg.Auth.JWTSecret = ""
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "jwt_secret")
+}
+
+func TestValidate_MissingTOTPKey(t *testing.T) {
+	cfg := validServerConfig()
+	cfg.Web.Enabled = true
+	cfg.Auth.JWTSecret = "test-secret"
+	cfg.TOTP.EncryptionKey = ""
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "encryption_key")
+}
+
+func TestValidate_SecretsNotRequiredWhenWebDisabled(t *testing.T) {
+	cfg := validServerConfig()
+	cfg.Web.Enabled = false
+	cfg.Auth.JWTSecret = ""
+	cfg.TOTP.EncryptionKey = ""
+	err := cfg.Validate()
+	require.NoError(t, err)
+}
+
 func TestLoadServerConfig_Defaults(t *testing.T) {
 	// Use a temp dir with no config files so defaults are used
 	dir := t.TempDir()
