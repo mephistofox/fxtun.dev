@@ -69,6 +69,7 @@ type Client struct {
 	UserID     int64              // 0 if legacy token
 	APITokenID int64              // 0 if legacy token
 	DBToken    *database.APIToken // nil if legacy token
+	IsAdmin    bool               // true if user is admin
 
 	server *Server
 	conn   net.Conn
@@ -487,6 +488,13 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 	}
 	client.lastPing.Store(time.Now().UnixNano())
 
+	// Resolve admin status from user record
+	if s.db != nil && apiToken.UserID > 0 {
+		if user, err := s.db.Users.GetByID(apiToken.UserID); err == nil && user != nil {
+			client.IsAdmin = user.IsAdmin
+		}
+	}
+
 	s.clientsMu.Lock()
 	s.clients[clientID] = client
 	s.clientsMu.Unlock()
@@ -509,6 +517,7 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 		Tunnels:      make(map[string]*Tunnel),
 		Connected:    time.Now(),
 		UserID:       claims.UserID,
+		IsAdmin:      claims.IsAdmin,
 		server:       s,
 		conn:         conn,
 		log:          log.With().Str("client_id", clientID).Int64("user_id", claims.UserID).Logger(),
