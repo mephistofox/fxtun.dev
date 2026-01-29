@@ -156,54 +156,45 @@ function openReserveDialog() {
       >
         <div class="p-4">
           <!-- Header -->
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-type-http/20">
-                <Globe class="h-4 w-4 text-type-http" />
-              </div>
-              <div>
-                <h3 class="font-semibold text-sm">{{ domain.subdomain }}</h3>
-                <p class="text-[10px] text-muted-foreground">.mfdev.ru</p>
-              </div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-type-http/20">
+              <Globe class="h-5 w-5 text-type-http" />
             </div>
-            <Tooltip :content="t('domains.releaseDomain')">
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold truncate">{{ domain.subdomain }}</h3>
+              <p class="text-[10px] text-muted-foreground">.mfdev.ru</p>
+            </div>
+          </div>
+
+          <!-- Date -->
+          <div class="flex items-center gap-1.5 mb-3 px-2 py-1 rounded-lg bg-type-http/5 border border-type-http/20 text-xs">
+            <Calendar class="h-3 w-3 text-type-http" />
+            <span class="text-type-http font-medium">{{ formatDate(domain.createdAt) }}</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-2">
+            <Tooltip :content="copiedId === domain.id ? t('common.copied') : t('domains.copyUrl')">
               <Button
-                variant="ghost"
-                size="icon"
-                class="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                @click="releaseDomain(domain.id)"
+                variant="outline"
+                size="sm"
+                class="flex-1 h-8 border-type-http/30 text-type-http hover:bg-type-http/10"
+                @click="copyUrl(domain.url, domain.id)"
               >
+                <component :is="copiedId === domain.id ? Check : Copy" class="mr-1.5 h-3.5 w-3.5" />
+                {{ copiedId === domain.id ? t('common.copied') : t('domains.copyUrl') }}
+              </Button>
+            </Tooltip>
+            <Tooltip :content="t('common.open')">
+              <Button variant="outline" size="icon" class="h-8 w-8" @click="openUrl(domain.url)">
+                <ExternalLink class="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
+            <Tooltip :content="t('domains.releaseDomain')">
+              <Button variant="outline" size="icon" class="h-8 w-8 hover:border-destructive hover:text-destructive hover:bg-destructive/10" @click="releaseDomain(domain.id)">
                 <Trash2 class="h-3.5 w-3.5" />
               </Button>
             </Tooltip>
-          </div>
-
-          <!-- URL -->
-          <div class="flex items-center gap-1.5 p-2 rounded-lg bg-background/60 border border-border/30 mb-3">
-            <code class="flex-1 text-xs font-mono text-type-http break-all">
-              {{ domain.url }}
-            </code>
-            <div class="flex items-center gap-0.5 shrink-0">
-              <Tooltip :content="copiedId === domain.id ? t('common.copied') : t('domains.copyUrl')">
-                <Button variant="ghost" size="icon" class="h-6 w-6" @click="copyUrl(domain.url, domain.id)">
-                  <component :is="copiedId === domain.id ? Check : Copy" :class="['h-3 w-3', copiedId === domain.id ? 'text-success' : 'text-muted-foreground']" />
-                </Button>
-              </Tooltip>
-              <Tooltip :content="t('common.open')">
-                <Button variant="ghost" size="icon" class="h-6 w-6" @click="openUrl(domain.url)">
-                  <ExternalLink class="h-3 w-3 text-muted-foreground" />
-                </Button>
-              </Tooltip>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span class="flex items-center gap-1">
-              <Calendar class="h-3 w-3" />
-              {{ t('domains.reserved') }}
-            </span>
-            <span class="font-medium text-type-http">{{ formatDate(domain.createdAt) }}</span>
           </div>
         </div>
       </div>
