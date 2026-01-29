@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/mephistofox/fxTunnel/compare/v1.7.0...v1.8.0) (2026-01-29)
+
+
+### Features
+
+* **server:** add interstitial warning page for HTTP tunnels ([5f45ec3](https://github.com/mephistofox/fxTunnel/commit/5f45ec379662d6734192a96cec0e5fe9675b83fc))
+
+
+### Bug Fixes
+
+* **gui:** disable systray on Windows to prevent window closing after auth ([25e06c5](https://github.com/mephistofox/fxTunnel/commit/25e06c5b536dc0fb4e78af5f874d386706b2e6c1))
+* **web:** use mfdev.ru/install.sh instead of get.mfdev.ru subdomain ([16bf098](https://github.com/mephistofox/fxTunnel/commit/16bf098187b3d883698b9e6be8e0610aea1fea25))
+
 ## [1.7.0](https://github.com/mephistofox/fxTunnel/compare/v1.6.0...v1.7.0) (2026-01-29)
 
 
