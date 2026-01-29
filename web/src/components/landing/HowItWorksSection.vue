@@ -10,7 +10,7 @@ const steps = [
     icon: 'download',
     titleKey: 'landing.howItWorks.step1.title',
     descKey: 'landing.howItWorks.step1.desc',
-    code: 'curl -L https://get.mfdev.ru | sh',
+    code: 'curl -fsSL https://mfdev.ru/install.sh | sh',
   },
   {
     number: '02',
