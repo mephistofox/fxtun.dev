@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -13,12 +14,22 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/mephistofox/fxtunnel/internal/gui"
 )
 
 //go:embed all:gui/dist
 var assets embed.FS
+
+//go:embed build/appicon.png
+var appIcon []byte
+
+// Set via ldflags at build time
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+)
 
 func main() {
 	// Setup logging
@@ -30,6 +41,14 @@ func main() {
 
 	// Create app
 	app := gui.NewApp(log)
+	app.SetIcon(appIcon)
+
+	// Set build info
+	app.SetBuildInfo(Version, BuildTime)
+
+	// Re-create logger with GUI hook so all logs appear in the Logs view
+	log = log.Hook(app.LogHook())
+	app.UpdateLogger(log)
 
 	// Run Wails application
 	err := wails.Run(&options.App{
@@ -44,6 +63,13 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
 		OnStartup:        app.Startup,
 		OnShutdown:       app.Shutdown,
+		OnBeforeClose: func(ctx context.Context) (prevent bool) {
+			if app.SettingsService != nil && app.SettingsService.GetMinimizeToTray() {
+				wailsRuntime.WindowHide(ctx)
+				return true
+			}
+			return false
+		},
 		Bind: []interface{}{
 			app,
 			app.TunnelService,
@@ -75,6 +101,8 @@ func main() {
 		},
 		Linux: &linux.Options{
 			WindowIsTranslucent: false,
+			Icon:                appIcon,
+			ProgramName:         "fxtunnel-gui",
 		},
 	})
 

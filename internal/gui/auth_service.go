@@ -147,13 +147,18 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		}
 	}
 
-	// Pull data from server and apply to local storage
+	// Pull data from server and apply to local storage, then auto-connect bundles
 	go func() {
 		if syncData, err := s.app.SyncService.Pull(); err == nil {
 			s.app.SyncService.ApplyServerData(syncData)
 			s.log.Info().Msg("Server data synced after login")
 		} else {
 			s.log.Debug().Err(err).Msg("Failed to sync data after login")
+		}
+
+		// Auto-connect bundles marked for auto-start
+		if tunnels, err := s.app.BundleService.ConnectAutoStart(); err == nil && len(tunnels) > 0 {
+			s.log.Info().Int("count", len(tunnels)).Msg("Auto-connected bundles")
 		}
 	}()
 
