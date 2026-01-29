@@ -56,8 +56,16 @@ type AuthSettings struct {
 
 // WebSettings contains web panel configuration
 type WebSettings struct {
-	Enabled bool `mapstructure:"enabled"`
-	Port    int  `mapstructure:"port"`
+	Enabled   bool            `mapstructure:"enabled"`
+	Port      int             `mapstructure:"port"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+}
+
+// RateLimitConfig contains rate limiting settings
+type RateLimitConfig struct {
+	Enabled      bool `mapstructure:"enabled"`
+	AuthPerMin   int  `mapstructure:"auth_per_min"`
+	GlobalPerMin int  `mapstructure:"global_per_min"`
 }
 
 // DatabaseSettings contains database configuration
@@ -127,6 +135,9 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("totp.enabled", true)
 	v.SetDefault("totp.issuer", "fxTunnel")
 	v.SetDefault("totp.encryption_key", "")
+	v.SetDefault("web.rate_limit.enabled", true)
+	v.SetDefault("web.rate_limit.auth_per_min", 5)
+	v.SetDefault("web.rate_limit.global_per_min", 100)
 	v.SetDefault("downloads.enabled", true)
 	v.SetDefault("downloads.path", "./downloads")
 

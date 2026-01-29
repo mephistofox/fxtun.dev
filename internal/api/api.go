@@ -92,6 +92,13 @@ func (s *Server) setupRoutes() {
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Timeout(30 * time.Second))
 
+	// Rate limiting
+	if s.cfg.Web.RateLimit.Enabled {
+		globalRL := newIPRateLimiter(s.cfg.Web.RateLimit.GlobalPerMin)
+		globalRL.cleanup(5 * time.Minute)
+		r.Use(rateLimitMiddleware(globalRL))
+	}
+
 	// CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -109,6 +116,11 @@ func (s *Server) setupRoutes() {
 	r.Route("/api", func(r chi.Router) {
 		// Public routes
 		r.Route("/auth", func(r chi.Router) {
+			if s.cfg.Web.RateLimit.Enabled {
+				authRL := newIPRateLimiter(s.cfg.Web.RateLimit.AuthPerMin)
+				authRL.cleanup(5 * time.Minute)
+				r.Use(rateLimitMiddleware(authRL))
+			}
 			r.Post("/register", s.handleRegister)
 			r.Post("/login", s.handleLogin)
 			r.Post("/refresh", s.handleRefresh)
