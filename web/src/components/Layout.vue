@@ -391,7 +391,11 @@ function cycleTheme() {
     <!-- Footer -->
     <footer class="border-t bg-muted/30 mt-auto">
       <div class="container mx-auto px-4 py-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>fxTunnel</span>
+        <div class="flex items-center gap-4">
+          <span>fxTunnel</span>
+          <a href="https://github.com/mephistofox/fxtunnel" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">GitHub</a>
+          <a href="https://mfdev.ru" target="_blank" rel="noopener" class="hover:text-foreground transition-colors">mfdev.ru</a>
+        </div>
         <span v-if="appVersion">v{{ appVersion }}</span>
       </div>
     </footer>
