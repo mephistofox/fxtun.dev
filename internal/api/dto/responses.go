@@ -65,6 +65,7 @@ type TokenDTO struct {
 	ID                int64      `json:"id"`
 	Name              string     `json:"name"`
 	AllowedSubdomains []string   `json:"allowed_subdomains"`
+	AllowedIPs        []string   `json:"allowed_ips,omitempty"`
 	MaxTunnels        int        `json:"max_tunnels"`
 	LastUsedAt        *time.Time `json:"last_used_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
@@ -76,6 +77,7 @@ func TokenFromModel(t *database.APIToken) *TokenDTO {
 		ID:                t.ID,
 		Name:              t.Name,
 		AllowedSubdomains: t.AllowedSubdomains,
+		AllowedIPs:        t.AllowedIPs,
 		MaxTunnels:        t.MaxTunnels,
 		LastUsedAt:        t.LastUsedAt,
 		CreatedAt:         t.CreatedAt,

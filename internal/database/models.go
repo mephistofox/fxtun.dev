@@ -1,6 +1,7 @@
 package database
 
 import (
+	"strings"
 	"time"
 )
 
@@ -72,6 +73,7 @@ type APIToken struct {
 	Name              string     `json:"name"`
 	AllowedSubdomains []string   `json:"allowed_subdomains"`
 	MaxTunnels        int        `json:"max_tunnels"`
+	AllowedIPs        []string   `json:"allowed_ips,omitempty"`
 	LastUsedAt        *time.Time `json:"last_used_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 }
@@ -108,6 +110,24 @@ func matchWildcard(pattern, subdomain string) bool {
 	}
 
 	return pattern == subdomain
+}
+
+// IsIPAllowed checks if the given IP is allowed for this token.
+// Empty AllowedIPs means all IPs are allowed.
+func (t *APIToken) IsIPAllowed(ip string) bool {
+	if len(t.AllowedIPs) == 0 {
+		return true
+	}
+	host := ip
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		host = ip[:idx]
+	}
+	for _, allowed := range t.AllowedIPs {
+		if allowed == host {
+			return true
+		}
+	}
+	return false
 }
 
 // TOTPSecret represents TOTP 2FA settings for a user

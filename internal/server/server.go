@@ -309,6 +309,18 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		tokenHash := hashToken(authMsg.Token)
 		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
 		if err == nil && apiToken != nil {
+			// Check IP whitelist
+			if !apiToken.IsIPAllowed(conn.RemoteAddr().String()) {
+				result := &protocol.AuthResultMessage{
+					Message: protocol.NewMessage(protocol.MsgAuthResult),
+					Success: false,
+					Error:   "IP not allowed",
+					Code:    protocol.ErrCodePermissionDenied,
+				}
+				codec.Encode(result)
+				return nil, fmt.Errorf("IP not allowed for token")
+			}
+
 			// Valid DB token found
 			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
 

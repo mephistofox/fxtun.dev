@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
@@ -101,10 +102,16 @@ func (d *Database) migrate() error {
 		migrationCreateUserBundles,
 		migrationCreateUserHistory,
 		migrationCreateUserSettings,
+		migrationAddAllowedIPs,
 	}
 
 	for i, migration := range migrations {
 		if _, err := d.db.Exec(migration); err != nil {
+			// Ignore "duplicate column" errors from ALTER TABLE migrations
+			if strings.Contains(err.Error(), "duplicate column") {
+				d.log.Debug().Int("migration", i+1).Msg("Migration already applied, skipping")
+				continue
+			}
 			return fmt.Errorf("migration %d failed: %w", i+1, err)
 		}
 	}
@@ -258,4 +265,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
     PRIMARY KEY(user_id, key),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+`
+
+const migrationAddAllowedIPs = `
+ALTER TABLE api_tokens ADD COLUMN allowed_ips TEXT DEFAULT '[]';
 `
