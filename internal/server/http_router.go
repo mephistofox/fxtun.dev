@@ -2,7 +2,10 @@ package server
 
 import (
 	"bufio"
+	"bytes"
+	"embed"
 	"fmt"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +16,14 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+var (
+	interstitialTmpl = template.Must(template.ParseFS(templateFS, "templates/interstitial.html"))
+	errorTmpl        = template.Must(template.ParseFS(templateFS, "templates/error.html"))
 )
 
 // HTTPRouter routes HTTP requests to the appropriate tunnel
@@ -101,17 +112,17 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		return
 	}
 
-	// Check for interstitial warning
-	if r.shouldShowInterstitial(req, subdomain) {
-		r.sendInterstitialResponse(conn, subdomain, req.Host)
-		return
-	}
-
 	// Get client
 	client := r.server.GetClient(tunnel.ClientID)
 	if client == nil {
 		r.log.Warn().Str("client_id", tunnel.ClientID).Msg("Client not found for tunnel")
 		r.sendErrorResponse(conn, http.StatusBadGateway, "Tunnel unavailable")
+		return
+	}
+
+	// Check for interstitial warning (skip for admin tunnels)
+	if !client.IsAdmin && r.shouldShowInterstitial(req, subdomain) {
+		r.sendInterstitialResponse(conn, req, subdomain)
 		return
 	}
 
@@ -232,7 +243,8 @@ func (r *HTTPRouter) shouldShowInterstitial(req *http.Request, subdomain string)
 		return false
 	}
 
-	if !strings.Contains(req.Header.Get("Accept"), "text/html") {
+	accept := req.Header.Get("Accept")
+	if accept != "" && !strings.Contains(accept, "text/html") && !strings.Contains(accept, "*/*") {
 		return false
 	}
 
@@ -248,588 +260,91 @@ func (r *HTTPRouter) shouldShowInterstitial(req *http.Request, subdomain string)
 	return true
 }
 
+// interstitialTexts holds localized strings for the interstitial page
+type interstitialTexts struct {
+	Lang, Title, Text, Button string
+}
+
+var interstitialLocales = map[string]interstitialTexts{
+	"en": {
+		Lang:   "en",
+		Title:  "Dev Tunnel Warning",
+		Text:   "You are about to visit a site served through a developer tunnel. This content is provided by a third party and is not verified. Do not enter sensitive information unless you trust the tunnel owner.",
+		Button: "Continue to site",
+	},
+	"ru": {
+		Lang:   "ru",
+		Title:  "Предупреждение",
+		Text:   "Вы собираетесь посетить сайт, работающий через туннель разработчика. Содержимое предоставлено третьей стороной и не проверено. Не вводите конфиденциальные данные, если вы не доверяете владельцу туннеля.",
+		Button: "Продолжить",
+	},
+}
+
+// detectLanguage returns "ru" or "en" based on Accept-Language header
+func detectLanguage(req *http.Request) string {
+	accept := req.Header.Get("Accept-Language")
+	if strings.Contains(accept, "ru") {
+		return "ru"
+	}
+	return "en"
+}
+
+// interstitialData holds template data for the interstitial page
+type interstitialData struct {
+	Lang, Title, Host, Text, Subdomain, Button string
+}
+
 // sendInterstitialResponse sends the interstitial warning page
-func (r *HTTPRouter) sendInterstitialResponse(conn net.Conn, subdomain, fullHost string) {
-	body := r.buildInterstitialPage(subdomain, fullHost)
+func (r *HTTPRouter) sendInterstitialResponse(conn net.Conn, req *http.Request, subdomain string) {
+	lang := detectLanguage(req)
+	texts := interstitialLocales[lang]
+
+	var buf bytes.Buffer
+	interstitialTmpl.Execute(&buf, interstitialData{
+		Lang:      texts.Lang,
+		Title:     texts.Title,
+		Host:      req.Host,
+		Text:      texts.Text,
+		Subdomain: subdomain,
+		Button:    texts.Button,
+	})
+	body := buf.Bytes()
 
 	response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
 		"Content-Type: text/html; charset=utf-8\r\n"+
 		"Content-Length: %d\r\n"+
 		"Cache-Control: no-store\r\n"+
 		"Connection: close\r\n"+
-		"\r\n%s", len(body), body)
+		"\r\n", len(body))
 
 	conn.Write([]byte(response))
+	conn.Write(body)
 }
 
-// buildInterstitialPage generates the interstitial warning HTML page
-func (r *HTTPRouter) buildInterstitialPage(subdomain, fullHost string) string {
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dev Tunnel Warning | fxTunnel</title>
-    <style>
-        :root {
-            --background: hsl(220 20%% 4%%);
-            --foreground: hsl(0 0%% 95%%);
-            --primary: hsl(75 100%% 50%%);
-            --primary-dim: hsl(75 80%% 35%%);
-            --accent: hsl(280 100%% 65%%);
-            --muted: hsl(220 10%% 55%%);
-            --card: hsl(220 15%% 8%%);
-            --border: hsl(220 15%% 15%%);
-            --warning: hsl(45 100%% 50%%);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            overflow: hidden;
-            width: 100%%;
-            height: 100%%;
-        }
-
-        body {
-            min-height: 100vh;
-            min-height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--background);
-            color: var(--foreground);
-            font-family: system-ui, -apple-system, sans-serif;
-            position: relative;
-        }
-
-        .grid-bg {
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(var(--border) 1px, transparent 1px),
-                linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 60px 60px;
-            opacity: 0.3;
-            animation: grid-move 20s linear infinite;
-        }
-
-        @keyframes grid-move {
-            0%% { transform: translate(0, 0); }
-            100%% { transform: translate(60px, 60px); }
-        }
-
-        .orb {
-            position: absolute;
-            border-radius: 50%%;
-            filter: blur(80px);
-            opacity: 0.4;
-            animation: float 8s ease-in-out infinite;
-        }
-
-        .orb-1 {
-            width: 400px;
-            height: 400px;
-            background: var(--warning);
-            top: -200px;
-            right: -100px;
-            animation-delay: 0s;
-        }
-
-        .orb-2 {
-            width: 300px;
-            height: 300px;
-            background: var(--accent);
-            bottom: -150px;
-            left: -100px;
-            animation-delay: -4s;
-        }
-
-        @keyframes float {
-            0%%, 100%% { transform: translate(0, 0) scale(1); }
-            50%% { transform: translate(20px, -20px) scale(1.05); }
-        }
-
-        @media (max-width: 640px) {
-            .orb-1 {
-                width: 200px;
-                height: 200px;
-                top: -100px;
-                right: -50px;
-                animation: none;
-            }
-            .orb-2 {
-                width: 150px;
-                height: 150px;
-                bottom: -75px;
-                left: -50px;
-                animation: none;
-            }
-            .grid-bg {
-                animation: none;
-            }
-            .scanline {
-                display: none;
-            }
-        }
-
-        .container {
-            position: relative;
-            z-index: 10;
-            text-align: center;
-            padding: 2rem;
-            max-width: 520px;
-        }
-
-        .shield-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%%;
-            background: hsla(45, 100%%, 50%%, 0.1);
-            border: 2px solid hsla(45, 100%%, 50%%, 0.3);
-            margin-bottom: 1.5rem;
-            animation: glow-pulse 3s ease-in-out infinite;
-        }
-
-        .shield-icon svg {
-            width: 40px;
-            height: 40px;
-            color: var(--warning);
-        }
-
-        @keyframes glow-pulse {
-            0%%, 100%% { filter: brightness(1); box-shadow: 0 0 20px hsla(45, 100%%, 50%%, 0.1); }
-            50%% { filter: brightness(1.2); box-shadow: 0 0 40px hsla(45, 100%%, 50%%, 0.2); }
-        }
-
-        .warning-title {
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            font-weight: 600;
-            color: var(--foreground);
-            margin-bottom: 1rem;
-        }
-
-        .warning-host {
-            font-family: ui-monospace, monospace;
-            font-size: 0.95rem;
-            color: var(--warning);
-            background: hsla(45, 100%%, 50%%, 0.08);
-            border: 1px solid hsla(45, 100%%, 50%%, 0.2);
-            border-radius: 0.5rem;
-            padding: 0.5rem 1rem;
-            display: inline-block;
-            margin-bottom: 1.25rem;
-            word-break: break-all;
-        }
-
-        .warning-text {
-            font-size: 1rem;
-            color: var(--muted);
-            line-height: 1.6;
-            margin-bottom: 2rem;
-        }
-
-        .continue-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.85rem 2rem;
-            background: linear-gradient(135deg, var(--primary-dim), var(--primary));
-            color: var(--background);
-            border: none;
-            border-radius: 0.75rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .continue-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px hsla(75, 100%%, 50%%, 0.3);
-        }
-
-        .continue-btn:active {
-            transform: translateY(0);
-        }
-
-        .brand {
-            margin-top: 2.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            color: var(--muted);
-            font-size: 0.875rem;
-        }
-
-        .brand-logo {
-            width: 24px;
-            height: 24px;
-            background: linear-gradient(135deg, var(--primary) 0%%, var(--accent) 100%%);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .brand-logo svg {
-            width: 14px;
-            height: 14px;
-        }
-
-        .brand-name {
-            font-weight: 500;
-            color: var(--foreground);
-        }
-
-        .scanline {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, var(--warning), transparent);
-            opacity: 0.1;
-            animation: scan 4s linear infinite;
-        }
-
-        @keyframes scan {
-            0%% { top: 0; }
-            100%% { top: 100%%; }
-        }
-    </style>
-</head>
-<body>
-    <div class="grid-bg"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="scanline"></div>
-
-    <div class="container">
-        <div class="shield-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-        </div>
-
-        <h1 class="warning-title">Dev Tunnel Warning</h1>
-
-        <div class="warning-host">%s</div>
-
-        <p class="warning-text">
-            You are about to visit a site served through a developer tunnel.
-            This content is provided by a third party and is not verified.
-            Do not enter sensitive information unless you trust the tunnel owner.
-        </p>
-
-        <button class="continue-btn" onclick="document.cookie='_fxt_consent_%s=1; Path=/; Max-Age=604800; SameSite=Lax'; window.location.reload();">
-            Continue to site
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-        </button>
-
-        <div class="brand">
-            <div class="brand-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="hsl(220, 20%%, 4%%)"/>
-                </svg>
-            </div>
-            <span>Powered by <span class="brand-name">fxTunnel</span></span>
-        </div>
-    </div>
-</body>
-</html>`, fullHost, subdomain)
+// errorData holds template data for the error page
+type errorData struct {
+	StatusCode int
+	StatusText string
+	Message    string
 }
 
 // sendErrorResponse sends an HTTP error response
 func (r *HTTPRouter) sendErrorResponse(conn net.Conn, status int, message string) {
-	body := r.buildErrorPage(status, message)
+	var buf bytes.Buffer
+	errorTmpl.Execute(&buf, errorData{
+		StatusCode: status,
+		StatusText: http.StatusText(status),
+		Message:    message,
+	})
+	body := buf.Bytes()
 
 	response := fmt.Sprintf("HTTP/1.1 %d %s\r\n"+
 		"Content-Type: text/html; charset=utf-8\r\n"+
 		"Content-Length: %d\r\n"+
 		"Connection: close\r\n"+
-		"\r\n%s", status, http.StatusText(status), len(body), body)
+		"\r\n", status, http.StatusText(status), len(body))
 
 	conn.Write([]byte(response))
+	conn.Write(body)
 }
 
-// buildErrorPage generates a styled error page
-func (r *HTTPRouter) buildErrorPage(status int, message string) string {
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%d %s | fxTunnel</title>
-    <style>
-        :root {
-            --background: hsl(220 20%% 4%%);
-            --foreground: hsl(0 0%% 95%%);
-            --primary: hsl(75 100%% 50%%);
-            --primary-dim: hsl(75 80%% 35%%);
-            --accent: hsl(280 100%% 65%%);
-            --muted: hsl(220 10%% 55%%);
-            --card: hsl(220 15%% 8%%);
-            --border: hsl(220 15%% 15%%);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            overflow: hidden;
-            width: 100%%;
-            height: 100%%;
-        }
-
-        body {
-            min-height: 100vh;
-            min-height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--background);
-            color: var(--foreground);
-            font-family: system-ui, -apple-system, sans-serif;
-            position: relative;
-        }
-
-        /* Animated grid background */
-        .grid-bg {
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(var(--border) 1px, transparent 1px),
-                linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 60px 60px;
-            opacity: 0.3;
-            animation: grid-move 20s linear infinite;
-        }
-
-        @keyframes grid-move {
-            0%% { transform: translate(0, 0); }
-            100%% { transform: translate(60px, 60px); }
-        }
-
-        /* Glowing orbs */
-        .orb {
-            position: absolute;
-            border-radius: 50%%;
-            filter: blur(80px);
-            opacity: 0.4;
-            animation: float 8s ease-in-out infinite;
-        }
-
-        .orb-1 {
-            width: 400px;
-            height: 400px;
-            background: var(--primary);
-            top: -200px;
-            right: -100px;
-            animation-delay: 0s;
-        }
-
-        .orb-2 {
-            width: 300px;
-            height: 300px;
-            background: var(--accent);
-            bottom: -150px;
-            left: -100px;
-            animation-delay: -4s;
-        }
-
-        @keyframes float {
-            0%%, 100%% { transform: translate(0, 0) scale(1); }
-            50%% { transform: translate(20px, -20px) scale(1.05); }
-        }
-
-        /* Mobile: smaller orbs, no animation */
-        @media (max-width: 640px) {
-            .orb-1 {
-                width: 200px;
-                height: 200px;
-                top: -100px;
-                right: -50px;
-                animation: none;
-            }
-            .orb-2 {
-                width: 150px;
-                height: 150px;
-                bottom: -75px;
-                left: -50px;
-                animation: none;
-            }
-            .grid-bg {
-                animation: none;
-            }
-            .scanline {
-                display: none;
-            }
-        }
-
-        .container {
-            position: relative;
-            z-index: 10;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .error-code {
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: clamp(8rem, 20vw, 14rem);
-            font-weight: 700;
-            line-height: 1;
-            background: linear-gradient(135deg, var(--primary) 0%%, var(--accent) 100%%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 80px hsla(75, 100%%, 50%%, 0.3);
-            animation: glow-pulse 3s ease-in-out infinite;
-        }
-
-        @keyframes glow-pulse {
-            0%%, 100%% { filter: brightness(1); }
-            50%% { filter: brightness(1.2); }
-        }
-
-        .error-title {
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: clamp(1.5rem, 4vw, 2.5rem);
-            font-weight: 500;
-            margin-top: 1rem;
-            color: var(--foreground);
-        }
-
-        .error-message {
-            font-size: 1.125rem;
-            color: var(--muted);
-            margin-top: 1rem;
-            max-width: 400px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .card {
-            margin-top: 2.5rem;
-            padding: 1.5rem 2rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            display: inline-block;
-        }
-
-        .card-content {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: var(--muted);
-            font-size: 0.95rem;
-        }
-
-        .pulse-dot {
-            width: 10px;
-            height: 10px;
-            background: var(--primary);
-            border-radius: 50%%;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%%, 100%% { opacity: 1; transform: scale(1); }
-            50%% { opacity: 0.5; transform: scale(0.8); }
-        }
-
-        .brand {
-            margin-top: 3rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            color: var(--muted);
-            font-size: 0.875rem;
-        }
-
-        .brand-logo {
-            width: 24px;
-            height: 24px;
-            background: linear-gradient(135deg, var(--primary) 0%%, var(--accent) 100%%);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .brand-logo svg {
-            width: 14px;
-            height: 14px;
-        }
-
-        .brand-name {
-            font-family: system-ui, -apple-system, sans-serif;
-            font-weight: 500;
-            color: var(--foreground);
-        }
-
-        /* Scan line effect */
-        .scanline {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            opacity: 0.1;
-            animation: scan 4s linear infinite;
-        }
-
-        @keyframes scan {
-            0%% { top: 0; }
-            100%% { top: 100%%; }
-        }
-    </style>
-</head>
-<body>
-    <div class="grid-bg"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="scanline"></div>
-
-    <div class="container">
-        <div class="error-code">%d</div>
-        <h1 class="error-title">%s</h1>
-        <p class="error-message">%s</p>
-
-        <div class="card">
-            <div class="card-content">
-                <div class="pulse-dot"></div>
-                <span>No active tunnel on this subdomain</span>
-            </div>
-        </div>
-
-        <div class="brand">
-            <div class="brand-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="hsl(220, 20%%, 4%%)"/>
-                </svg>
-            </div>
-            <span>Powered by <span class="brand-name">fxTunnel</span></span>
-        </div>
-    </div>
-</body>
-</html>`, status, http.StatusText(status), status, http.StatusText(status), message)
-}
