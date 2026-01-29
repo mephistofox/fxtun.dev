@@ -100,12 +100,17 @@ func (s *Server) setupRoutes() {
 	}
 
 	// CORS
+	corsOrigins := s.cfg.Web.CORSOrigins
+	allowCredentials := len(corsOrigins) > 0
+	if len(corsOrigins) == 0 {
+		corsOrigins = []string{}
+	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
+		AllowCredentials: allowCredentials,
 		MaxAge:           300,
 	}))
 
