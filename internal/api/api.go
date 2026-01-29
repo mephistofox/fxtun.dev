@@ -128,6 +128,7 @@ func (s *Server) setupRoutes() {
 
 	// Health check
 	r.Get("/health", s.handleHealth)
+	r.Get("/install.sh", s.handleInstallScript)
 	r.Handle("/metrics", metricsHandler())
 
 	// API routes
