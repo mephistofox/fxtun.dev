@@ -142,7 +142,8 @@ func (s *Server) Start() error {
 	var err error
 
 	if s.cfg.TLS.Enabled {
-		cert, err := tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
 		if err != nil {
 			return fmt.Errorf("load TLS certificate: %w", err)
 		}
