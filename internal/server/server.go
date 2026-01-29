@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/yamux"
@@ -60,7 +63,7 @@ type Client struct {
 	Tunnels      map[string]*Tunnel
 	TunnelsMu    sync.RWMutex
 	Connected    time.Time
-	LastPing     time.Time
+	lastPing     atomic.Int64
 
 	// Database integration
 	UserID     int64              // 0 if legacy token
@@ -72,7 +75,8 @@ type Client struct {
 	log    zerolog.Logger
 	ctx    context.Context
 	cancel context.CancelFunc
-	mu     sync.Mutex // for writing to control stream
+	mu        sync.Mutex // for writing to control stream
+	closeOnce sync.Once
 }
 
 // Tunnel represents an active tunnel
@@ -137,7 +141,16 @@ func (s *Server) Start() error {
 	controlAddr := fmt.Sprintf(":%d", s.cfg.Server.ControlPort)
 	var err error
 
-	s.controlListener, err = net.Listen("tcp", controlAddr)
+	if s.cfg.TLS.Enabled {
+		cert, err := tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("load TLS certificate: %w", err)
+		}
+		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+		s.controlListener, err = tls.Listen("tcp", controlAddr, tlsCfg)
+	} else {
+		s.controlListener, err = net.Listen("tcp", controlAddr)
+	}
 	if err != nil {
 		return fmt.Errorf("listen control: %w", err)
 	}
@@ -177,10 +190,14 @@ func (s *Server) Stop() error {
 
 	// Close all clients
 	s.clientsMu.Lock()
-	for _, client := range s.clients {
-		client.Close()
+	clients := make([]*Client, 0, len(s.clients))
+	for _, c := range s.clients {
+		clients = append(clients, c)
 	}
 	s.clientsMu.Unlock()
+	for _, c := range clients {
+		c.Close()
+	}
 
 	// Stop managers
 	s.tcpManager.Stop()
@@ -458,7 +475,6 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 		ControlConn:  controlStream,
 		Tunnels:      make(map[string]*Tunnel),
 		Connected:    time.Now(),
-		LastPing:     time.Now(),
 		UserID:       apiToken.UserID,
 		APITokenID:   apiToken.ID,
 		DBToken:      apiToken,
@@ -468,6 +484,7 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 		ctx:          ctx,
 		cancel:       cancel,
 	}
+	client.lastPing.Store(time.Now().UnixNano())
 
 	s.clientsMu.Lock()
 	s.clients[clientID] = client
@@ -490,7 +507,6 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 		ControlConn:  controlStream,
 		Tunnels:      make(map[string]*Tunnel),
 		Connected:    time.Now(),
-		LastPing:     time.Now(),
 		UserID:       claims.UserID,
 		server:       s,
 		conn:         conn,
@@ -498,6 +514,7 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 		ctx:          ctx,
 		cancel:       cancel,
 	}
+	client.lastPing.Store(time.Now().UnixNano())
 
 	s.clientsMu.Lock()
 	s.clients[clientID] = client
@@ -508,6 +525,9 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 
 // isJWT checks if a token looks like a JWT (has 3 dot-separated parts)
 func isJWT(token string) bool {
+	if strings.HasPrefix(token, "sk_") {
+		return false
+	}
 	parts := 0
 	for _, c := range token {
 		if c == '.' {
@@ -530,13 +550,13 @@ func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStre
 		ControlConn:  controlStream,
 		Tunnels:      make(map[string]*Tunnel),
 		Connected:    time.Now(),
-		LastPing:     time.Now(),
 		server:       s,
 		conn:         conn,
 		log:          log.With().Str("client_id", clientID).Logger(),
 		ctx:          ctx,
 		cancel:       cancel,
 	}
+	client.lastPing.Store(time.Now().UnixNano())
 
 	s.clientsMu.Lock()
 	s.clients[clientID] = client
@@ -588,7 +608,7 @@ func (c *Client) handle() {
 			return
 		}
 
-		c.LastPing = time.Now()
+		c.lastPing.Store(time.Now().UnixNano())
 
 		switch baseMsg.Type {
 		case protocol.MsgTunnelRequest:
@@ -620,6 +640,9 @@ func (c *Client) handleTunnelRequest(data []byte) {
 	if c.Token != nil && c.Token.MaxTunnels > 0 {
 		maxTunnels = c.Token.MaxTunnels
 	}
+	if c.DBToken != nil && c.DBToken.MaxTunnels > 0 {
+		maxTunnels = c.DBToken.MaxTunnels
+	}
 
 	c.TunnelsMu.RLock()
 	tunnelCount := len(c.Tunnels)
@@ -644,6 +667,7 @@ func (c *Client) handleTunnelRequest(data []byte) {
 
 func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	subdomain := req.Subdomain
+	subdomain = strings.ToLower(subdomain)
 	if subdomain == "" {
 		subdomain = generateShortID()
 	}
@@ -840,7 +864,7 @@ func (c *Client) keepalive() {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
-			if time.Since(c.LastPing) > 90*time.Second {
+			if time.Since(time.Unix(0, c.lastPing.Load())) > 90*time.Second {
 				c.log.Warn().Msg("Client timeout, closing")
 				c.Close()
 				return
@@ -873,42 +897,44 @@ func (c *Client) OpenStream() (net.Conn, error) {
 
 // Close closes the client connection
 func (c *Client) Close() {
-	c.cancel()
+	c.closeOnce.Do(func() {
+		c.cancel()
 
-	// Close all tunnels
-	c.TunnelsMu.Lock()
-	for tunnelID, tunnel := range c.Tunnels {
-		switch tunnel.Type {
-		case protocol.TunnelHTTP:
-			c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
-		case protocol.TunnelTCP:
-			if tunnel.listener != nil {
-				tunnel.listener.Close()
+		// Close all tunnels
+		c.TunnelsMu.Lock()
+		for tunnelID, tunnel := range c.Tunnels {
+			switch tunnel.Type {
+			case protocol.TunnelHTTP:
+				c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
+			case protocol.TunnelTCP:
+				if tunnel.listener != nil {
+					tunnel.listener.Close()
+				}
+			case protocol.TunnelUDP:
+				if tunnel.udpConn != nil {
+					tunnel.udpConn.Close()
+				}
 			}
-		case protocol.TunnelUDP:
-			if tunnel.udpConn != nil {
-				tunnel.udpConn.Close()
-			}
+			delete(c.Tunnels, tunnelID)
 		}
-		delete(c.Tunnels, tunnelID)
-	}
-	c.TunnelsMu.Unlock()
+		c.TunnelsMu.Unlock()
 
-	if c.ControlConn != nil {
-		c.ControlConn.Close()
-	}
-	if c.Session != nil {
-		c.Session.Close()
-	}
-	if c.conn != nil {
-		c.conn.Close()
-	}
+		if c.ControlConn != nil {
+			c.ControlConn.Close()
+		}
+		if c.Session != nil {
+			c.Session.Close()
+		}
+		if c.conn != nil {
+			c.conn.Close()
+		}
 
-	// Unlink user from client
-	c.server.unlinkUserClient(c.UserID, c.ID)
+		// Unlink user from client
+		c.server.unlinkUserClient(c.UserID, c.ID)
 
-	c.server.removeClient(c.ID)
-	c.log.Info().Msg("Client disconnected")
+		c.server.removeClient(c.ID)
+		c.log.Info().Msg("Client disconnected")
+	})
 }
 
 // Helper functions

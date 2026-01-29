@@ -39,16 +39,13 @@ func (c *Codec) Encode(msg any) error {
 		return fmt.Errorf("message too large: %d > %d", len(data), MaxMessageSize)
 	}
 
-	// Write length prefix (big-endian)
-	header := make([]byte, HeaderSize)
-	binary.BigEndian.PutUint32(header, uint32(len(data)))
+	// Write length prefix + payload in single write
+	buf := make([]byte, HeaderSize+len(data))
+	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
+	copy(buf[HeaderSize:], data)
 
-	if _, err := c.writer.Write(header); err != nil {
-		return fmt.Errorf("write header: %w", err)
-	}
-
-	if _, err := c.writer.Write(data); err != nil {
-		return fmt.Errorf("write payload: %w", err)
+	if _, err := c.writer.Write(buf); err != nil {
+		return fmt.Errorf("write message: %w", err)
 	}
 
 	return nil
@@ -114,16 +111,13 @@ func (c *Codec) EncodeBytes(data []byte) error {
 		return fmt.Errorf("message too large: %d > %d", len(data), MaxMessageSize)
 	}
 
-	// Write length prefix (big-endian)
-	header := make([]byte, HeaderSize)
-	binary.BigEndian.PutUint32(header, uint32(len(data)))
+	// Write length prefix + payload in single write
+	buf := make([]byte, HeaderSize+len(data))
+	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
+	copy(buf[HeaderSize:], data)
 
-	if _, err := c.writer.Write(header); err != nil {
-		return fmt.Errorf("write header: %w", err)
-	}
-
-	if _, err := c.writer.Write(data); err != nil {
-		return fmt.Errorf("write payload: %w", err)
+	if _, err := c.writer.Write(buf); err != nil {
+		return fmt.Errorf("write message: %w", err)
 	}
 
 	return nil

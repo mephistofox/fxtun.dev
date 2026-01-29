@@ -138,6 +138,18 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		return
 	}
 
+	// Add forwarding headers
+	clientIP := conn.RemoteAddr().String()
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
+	}
+	if prior := req.Header.Get("X-Forwarded-For"); prior != "" {
+		clientIP = prior + ", " + clientIP
+	}
+	req.Header.Set("X-Forwarded-For", clientIP)
+	req.Header.Set("X-Forwarded-Proto", "http")
+	req.Header.Set("X-Forwarded-Host", req.Host)
+
 	// Write the original request to the stream
 	if err := req.Write(stream); err != nil {
 		r.log.Error().Err(err).Msg("Failed to write request to stream")
@@ -147,8 +159,10 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	// Also write any buffered data from the reader
 	if reader.Buffered() > 0 {
 		buffered := make([]byte, reader.Buffered())
-		reader.Read(buffered)
-		stream.Write(buffered)
+		n, _ := reader.Read(buffered)
+		if n > 0 {
+			stream.Write(buffered[:n])
+		}
 	}
 
 	// Bidirectional copy - wait for BOTH directions to complete
@@ -227,9 +241,6 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>%d %s | fxTunnel</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --background: hsl(220 20%% 4%%);
@@ -262,7 +273,7 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
             justify-content: center;
             background: var(--background);
             color: var(--foreground);
-            font-family: 'Onest', system-ui, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             position: relative;
         }
 
@@ -347,7 +358,7 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
         }
 
         .error-code {
-            font-family: 'Unbounded', sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             font-size: clamp(8rem, 20vw, 14rem);
             font-weight: 700;
             line-height: 1;
@@ -365,7 +376,7 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
         }
 
         .error-title {
-            font-family: 'Unbounded', sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             font-size: clamp(1.5rem, 4vw, 2.5rem);
             font-weight: 500;
             margin-top: 1rem;
@@ -437,7 +448,7 @@ func (r *HTTPRouter) buildErrorPage(status int, message string) string {
         }
 
         .brand-name {
-            font-family: 'Unbounded', sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             font-weight: 500;
             color: var(--foreground);
         }

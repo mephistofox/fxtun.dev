@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -254,6 +255,49 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 	}
 
 	return users, total, nil
+}
+
+// GetByIDs retrieves multiple users by their IDs
+func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
+	if len(ids) == 0 {
+		return make(map[int64]*User), nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at
+		FROM users WHERE id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get users by ids: %w", err)
+	}
+	defer rows.Close()
+
+	users := make(map[int64]*User)
+	for rows.Next() {
+		user := &User{}
+		var lastLoginAt sql.NullTime
+		if err := rows.Scan(
+			&user.ID, &user.Phone, &user.PasswordHash, &user.DisplayName,
+			&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		if lastLoginAt.Valid {
+			user.LastLoginAt = &lastLoginAt.Time
+		}
+		users[user.ID] = user
+	}
+
+	return users, nil
 }
 
 // Count returns the total number of users

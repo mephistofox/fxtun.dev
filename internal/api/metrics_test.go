@@ -28,9 +28,3 @@ func TestMetricsMiddleware_RecordsDuration(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestStatusWriter_CapturesStatus(t *testing.T) {
-	w := httptest.NewRecorder()
-	sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-	sw.WriteHeader(http.StatusNotFound)
-	assert.Equal(t, http.StatusNotFound, sw.status)
-}

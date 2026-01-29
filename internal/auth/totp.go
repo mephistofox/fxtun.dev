@@ -139,8 +139,9 @@ func (m *TOTPManager) GenerateBackupCodes(count int) ([]string, error) {
 func (m *TOTPManager) ValidateBackupCode(code string, validCodes []string) (remaining []string, valid bool) {
 	for i, c := range validCodes {
 		if c == code {
-			// Remove the used code
-			remaining = append(validCodes[:i], validCodes[i+1:]...)
+			remaining = make([]string, 0, len(validCodes)-1)
+			remaining = append(remaining, validCodes[:i]...)
+			remaining = append(remaining, validCodes[i+1:]...)
 			return remaining, true
 		}
 	}

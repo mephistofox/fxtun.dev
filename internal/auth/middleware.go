@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
@@ -45,27 +44,12 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 			token := parts[1]
 			var user *AuthenticatedUser
 
-			tokenPreview := token
-			if len(tokenPreview) > 20 {
-				tokenPreview = tokenPreview[:20] + "..."
-			}
-			log.Printf("[AUTH DEBUG] Token received: %s (len=%d)", tokenPreview, len(token))
-
 			// Check if it's an API token (sk_xxx)
 			if strings.HasPrefix(token, "sk_") {
 				// Hash the token and look it up
 				tokenHash := HashToken(token)
-				log.Printf("[AUTH DEBUG] Token hash: %s", tokenHash)
 
 				apiToken, err := db.Tokens.GetByTokenHash(tokenHash)
-				if err != nil {
-					log.Printf("[AUTH DEBUG] Token lookup error: %v", err)
-				}
-				if apiToken == nil {
-					log.Printf("[AUTH DEBUG] Token not found in database")
-				} else {
-					log.Printf("[AUTH DEBUG] Token found! UserID=%d", apiToken.UserID)
-				}
 				if err != nil || apiToken == nil {
 					http.Error(w, `{"error": "invalid token"}`, http.StatusUnauthorized)
 					return
@@ -85,10 +69,8 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 				}
 			} else {
 				// Validate as JWT
-				log.Printf("[AUTH DEBUG] Validating as JWT...")
 				claims, err := authService.ValidateAccessToken(token)
 				if err != nil {
-					log.Printf("[AUTH DEBUG] JWT validation error: %v", err)
 					if err == ErrTokenExpired {
 						http.Error(w, `{"error": "token expired"}`, http.StatusUnauthorized)
 						return
@@ -96,7 +78,6 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 					http.Error(w, `{"error": "invalid token"}`, http.StatusUnauthorized)
 					return
 				}
-				log.Printf("[AUTH DEBUG] JWT valid! UserID=%d, Phone=%s", claims.UserID, claims.Phone)
 
 				user = &AuthenticatedUser{
 					ID:      claims.UserID,
