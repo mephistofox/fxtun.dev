@@ -94,6 +94,8 @@ func (s *Server) setupRoutes() {
 
 	r.Use(securityHeadersMiddleware)
 
+	r.Use(metricsMiddleware)
+
 	// Rate limiting
 	if s.cfg.Web.RateLimit.Enabled {
 		globalRL := newIPRateLimiter(s.cfg.Web.RateLimit.GlobalPerMin)
@@ -118,6 +120,7 @@ func (s *Server) setupRoutes() {
 
 	// Health check
 	r.Get("/health", s.handleHealth)
+	r.Handle("/metrics", metricsHandler())
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
