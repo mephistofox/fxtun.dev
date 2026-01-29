@@ -107,7 +107,7 @@ func (s *DomainService) List() (*DomainsListResponse, error) {
 		}
 		json.Unmarshal(body, &errResp)
 		s.log.Error().Str("error", errResp.Error).Msg("API returned error")
-		return nil, fmt.Errorf(errResp.Error)
+		return nil, fmt.Errorf("%s", errResp.Error)
 	}
 
 	var result DomainsListResponse
@@ -153,7 +153,7 @@ func (s *DomainService) Check(subdomain string) (*DomainCheckResponse, error) {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		return nil, fmt.Errorf(errResp.Error)
+		return nil, fmt.Errorf("%s", errResp.Error)
 	}
 
 	var result DomainCheckResponse
@@ -199,7 +199,7 @@ func (s *DomainService) Reserve(subdomain string) (*Domain, error) {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		return nil, fmt.Errorf(errResp.Error)
+		return nil, fmt.Errorf("%s", errResp.Error)
 	}
 
 	var result Domain
@@ -242,7 +242,7 @@ func (s *DomainService) Release(id int64) error {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		return fmt.Errorf(errResp.Error)
+		return fmt.Errorf("%s", errResp.Error)
 	}
 
 	return nil
