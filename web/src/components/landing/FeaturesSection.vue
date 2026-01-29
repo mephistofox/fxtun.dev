@@ -61,7 +61,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section id="features" ref="sectionRef" class="py-32 bg-background relative overflow-hidden">
+  <section id="features" ref="sectionRef" class="py-16 md:py-32 bg-background relative overflow-hidden">
     <!-- Subtle background pattern -->
     <div class="absolute inset-0 opacity-30">
       <div class="absolute inset-0 bg-grid-pattern bg-grid-60" style="mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);" />

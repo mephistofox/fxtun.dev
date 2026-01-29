@@ -34,7 +34,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section id="download" ref="sectionRef" class="py-32 relative overflow-hidden">
+  <section id="download" ref="sectionRef" class="py-16 md:py-32 relative overflow-hidden">
     <!-- Background -->
     <div class="absolute inset-0 bg-gradient-to-b from-background via-surface/30 to-background" />
 
