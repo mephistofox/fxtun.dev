@@ -14,7 +14,7 @@ const downloads = ref<Download[]>([])
 const loading = ref(true)
 const copied = ref(false)
 
-const installCommand = 'curl -L https://get.mfdev.ru | sh'
+const installCommand = 'curl -fsSL https://mfdev.ru/install.sh | sh'
 
 const osTabs = [
   { key: 'linux' as const, label: 'Linux', osMatch: 'Linux' },
