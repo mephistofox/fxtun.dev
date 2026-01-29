@@ -118,7 +118,7 @@ func (s *SyncService) Pull() (*SyncData, error) {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		err := fmt.Errorf(errResp.Error)
+		err := fmt.Errorf("%s", errResp.Error)
 		s.mu.Lock()
 		s.lastError = err
 		s.mu.Unlock()
@@ -287,7 +287,7 @@ func (s *SyncService) Push() error {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		err := fmt.Errorf(errResp.Error)
+		err := fmt.Errorf("%s", errResp.Error)
 		s.mu.Lock()
 		s.lastError = err
 		s.mu.Unlock()
