@@ -270,6 +270,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: fxtunnel-*
 
       - name: Prepare release files
         run: |
