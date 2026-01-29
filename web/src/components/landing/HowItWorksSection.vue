@@ -194,12 +194,12 @@ onUnmounted(() => {
           class="mt-16 text-center reveal reveal-delay-7"
           :class="{ 'visible': isVisible }"
         >
-          <div class="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-type-http/10 border border-type-http/30">
-            <div class="pulse-indicator" style="background: hsl(var(--type-http));" />
-            <span class="font-mono text-sm text-type-http">
+          <div class="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 rounded-full bg-type-http/10 border border-type-http/30 max-w-full overflow-hidden">
+            <div class="pulse-indicator flex-shrink-0" style="background: hsl(var(--type-http));" />
+            <span class="font-mono text-xs sm:text-sm text-type-http truncate">
               https://myapp.tunnel.example.com
             </span>
-            <span class="text-xs text-muted-foreground">→ localhost:3000</span>
+            <span class="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">→ localhost:3000</span>
           </div>
         </div>
       </div>

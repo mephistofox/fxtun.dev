@@ -150,7 +150,7 @@ onMounted(() => {
               <h3 class="text-2xl font-display font-semibold mb-4">
                 {{ t(currentProtocol.titleKey) }}
               </h3>
-              <p class="text-muted-foreground leading-relaxed">
+              <p class="text-muted-foreground leading-relaxed break-words">
                 {{ t(currentProtocol.descKey) }}
               </p>
             </div>
@@ -184,13 +184,13 @@ onMounted(() => {
           </div>
 
           <!-- Right: Visual -->
-          <div class="glass-card-glow p-6 lg:p-8">
+          <div class="glass-card-glow p-4 sm:p-6 lg:p-8 overflow-hidden">
             <!-- URL preview -->
             <div class="mb-6">
               <p class="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Public endpoint</p>
-              <div :class="`flex items-center gap-2 p-3 rounded-lg bg-${currentProtocol.color}/10 border border-${currentProtocol.color}/30`">
-                <div :class="`pulse-indicator`" :style="`background: hsl(var(--${currentProtocol.color}))`" />
-                <code :class="`font-mono text-sm text-${currentProtocol.color}`">
+              <div :class="`flex items-center gap-2 p-3 rounded-lg bg-${currentProtocol.color}/10 border border-${currentProtocol.color}/30 overflow-hidden`">
+                <div :class="`pulse-indicator flex-shrink-0`" :style="`background: hsl(var(--${currentProtocol.color}))`" />
+                <code :class="`font-mono text-xs sm:text-sm text-${currentProtocol.color} truncate`">
                   {{ currentProtocol.example }}
                 </code>
               </div>
@@ -200,7 +200,7 @@ onMounted(() => {
             <div>
               <p class="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Command</p>
               <div class="relative group">
-                <div class="bg-[hsl(220,20%,6%)] rounded-lg p-4 font-mono text-sm border border-border">
+                <div class="bg-[hsl(220,20%,6%)] rounded-lg p-4 font-mono text-xs sm:text-sm border border-border overflow-x-auto">
                   <span class="text-primary">$</span>
                   <span class="text-foreground/90 ml-2">{{ currentProtocol.command }}</span>
                 </div>
@@ -228,7 +228,7 @@ onMounted(() => {
               </div>
               <div class="flex items-center justify-between mt-2 text-sm">
                 <span class="font-mono text-foreground/70">localhost:3000</span>
-                <span :class="`font-mono text-${currentProtocol.color}`">{{ currentProtocol.example.split('://')[1] }}</span>
+                <span :class="`font-mono text-${currentProtocol.color} text-xs sm:text-sm truncate`">{{ currentProtocol.example.split('://')[1] }}</span>
               </div>
             </div>
           </div>
