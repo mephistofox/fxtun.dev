@@ -10,7 +10,7 @@ const steps = [
     icon: 'download',
     titleKey: 'landing.howItWorks.step1.title',
     descKey: 'landing.howItWorks.step1.desc',
-    code: 'curl -L https://get.fxtunnel.io | sh',
+    code: 'curl -L https://get.mfdev.ru | sh',
   },
   {
     number: '02',
@@ -197,7 +197,7 @@ onUnmounted(() => {
           <div class="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 rounded-full bg-type-http/10 border border-type-http/30 max-w-full overflow-hidden">
             <div class="pulse-indicator flex-shrink-0" style="background: hsl(var(--type-http));" />
             <span class="font-mono text-xs sm:text-sm text-type-http truncate">
-              https://myapp.tunnel.example.com
+              https://myapp.mfdev.ru
             </span>
             <span class="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">→ localhost:3000</span>
           </div>

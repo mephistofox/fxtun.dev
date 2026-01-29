@@ -107,6 +107,11 @@
       "subtitle": "Регистрация, клиент, туннель — всё просто.",
       "createAccount": "Создать аккаунт",
       "signIn": "Войти",
+      "installCommand": "Быстрая установка",
+      "orManual": "Или скачать вручную",
+      "downloadBtn": "Скачать",
+      "copied": "Скопировано!",
+      "noBuilds": "Сборки пока недоступны",
       "note": "Клиенты и токены доступны в личном кабинете после регистрации.",
       "openSource": "Open source и self-hosted",
       "secure": "Self-hosted и безопасно"

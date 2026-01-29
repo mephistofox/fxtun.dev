@@ -107,6 +107,11 @@
       "subtitle": "Create an account and download the client to begin tunneling.",
       "createAccount": "Create Account",
       "signIn": "Sign In",
+      "installCommand": "Quick install",
+      "orManual": "Or download manually",
+      "downloadBtn": "Download",
+      "copied": "Copied!",
+      "noBuilds": "No builds available yet",
       "note": "After registration, download the client and generate API tokens from your dashboard.",
       "openSource": "Open source and self-hosted",
       "secure": "Self-hosted & Secure"
