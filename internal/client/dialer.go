@@ -11,19 +11,19 @@ import (
 )
 
 // resolvedAddrCache caches the resolved address (IPv4 or IPv6) per port
-// so that subsequent connections skip the fallback probe.
+// so that subsequent connections skip the probe entirely.
 var (
 	resolvedAddrs   = make(map[int]string)
 	resolvedAddrsMu sync.RWMutex
 )
 
-// dialLocalWithFallback attempts to connect to a local service with IPv4/IPv6 fallback.
-// After the first successful connection, it caches the working address for the port
-// so subsequent connections are instant.
+// dialLocalWithFallback connects to a local service with IPv4/IPv6 support.
+// On first call for a port, it races IPv4 and IPv6 in parallel to find
+// the working address as fast as possible, then caches the winner.
 func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, timeout time.Duration) (net.Conn, error) {
 	portStr := strconv.Itoa(localPort)
 
-	// If explicit address is specified, use it directly without fallback
+	// If explicit address is specified, use it directly
 	if localAddr != "" {
 		addr := net.JoinHostPort(localAddr, portStr)
 		conn, err := net.DialTimeout("tcp", addr, timeout)
@@ -43,36 +43,88 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 		if err == nil {
 			return conn, nil
 		}
-		// Cache miss (service restarted on different interface), clear and re-probe
+		// Cache stale — clear and re-probe
 		resolvedAddrsMu.Lock()
 		delete(resolvedAddrs, localPort)
 		resolvedAddrsMu.Unlock()
 		log.Debug().Str("addr", cached).Msg("Cached address failed, re-probing")
 	}
 
-	// Probe: try IPv4 first, then IPv6
+	// Race IPv4 and IPv6 in parallel — first one wins
 	ipv4Addr := net.JoinHostPort("127.0.0.1", portStr)
-	conn, err := net.DialTimeout("tcp", ipv4Addr, timeout)
-	if err == nil {
-		log.Debug().Str("addr", ipv4Addr).Msg("Connected to local service via IPv4")
-		resolvedAddrsMu.Lock()
-		resolvedAddrs[localPort] = ipv4Addr
-		resolvedAddrsMu.Unlock()
-		return conn, nil
-	}
-	ipv4Err := err
-
-	// Fallback to IPv6 localhost
 	ipv6Addr := net.JoinHostPort("::1", portStr)
-	conn, err = net.DialTimeout("tcp", ipv6Addr, timeout)
-	if err == nil {
-		log.Debug().Str("addr", ipv6Addr).Msg("Connected to local service via IPv6")
-		resolvedAddrsMu.Lock()
-		resolvedAddrs[localPort] = ipv6Addr
-		resolvedAddrsMu.Unlock()
-		return conn, nil
+
+	type dialResult struct {
+		conn net.Conn
+		addr string
+		err  error
 	}
 
-	return nil, fmt.Errorf("failed to connect to local service on port %d: IPv4 (%s): %v, IPv6 (%s): %v",
-		localPort, ipv4Addr, ipv4Err, ipv6Addr, err)
+	results := make(chan dialResult, 2)
+
+	go func() {
+		conn, err := net.DialTimeout("tcp", ipv4Addr, timeout)
+		results <- dialResult{conn, ipv4Addr, err}
+	}()
+	go func() {
+		conn, err := net.DialTimeout("tcp", ipv6Addr, timeout)
+		results <- dialResult{conn, ipv6Addr, err}
+	}()
+
+	var firstErr error
+	for i := 0; i < 2; i++ {
+		r := <-results
+		if r.err == nil {
+			// Winner — cache and return, close the other when it arrives
+			resolvedAddrsMu.Lock()
+			resolvedAddrs[localPort] = r.addr
+			resolvedAddrsMu.Unlock()
+
+			proto := "IPv4"
+			if r.addr == ipv6Addr {
+				proto = "IPv6"
+			}
+			log.Debug().Str("addr", r.addr).Msgf("Connected to local service via %s", proto)
+
+			// Drain the other result and close if it connected
+			if i == 0 {
+				go func() {
+					other := <-results
+					if other.conn != nil {
+						other.conn.Close()
+					}
+				}()
+			}
+			return r.conn, nil
+		}
+		if firstErr == nil {
+			firstErr = r.err
+		}
+	}
+
+	return nil, fmt.Errorf("failed to connect to local service on port %d: %v", localPort, firstErr)
+}
+
+// ProbeLocalAddress probes a local port to determine the correct address
+// (IPv4 or IPv6) and caches it. Call this when a tunnel is created
+// so the first real connection is instant.
+func ProbeLocalAddress(log zerolog.Logger, localAddr string, localPort int) {
+	if localAddr != "" {
+		return // Explicit address, no need to probe
+	}
+
+	resolvedAddrsMu.RLock()
+	_, hasCached := resolvedAddrs[localPort]
+	resolvedAddrsMu.RUnlock()
+	if hasCached {
+		return // Already cached
+	}
+
+	conn, err := dialLocalWithFallback(log, "", localPort, 2*time.Second)
+	if err != nil {
+		log.Debug().Int("port", localPort).Msg("Pre-probe failed, will retry on first connection")
+		return
+	}
+	conn.Close()
+	log.Info().Int("port", localPort).Msg("Local address pre-probed successfully")
 }
