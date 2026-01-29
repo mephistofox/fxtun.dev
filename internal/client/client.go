@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/yamux"
@@ -60,6 +61,21 @@ type ActiveTunnel struct {
 	URL        string // For HTTP tunnels
 	RemoteAddr string // For TCP/UDP tunnels
 	Connected  time.Time
+
+	BytesSent     atomic.Int64
+	BytesReceived atomic.Int64
+}
+
+// countingWriter wraps an io.Writer and counts bytes written.
+type countingWriter struct {
+	w     io.Writer
+	count *atomic.Int64
+}
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.count.Add(int64(n))
+	return n, err
 }
 
 // New creates a new client
@@ -263,6 +279,9 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		// Emit tunnel created event
 		c.events.EmitTunnelCreated(tunnel)
 
+		// Start periodic traffic stats emitter
+		go c.emitTrafficStats(tunnel)
+
 		if resp.URL != "" {
 			c.log.Info().
 				Str("name", tunnelCfg.Name).
@@ -365,12 +384,22 @@ func (c *Client) handleTunnelClosed(data []byte) {
 	}
 	msg := parsed.(*protocol.TunnelClosedMessage)
 
+	// Capture final traffic stats before removing tunnel
+	var bytesSent, bytesReceived int64
 	c.tunnelsMu.Lock()
+	if tunnel, ok := c.tunnels[msg.TunnelID]; ok {
+		bytesSent = tunnel.BytesSent.Load()
+		bytesReceived = tunnel.BytesReceived.Load()
+	}
 	delete(c.tunnels, msg.TunnelID)
 	c.tunnelsMu.Unlock()
 
-	// Emit tunnel closed event
-	c.events.EmitTunnelClosed(msg.TunnelID)
+	// Emit tunnel closed event with final traffic stats
+	c.events.EmitWithPayload(EventTunnelClosed, map[string]interface{}{
+		"tunnel_id":      msg.TunnelID,
+		"bytes_sent":     bytesSent,
+		"bytes_received": bytesReceived,
+	})
 
 	c.log.Info().Str("tunnel_id", msg.TunnelID).Msg("Tunnel closed")
 }
@@ -457,16 +486,18 @@ func (c *Client) handleStream(stream net.Conn) {
 		Str("local", local.RemoteAddr().String()).
 		Msg("Forwarding connection")
 
-	// Bidirectional copy
+	// Bidirectional copy with byte counting
 	done := make(chan struct{}, 2)
+	download := &countingWriter{w: local, count: &tunnel.BytesReceived}
+	upload := &countingWriter{w: stream, count: &tunnel.BytesSent}
 
 	go func() {
-		io.Copy(local, stream)
+		io.Copy(download, stream) // download: stream → local
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(stream, local)
+		io.Copy(upload, local) // upload: local → stream
 		done <- struct{}{}
 	}()
 
@@ -667,6 +698,32 @@ func (c *Client) Close() {
 	}
 
 	c.log.Info().Msg("Client closed")
+}
+
+func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-ticker.C:
+			// Check if tunnel still exists
+			c.tunnelsMu.RLock()
+			_, exists := c.tunnels[tunnel.ID]
+			c.tunnelsMu.RUnlock()
+			if !exists {
+				return
+			}
+
+			c.events.EmitWithPayload(EventTrafficUpdate, map[string]interface{}{
+				"tunnel_id":      tunnel.ID,
+				"bytes_sent":     tunnel.BytesSent.Load(),
+				"bytes_received": tunnel.BytesReceived.Load(),
+			})
+		}
+	}
 }
 
 func generateID() string {
