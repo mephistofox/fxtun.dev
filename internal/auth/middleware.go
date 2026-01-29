@@ -62,6 +62,11 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 					return
 				}
 
+				if !dbUser.IsActive {
+					http.Error(w, `{"error":"user_inactive","code":"USER_INACTIVE"}`, http.StatusForbidden)
+					return
+				}
+
 				user = &AuthenticatedUser{
 					ID:      dbUser.ID,
 					Phone:   dbUser.Phone,
@@ -76,6 +81,17 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 						return
 					}
 					http.Error(w, `{"error": "invalid token"}`, http.StatusUnauthorized)
+					return
+				}
+
+				// Check if user is still active
+				jwtUser, err := db.Users.GetByID(claims.UserID)
+				if err != nil || jwtUser == nil {
+					http.Error(w, `{"error": "user not found"}`, http.StatusUnauthorized)
+					return
+				}
+				if !jwtUser.IsActive {
+					http.Error(w, `{"error":"user_inactive","code":"USER_INACTIVE"}`, http.StatusForbidden)
 					return
 				}
 

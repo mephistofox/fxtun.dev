@@ -7,8 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { useTunnelsStore } from '@/stores/tunnels'
 import Layout from '@/components/Layout.vue'
-import { Toaster } from '@/components/ui'
-import { Loader2 } from 'lucide-vue-next'
+import { Button, Toaster } from '@/components/ui'
+import { Loader2, ShieldX } from 'lucide-vue-next'
+import { EventsOn } from '@/wailsjs/wailsjs/runtime/runtime'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -31,6 +32,11 @@ onMounted(async () => {
     document.documentElement.classList.add('dark')
   }
 
+  // Subscribe to user_blocked event from backend
+  EventsOn('user_blocked', () => {
+    authStore.setBlocked()
+  })
+
   initialized.value = true
 })
 
@@ -40,11 +46,33 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
     router.push('/auth')
   }
 })
+
+function handleBlockedLogout() {
+  authStore.logout()
+  router.push('/auth')
+}
 </script>
 
 <template>
   <TooltipProvider>
     <div class="min-h-screen bg-background text-foreground">
+      <!-- Blocked user overlay -->
+      <div v-if="authStore.isBlocked" class="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <div class="text-center space-y-4 max-w-md px-6">
+          <div class="mx-auto h-16 w-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <ShieldX class="h-8 w-8 text-destructive" />
+          </div>
+          <h1 class="text-2xl font-bold">{{ t('auth.accountBlocked') }}</h1>
+          <p class="text-muted-foreground">{{ t('auth.accountBlockedHint') }}</p>
+          <Button @click="handleBlockedLogout">{{ t('auth.backToLogin') }}</Button>
+          <div>
+            <a href="https://t.me/mephistofx" target="_blank" class="text-sm text-primary hover:underline">
+              {{ t('auth.contactSupport') }}
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- Loading state while initializing -->
       <template v-if="!initialized">
         <div class="flex min-h-screen items-center justify-center">

@@ -21,9 +21,12 @@ import {
   AlertCircle,
   Zap,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MessageCircle
 } from 'lucide-vue-next'
 import { ref } from 'vue'
+import { BrowserOpenURL } from '@/wailsjs/wailsjs/runtime/runtime'
+import * as AppService from '@/wailsjs/wailsjs/go/gui/App'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -33,11 +36,17 @@ const tunnelsStore = useTunnelsStore()
 const syncStore = useSyncStore()
 
 const sidebarCollapsed = ref(false)
+const appVersion = ref('dev')
 let stopPolling: (() => void) | null = null
 
-onMounted(() => {
+onMounted(async () => {
   syncStore.getStatus()
   stopPolling = syncStore.startPolling()
+  try {
+    appVersion.value = await AppService.GetVersion()
+  } catch {
+    appVersion.value = 'dev'
+  }
 })
 
 onUnmounted(() => {
@@ -101,7 +110,7 @@ async function logout() {
         <Transition name="fade">
           <div v-if="!sidebarCollapsed" class="flex flex-col">
             <span class="font-display font-bold text-sm tracking-tight">fxTunnel</span>
-            <span class="text-[10px] text-muted-foreground">v1.5.0</span>
+            <span class="text-[10px] text-muted-foreground">v{{ appVersion }}</span>
           </div>
         </Transition>
       </div>
@@ -211,18 +220,41 @@ async function logout() {
           </Transition>
         </div>
 
+        <!-- Support -->
+        <Tooltip v-if="sidebarCollapsed" :content="t('nav.support')" :delay-duration="0" side="right">
+          <button
+            @click="BrowserOpenURL('https://t.me/mephistofx')"
+            class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"
+          >
+            <MessageCircle class="h-5 w-5" />
+          </button>
+        </Tooltip>
+        <button
+          v-else
+          @click="BrowserOpenURL('https://t.me/mephistofx')"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"
+        >
+          <MessageCircle class="h-5 w-5" />
+          <span>{{ t('nav.support') }}</span>
+        </button>
+
         <!-- Logout -->
-        <Tooltip :content="sidebarCollapsed ? t('nav.logout') : ''" :delay-duration="0" side="right">
+        <Tooltip v-if="sidebarCollapsed" :content="t('nav.logout')" :delay-duration="0" side="right">
           <button
             @click="logout"
             class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
           >
             <LogOut class="h-5 w-5" />
-            <Transition name="fade">
-              <span v-if="!sidebarCollapsed">{{ t('nav.logout') }}</span>
-            </Transition>
           </button>
         </Tooltip>
+        <button
+          v-else
+          @click="logout"
+          class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
+        >
+          <LogOut class="h-5 w-5" />
+          <span>{{ t('nav.logout') }}</span>
+        </button>
 
         <!-- Collapse toggle -->
         <button

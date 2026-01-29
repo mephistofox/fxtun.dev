@@ -1,12 +1,9 @@
 package gui
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 
 	"github.com/rs/zerolog"
 )
@@ -23,15 +20,6 @@ func NewDomainService(app *App) *DomainService {
 		app: app,
 		log: app.log.With().Str("service", "domain").Logger(),
 	}
-}
-
-// getAPIHost returns the hostname without port for API calls
-func (s *DomainService) getAPIHost() string {
-	addr := s.app.serverAddress
-	if idx := strings.Index(addr, ":"); idx != -1 {
-		return addr[:idx]
-	}
-	return addr
 }
 
 // Domain represents a reserved domain
@@ -58,61 +46,29 @@ type DomainCheckResponse struct {
 
 // List returns all reserved domains for the current user
 func (s *DomainService) List() (*DomainsListResponse, error) {
-	s.log.Debug().
-		Bool("client_nil", s.app.client == nil).
-		Str("server_address", s.app.serverAddress).
-		Str("auth_token_prefix", func() string {
-			if len(s.app.authToken) > 20 {
-				return s.app.authToken[:20] + "..."
-			}
-			return s.app.authToken
-		}()).
-		Msg("List domains called")
-
 	if s.app.client == nil {
-		s.log.Error().Msg("Client is nil - not connected")
 		return nil, fmt.Errorf("not connected")
 	}
-
-	token := s.app.authToken
-	if token == "" {
-		s.log.Error().Msg("Auth token is empty")
+	if s.app.authToken == "" {
 		return nil, fmt.Errorf("not authenticated")
 	}
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/domains", host)
-	s.log.Debug().Str("url", url).Msg("Making API request")
-
-	req, err := http.NewRequest("GET", url, nil)
+	url := s.app.api.BuildURL("/api/domains")
+	body, statusCode, err := s.app.api.Get(url)
 	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to create request")
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		s.log.Error().Err(err).Msg("HTTP request failed")
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	s.log.Debug().Int("status", resp.StatusCode).Str("body", string(body)).Msg("API response")
-
-	if resp.StatusCode != http.StatusOK {
+	if statusCode != http.StatusOK {
 		var errResp struct {
 			Error string `json:"error"`
 		}
 		json.Unmarshal(body, &errResp)
-		s.log.Error().Str("error", errResp.Error).Msg("API returned error")
 		return nil, fmt.Errorf("%s", errResp.Error)
 	}
 
 	var result DomainsListResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		s.log.Error().Err(err).Msg("Failed to parse response")
 		return nil, err
 	}
 
@@ -125,30 +81,17 @@ func (s *DomainService) Check(subdomain string) (*DomainCheckResponse, error) {
 	if s.app.client == nil {
 		return nil, fmt.Errorf("not connected")
 	}
-
-	token := s.app.authToken
-	if token == "" {
+	if s.app.authToken == "" {
 		return nil, fmt.Errorf("not authenticated")
 	}
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/domains/check/%s", host, subdomain)
-
-	req, err := http.NewRequest("GET", url, nil)
+	url := s.app.api.BuildURL(fmt.Sprintf("/api/domains/check/%s", subdomain))
+	body, statusCode, err := s.app.api.Get(url)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
+	if statusCode != http.StatusOK {
 		var errResp struct {
 			Error string `json:"error"`
 		}
@@ -169,32 +112,19 @@ func (s *DomainService) Reserve(subdomain string) (*Domain, error) {
 	if s.app.client == nil {
 		return nil, fmt.Errorf("not connected")
 	}
-
-	token := s.app.authToken
-	if token == "" {
+	if s.app.authToken == "" {
 		return nil, fmt.Errorf("not authenticated")
 	}
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/domains", host)
-
+	url := s.app.api.BuildURL("/api/domains")
 	reqBody, _ := json.Marshal(map[string]string{"subdomain": subdomain})
-	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+
+	body, statusCode, err := s.app.api.Post(url, reqBody)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+	if statusCode != http.StatusCreated && statusCode != http.StatusOK {
 		var errResp struct {
 			Error string `json:"error"`
 		}
@@ -215,29 +145,17 @@ func (s *DomainService) Release(id int64) error {
 	if s.app.client == nil {
 		return fmt.Errorf("not connected")
 	}
-
-	token := s.app.authToken
-	if token == "" {
+	if s.app.authToken == "" {
 		return fmt.Errorf("not authenticated")
 	}
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/domains/%d", host, id)
-
-	req, err := http.NewRequest("DELETE", url, nil)
+	url := s.app.api.BuildURL(fmt.Sprintf("/api/domains/%d", id))
+	body, statusCode, err := s.app.api.Delete(url)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
+	if statusCode != http.StatusOK && statusCode != http.StatusNoContent {
 		var errResp struct {
 			Error string `json:"error"`
 		}
