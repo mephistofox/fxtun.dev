@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/mephistofox/fxTunnel/compare/v1.9.0...v1.9.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **ci:** filter artifact download to exclude docker buildx internals ([fa4ac74](https://github.com/mephistofox/fxTunnel/commit/fa4ac7437e4a7cf7194b7569faecf852121b5d40))
+
 ## [1.9.0](https://github.com/mephistofox/fxTunnel/compare/v1.8.3...v1.9.0) (2026-01-29)
 
 
