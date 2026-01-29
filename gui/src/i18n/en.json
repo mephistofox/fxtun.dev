@@ -37,7 +37,8 @@
     "history": "History",
     "settings": "Settings",
     "logs": "Logs",
-    "logout": "Logout"
+    "logout": "Logout",
+    "support": "Support"
   },
   "auth": {
     "title": "fxTunnel",
@@ -57,6 +58,10 @@
     "totpCode": "2FA Code",
     "totpPlaceholder": "000000",
     "totpHint": "Enter the code from your authenticator app",
+    "accountBlocked": "Account Blocked",
+    "accountBlockedHint": "Your account has been deactivated by the administrator. Contact support for assistance.",
+    "backToLogin": "Back to Login",
+    "contactSupport": "Contact support",
     "errors": {
       "invalidCredentials": "Invalid credentials",
       "connectionFailed": "Failed to connect to server",

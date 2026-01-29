@@ -1,12 +1,9 @@
 package gui
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -56,15 +53,6 @@ func (s *SyncService) GetStatus() *SyncStatus {
 	return status
 }
 
-// getAPIHost returns the hostname for API calls
-func (s *SyncService) getAPIHost() string {
-	addr := s.app.serverAddress
-	if idx := strings.Index(addr, ":"); idx != -1 {
-		return addr[:idx]
-	}
-	return addr
-}
-
 // isConnected checks if the client is connected and authenticated
 func (s *SyncService) isConnected() bool {
 	return s.app.client != nil && s.app.authToken != ""
@@ -93,27 +81,16 @@ func (s *SyncService) Pull() (*SyncData, error) {
 		s.mu.Unlock()
 	}()
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync", host)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync")
+	body, statusCode, err := s.app.api.Get(url)
 	if err != nil {
 		s.mu.Lock()
 		s.lastError = err
 		s.mu.Unlock()
 		return nil, err
 	}
-	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
+	if statusCode != http.StatusOK {
 		var errResp struct {
 			Error string `json:"error"`
 		}
@@ -262,32 +239,17 @@ func (s *SyncService) Push() error {
 
 	jsonBody, _ := json.Marshal(reqBody)
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync", host)
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync")
+	_, statusCode, err := s.app.api.Post(url, jsonBody)
 	if err != nil {
 		s.mu.Lock()
 		s.lastError = err
 		s.mu.Unlock()
 		return err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		var errResp struct {
-			Error string `json:"error"`
-		}
-		json.Unmarshal(body, &errResp)
-		err := fmt.Errorf("%s", errResp.Error)
+	if statusCode != http.StatusOK {
+		err := fmt.Errorf("push failed with status %d", statusCode)
 		s.mu.Lock()
 		s.lastError = err
 		s.mu.Unlock()
@@ -334,24 +296,14 @@ func (s *SyncService) SyncBundles() error {
 		"bundles": syncBundles,
 	})
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync/bundles", host)
-
-	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync/bundles")
+	_, statusCode, err := s.app.api.Put(url, jsonBody)
 	if err != nil {
 		s.log.Debug().Err(err).Msg("Failed to sync bundles")
 		return nil // Silent fail
 	}
-	defer resp.Body.Close()
 
-	s.log.Debug().Int("status", resp.StatusCode).Msg("Bundles synced")
+	s.log.Debug().Int("status", statusCode).Msg("Bundles synced")
 	return nil
 }
 
@@ -377,24 +329,14 @@ func (s *SyncService) SyncSettings() error {
 		"settings": syncSettings,
 	})
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync/settings", host)
-
-	req, err := http.NewRequest("PUT", url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync/settings")
+	_, statusCode, err := s.app.api.Put(url, jsonBody)
 	if err != nil {
 		s.log.Debug().Err(err).Msg("Failed to sync settings")
 		return nil // Silent fail
 	}
-	defer resp.Body.Close()
 
-	s.log.Debug().Int("status", resp.StatusCode).Msg("Settings synced")
+	s.log.Debug().Int("status", statusCode).Msg("Settings synced")
 	return nil
 }
 
@@ -420,24 +362,14 @@ func (s *SyncService) PushHistoryEntry(entry *storage.HistoryEntry) error {
 		"history": []HistorySync{syncEntry},
 	})
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync/history", host)
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonBody))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync/history")
+	_, statusCode, err := s.app.api.Post(url, jsonBody)
 	if err != nil {
 		s.log.Debug().Err(err).Msg("Failed to push history entry")
 		return nil // Silent fail
 	}
-	defer resp.Body.Close()
 
-	s.log.Debug().Int("status", resp.StatusCode).Msg("History entry pushed")
+	s.log.Debug().Int("status", statusCode).Msg("History entry pushed")
 	return nil
 }
 
@@ -447,23 +379,14 @@ func (s *SyncService) ClearHistory() error {
 		return nil // Silent fail if not connected
 	}
 
-	host := s.getAPIHost()
-	url := fmt.Sprintf("https://%s/api/sync/history", host)
-
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
-
-	resp, err := http.DefaultClient.Do(req)
+	url := s.app.api.BuildURL("/api/sync/history")
+	_, statusCode, err := s.app.api.Delete(url)
 	if err != nil {
 		s.log.Debug().Err(err).Msg("Failed to clear history on server")
 		return nil // Silent fail
 	}
-	defer resp.Body.Close()
 
-	s.log.Debug().Int("status", resp.StatusCode).Msg("History cleared on server")
+	s.log.Debug().Int("status", statusCode).Msg("History cleared on server")
 	return nil
 }
 
