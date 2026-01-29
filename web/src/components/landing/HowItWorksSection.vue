@@ -89,7 +89,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section id="how-it-works" ref="sectionRef" class="py-32 relative overflow-hidden">
+  <section id="how-it-works" ref="sectionRef" class="py-16 md:py-32 relative overflow-hidden">
     <!-- Background gradient -->
     <div class="absolute inset-0 bg-gradient-to-b from-background via-surface/30 to-background" />
 

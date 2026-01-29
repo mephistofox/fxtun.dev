@@ -78,7 +78,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section id="protocols" ref="sectionRef" class="py-32 bg-background relative overflow-hidden">
+  <section id="protocols" ref="sectionRef" class="py-16 md:py-32 bg-background relative overflow-hidden">
     <!-- Background pattern -->
     <div class="absolute inset-0 opacity-20">
       <div class="absolute inset-0 bg-grid-pattern bg-grid-60" style="mask-image: radial-gradient(ellipse 50% 60% at 50% 30%, black 20%, transparent 70%);" />

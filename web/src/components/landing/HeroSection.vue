@@ -33,7 +33,7 @@ onMounted(() => {
     </div>
 
     <!-- Main content -->
-    <div class="container mx-auto px-4 pt-32 pb-20 relative z-10">
+    <div class="container mx-auto px-4 pt-24 md:pt-32 pb-12 md:pb-20 relative z-10">
       <div class="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center min-h-[calc(100vh-12rem)]">
 
         <!-- Left: Text Content (7 cols) -->
@@ -94,7 +94,7 @@ onMounted(() => {
               </svg>
               GitHub
             </a>
-            <a href="#features" class="btn-ghost inline-flex items-center gap-2">
+            <a href="#features" class="btn-ghost hidden sm:inline-flex items-center gap-2">
               {{ t('landing.hero.learnMore') }}
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
