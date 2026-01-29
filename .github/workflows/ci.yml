@@ -64,7 +64,14 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -v -race ./cmd/... ./internal/...
+        run: go test -v -race -coverprofile=coverage.out ./cmd/... ./internal/...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7
 
   lint:
     needs: build-frontends
