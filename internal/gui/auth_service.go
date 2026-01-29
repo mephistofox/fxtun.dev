@@ -368,7 +368,7 @@ func (s *AuthService) authenticateWithPassword(serverAddr, phone, password, totp
 			return nil, ErrTOTPRequired
 		}
 		if errResp.Error != "" {
-			return nil, fmt.Errorf(errResp.Error)
+			return nil, fmt.Errorf("%s", errResp.Error)
 		}
 		return nil, fmt.Errorf("login failed with status %d", resp.StatusCode)
 	}
