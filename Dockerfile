@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build Go server
-FROM golang:1.23-bookworm AS go-builder
+FROM golang:1.24-bookworm AS go-builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
