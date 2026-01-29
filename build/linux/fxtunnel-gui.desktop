@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=fxTunnel
+Comment=Reverse tunneling client
+Exec=fxtunnel-gui
+Icon=fxtunnel-gui
+Type=Application
+Categories=Network;Utility;
+StartupWMClass=fxtunnel-gui
