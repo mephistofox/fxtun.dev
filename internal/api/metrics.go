@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -46,24 +48,20 @@ func metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		wrapped := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		wrapped := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start).Seconds()
+		pattern := r.URL.Path
+		if rctx := chi.RouteContext(r.Context()); rctx != nil {
+			if p := rctx.RoutePattern(); p != "" {
+				pattern = p
+			}
+		}
 		httpRequestDuration.WithLabelValues(
 			r.Method,
-			r.URL.Path,
-			strconv.Itoa(wrapped.status),
+			pattern,
+			strconv.Itoa(wrapped.Status()),
 		).Observe(duration)
 	})
-}
-
-type statusWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (w *statusWriter) WriteHeader(status int) {
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
 }

@@ -62,6 +62,7 @@ type Server struct {
 	log            zerolog.Logger
 	baseDomain     string
 	downloadsPath  string
+	shutdownCh     chan struct{}
 }
 
 // New creates a new API server
@@ -74,6 +75,7 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		log:            log.With().Str("component", "api").Logger(),
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
+		shutdownCh:     make(chan struct{}),
 	}
 
 	s.setupRoutes()
@@ -99,7 +101,7 @@ func (s *Server) setupRoutes() {
 	// Rate limiting
 	if s.cfg.Web.RateLimit.Enabled {
 		globalRL := newIPRateLimiter(s.cfg.Web.RateLimit.GlobalPerMin)
-		globalRL.cleanup(5 * time.Minute)
+		globalRL.cleanup(s.shutdownCh, 5*time.Minute)
 		r.Use(rateLimitMiddleware(globalRL))
 	}
 
@@ -128,7 +130,7 @@ func (s *Server) setupRoutes() {
 		r.Route("/auth", func(r chi.Router) {
 			if s.cfg.Web.RateLimit.Enabled {
 				authRL := newIPRateLimiter(s.cfg.Web.RateLimit.AuthPerMin)
-				authRL.cleanup(5 * time.Minute)
+				authRL.cleanup(s.shutdownCh, 5*time.Minute)
 				r.Use(rateLimitMiddleware(authRL))
 			}
 			r.Post("/register", s.handleRegister)
@@ -282,6 +284,7 @@ func (s *Server) Start(ctx context.Context) error {
 // Shutdown gracefully stops the API server
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.log.Info().Msg("Stopping API server")
+	close(s.shutdownCh)
 	if s.httpServer != nil {
 		return s.httpServer.Shutdown(ctx)
 	}
@@ -331,6 +334,7 @@ func (s *Server) respondErrorWithCode(w http.ResponseWriter, status int, code, m
 }
 
 func (s *Server) decodeJSON(r *http.Request, v interface{}) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<20) // 1MB limit
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)

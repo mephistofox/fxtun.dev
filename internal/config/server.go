@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -236,11 +235,15 @@ func (t *TokenConfig) CanUseSubdomain(subdomain string) bool {
 		if pattern == "*" {
 			return true
 		}
-		// Support wildcard patterns like "user1-*"
 		if strings.Contains(pattern, "*") {
-			regexPattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(pattern), "\\*", ".*") + "$"
-			if matched, _ := regexp.MatchString(regexPattern, subdomain); matched {
-				return true
+			// Split on * and check prefix/suffix
+			parts := strings.SplitN(pattern, "*", 2)
+			if len(parts) == 2 {
+				if strings.HasPrefix(subdomain, parts[0]) && strings.HasSuffix(subdomain, parts[1]) {
+					if len(subdomain) >= len(parts[0])+len(parts[1]) {
+						return true
+					}
+				}
 			}
 		} else if pattern == subdomain {
 			return true

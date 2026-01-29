@@ -123,9 +123,34 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		return
 	}
 
-	// Track client addresses for responses
-	clientAddrs := make(map[uint32]*net.UDPAddr)
+	// Track client addresses for responses (keyed by addr.String() to avoid hash collisions)
+	clientAddrs := make(map[string]*net.UDPAddr)
+	hashToKey := make(map[uint32]string)
+	clientLastSeen := make(map[string]time.Time)
 	var addrMu sync.RWMutex
+
+	// Cleanup goroutine to evict stale entries
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-client.ctx.Done():
+				return
+			case <-ticker.C:
+				now := time.Now()
+				addrMu.Lock()
+				for key, lastSeen := range clientLastSeen {
+					if now.Sub(lastSeen) > 60*time.Second {
+						delete(clientAddrs, key)
+						delete(clientLastSeen, key)
+						// Note: don't clean hashToKey as it's small and hash collisions are rare
+					}
+				}
+				addrMu.Unlock()
+			}
+		}
+	}()
 
 	// Read from UDP and send to stream
 	go func() {
@@ -147,12 +172,15 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 				return
 			}
 
-			// Generate address hash
+			// Use string key to avoid hash collisions
+			addrKey := addr.String()
 			addrHash := hashAddr(addr)
 
 			// Store address for responses
 			addrMu.Lock()
-			clientAddrs[addrHash] = addr
+			clientAddrs[addrKey] = addr
+			hashToKey[addrHash] = addrKey
+			clientLastSeen[addrKey] = time.Now()
 			addrMu.Unlock()
 
 			// Frame: [2 bytes length][4 bytes addr hash][payload]
@@ -193,9 +221,10 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			return
 		}
 
-		// Find client address
+		// Find client address via hash-to-key reverse lookup
 		addrMu.RLock()
-		addr := clientAddrs[addrHash]
+		key := hashToKey[addrHash]
+		addr := clientAddrs[key]
 		addrMu.RUnlock()
 
 		if addr != nil {

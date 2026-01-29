@@ -103,6 +103,7 @@ func (d *Database) migrate() error {
 		migrationCreateUserHistory,
 		migrationCreateUserSettings,
 		migrationAddAllowedIPs,
+		migrationAddTokenAndSessionIndexes,
 	}
 
 	for i, migration := range migrations {
@@ -269,4 +270,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
 
 const migrationAddAllowedIPs = `
 ALTER TABLE api_tokens ADD COLUMN allowed_ips TEXT DEFAULT '[]';
+`
+
+const migrationAddTokenAndSessionIndexes = `
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token_hash ON sessions(refresh_token_hash);
 `
