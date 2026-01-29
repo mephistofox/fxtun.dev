@@ -1,3 +1,5 @@
+//go:build !windows
+
 package gui
 
 import (
@@ -42,4 +44,9 @@ func (a *App) initTray(icon []byte) {
 // cleanupTray stops the system tray.
 func (a *App) cleanupTray() {
 	systray.Quit()
+}
+
+// HasTray returns true if system tray is supported on this platform.
+func (a *App) HasTray() bool {
+	return true
 }
