@@ -3,7 +3,7 @@ set -e
 
 BINARY_NAME="fxtunnel"
 INSTALL_DIR="/usr/local/bin"
-BASE_URL="https://mfdev.ru/api/downloads"
+BASE_URL="${FXTUNNEL_BASE_URL:-https://mfdev.ru/api/downloads}"
 
 main() {
     detect_os
