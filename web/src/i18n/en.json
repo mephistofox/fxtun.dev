@@ -226,6 +226,8 @@
     "noDownloads": "No downloads available",
     "noDownloadsHint": "Contact the administrator to add client binaries",
     "quickStart": "Quick Start",
+    "quickStartDesc": "Get started in seconds",
+    "tokenHint": "Replace YOUR_TOKEN with your actual token from the Tokens page.",
     "step1": "1. Download and install the client",
     "step2": "2. Create a token in the \"Tokens\" section",
     "step3": "3. Run your first tunnel",

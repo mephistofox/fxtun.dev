@@ -149,6 +149,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if cfg.Web.Enabled && authService != nil {
 		tunnelProvider := &serverAdapter{srv: srv}
 		apiServer = api.New(cfg, db, authService, tunnelProvider, log)
+		apiServer.SetVersion(Version)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
