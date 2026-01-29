@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import * as AppService from '@/wailsjs/wailsjs/go/gui/App'
 import { useSettingsStore, type Theme, type Locale } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { useHistoryStore } from '@/stores/history'
@@ -20,14 +21,22 @@ const historyStore = useHistoryStore()
 
 const serverAddress = ref('')
 const platform = typeof window !== 'undefined' ? window.navigator.platform : 'Unknown'
+const appVersion = ref('...')
+const buildDate = ref('...')
 
 // Dialogs
 const showClearCredentialsDialog = ref(false)
 const showClearHistoryDialog = ref(false)
 
 // Sync serverAddress with store when it loads
-onMounted(() => {
+onMounted(async () => {
   serverAddress.value = settingsStore.serverAddress || ''
+  try {
+    appVersion.value = await AppService.GetVersion()
+    buildDate.value = await (AppService as any).GetBuildDate()
+  } catch {
+    // GetBuildDate may not exist in bindings yet
+  }
 })
 
 // Watch for store changes
@@ -300,11 +309,11 @@ async function clearHistory() {
         <div class="space-y-3">
           <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
             <span class="text-sm text-muted-foreground">{{ t('settings.version') }}</span>
-            <span class="font-display font-semibold gradient-text">v1.5.0</span>
+            <span class="font-display font-semibold gradient-text">{{ appVersion }}</span>
           </div>
           <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
             <span class="text-sm text-muted-foreground">{{ t('settings.build') }}</span>
-            <span class="font-mono text-xs text-muted-foreground">2024.01.28</span>
+            <span class="font-mono text-xs text-muted-foreground">{{ buildDate }}</span>
           </div>
           <div class="flex justify-between items-center p-3 rounded-lg bg-muted/30">
             <span class="text-sm text-muted-foreground">{{ t('settings.platform') }}</span>

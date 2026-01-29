@@ -42,11 +42,6 @@ const filteredAndSearchedLogs = computed(() => {
 
 onMounted(() => {
   logsStore.init()
-
-  // Demo logs for development
-  logsStore.addLog({ timestamp: new Date().toISOString(), level: 'info', message: 'Application started' })
-  logsStore.addLog({ timestamp: new Date().toISOString(), level: 'debug', message: 'Checking saved credentials...' })
-  logsStore.addLog({ timestamp: new Date().toISOString(), level: 'info', message: 'No saved credentials found' })
 })
 
 // Auto-scroll when new logs arrive

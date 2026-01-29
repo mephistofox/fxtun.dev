@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { EventsOn } from '@/wailsjs/wailsjs/runtime/runtime'
 import type { LogEntry } from '@/types'
 
 export const useLogsStore = defineStore('logs', () => {
@@ -30,8 +31,14 @@ export const useLogsStore = defineStore('logs', () => {
   }
 
   function init(): void {
-    // Subscribe to log events from Wails
-    // EventsOn('log', (entry: LogEntry) => addLog(entry))
+    EventsOn('log', (data: any) => {
+      const entry: LogEntry = {
+        timestamp: data.timestamp || new Date().toISOString(),
+        level: data.level || 'info',
+        message: data.message || '',
+      }
+      addLog(entry)
+    })
   }
 
   return {
