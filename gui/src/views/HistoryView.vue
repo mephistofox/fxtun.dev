@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui'
 import { Trash2, RefreshCw, History, ArrowUpRight, ArrowDownRight, Clock, Globe, Server, Radio } from 'lucide-vue-next'
+import { formatBytes } from '@/utils/format'
 import type { TunnelType } from '@/types'
 
 const { t } = useI18n()
@@ -16,8 +17,9 @@ const historyStore = useHistoryStore()
 const showClearDialog = ref(false)
 const filterType = ref<TunnelType | 'all'>('all')
 
-onMounted(() => {
-  historyStore.loadHistory()
+onMounted(async () => {
+  await historyStore.loadHistory()
+  historyStore.verifyActiveEntries()
 })
 
 const filteredEntries = computed(() => {
@@ -59,14 +61,6 @@ function formatDuration(start: string, end?: string): string {
   } else {
     return `${seconds}${t('time.secondsShort')}`
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 function getTunnelTypeBadge(type: TunnelType): 'http' | 'tcp' | 'udp' {
@@ -245,12 +239,12 @@ function getTunnelIcon(type: TunnelType) {
                 <div class="flex items-center gap-2 text-xs">
                   <span class="flex items-center gap-0.5 text-type-http">
                     <ArrowUpRight class="h-3 w-3" />
-                    {{ formatBytes(entry.bytesSent) }}
+                    {{ formatBytes(historyStore.getLiveTraffic(entry).bytesSent) }}
                   </span>
                   <span class="text-muted-foreground/50">/</span>
                   <span class="flex items-center gap-0.5 text-type-tcp">
                     <ArrowDownRight class="h-3 w-3" />
-                    {{ formatBytes(entry.bytesReceived) }}
+                    {{ formatBytes(historyStore.getLiveTraffic(entry).bytesReceived) }}
                   </span>
                 </div>
               </td>

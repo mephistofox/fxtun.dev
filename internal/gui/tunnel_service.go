@@ -26,13 +26,15 @@ func NewTunnelService(app *App) *TunnelService {
 
 // TunnelInfo represents tunnel information for the frontend
 type TunnelInfo struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	LocalPort  int    `json:"local_port"`
-	RemoteAddr string `json:"remote_addr,omitempty"`
-	URL        string `json:"url,omitempty"`
-	Connected  string `json:"connected"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	LocalPort     int    `json:"local_port"`
+	RemoteAddr    string `json:"remote_addr,omitempty"`
+	URL           string `json:"url,omitempty"`
+	Connected     string `json:"connected"`
+	BytesSent     int64  `json:"bytes_sent"`
+	BytesReceived int64  `json:"bytes_received"`
 }
 
 // TunnelConfig represents tunnel configuration from the frontend
@@ -55,13 +57,15 @@ func (s *TunnelService) GetActiveTunnels() []TunnelInfo {
 
 	for i, t := range tunnels {
 		result[i] = TunnelInfo{
-			ID:         t.ID,
-			Name:       t.Config.Name,
-			Type:       t.Config.Type,
-			LocalPort:  t.Config.LocalPort,
-			RemoteAddr: t.RemoteAddr,
-			URL:        t.URL,
-			Connected:  t.Connected.Format(time.RFC3339),
+			ID:            t.ID,
+			Name:          t.Config.Name,
+			Type:          t.Config.Type,
+			LocalPort:     t.Config.LocalPort,
+			RemoteAddr:    t.RemoteAddr,
+			URL:           t.URL,
+			Connected:     t.Connected.Format(time.RFC3339),
+			BytesSent:     t.BytesSent.Load(),
+			BytesReceived: t.BytesReceived.Load(),
 		}
 	}
 
@@ -108,17 +112,22 @@ func (s *TunnelService) CreateTunnel(cfg TunnelConfig) (*TunnelInfo, error) {
 	for _, t := range tunnels {
 		if t.Config.Name == cfg.Name {
 			info := &TunnelInfo{
-				ID:         t.ID,
-				Name:       t.Config.Name,
-				Type:       t.Config.Type,
-				LocalPort:  t.Config.LocalPort,
-				RemoteAddr: t.RemoteAddr,
-				URL:        t.URL,
-				Connected:  t.Connected.Format(time.RFC3339),
+				ID:            t.ID,
+				Name:          t.Config.Name,
+				Type:          t.Config.Type,
+				LocalPort:     t.Config.LocalPort,
+				RemoteAddr:    t.RemoteAddr,
+				URL:           t.URL,
+				Connected:     t.Connected.Format(time.RFC3339),
+				BytesSent:     t.BytesSent.Load(),
+				BytesReceived: t.BytesReceived.Load(),
 			}
 
-			// Record connection in history
-			s.app.HistoryService.RecordConnect(cfg.Name, cfg.Type, cfg.LocalPort, t.RemoteAddr, t.URL)
+			// Record connection in history and track for disconnect
+			historyEntry, err := s.app.HistoryService.RecordConnect(cfg.Name, cfg.Type, cfg.LocalPort, t.RemoteAddr, t.URL)
+			if err == nil && historyEntry != nil {
+				s.app.TrackTunnelHistory(t.ID, historyEntry.ID)
+			}
 
 			return info, nil
 		}
@@ -155,6 +164,11 @@ func (s *TunnelService) GetConnectionStatus() string {
 func (s *TunnelService) Disconnect() error {
 	if s.app.client == nil {
 		return nil
+	}
+
+	// Record disconnect for all active tunnels
+	for _, t := range s.app.client.GetTunnels() {
+		s.app.recordTunnelDisconnect(t.ID, t.BytesSent.Load(), t.BytesReceived.Load())
 	}
 
 	s.app.client.Close()
