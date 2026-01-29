@@ -34,10 +34,11 @@ func main() {
 		Use:   "fxtunnel-server",
 		Short: "fxTunnel Server - Self-hosted reverse tunneling",
 		Long: `fxTunnel Server provides a self-hosted reverse tunneling solution
-similar to ngrok or serveo.net.
-
 It allows clients to expose local services through HTTP subdomains,
-TCP ports, or UDP ports.`,
+TCP ports, or UDP ports.
+
+GitHub: https://github.com/mephistofox/fxtunnel
+Website: https://mfdev.ru`,
 		RunE: run,
 	}
 
@@ -50,6 +51,8 @@ TCP ports, or UDP ports.`,
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Server %s (built %s)\n", Version, BuildTime)
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
+			fmt.Println("Website: https://mfdev.ru")
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
