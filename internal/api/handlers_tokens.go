@@ -84,6 +84,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		TokenHash:         tokenHash,
 		Name:              req.Name,
 		AllowedSubdomains: req.AllowedSubdomains,
+		AllowedIPs:        req.AllowedIPs,
 		MaxTunnels:        req.MaxTunnels,
 	}
 

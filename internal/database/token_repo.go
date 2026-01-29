@@ -27,9 +27,14 @@ func (r *APITokenRepository) Create(token *APIToken) error {
 		return fmt.Errorf("marshal allowed subdomains: %w", err)
 	}
 
+	allowedIPs, err := json.Marshal(token.AllowedIPs)
+	if err != nil {
+		return fmt.Errorf("marshal allowed ips: %w", err)
+	}
+
 	query := `
-		INSERT INTO api_tokens (user_id, token_hash, name, allowed_subdomains, max_tunnels, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO api_tokens (user_id, token_hash, name, allowed_subdomains, max_tunnels, allowed_ips, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
@@ -39,6 +44,7 @@ func (r *APITokenRepository) Create(token *APIToken) error {
 		token.Name,
 		string(allowedSubdomains),
 		token.MaxTunnels,
+		string(allowedIPs),
 		now,
 	)
 	if err != nil {
@@ -58,12 +64,13 @@ func (r *APITokenRepository) Create(token *APIToken) error {
 // GetByID retrieves an API token by ID
 func (r *APITokenRepository) GetByID(id int64) (*APIToken, error) {
 	query := `
-		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, last_used_at, created_at
+		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, allowed_ips, last_used_at, created_at
 		FROM api_tokens WHERE id = ?
 	`
 
 	token := &APIToken{}
 	var allowedSubdomains string
+	var allowedIPs string
 	var lastUsedAt sql.NullTime
 
 	err := r.db.QueryRow(query, id).Scan(
@@ -73,6 +80,7 @@ func (r *APITokenRepository) GetByID(id int64) (*APIToken, error) {
 		&token.Name,
 		&allowedSubdomains,
 		&token.MaxTunnels,
+		&allowedIPs,
 		&lastUsedAt,
 		&token.CreatedAt,
 	)
@@ -86,6 +94,9 @@ func (r *APITokenRepository) GetByID(id int64) (*APIToken, error) {
 	if err := json.Unmarshal([]byte(allowedSubdomains), &token.AllowedSubdomains); err != nil {
 		token.AllowedSubdomains = []string{}
 	}
+	if err := json.Unmarshal([]byte(allowedIPs), &token.AllowedIPs); err != nil {
+		token.AllowedIPs = []string{}
+	}
 
 	if lastUsedAt.Valid {
 		token.LastUsedAt = &lastUsedAt.Time
@@ -97,12 +108,13 @@ func (r *APITokenRepository) GetByID(id int64) (*APIToken, error) {
 // GetByTokenHash retrieves an API token by token hash
 func (r *APITokenRepository) GetByTokenHash(tokenHash string) (*APIToken, error) {
 	query := `
-		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, last_used_at, created_at
+		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, allowed_ips, last_used_at, created_at
 		FROM api_tokens WHERE token_hash = ?
 	`
 
 	token := &APIToken{}
 	var allowedSubdomains string
+	var allowedIPs string
 	var lastUsedAt sql.NullTime
 
 	err := r.db.QueryRow(query, tokenHash).Scan(
@@ -112,6 +124,7 @@ func (r *APITokenRepository) GetByTokenHash(tokenHash string) (*APIToken, error)
 		&token.Name,
 		&allowedSubdomains,
 		&token.MaxTunnels,
+		&allowedIPs,
 		&lastUsedAt,
 		&token.CreatedAt,
 	)
@@ -125,6 +138,9 @@ func (r *APITokenRepository) GetByTokenHash(tokenHash string) (*APIToken, error)
 	if err := json.Unmarshal([]byte(allowedSubdomains), &token.AllowedSubdomains); err != nil {
 		token.AllowedSubdomains = []string{}
 	}
+	if err := json.Unmarshal([]byte(allowedIPs), &token.AllowedIPs); err != nil {
+		token.AllowedIPs = []string{}
+	}
 
 	if lastUsedAt.Valid {
 		token.LastUsedAt = &lastUsedAt.Time
@@ -136,7 +152,7 @@ func (r *APITokenRepository) GetByTokenHash(tokenHash string) (*APIToken, error)
 // GetByUserID retrieves all API tokens for a user
 func (r *APITokenRepository) GetByUserID(userID int64) ([]*APIToken, error) {
 	query := `
-		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, last_used_at, created_at
+		SELECT id, user_id, token_hash, name, allowed_subdomains, max_tunnels, allowed_ips, last_used_at, created_at
 		FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC
 	`
 
@@ -150,6 +166,7 @@ func (r *APITokenRepository) GetByUserID(userID int64) ([]*APIToken, error) {
 	for rows.Next() {
 		token := &APIToken{}
 		var allowedSubdomains string
+		var allowedIPs string
 		var lastUsedAt sql.NullTime
 
 		if err := rows.Scan(
@@ -159,6 +176,7 @@ func (r *APITokenRepository) GetByUserID(userID int64) ([]*APIToken, error) {
 			&token.Name,
 			&allowedSubdomains,
 			&token.MaxTunnels,
+			&allowedIPs,
 			&lastUsedAt,
 			&token.CreatedAt,
 		); err != nil {
@@ -167,6 +185,9 @@ func (r *APITokenRepository) GetByUserID(userID int64) ([]*APIToken, error) {
 
 		if err := json.Unmarshal([]byte(allowedSubdomains), &token.AllowedSubdomains); err != nil {
 			token.AllowedSubdomains = []string{}
+		}
+		if err := json.Unmarshal([]byte(allowedIPs), &token.AllowedIPs); err != nil {
+			token.AllowedIPs = []string{}
 		}
 
 		if lastUsedAt.Valid {

@@ -63,6 +63,22 @@ func TestAPIToken_CanUseSubdomain(t *testing.T) {
 	}
 }
 
+func TestAPIToken_IsIPAllowed_Empty(t *testing.T) {
+	token := &APIToken{AllowedIPs: []string{}}
+	assert.True(t, token.IsIPAllowed("1.2.3.4:5678"))
+}
+
+func TestAPIToken_IsIPAllowed_Match(t *testing.T) {
+	token := &APIToken{AllowedIPs: []string{"1.2.3.4", "5.6.7.8"}}
+	assert.True(t, token.IsIPAllowed("1.2.3.4:5678"))
+	assert.False(t, token.IsIPAllowed("9.9.9.9:1234"))
+}
+
+func TestAPIToken_IsIPAllowed_NoPort(t *testing.T) {
+	token := &APIToken{AllowedIPs: []string{"1.2.3.4"}}
+	assert.True(t, token.IsIPAllowed("1.2.3.4"))
+}
+
 func TestMatchWildcard(t *testing.T) {
 	tests := []struct {
 		pattern   string

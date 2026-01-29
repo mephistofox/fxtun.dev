@@ -35,6 +35,7 @@ type UpdateProfileRequest struct {
 type CreateTokenRequest struct {
 	Name              string   `json:"name" validate:"required,min=1,max=100"`
 	AllowedSubdomains []string `json:"allowed_subdomains"`
+	AllowedIPs        []string `json:"allowed_ips"`
 	MaxTunnels        int      `json:"max_tunnels" validate:"min=1,max=100"`
 }
 
