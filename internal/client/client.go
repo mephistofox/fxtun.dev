@@ -276,6 +276,9 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		c.tunnels[resp.TunnelID] = tunnel
 		c.tunnelsMu.Unlock()
 
+		// Pre-probe local address so first connection is instant
+		go ProbeLocalAddress(c.log, tunnelCfg.LocalAddr, tunnelCfg.LocalPort)
+
 		// Emit tunnel created event
 		c.events.EmitTunnelCreated(tunnel)
 
