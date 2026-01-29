@@ -13,22 +13,26 @@ import (
 )
 
 var (
-	activeTunnels = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	// ActiveTunnels tracks number of currently active tunnels by type.
+	ActiveTunnels = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "fxtunnel_active_tunnels",
 		Help: "Number of currently active tunnels",
 	}, []string{"type"})
 
-	activeConnections = promauto.NewGauge(prometheus.GaugeOpts{
+	// ActiveConnections tracks number of currently active client connections.
+	ActiveConnections = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "fxtunnel_active_connections",
 		Help: "Number of currently active client connections",
 	})
 
-	connectionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	// ConnectionsTotal counts total tunnel connections by type.
+	ConnectionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fxtunnel_connections_total",
 		Help: "Total number of tunnel connections",
 	}, []string{"type"})
 
-	authAttemptsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	// AuthAttemptsTotal counts authentication attempts by result.
+	AuthAttemptsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "fxtunnel_auth_attempts_total",
 		Help: "Total authentication attempts",
 	}, []string{"result"})
