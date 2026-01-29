@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/mephistofox/fxTunnel/compare/v1.8.0...v1.8.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **ci:** lowercase docker image name for ghcr.io compatibility ([5fc66f9](https://github.com/mephistofox/fxTunnel/commit/5fc66f98621c377ea6f78cd24d6766afdbe95a62))
+
 ## [1.8.0](https://github.com/mephistofox/fxTunnel/compare/v1.7.0...v1.8.0) (2026-01-29)
 
 
