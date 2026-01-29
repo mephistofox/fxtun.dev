@@ -65,7 +65,7 @@ func TestValidateBackupCode(t *testing.T) {
 	assert.Len(t, remaining, 2)
 	assert.NotContains(t, remaining, "BBBBBBBB")
 
-	remaining, valid = m.ValidateBackupCode("INVALID", codes)
+	_, valid = m.ValidateBackupCode("INVALID", codes)
 	assert.False(t, valid)
 }
 
