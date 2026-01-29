@@ -15,6 +15,8 @@ export interface TunnelInfo {
   remoteAddr?: string
   url?: string
   connected: string
+  bytesSent: number
+  bytesReceived: number
 }
 
 export interface TunnelConfig {
@@ -58,8 +60,19 @@ export const useTunnelsStore = defineStore('tunnels', () => {
         remoteAddr: payload.remote_addr,
         url: payload.url,
         connected: payload.connected,
+        bytesSent: 0,
+        bytesReceived: 0,
       }
       tunnels.value.push(tunnel)
+    })
+
+    EventsOn('traffic_update', (data: any) => {
+      const payload = data.payload || data
+      const tunnel = tunnels.value.find(t => t.id === payload.tunnel_id)
+      if (tunnel) {
+        tunnel.bytesSent = payload.bytes_sent || 0
+        tunnel.bytesReceived = payload.bytes_received || 0
+      }
     })
 
     EventsOn('tunnel_closed', (data: any) => {
@@ -91,7 +104,7 @@ export const useTunnelsStore = defineStore('tunnels', () => {
   async function loadTunnels(): Promise<void> {
     try {
       const result = await TunnelService.GetActiveTunnels()
-      tunnels.value = result.map((t: gui.TunnelInfo) => ({
+      tunnels.value = result.map((t: any) => ({
         id: t.id,
         name: t.name,
         type: t.type as TunnelType,
@@ -99,6 +112,8 @@ export const useTunnelsStore = defineStore('tunnels', () => {
         remoteAddr: t.remote_addr,
         url: t.url,
         connected: t.connected,
+        bytesSent: t.bytes_sent || 0,
+        bytesReceived: t.bytes_received || 0,
       }))
     } catch (e) {
       console.error('Failed to load tunnels:', e)
@@ -128,6 +143,8 @@ export const useTunnelsStore = defineStore('tunnels', () => {
         remoteAddr: result.remote_addr,
         url: result.url,
         connected: result.connected,
+        bytesSent: (result as any).bytes_sent || 0,
+        bytesReceived: (result as any).bytes_received || 0,
       }
 
       // Tunnel will be added via 'tunnel_created' event, just return the result

@@ -10,8 +10,9 @@ import {
 import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
   Plus, Copy, X, ExternalLink, Check, RefreshCw, ChevronDown, ChevronUp,
-  Zap, Boxes, Globe, Server, Radio, ArrowRight
+  Zap, Boxes, Globe, Server, Radio, ArrowRight, ArrowUpRight, ArrowDownRight
 } from 'lucide-vue-next'
+import { formatBytes } from '@/utils/format'
 import type { TunnelType, TunnelConfig } from '@/types'
 
 const { t } = useI18n()
@@ -222,6 +223,19 @@ function copyToClipboard(text: string, id: string) {
               >
                 {{ tunnel.type === 'http' ? 'public' : tunnel.remoteAddr?.split(':')[1] || 'auto' }}
               </code>
+            </div>
+
+            <!-- Traffic stats -->
+            <div v-if="tunnel.bytesSent > 0 || tunnel.bytesReceived > 0" class="flex items-center gap-3 text-xs mb-3">
+              <span class="flex items-center gap-0.5 text-type-http">
+                <ArrowUpRight class="h-3 w-3" />
+                {{ formatBytes(tunnel.bytesSent) }}
+              </span>
+              <span class="text-muted-foreground/50">/</span>
+              <span class="flex items-center gap-0.5 text-type-tcp">
+                <ArrowDownRight class="h-3 w-3" />
+                {{ formatBytes(tunnel.bytesReceived) }}
+              </span>
             </div>
 
             <!-- URL -->

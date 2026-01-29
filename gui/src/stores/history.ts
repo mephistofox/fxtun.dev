@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as HistoryService from '@/wailsjs/wailsjs/go/gui/HistoryService'
 import { storage } from '@/wailsjs/wailsjs/go/models'
+import { useTunnelsStore } from '@/stores/tunnels'
 import type { TunnelType } from '@/types'
 
 export interface HistoryEntry {
@@ -82,6 +83,36 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
+  // Verify active entries: if no matching tunnel is running, mark as stale
+  function verifyActiveEntries(): void {
+    const tunnelsStore = useTunnelsStore()
+    for (const entry of entries.value) {
+      if (entry.disconnectedAt) continue
+      const isRunning = tunnelsStore.tunnels.some(
+        t => t.name === entry.bundleName && t.localPort === entry.localPort
+      )
+      if (!isRunning) {
+        // No matching tunnel — mark as disconnected on the frontend
+        entry.disconnectedAt = new Date().toISOString()
+      }
+    }
+  }
+
+  // For active entries (no disconnectedAt), pull live traffic from tunnels store
+  function getLiveTraffic(entry: HistoryEntry): { bytesSent: number; bytesReceived: number } {
+    if (entry.disconnectedAt) {
+      return { bytesSent: entry.bytesSent, bytesReceived: entry.bytesReceived }
+    }
+    const tunnelsStore = useTunnelsStore()
+    const tunnel = tunnelsStore.tunnels.find(
+      t => t.name === entry.bundleName && t.localPort === entry.localPort
+    )
+    if (tunnel) {
+      return { bytesSent: tunnel.bytesSent, bytesReceived: tunnel.bytesReceived }
+    }
+    return { bytesSent: entry.bytesSent, bytesReceived: entry.bytesReceived }
+  }
+
   return {
     entries,
     isLoading,
@@ -89,5 +120,7 @@ export const useHistoryStore = defineStore('history', () => {
     loadHistory,
     getRecent,
     clearHistory,
+    getLiveTraffic,
+    verifyActiveEntries,
   }
 })

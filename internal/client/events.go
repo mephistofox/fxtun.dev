@@ -15,6 +15,7 @@ const (
 	EventTunnelCreated EventType = "tunnel_created"
 	EventTunnelClosed  EventType = "tunnel_closed"
 	EventTunnelError   EventType = "tunnel_error"
+	EventTrafficUpdate EventType = "traffic_update"
 	EventError         EventType = "error"
 	EventLog           EventType = "log"
 )
