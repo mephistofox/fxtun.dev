@@ -29,7 +29,7 @@ const currentYear = new Date().getFullYear()
         <!-- Links -->
         <div class="flex items-center gap-6">
           <a
-            href="https://github.com/mephistofox/fxTunnel"
+            href="https://github.com/mephistofox/fxtunnel"
             target="_blank"
             rel="noopener"
             class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -40,7 +40,15 @@ const currentYear = new Date().getFullYear()
             GitHub
           </a>
           <a
-            href="https://github.com/mephistofox/fxTunnel/releases"
+            href="https://mfdev.ru"
+            target="_blank"
+            rel="noopener"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            mfdev.ru
+          </a>
+          <a
+            href="https://github.com/mephistofox/fxtunnel/releases"
             target="_blank"
             rel="noopener"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -48,7 +56,7 @@ const currentYear = new Date().getFullYear()
             {{ t('landing.footer.releases') || 'Releases' }}
           </a>
           <a
-            href="https://github.com/mephistofox/fxTunnel/issues"
+            href="https://github.com/mephistofox/fxtunnel/issues"
             target="_blank"
             rel="noopener"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"

@@ -101,6 +101,8 @@ For GUI mode, use fxtunnel-gui binary.`,
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
+			fmt.Println("Website: https://mfdev.ru")
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
