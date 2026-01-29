@@ -1,0 +1,19 @@
+services:
+  fxtunnel-server:
+    build: .
+    ports:
+      - "4443:4443"   # Control plane
+      - "8080:8080"   # HTTP tunnel traffic
+      - "8081:8081"   # Web UI + API
+      - "10000-10100:10000-10100" # TCP tunnel range (subset)
+    volumes:
+      - fxtunnel-data:/data
+      - ./configs/server.yaml:/etc/fxtunnel/server.yaml:ro
+    environment:
+      - FXTUNNEL_AUTH_JWT_SECRET=${JWT_SECRET}
+      - FXTUNNEL_TOTP_ENCRYPTION_KEY=${TOTP_KEY}
+      - FXTUNNEL_DATABASE_PATH=/data/fxtunnel.db
+    restart: unless-stopped
+
+volumes:
+  fxtunnel-data:
