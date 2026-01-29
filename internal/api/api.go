@@ -92,6 +92,8 @@ func (s *Server) setupRoutes() {
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Timeout(30 * time.Second))
 
+	r.Use(securityHeadersMiddleware)
+
 	// Rate limiting
 	if s.cfg.Web.RateLimit.Enabled {
 		globalRL := newIPRateLimiter(s.cfg.Web.RateLimit.GlobalPerMin)
