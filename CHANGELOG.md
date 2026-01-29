@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/mephistofox/fxTunnel/compare/v1.8.1...v1.8.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* **docker:** bump Go image to 1.24 to match go.mod requirement ([4239bcb](https://github.com/mephistofox/fxTunnel/commit/4239bcb3022695f4efe362794eec7efd8609cd28))
+
 ## [1.8.1](https://github.com/mephistofox/fxTunnel/compare/v1.8.0...v1.8.1) (2026-01-29)
 
 
