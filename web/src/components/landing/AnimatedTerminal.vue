@@ -12,7 +12,7 @@ const lines: TerminalLine[] = [
   { type: 'info', text: 'Connecting to fxtunnel server...', delay: 800 },
   { type: 'success', text: 'Tunnel established!', delay: 600 },
   { type: 'output', text: '', delay: 100 },
-  { type: 'output', text: 'HTTP: https://myapp.tunnel.example.com', delay: 200 },
+  { type: 'output', text: 'HTTP: https://myapp.mfdev.ru', delay: 200 },
   { type: 'output', text: 'Forwarding to localhost:3000', delay: 150 },
   { type: 'output', text: '', delay: 100 },
   { type: 'info', text: 'Ready to receive connections', delay: 300 },
