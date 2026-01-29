@@ -597,10 +597,10 @@ func (c *Client) reconnect() {
 		c.tunnels = make(map[string]*ActiveTunnel)
 		c.tunnelsMu.Unlock()
 
-		// Cancel old context and create new one
+		// Cancel old context and wait for goroutines to finish
 		c.cancel()
+		c.wg.Wait()
 		c.ctx, c.cancel = context.WithCancel(context.Background())
-		c.wg = sync.WaitGroup{}
 
 		// Try to connect
 		if err := c.Connect(); err != nil {
