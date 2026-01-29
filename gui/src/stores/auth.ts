@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   const serverAddress = ref('')
   const authMethod = ref<'token' | 'password'>('token')
   const totpRequired = ref(false)
+  const isBlocked = ref(false)
 
   async function checkAuth(): Promise<boolean> {
     try {
@@ -126,9 +127,15 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = false
       serverAddress.value = ''
       totpRequired.value = false
+      isBlocked.value = false
     } catch (e) {
       console.error('Logout failed:', e)
     }
+  }
+
+  function setBlocked(): void {
+    isBlocked.value = true
+    isAuthenticated.value = false
   }
 
   function resetTotpRequired(): void {
@@ -142,6 +149,8 @@ export const useAuthStore = defineStore('auth', () => {
     serverAddress,
     authMethod,
     totpRequired,
+    isBlocked,
+    setBlocked,
     checkAuth,
     autoLogin,
     loginWithToken,

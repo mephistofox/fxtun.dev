@@ -37,7 +37,8 @@
     "history": "История",
     "settings": "Настройки",
     "logs": "Логи",
-    "logout": "Выйти"
+    "logout": "Выйти",
+    "support": "Поддержка"
   },
   "auth": {
     "title": "fxTunnel",
@@ -57,6 +58,10 @@
     "totpCode": "Код 2FA",
     "totpPlaceholder": "000000",
     "totpHint": "Введите код из приложения-аутентификатора",
+    "accountBlocked": "Аккаунт заблокирован",
+    "accountBlockedHint": "Ваш аккаунт был деактивирован администратором. Обратитесь в поддержку.",
+    "backToLogin": "Вернуться к входу",
+    "contactSupport": "Связаться с поддержкой",
     "errors": {
       "invalidCredentials": "Неверные учётные данные",
       "connectionFailed": "Не удалось подключиться к серверу",
