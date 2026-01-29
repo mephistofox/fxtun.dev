@@ -196,6 +196,15 @@ func (c *ServerConfig) Validate() error {
 		}
 	}
 
+	if c.Web.Enabled {
+		if c.Auth.JWTSecret == "" {
+			return fmt.Errorf("auth.jwt_secret is required when web panel is enabled")
+		}
+		if c.TOTP.EncryptionKey == "" {
+			return fmt.Errorf("totp.encryption_key is required when web panel is enabled")
+		}
+	}
+
 	return nil
 }
 

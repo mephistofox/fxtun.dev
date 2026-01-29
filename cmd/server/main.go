@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -81,16 +79,6 @@ func run(cmd *cobra.Command, args []string) error {
 		log = setupLogging(cfg.Logging.Level, cfg.Logging.Format)
 	}
 
-	// Generate JWT secret if not configured
-	if cfg.Auth.JWTSecret == "" {
-		secret := make([]byte, 32)
-		if _, err := rand.Read(secret); err != nil {
-			log.Fatal().Err(err).Msg("Failed to generate JWT secret")
-		}
-		cfg.Auth.JWTSecret = hex.EncodeToString(secret)
-		log.Warn().Msg("No JWT secret configured, using auto-generated (will change on restart)")
-	}
-
 	// Initialize database if web panel is enabled
 	var db *database.Database
 	var authService *auth.Service
@@ -115,15 +103,7 @@ func run(cmd *cobra.Command, args []string) error {
 			refreshTTL = 7 * 24 * time.Hour
 		}
 
-		// Generate TOTP encryption key if not configured
 		totpKey := []byte(cfg.TOTP.EncryptionKey)
-		if len(totpKey) == 0 {
-			totpKey = make([]byte, 32)
-			if _, err := rand.Read(totpKey); err != nil {
-				log.Fatal().Err(err).Msg("Failed to generate TOTP encryption key")
-			}
-			log.Warn().Msg("No TOTP encryption key configured, using auto-generated (TOTP secrets will be lost on restart)")
-		}
 
 		// Create auth service
 		authService = auth.NewService(
