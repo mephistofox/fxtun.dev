@@ -92,7 +92,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           cache: true
 
       - name: Setup Node.js
@@ -145,7 +145,7 @@ jobs:
         run: |
           cd gui && npm install && cd ..
           wails build -tags webkit2_41 -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }}
           ls -la build/bin/
           cp build/bin/${{ matrix.artifact }} .
@@ -156,7 +156,7 @@ jobs:
         run: |
           cd gui && npm install && cd ..
           wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }}
           ls -la build/bin/
           cp build/bin/${{ matrix.artifact }} .
@@ -166,7 +166,7 @@ jobs:
         run: |
           cd gui && npm install && cd ..
           wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }}" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }}
           ls -la build/bin/
           # macOS binary might be in .app bundle or direct binary
@@ -201,7 +201,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           cache: true
 
       - name: Setup Node.js
