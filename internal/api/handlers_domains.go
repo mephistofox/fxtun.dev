@@ -79,19 +79,6 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if subdomain is available
-	available, err := s.db.Domains.IsAvailable(req.Subdomain)
-	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to check domain availability")
-		s.respondError(w, http.StatusInternalServerError, "failed to reserve domain")
-		return
-	}
-
-	if !available {
-		s.respondErrorWithCode(w, http.StatusConflict, "SUBDOMAIN_TAKEN", "subdomain is already reserved")
-		return
-	}
-
 	// Create reservation
 	domain := &database.ReservedDomain{
 		UserID:    user.ID,

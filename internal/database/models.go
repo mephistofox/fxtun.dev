@@ -1,7 +1,7 @@
 package database
 
 import (
-	"strings"
+	"net"
 	"time"
 )
 
@@ -118,9 +118,9 @@ func (t *APIToken) IsIPAllowed(ip string) bool {
 	if len(t.AllowedIPs) == 0 {
 		return true
 	}
-	host := ip
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		host = ip[:idx]
+	host, _, err := net.SplitHostPort(ip)
+	if err != nil {
+		host = ip // no port, use as-is
 	}
 	for _, allowed := range t.AllowedIPs {
 		if allowed == host {

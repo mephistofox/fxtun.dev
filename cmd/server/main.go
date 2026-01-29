@@ -162,6 +162,24 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Info().
 			Int("port", cfg.Web.Port).
 			Msg("Web panel API started")
+
+		// Start expired session cleanup
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if deleted, err := db.Sessions.DeleteExpired(); err != nil {
+						log.Error().Err(err).Msg("Failed to cleanup expired sessions")
+					} else if deleted > 0 {
+						log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+					}
+				}
+			}
+		}()
 	}
 
 	// Wait for shutdown signal

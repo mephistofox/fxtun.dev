@@ -134,7 +134,7 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	}
 
 	// Bidirectional copy
-	done := make(chan struct{})
+	done := make(chan struct{}, 2)
 
 	go func() {
 		io.Copy(stream, conn)
@@ -146,6 +146,10 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 		done <- struct{}{}
 	}()
 
+	<-done
+	// Close both to unblock the other goroutine
+	conn.Close()
+	stream.Close()
 	<-done
 
 	m.log.Debug().

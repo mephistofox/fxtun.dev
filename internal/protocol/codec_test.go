@@ -205,14 +205,9 @@ func TestCodecDecodePartialPayload(t *testing.T) {
 }
 
 func TestCodecEncodeWriteError(t *testing.T) {
-	// Fail on first write (header)
+	// Encode uses a single combined write (header+payload), so fail on first write
 	codec := NewCodec(nil, &failWriter{n: 0})
 	err := codec.Encode(&PingMessage{Message: NewMessage(MsgPing)})
-	assert.Error(t, err)
-
-	// Fail on second write (payload)
-	codec2 := NewCodec(nil, &failWriter{n: 1})
-	err = codec2.Encode(&PingMessage{Message: NewMessage(MsgPing)})
 	assert.Error(t, err)
 }
 

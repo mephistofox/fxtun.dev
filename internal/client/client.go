@@ -471,6 +471,10 @@ func (c *Client) handleStream(stream net.Conn) {
 	}()
 
 	<-done
+	// Close both to unblock the other goroutine
+	local.Close()
+	stream.Close()
+	<-done
 }
 
 func (c *Client) keepalive() {
@@ -558,6 +562,11 @@ func (c *Client) reconnect() {
 		c.tunnelsMu.Lock()
 		c.tunnels = make(map[string]*ActiveTunnel)
 		c.tunnelsMu.Unlock()
+
+		// Cancel old context and create new one
+		c.cancel()
+		c.ctx, c.cancel = context.WithCancel(context.Background())
+		c.wg = sync.WaitGroup{}
 
 		// Try to connect
 		if err := c.Connect(); err != nil {

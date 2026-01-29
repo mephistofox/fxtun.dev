@@ -31,17 +31,23 @@ func (rl *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
 }
 
 // cleanup removes stale limiters periodically
-func (rl *ipRateLimiter) cleanup(interval time.Duration) {
+func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration) {
 	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
 		for {
-			time.Sleep(interval)
-			rl.limiters.Range(func(key, value any) bool {
-				limiter := value.(*rate.Limiter)
-				if limiter.Tokens() >= float64(rl.burst)-0.1 {
-					rl.limiters.Delete(key)
-				}
-				return true
-			})
+			select {
+			case <-stopCh:
+				return
+			case <-ticker.C:
+				rl.limiters.Range(func(key, value any) bool {
+					limiter := value.(*rate.Limiter)
+					if limiter.Tokens() >= float64(rl.burst)-0.1 {
+						rl.limiters.Delete(key)
+					}
+					return true
+				})
+			}
 		}
 	}()
 }

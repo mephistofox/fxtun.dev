@@ -217,13 +217,20 @@ func (s *Server) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user phones for logs
+	// Batch fetch users for logs
+	userIDs := make([]int64, 0)
+	for _, log := range logs {
+		if log.UserID != nil {
+			userIDs = append(userIDs, *log.UserID)
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
 	logDTOs := make([]*dto.AuditLogDTO, len(logs))
 	for i, log := range logs {
 		var userPhone string
 		if log.UserID != nil {
-			user, err := s.db.Users.GetByID(*log.UserID)
-			if err == nil {
+			if user, ok := usersMap[*log.UserID]; ok {
 				userPhone = user.Phone
 			}
 		}
@@ -249,12 +256,20 @@ func (s *Server) handleListAllTunnels(w http.ResponseWriter, r *http.Request) {
 	// Get all tunnels (userID 0 means all users)
 	tunnels := s.tunnelProvider.GetAllTunnels()
 
+	// Batch fetch users for tunnels
+	userIDs := make([]int64, 0)
+	for _, t := range tunnels {
+		if t.UserID > 0 {
+			userIDs = append(userIDs, t.UserID)
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
 	tunnelDTOs := make([]*dto.AdminTunnelDTO, len(tunnels))
 	for i, t := range tunnels {
 		var userPhone string
 		if t.UserID > 0 {
-			user, err := s.db.Users.GetByID(t.UserID)
-			if err == nil {
+			if user, ok := usersMap[t.UserID]; ok {
 				userPhone = user.Phone
 			}
 		}
