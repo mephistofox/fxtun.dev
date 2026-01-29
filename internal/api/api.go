@@ -62,6 +62,7 @@ type Server struct {
 	log            zerolog.Logger
 	baseDomain     string
 	downloadsPath  string
+	version        string
 	shutdownCh     chan struct{}
 }
 
@@ -80,6 +81,11 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 
 	s.setupRoutes()
 	return s
+}
+
+// SetVersion sets the server version string for health endpoint.
+func (s *Server) SetVersion(version string) {
+	s.version = version
 }
 
 // setupRoutes configures all API routes
@@ -344,7 +350,7 @@ func (s *Server) decodeJSON(r *http.Request, v interface{}) error {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.respondJSON(w, http.StatusOK, dto.HealthResponse{
 		Status:    "ok",
-		Version:   "1.0.0",
+		Version:   s.version,
 		Timestamp: time.Now().Unix(),
 	})
 }

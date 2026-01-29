@@ -13,6 +13,18 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
+const appVersion = ref('')
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/health')
+    const data = await res.json()
+    appVersion.value = data.version || ''
+  } catch {
+    // ignore
+  }
+})
+
 const navigation = [
   { key: 'dashboard', path: '/', icon: 'layout-dashboard' },
   { key: 'domains', path: '/domains', icon: 'globe' },
@@ -380,7 +392,7 @@ function cycleTheme() {
     <footer class="border-t bg-muted/30 mt-auto">
       <div class="container mx-auto px-4 py-4 flex items-center justify-between text-sm text-muted-foreground">
         <span>fxTunnel</span>
-        <span>v1.0.0</span>
+        <span v-if="appVersion">v{{ appVersion }}</span>
       </div>
     </footer>
   </div>
