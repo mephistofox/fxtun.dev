@@ -56,9 +56,10 @@ type AuthSettings struct {
 
 // WebSettings contains web panel configuration
 type WebSettings struct {
-	Enabled   bool            `mapstructure:"enabled"`
-	Port      int             `mapstructure:"port"`
-	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	Enabled     bool            `mapstructure:"enabled"`
+	Port        int             `mapstructure:"port"`
+	CORSOrigins []string        `mapstructure:"cors_origins"`
+	RateLimit   RateLimitConfig `mapstructure:"rate_limit"`
 }
 
 // RateLimitConfig contains rate limiting settings
