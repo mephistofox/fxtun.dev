@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.7.0](https://github.com/mephistofox/fxTunnel/compare/v1.6.0...v1.7.0) (2026-01-29)
+
+
+### Features
+
+* add IP whitelist on API tokens for control plane auth ([a5bb9fc](https://github.com/mephistofox/fxTunnel/commit/a5bb9fc0deeb71818b3ee986e4ef61c737d50a23))
+* add Prometheus metrics endpoint and request instrumentation ([74511e7](https://github.com/mephistofox/fxTunnel/commit/74511e70246669dc3e157da9e4161d2c5937f218))
+* add real-time traffic stats for tunnels ([984c468](https://github.com/mephistofox/fxTunnel/commit/984c4689f5b77ec544d7d6f86bdfeed1d1f2680a))
+* **gui:** add auto token refresh, blocked user screen, and support link ([117ce91](https://github.com/mephistofox/fxTunnel/commit/117ce9127627a7d10b42359dc684fdb62ae5c344))
+* **gui:** add system tray, log forwarding, build info, and auto-connect ([fa37bf7](https://github.com/mephistofox/fxTunnel/commit/fa37bf7f077e551a3d03cba8596a545e80d65a6e))
+* **security:** add per-IP rate limiting for API endpoints ([a0a5876](https://github.com/mephistofox/fxTunnel/commit/a0a58762f8bb5b8d165264e2d844d9152878ea74))
+* **security:** add security response headers middleware ([bc6c3ca](https://github.com/mephistofox/fxTunnel/commit/bc6c3ca3b3313d9a4cb4832ccfe8cc8c58bbbe9c))
+* **security:** replace wildcard CORS with configurable origins ([490d77f](https://github.com/mephistofox/fxTunnel/commit/490d77fc856a417fb6d269676d7dcc220fc6ef6b))
+* **security:** require jwt_secret and totp_key when web panel is enabled ([a7ca5e2](https://github.com/mephistofox/fxTunnel/commit/a7ca5e2a08720b1a28a8e4163ac7e3f3ec7dadb0))
+* **web:** add dynamic version display and i18n additions ([4e87e1c](https://github.com/mephistofox/fxTunnel/commit/4e87e1c27e75a575eac245bb867eece72887c885))
+* **web:** add install script, download section with platform picker, and update domains ([a0f220a](https://github.com/mephistofox/fxTunnel/commit/a0f220a73e12e6ca9c24812953812cbadcb11fce))
+
+
+### Bug Fixes
+
+* **build:** pass ldflags to wails dev and build commands ([5a00d18](https://github.com/mephistofox/fxTunnel/commit/5a00d182d0b1b8736fda58fe64beb28fdaa342ae))
+* **ci:** add BuildTime to GUI ldflags and update Go to 1.24 ([9e963eb](https://github.com/mephistofox/fxTunnel/commit/9e963ebb56d35441e24a4c05f51411383ad11e84))
+* **gui:** improve layout compactness and fix UI issues ([33fc4de](https://github.com/mephistofox/fxTunnel/commit/33fc4de13efe2bcd34ddd2e1d8f2282f9d04c4cf))
+* **gui:** use format string in fmt.Errorf calls ([d2c0ad4](https://github.com/mephistofox/fxTunnel/commit/d2c0ad4788f77a5fc09231326ce82da16e826bf2))
+* resolve critical race conditions, goroutine leaks, and performance issues ([2832875](https://github.com/mephistofox/fxTunnel/commit/2832875f17a9436897623682c47cf763c0d2847e))
+* resolve golangci-lint errors and tidy go.mod ([af266ba](https://github.com/mephistofox/fxTunnel/commit/af266ba3698f226c0e8d776832b4a6e9d6158608))
+* **web:** fix mobile overflow issues on landing page ([2050f9c](https://github.com/mephistofox/fxTunnel/commit/2050f9cb37d96931b41ef697964e8e6081628b55))
+* **web:** reduce section spacing on mobile and hide Learn More button ([0dd32c3](https://github.com/mephistofox/fxTunnel/commit/0dd32c3bea73676e0522ca0e1bd119e93a78a4e8))
+* **web:** show nav background when mobile menu is open at top ([2ec6bf5](https://github.com/mephistofox/fxTunnel/commit/2ec6bf56557852ca5eae28463b2bebc968e2eefa))
+
+
+### Performance Improvements
+
+* **client:** cache resolved local address to skip IPv4/IPv6 probe ([f282bf7](https://github.com/mephistofox/fxTunnel/commit/f282bf77d940f59f5040e7d0e116dc74c8505583))
+* **client:** race IPv4/IPv6 in parallel and pre-probe on tunnel creation ([875df70](https://github.com/mephistofox/fxTunnel/commit/875df7025151b8ebae4b83fbf6f440e33c2ec490))
+
 ## [1.6.0](https://github.com/mephistofox/fxTunnel/compare/v1.5.0...v1.6.0) (2026-01-28)
 
 
