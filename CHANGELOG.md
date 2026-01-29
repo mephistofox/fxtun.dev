@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/mephistofox/fxTunnel/compare/v1.8.3...v1.9.0) (2026-01-29)
+
+
+### Features
+
+* **server:** add i18n, embed templates, admin bypass for interstitial ([03b49dc](https://github.com/mephistofox/fxTunnel/commit/03b49dc7c0b86b974e8e20549c6be6010a6af4d8))
+
 ## [1.8.3](https://github.com/mephistofox/fxTunnel/compare/v1.8.2...v1.8.3) (2026-01-29)
 
 
