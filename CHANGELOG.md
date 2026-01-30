@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/mephistofox/fxTunnel/compare/v1.12.0...v1.12.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* **server:** make SO_REUSEPORT best-effort to prevent startup failures ([76caaa1](https://github.com/mephistofox/fxTunnel/commit/76caaa12d3cdd3ac1fd8427db5c5db2b0f6ade25))
+
 ## [1.12.0](https://github.com/mephistofox/fxTunnel/compare/v1.11.1...v1.12.0) (2026-01-30)
 
 
