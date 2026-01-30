@@ -68,8 +68,8 @@ func TestTunnelConfigGetLocalAddress(t *testing.T) {
 func TestLoadClientConfig_Defaults(t *testing.T) {
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(orig)
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(orig) }()
 
 	cfg, err := LoadClientConfig("")
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ tunnels:
 reconnect:
   enabled: false
 `
-	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0644))
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
 
 	cfg, err := LoadClientConfig(cfgFile)
 	require.NoError(t, err)

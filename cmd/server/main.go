@@ -209,7 +209,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if apiServer != nil {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
-		apiServer.Shutdown(shutdownCtx)
+		_ = apiServer.Shutdown(shutdownCtx)
 	}
 
 	if err := srv.Stop(); err != nil {

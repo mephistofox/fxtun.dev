@@ -136,7 +136,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			default:
 			}
 
-			tunnel.udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			_ = tunnel.udpConn.SetReadDeadline(time.Now().Add(30 * time.Second))
 			n, addr, err := tunnel.udpConn.ReadFromUDP(buf)
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -161,7 +161,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			fp := udpFramePool.Get().(*[]byte)
 			frame := *fp
 			frameLen := udpHeaderSize + n
-			binary.BigEndian.PutUint16(frame[0:2], uint16(n))
+			binary.BigEndian.PutUint16(frame[0:2], uint16(n)) //nolint:gosec // n is bounded by UDP read buffer size
 			binary.BigEndian.PutUint32(frame[2:6], addrHash)
 			copy(frame[udpHeaderSize:], buf[:n])
 
@@ -208,7 +208,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		addrMu.RUnlock()
 
 		if addr != nil {
-			tunnel.udpConn.WriteToUDP(frame[:length], addr)
+			_, _ = tunnel.udpConn.WriteToUDP(frame[:length], addr)
 		}
 		udpFramePool.Put(fp)
 	}
@@ -221,7 +221,7 @@ func hashAddr(addr *net.UDPAddr) uint32 {
 	for _, b := range addr.IP {
 		hash = hash*31 + uint32(b)
 	}
-	hash = hash*31 + uint32(addr.Port)
+	hash = hash*31 + uint32(addr.Port) //nolint:gosec // port is 0-65535, safe
 	return hash
 }
 

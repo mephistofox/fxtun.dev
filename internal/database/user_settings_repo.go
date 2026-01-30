@@ -128,7 +128,7 @@ func (r *UserSettingsRepository) SetBulk(userID int64, settings map[string]strin
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		INSERT INTO user_settings (user_id, key, value, updated_at)
@@ -159,7 +159,7 @@ func (r *UserSettingsRepository) SyncBulk(userID int64, incoming []*UserSetting)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Get current settings with timestamps
 	query := `SELECT key, value, updated_at FROM user_settings WHERE user_id = ?`

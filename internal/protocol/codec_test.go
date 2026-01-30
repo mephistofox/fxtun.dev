@@ -180,7 +180,7 @@ func TestCodecDecodeInvalidJSON(t *testing.T) {
 	var buf bytes.Buffer
 	payload := []byte("{invalid json!!!")
 	header := make([]byte, HeaderSize)
-	binary.BigEndian.PutUint32(header, uint32(len(payload)))
+	binary.BigEndian.PutUint32(header, uint32(len(payload))) //nolint:gosec // test data, len() is small
 	buf.Write(header)
 	buf.Write(payload)
 
@@ -262,7 +262,7 @@ func TestDecodeRawInvalidJSON(t *testing.T) {
 	var buf bytes.Buffer
 	payload := []byte("{not json!!")
 	header := make([]byte, HeaderSize)
-	binary.BigEndian.PutUint32(header, uint32(len(payload)))
+	binary.BigEndian.PutUint32(header, uint32(len(payload))) //nolint:gosec // test data, len() is small
 	buf.Write(header)
 	buf.Write(payload)
 

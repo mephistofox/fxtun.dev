@@ -40,7 +40,7 @@ func postJSON(t *testing.T, url string, payload interface{}) *http.Response {
 	if err != nil {
 		t.Fatalf("marshal failed: %v", err)
 	}
-	resp, err := http.Post(url, "application/json", bytes.NewReader(data))
+	resp, err := http.Post(url, "application/json", bytes.NewReader(data)) //nolint:gosec // test code
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

@@ -153,8 +153,8 @@ func TestLoadServerConfig_Defaults(t *testing.T) {
 	// Use a temp dir with no config files so defaults are used
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(orig)
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(orig) }()
 
 	cfg, err := LoadServerConfig("")
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ server:
 domain:
   base: "example.com"
 `
-	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0644))
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
 
 	cfg, err := LoadServerConfig(cfgFile)
 	require.NoError(t, err)

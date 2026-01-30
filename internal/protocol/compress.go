@@ -19,8 +19,8 @@ const (
 // For server: reads client preference, sends response.
 // Returns the (possibly wrapped) ReadWriteCloser, whether compression is active, and any error.
 func NegotiateCompression(conn net.Conn, wantCompress bool, isServer bool) (io.ReadWriteCloser, bool, error) {
-	conn.SetDeadline(time.Now().Add(10 * time.Second))
-	defer conn.SetDeadline(time.Time{})
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	defer func() { _ = conn.SetDeadline(time.Time{}) }()
 
 	var pref byte
 	if wantCompress {
