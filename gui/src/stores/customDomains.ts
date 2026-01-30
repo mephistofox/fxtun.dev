@@ -15,6 +15,7 @@ export const useCustomDomainsStore = defineStore('customDomains', () => {
   const domains = ref<CustomDomain[]>([])
   const maxDomains = ref(5)
   const baseDomain = ref('')
+  const serverIP = ref('')
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -33,6 +34,7 @@ export const useCustomDomainsStore = defineStore('customDomains', () => {
       }))
       maxDomains.value = result.max_domains || 5
       baseDomain.value = result.base_domain || ''
+      serverIP.value = result.server_ip || ''
     } catch (e) {
       console.error('Failed to load custom domains:', e)
       error.value = e instanceof Error ? e.message : 'Failed to load custom domains'
@@ -98,6 +100,7 @@ export const useCustomDomainsStore = defineStore('customDomains', () => {
     domains,
     maxDomains,
     baseDomain,
+    serverIP,
     isLoading,
     error,
     loadDomains,
