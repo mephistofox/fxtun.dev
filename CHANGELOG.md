@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/mephistofox/fxTunnel/compare/v1.9.1...v1.10.0) (2026-01-30)
+
+
+### Features
+
+* **cli:** rename --subdomain to --domain, add login/logout commands ([89f7666](https://github.com/mephistofox/fxTunnel/commit/89f766651d10e5d43dd658cb16392b74219a48f4))
+
 ## [1.9.1](https://github.com/mephistofox/fxTunnel/compare/v1.9.0...v1.9.1) (2026-01-29)
 
 
