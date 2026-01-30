@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.2](https://github.com/mephistofox/fxTunnel/compare/v1.12.1...v1.12.2) (2026-01-30)
+
+
+### Bug Fixes
+
+* **server:** stream full response body when inspection is enabled ([fc7bd66](https://github.com/mephistofox/fxTunnel/commit/fc7bd66bf56962de2b862a9914e53676ffc0696f))
+
 ## [1.12.1](https://github.com/mephistofox/fxTunnel/compare/v1.12.0...v1.12.1) (2026-01-30)
 
 
