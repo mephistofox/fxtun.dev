@@ -11,16 +11,17 @@ import (
 
 // ServerConfig holds all server configuration
 type ServerConfig struct {
-	Server    ServerSettings    `mapstructure:"server"`
-	Domain    DomainSettings    `mapstructure:"domain"`
-	Auth      AuthSettings      `mapstructure:"auth"`
-	TLS       TLSSettings       `mapstructure:"tls"`
-	Logging   LoggingSettings   `mapstructure:"logging"`
-	Web       WebSettings       `mapstructure:"web"`
-	Database  DatabaseSettings  `mapstructure:"database"`
-	TOTP      TOTPSettings      `mapstructure:"totp"`
-	Downloads DownloadsSettings `mapstructure:"downloads"`
-	Inspect   InspectSettings   `mapstructure:"inspect"`
+	Server        ServerSettings        `mapstructure:"server"`
+	Domain        DomainSettings        `mapstructure:"domain"`
+	Auth          AuthSettings          `mapstructure:"auth"`
+	TLS           TLSSettings           `mapstructure:"tls"`
+	Logging       LoggingSettings       `mapstructure:"logging"`
+	Web           WebSettings           `mapstructure:"web"`
+	Database      DatabaseSettings      `mapstructure:"database"`
+	TOTP          TOTPSettings          `mapstructure:"totp"`
+	Downloads     DownloadsSettings     `mapstructure:"downloads"`
+	Inspect       InspectSettings       `mapstructure:"inspect"`
+	CustomDomains CustomDomainSettings  `mapstructure:"custom_domains"`
 }
 
 // ServerSettings contains network settings
@@ -105,9 +106,18 @@ type TokenConfig struct {
 
 // TLSSettings contains TLS configuration
 type TLSSettings struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	CertFile string `mapstructure:"cert_file"`
-	KeyFile  string `mapstructure:"key_file"`
+	Enabled       bool   `mapstructure:"enabled"`
+	CertFile      string `mapstructure:"cert_file"`
+	KeyFile       string `mapstructure:"key_file"`
+	HTTPSPort     int    `mapstructure:"https_port"`
+	ACMEEmail     string `mapstructure:"acme_email"`
+	ACMEDirectory string `mapstructure:"acme_directory"`
+}
+
+// CustomDomainSettings contains custom domain configuration
+type CustomDomainSettings struct {
+	Enabled    bool `mapstructure:"enabled"`
+	MaxPerUser int  `mapstructure:"max_per_user"`
 }
 
 // LoggingSettings contains logging configuration
@@ -137,6 +147,11 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.invite_only", true)
 	v.SetDefault("auth.max_domains_per_user", 3)
 	v.SetDefault("tls.enabled", false)
+	v.SetDefault("tls.https_port", 443)
+	v.SetDefault("tls.acme_email", "")
+	v.SetDefault("tls.acme_directory", "")
+	v.SetDefault("custom_domains.enabled", false)
+	v.SetDefault("custom_domains.max_per_user", 3)
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "console")
 	v.SetDefault("web.enabled", false)
@@ -215,8 +230,10 @@ func (c *ServerConfig) Validate() error {
 	}
 
 	if c.TLS.Enabled {
-		if c.TLS.CertFile == "" || c.TLS.KeyFile == "" {
-			return fmt.Errorf("TLS enabled but cert_file or key_file not set")
+		hasStaticCerts := c.TLS.CertFile != "" && c.TLS.KeyFile != ""
+		hasACME := c.CustomDomains.Enabled
+		if !hasStaticCerts && !hasACME {
+			return fmt.Errorf("TLS enabled but neither cert_file/key_file nor custom_domains.enabled is set")
 		}
 	}
 

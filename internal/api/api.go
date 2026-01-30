@@ -18,6 +18,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
+	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 	"github.com/mephistofox/fxtunnel/internal/web"
 )
 
@@ -58,14 +59,22 @@ type InspectProvider interface {
 	Enabled() bool
 }
 
+// CustomDomainManager provides custom domain cache and TLS cert management.
+type CustomDomainManager interface {
+	AddCustomDomain(d *database.CustomDomain)
+	RemoveCustomDomain(domain string)
+	CertManager() *fxtls.CertManager
+}
+
 // Server represents the API server
 type Server struct {
-	cfg             *config.ServerConfig
-	db              *database.Database
-	authService     *auth.Service
-	tunnelProvider  TunnelProvider
-	inspectProvider InspectProvider
-	router          chi.Router
+	cfg                  *config.ServerConfig
+	db                   *database.Database
+	authService          *auth.Service
+	tunnelProvider       TunnelProvider
+	inspectProvider      InspectProvider
+	customDomainManager  CustomDomainManager
+	router               chi.Router
 	httpServer     *http.Server
 	log            zerolog.Logger
 	baseDomain     string
@@ -75,13 +84,14 @@ type Server struct {
 }
 
 // New creates a new API server
-func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, log zerolog.Logger) *Server {
+func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger) *Server {
 	s := &Server{
-		cfg:             cfg,
-		db:              db,
-		authService:     authService,
-		tunnelProvider:  tunnelProvider,
-		inspectProvider: inspectProvider,
+		cfg:                  cfg,
+		db:                   db,
+		authService:          authService,
+		tunnelProvider:       tunnelProvider,
+		inspectProvider:      inspectProvider,
+		customDomainManager:  customDomainManager,
 		log:            log.With().Str("component", "api").Logger(),
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
@@ -202,11 +212,20 @@ func (s *Server) setupRoutes() {
 				r.Get("/check/{subdomain}", s.handleCheckDomain)
 			})
 
+			// Custom domains
+			r.Route("/custom-domains", func(r chi.Router) {
+				r.Get("/", s.handleListCustomDomains)
+				r.Post("/", s.handleAddCustomDomain)
+				r.Delete("/{id}", s.handleDeleteCustomDomain)
+				r.Post("/{id}/verify", s.handleVerifyCustomDomain)
+			})
+
 			// Tunnels
 			r.Route("/tunnels", func(r chi.Router) {
 				r.Get("/", s.handleListTunnels)
 				r.Delete("/{id}", s.handleCloseTunnel)
 				r.Get("/{id}/inspect", s.handleListExchanges)
+				r.Get("/{id}/inspect/status", s.handleInspectStatus)
 				r.Get("/{id}/inspect/{exchangeId}", s.handleGetExchange)
 				r.Delete("/{id}/inspect", s.handleClearExchanges)
 			})
@@ -233,6 +252,9 @@ func (s *Server) setupRoutes() {
 				r.Get("/audit-logs", s.handleListAuditLogs)
 				r.Get("/tunnels", s.handleListAllTunnels)
 				r.Delete("/tunnels/{id}", s.handleAdminCloseTunnel)
+
+				r.Get("/custom-domains", s.handleAdminListCustomDomains)
+				r.Delete("/custom-domains/{id}", s.handleAdminDeleteCustomDomain)
 
 				r.Route("/invite-codes", func(r chi.Router) {
 					r.Get("/", s.handleListInviteCodes)

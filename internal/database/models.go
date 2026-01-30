@@ -170,6 +170,28 @@ const (
 	ActionUserDeleted     = "user_deleted"
 )
 
+// CustomDomain represents a user-bound custom domain
+type CustomDomain struct {
+	ID              int64      `json:"id"`
+	UserID          int64      `json:"user_id"`
+	Domain          string     `json:"domain"`
+	TargetSubdomain string     `json:"target_subdomain"`
+	Verified        bool       `json:"verified"`
+	VerifiedAt      *time.Time `json:"verified_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+// TLSCertificate represents a stored TLS certificate
+type TLSCertificate struct {
+	ID        int64     `json:"id"`
+	Domain    string    `json:"domain"`
+	CertPEM   []byte    `json:"-"`
+	KeyPEM    []byte    `json:"-"`
+	ExpiresAt time.Time `json:"expires_at"`
+	IssuedAt  time.Time `json:"issued_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // UserBundle represents a tunnel configuration bundle for a user
 type UserBundle struct {
 	ID          int64     `json:"id"`

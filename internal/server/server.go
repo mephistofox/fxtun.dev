@@ -23,6 +23,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
 
 // Server is the main tunnel server
@@ -50,6 +51,11 @@ type Server struct {
 	authService   *auth.Service
 	userClients   map[int64][]string // userID -> clientIDs
 	userClientsMu sync.RWMutex
+
+	// Custom domains
+	certManager    *fxtls.CertManager
+	customDomains  map[string]*database.CustomDomain // domain -> entry
+	customDomainMu sync.RWMutex
 
 	// Active connections tracking for graceful drain
 	activeConns sync.WaitGroup
@@ -112,12 +118,13 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Server{
-		cfg:         cfg,
-		log:         log.With().Str("component", "server").Logger(),
-		clients:     make(map[string]*Client),
-		userClients: make(map[int64][]string),
-		ctx:         ctx,
-		cancel:      cancel,
+		cfg:           cfg,
+		log:           log.With().Str("component", "server").Logger(),
+		clients:       make(map[string]*Client),
+		userClients:   make(map[int64][]string),
+		customDomains: make(map[string]*database.CustomDomain),
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 
 	s.httpRouter = NewHTTPRouter(s, log)
@@ -163,6 +170,73 @@ func (s *Server) GetConfig() *config.ServerConfig {
 // InspectManager returns the inspect manager
 func (s *Server) InspectManager() *inspect.Manager {
 	return s.inspectMgr
+}
+
+// CertManager returns the TLS certificate manager (may be nil).
+func (s *Server) CertManager() *fxtls.CertManager {
+	return s.certManager
+}
+
+// LoadCustomDomains loads verified custom domains from DB into memory.
+func (s *Server) LoadCustomDomains() error {
+	if s.db == nil {
+		return nil
+	}
+	domains, err := s.db.CustomDomains.GetAllVerified()
+	if err != nil {
+		return err
+	}
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	for _, d := range domains {
+		s.customDomains[strings.ToLower(d.Domain)] = d
+	}
+	s.log.Info().Int("count", len(domains)).Msg("Loaded custom domains")
+	return nil
+}
+
+// LookupCustomDomain looks up a custom domain by host.
+func (s *Server) LookupCustomDomain(host string) *database.CustomDomain {
+	host = strings.ToLower(host)
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	s.customDomainMu.RLock()
+	defer s.customDomainMu.RUnlock()
+	return s.customDomains[host]
+}
+
+// AddCustomDomain adds a custom domain to the in-memory cache.
+func (s *Server) AddCustomDomain(d *database.CustomDomain) {
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	s.customDomains[strings.ToLower(d.Domain)] = d
+}
+
+// RemoveCustomDomain removes a custom domain from the in-memory cache.
+func (s *Server) RemoveCustomDomain(domain string) {
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	delete(s.customDomains, strings.ToLower(domain))
+}
+
+// InitCustomDomains initializes custom domains and TLS cert manager.
+func (s *Server) InitCustomDomains() error {
+	if s.db == nil || !s.cfg.CustomDomains.Enabled {
+		return nil
+	}
+
+	if err := s.LoadCustomDomains(); err != nil {
+		return fmt.Errorf("load custom domains: %w", err)
+	}
+
+	s.certManager = fxtls.NewCertManager(s.cfg.TLS, s.db, s.log)
+	if err := s.certManager.LoadFromDB(); err != nil {
+		s.log.Warn().Err(err).Msg("Failed to load TLS certs from DB")
+	}
+	s.certManager.StartRenewal()
+
+	return nil
 }
 
 // Start starts the server
@@ -269,6 +343,10 @@ func (s *Server) Stop() error {
 	s.udpManager.Stop()
 
 	s.inspectMgr.Close()
+
+	if s.certManager != nil {
+		s.certManager.Stop()
+	}
 
 	s.wg.Wait()
 	s.log.Info().Msg("Server stopped")

@@ -78,6 +78,7 @@ func main() {
 			app.SettingsService,
 			app.HistoryService,
 			app.DomainService,
+			app.CustomDomainService,
 			app.SyncService,
 			app.InspectService,
 		},

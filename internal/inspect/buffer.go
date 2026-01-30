@@ -124,6 +124,13 @@ func (rb *RingBuffer) Unsubscribe(ch chan *CapturedExchange) {
 	delete(rb.subscribers, ch)
 }
 
+// SubscribersCount returns the number of active subscribers.
+func (rb *RingBuffer) SubscribersCount() int {
+	rb.mu.RLock()
+	defer rb.mu.RUnlock()
+	return len(rb.subscribers)
+}
+
 // Close closes all subscriber channels and marks the buffer as closed.
 func (rb *RingBuffer) Close() {
 	rb.mu.Lock()
