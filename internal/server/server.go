@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
@@ -35,9 +34,8 @@ type Server struct {
 	controlListener net.Listener
 	httpListener    net.Listener
 
-	// Connected clients
-	clients   map[string]*Client
-	clientsMu sync.RWMutex
+	// Client manager
+	clientMgr *ClientManager
 
 	// Tunnel managers
 	httpRouter  *HTTPRouter
@@ -47,10 +45,8 @@ type Server struct {
 	inspectMgr  *inspect.Manager
 
 	// Database integration
-	db            *database.Database
-	authService   *auth.Service
-	userClients   map[int64][]string // userID -> clientIDs
-	userClientsMu sync.RWMutex
+	db          *database.Database
+	authService *auth.Service
 
 	// Custom domains
 	certManager    *fxtls.CertManager
@@ -120,8 +116,7 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s := &Server{
 		cfg:           cfg,
 		log:           log.With().Str("component", "server").Logger(),
-		clients:       make(map[string]*Client),
-		userClients:   make(map[int64][]string),
+		clientMgr:     NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains: make(map[string]*database.CustomDomain),
 		ctx:           ctx,
 		cancel:        cancel,
@@ -328,13 +323,7 @@ func (s *Server) Stop() error {
 	// Phase 3: cancel context and close all clients
 	s.cancel()
 
-	s.clientsMu.Lock()
-	clients := make([]*Client, 0, len(s.clients))
-	for _, c := range s.clients {
-		clients = append(clients, c)
-	}
-	s.clientsMu.Unlock()
-	for _, c := range clients {
+	for _, c := range s.clientMgr.allClients() {
 		c.Close()
 	}
 
@@ -461,263 +450,8 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	client.handle()
 }
 
-func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
-	// First, try to authenticate with database token (new system)
-	if s.db != nil {
-		tokenHash := hashToken(authMsg.Token)
-		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
-		if err == nil && apiToken != nil {
-			// Check IP whitelist
-			if !apiToken.IsIPAllowed(conn.RemoteAddr().String()) {
-				result := &protocol.AuthResultMessage{
-					Message: protocol.NewMessage(protocol.MsgAuthResult),
-					Success: false,
-					Error:   "IP not allowed",
-					Code:    protocol.ErrCodePermissionDenied,
-				}
-				codec.Encode(result)
-				return nil, fmt.Errorf("IP not allowed for token")
-			}
-
-			// Valid DB token found
-			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
-
-			// Update last used
-			s.db.Tokens.UpdateLastUsed(apiToken.ID)
-
-			// Link user to client
-			s.linkUserClient(apiToken.UserID, client.ID)
-
-			// Send success
-			result := &protocol.AuthResultMessage{
-				Message:    protocol.NewMessage(protocol.MsgAuthResult),
-				Success:    true,
-				ClientID:   client.ID,
-				MaxTunnels: apiToken.MaxTunnels,
-				ServerName: s.cfg.Domain.Base,
-				SessionID:  client.ID,
-			}
-			if err := codec.Encode(result); err != nil {
-				client.Close()
-				return nil, fmt.Errorf("send auth result: %w", err)
-			}
-
-			log.Info().Int64("user_id", apiToken.UserID).Str("token_name", apiToken.Name).Msg("Authenticated with DB token")
-			return client, nil
-		}
-	}
-
-	// Try JWT authentication (for GUI login with phone/password)
-	if s.authService != nil && isJWT(authMsg.Token) {
-		claims, err := s.authService.ValidateAccessToken(authMsg.Token)
-		if err != nil {
-			// Check if token is expired - don't fallback to legacy tokens
-			if err == auth.ErrTokenExpired {
-				result := &protocol.AuthResultMessage{
-					Message: protocol.NewMessage(protocol.MsgAuthResult),
-					Success: false,
-					Error:   "token expired",
-					Code:    protocol.ErrCodeTokenExpired,
-				}
-				codec.Encode(result)
-				return nil, fmt.Errorf("token expired")
-			}
-			// Other JWT errors - continue to legacy token check
-			log.Debug().Err(err).Msg("JWT validation failed, trying legacy tokens")
-		} else if claims != nil {
-			// Valid JWT - create client for user
-			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
-
-			// Link user to client
-			s.linkUserClient(claims.UserID, client.ID)
-
-			// Send success
-			result := &protocol.AuthResultMessage{
-				Message:    protocol.NewMessage(protocol.MsgAuthResult),
-				Success:    true,
-				ClientID:   client.ID,
-				MaxTunnels: 10, // Default for JWT auth
-				ServerName: s.cfg.Domain.Base,
-				SessionID:  client.ID,
-			}
-			if err := codec.Encode(result); err != nil {
-				client.Close()
-				return nil, fmt.Errorf("send auth result: %w", err)
-			}
-
-			log.Info().Int64("user_id", claims.UserID).Str("phone", claims.Phone).Msg("Authenticated with JWT")
-			return client, nil
-		}
-	}
-
-	// Fallback: Check YAML config tokens (legacy system)
-	if s.cfg.Auth.Enabled {
-		tokenCfg := s.cfg.FindToken(authMsg.Token)
-		if tokenCfg == nil {
-			result := &protocol.AuthResultMessage{
-				Message: protocol.NewMessage(protocol.MsgAuthResult),
-				Success: false,
-				Error:   "invalid token",
-			}
-			codec.Encode(result)
-			return nil, fmt.Errorf("invalid token")
-		}
-
-		// Create client with legacy token
-		client := s.createClient(conn, session, controlStream, codec, tokenCfg, log)
-
-		// Send success
-		result := &protocol.AuthResultMessage{
-			Message:    protocol.NewMessage(protocol.MsgAuthResult),
-			Success:    true,
-			ClientID:   client.ID,
-			MaxTunnels: tokenCfg.MaxTunnels,
-			ServerName: s.cfg.Domain.Base,
-			SessionID:  client.ID,
-		}
-		if err := codec.Encode(result); err != nil {
-			client.Close()
-			return nil, fmt.Errorf("send auth result: %w", err)
-		}
-
-		return client, nil
-	}
-
-	// No auth required - create client without token
-	client := s.createClient(conn, session, controlStream, codec, nil, log)
-
-	result := &protocol.AuthResultMessage{
-		Message:    protocol.NewMessage(protocol.MsgAuthResult),
-		Success:    true,
-		ClientID:   client.ID,
-		MaxTunnels: 10, // Default limit
-		ServerName: s.cfg.Domain.Base,
-		SessionID:  client.ID,
-	}
-	if err := codec.Encode(result); err != nil {
-		client.Close()
-		return nil, fmt.Errorf("send auth result: %w", err)
-	}
-
-	return client, nil
-}
-
-// createClientFromDBToken creates a client authenticated with a database token
-func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
-	clientID := generateID()
-	ctx, cancel := context.WithCancel(s.ctx)
-
-	client := &Client{
-		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
-		Token:        nil, // No legacy token
-		Session:      session,
-		ControlCodec: codec,
-		ControlConn:  controlStream,
-		Tunnels:      make(map[string]*Tunnel),
-		Connected:    time.Now(),
-		UserID:       apiToken.UserID,
-		APITokenID:   apiToken.ID,
-		DBToken:      apiToken,
-		server:       s,
-		conn:         conn,
-		log:          log.With().Str("client_id", clientID).Int64("user_id", apiToken.UserID).Logger(),
-		ctx:          ctx,
-		cancel:       cancel,
-	}
-	client.lastPing.Store(time.Now().UnixNano())
-
-	// Resolve admin status from user record
-	if s.db != nil && apiToken.UserID > 0 {
-		if user, err := s.db.Users.GetByID(apiToken.UserID); err == nil && user != nil {
-			client.IsAdmin = user.IsAdmin
-		}
-	}
-
-	s.clientsMu.Lock()
-	s.clients[clientID] = client
-	s.clientsMu.Unlock()
-
-	return client
-}
-
-// createClientFromJWT creates a client authenticated with a JWT token
-func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
-	clientID := generateID()
-	ctx, cancel := context.WithCancel(s.ctx)
-
-	client := &Client{
-		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
-		Token:        nil, // No legacy token
-		Session:      session,
-		ControlCodec: codec,
-		ControlConn:  controlStream,
-		Tunnels:      make(map[string]*Tunnel),
-		Connected:    time.Now(),
-		UserID:       claims.UserID,
-		IsAdmin:      claims.IsAdmin,
-		server:       s,
-		conn:         conn,
-		log:          log.With().Str("client_id", clientID).Int64("user_id", claims.UserID).Logger(),
-		ctx:          ctx,
-		cancel:       cancel,
-	}
-	client.lastPing.Store(time.Now().UnixNano())
-
-	s.clientsMu.Lock()
-	s.clients[clientID] = client
-	s.clientsMu.Unlock()
-
-	return client
-}
-
-// isJWT checks if a token looks like a JWT (has 3 dot-separated parts)
-func isJWT(token string) bool {
-	if strings.HasPrefix(token, "sk_") {
-		return false
-	}
-	parts := 0
-	for _, c := range token {
-		if c == '.' {
-			parts++
-		}
-	}
-	return parts == 2
-}
-
-func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
-	clientID := generateID()
-	ctx, cancel := context.WithCancel(s.ctx)
-
-	client := &Client{
-		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
-		Token:        token,
-		Session:      session,
-		ControlCodec: codec,
-		ControlConn:  controlStream,
-		Tunnels:      make(map[string]*Tunnel),
-		Connected:    time.Now(),
-		server:       s,
-		conn:         conn,
-		log:          log.With().Str("client_id", clientID).Logger(),
-		ctx:          ctx,
-		cancel:       cancel,
-	}
-	client.lastPing.Store(time.Now().UnixNano())
-
-	s.clientsMu.Lock()
-	s.clients[clientID] = client
-	s.clientsMu.Unlock()
-
-	return client
-}
-
 func (s *Server) removeClient(clientID string) {
-	s.clientsMu.Lock()
-	delete(s.clients, clientID)
-	s.clientsMu.Unlock()
+	s.clientMgr.removeClient(clientID)
 }
 
 func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bool) {
@@ -731,9 +465,7 @@ func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bo
 }
 
 func (s *Server) GetClient(clientID string) *Client {
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-	return s.clients[clientID]
+	return s.clientMgr.GetClient(clientID)
 }
 
 // Client methods
@@ -1045,72 +777,6 @@ func (c *Client) sendTunnelError(requestID, tunnelID, code, message string) {
 	c.sendControl(msg)
 }
 
-const streamPoolSize = 24
-
-// OpenStream returns a pre-opened yamux stream from the pool,
-// falling back to opening a new one if the pool is empty.
-func (c *Client) OpenStream() (net.Conn, error) {
-	// Try pool first (non-blocking)
-	select {
-	case stream := <-c.streamPool:
-		return stream, nil
-	default:
-		return c.Session.Open()
-	}
-}
-
-// startStreamPool launches a background goroutine that keeps the stream pool full.
-func (c *Client) startStreamPool() {
-	c.streamPool = make(chan net.Conn, streamPoolSize)
-	go c.refillStreamPool()
-}
-
-func (c *Client) refillStreamPool() {
-	for {
-		select {
-		case <-c.ctx.Done():
-			// Drain and close pooled streams
-			for {
-				select {
-				case s := <-c.streamPool:
-					s.Close()
-				default:
-					return
-				}
-			}
-		default:
-		}
-
-		// Only refill if pool has room
-		if len(c.streamPool) >= streamPoolSize {
-			// Pool full, wait a bit
-			select {
-			case <-c.ctx.Done():
-				return
-			case <-time.After(50 * time.Millisecond):
-			}
-			continue
-		}
-
-		stream, err := c.Session.Open()
-		if err != nil {
-			select {
-			case <-c.ctx.Done():
-				return
-			case <-time.After(100 * time.Millisecond):
-			}
-			continue
-		}
-
-		select {
-		case c.streamPool <- stream:
-		case <-c.ctx.Done():
-			stream.Close()
-			return
-		}
-	}
-}
-
 // Close closes the client connection
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
@@ -1147,7 +813,7 @@ func (c *Client) Close() {
 		}
 
 		// Unlink user from client
-		c.server.unlinkUserClient(c.UserID, c.ID)
+		c.server.clientMgr.unlinkUserClient(c.UserID, c.ID)
 
 		c.server.removeClient(c.ID)
 		c.log.Info().Msg("Client disconnected")
@@ -1167,12 +833,6 @@ func generateShortID() string {
 	b := make([]byte, 4)
 	rand.Read(b)
 	return hex.EncodeToString(b)
-}
-
-// hashToken creates a SHA256 hash of a token for database lookup
-func hashToken(token string) string {
-	hash := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(hash[:])
 }
 
 // API Integration methods
@@ -1201,174 +861,26 @@ type Stats struct {
 
 // GetTunnelsByUserID returns all tunnels for a user
 func (s *Server) GetTunnelsByUserID(userID int64) []TunnelInfo {
-	var tunnels []TunnelInfo
-
-	s.userClientsMu.RLock()
-	clientIDs := s.userClients[userID]
-	s.userClientsMu.RUnlock()
-
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-
-	for _, clientID := range clientIDs {
-		client, ok := s.clients[clientID]
-		if !ok {
-			continue
-		}
-
-		client.TunnelsMu.RLock()
-		for _, tunnel := range client.Tunnels {
-			tunnels = append(tunnels, TunnelInfo{
-				ID:         tunnel.ID,
-				Type:       string(tunnel.Type),
-				Name:       tunnel.Name,
-				Subdomain:  tunnel.Subdomain,
-				RemotePort: tunnel.RemotePort,
-				LocalPort:  tunnel.LocalPort,
-				ClientID:   tunnel.ClientID,
-				UserID:     client.UserID,
-				CreatedAt:  tunnel.Created,
-			})
-		}
-		client.TunnelsMu.RUnlock()
-	}
-
-	return tunnels
+	return s.clientMgr.GetTunnelsByUserID(userID)
 }
 
 // GetAllTunnels returns all tunnels from all clients (for admin)
 func (s *Server) GetAllTunnels() []TunnelInfo {
-	var tunnels []TunnelInfo
-
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-
-	for _, client := range s.clients {
-		client.TunnelsMu.RLock()
-		for _, tunnel := range client.Tunnels {
-			tunnels = append(tunnels, TunnelInfo{
-				ID:         tunnel.ID,
-				Type:       string(tunnel.Type),
-				Name:       tunnel.Name,
-				Subdomain:  tunnel.Subdomain,
-				RemotePort: tunnel.RemotePort,
-				LocalPort:  tunnel.LocalPort,
-				ClientID:   tunnel.ClientID,
-				UserID:     client.UserID,
-				CreatedAt:  tunnel.Created,
-			})
-		}
-		client.TunnelsMu.RUnlock()
-	}
-
-	return tunnels
+	return s.clientMgr.GetAllTunnels()
 }
 
 // AdminCloseTunnel closes any tunnel by ID (admin only, no user check)
 func (s *Server) AdminCloseTunnel(tunnelID string) error {
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-
-	for _, client := range s.clients {
-		client.TunnelsMu.RLock()
-		_, exists := client.Tunnels[tunnelID]
-		client.TunnelsMu.RUnlock()
-
-		if exists {
-			client.closeTunnel(tunnelID)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("tunnel not found")
+	return s.clientMgr.AdminCloseTunnel(tunnelID)
 }
 
 // CloseTunnelByID closes a tunnel by ID for a specific user
 func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
-	s.userClientsMu.RLock()
-	clientIDs := s.userClients[userID]
-	s.userClientsMu.RUnlock()
-
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-
-	for _, clientID := range clientIDs {
-		client, ok := s.clients[clientID]
-		if !ok {
-			continue
-		}
-
-		client.TunnelsMu.RLock()
-		_, exists := client.Tunnels[tunnelID]
-		client.TunnelsMu.RUnlock()
-
-		if exists {
-			client.closeTunnel(tunnelID)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("tunnel not found")
+	return s.clientMgr.CloseTunnelByID(tunnelID, userID)
 }
 
 // GetStats returns server statistics
 func (s *Server) GetStats() Stats {
-	s.clientsMu.RLock()
-	defer s.clientsMu.RUnlock()
-
-	stats := Stats{
-		ActiveClients: len(s.clients),
-	}
-
-	for _, client := range s.clients {
-		client.TunnelsMu.RLock()
-		for _, tunnel := range client.Tunnels {
-			stats.ActiveTunnels++
-			switch tunnel.Type {
-			case protocol.TunnelHTTP:
-				stats.HTTPTunnels++
-			case protocol.TunnelTCP:
-				stats.TCPTunnels++
-			case protocol.TunnelUDP:
-				stats.UDPTunnels++
-			}
-		}
-		client.TunnelsMu.RUnlock()
-	}
-
-	return stats
+	return s.clientMgr.GetStats()
 }
 
-// linkUserClient links a user ID to a client ID
-func (s *Server) linkUserClient(userID int64, clientID string) {
-	if userID == 0 {
-		return
-	}
-
-	s.userClientsMu.Lock()
-	defer s.userClientsMu.Unlock()
-
-	s.userClients[userID] = append(s.userClients[userID], clientID)
-}
-
-// unlinkUserClient removes a client ID from a user's client list
-func (s *Server) unlinkUserClient(userID int64, clientID string) {
-	if userID == 0 {
-		return
-	}
-
-	s.userClientsMu.Lock()
-	defer s.userClientsMu.Unlock()
-
-	clients := s.userClients[userID]
-	for i, id := range clients {
-		if id == clientID {
-			s.userClients[userID] = append(clients[:i], clients[i+1:]...)
-			break
-		}
-	}
-
-	if len(s.userClients[userID]) == 0 {
-		delete(s.userClients, userID)
-	}
-}
