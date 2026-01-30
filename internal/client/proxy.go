@@ -12,7 +12,7 @@ const proxyBufSize = 256 * 1024 // 256KB buffer for proxying
 var proxyBufPool = sync.Pool{
 	New: func() any {
 		buf := make([]byte, proxyBufSize)
-		return buf
+		return &buf
 	},
 }
 
