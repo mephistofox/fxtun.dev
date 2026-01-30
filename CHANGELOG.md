@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/mephistofox/fxTunnel/compare/v1.11.1...v1.12.0) (2026-01-30)
+
+
+### Features
+
+* **tunnel:** add stability and performance improvements ([1e95e79](https://github.com/mephistofox/fxTunnel/commit/1e95e79d0a75e11e59231137ff3bec20fec0eff5))
+
+
+### Bug Fixes
+
+* remove unused limitedWriter and improve rate limiter cleanup ([c72abe0](https://github.com/mephistofox/fxTunnel/commit/c72abe0a583de71126a3420066b9458007542496))
+
 ## [1.11.1](https://github.com/mephistofox/fxTunnel/compare/v1.11.0...v1.11.1) (2026-01-30)
 
 
