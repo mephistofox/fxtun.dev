@@ -105,12 +105,21 @@ onMounted(loadTunnels)
                 </a>
               </p>
             </div>
+            <div class="flex items-center gap-1">
+              <router-link
+                v-if="tunnel.type === 'http'"
+                :to="`/inspect/${tunnel.id}`"
+                class="text-sm text-blue-400 hover:text-blue-300 transition"
+              >
+                Inspect
+              </router-link>
             <Button variant="ghost" size="icon" @click="closeTunnel(tunnel.id)" :title="t('dashboard.closeTunnel')">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </Button>
+            </div>
           </div>
         </Card>
       </div>

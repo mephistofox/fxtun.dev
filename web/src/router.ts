@@ -29,6 +29,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/inspect/:tunnelId',
+      name: 'inspect',
+      component: () => import('./views/InspectView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/domains',
       name: 'domains',
       component: () => import('./views/DomainsView.vue'),
