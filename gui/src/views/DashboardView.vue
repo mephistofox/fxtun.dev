@@ -10,7 +10,8 @@ import {
 import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
   Plus, Copy, X, ExternalLink, Check, RefreshCw, ChevronDown, ChevronUp,
-  Zap, Boxes, Globe, Server, Radio, ArrowRight, ArrowUpRight, ArrowDownRight
+  Zap, Boxes, Globe, Server, Radio, ArrowRight, ArrowUpRight, ArrowDownRight,
+  Search
 } from 'lucide-vue-next'
 import { formatBytes } from '@/utils/format'
 import type { TunnelType, TunnelConfig } from '@/types'
@@ -245,6 +246,13 @@ function copyToClipboard(text: string, id: string) {
                 <Button variant="ghost" size="icon" class="h-6 w-6" @click="copyToClipboard(tunnel.url || tunnel.remoteAddr || '', tunnel.id)">
                   <component :is="copiedId === tunnel.id ? Check : Copy" :class="['h-3 w-3', copiedId === tunnel.id && 'text-success']" />
                 </Button>
+              </Tooltip>
+              <Tooltip v-if="tunnel.type === 'http'" content="Inspect traffic">
+                <router-link :to="`/inspect/${tunnel.id}`">
+                  <Button variant="ghost" size="icon" class="h-6 w-6">
+                    <Search class="h-3 w-3" />
+                  </Button>
+                </router-link>
               </Tooltip>
               <Tooltip v-if="tunnel.url" :content="t('dashboard.openInBrowser')">
                 <Button variant="ghost" size="icon" class="h-6 w-6" @click="tunnelsStore.openUrl(tunnel.url!)">
