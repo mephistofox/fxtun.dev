@@ -39,6 +39,7 @@ type CustomDomainListResult struct {
 	Total      int                 `json:"total"`
 	MaxDomains int                 `json:"max_domains"`
 	BaseDomain string              `json:"base_domain"`
+	ServerIP   string              `json:"server_ip"`
 }
 
 // VerifyResult contains the result of a domain verification.

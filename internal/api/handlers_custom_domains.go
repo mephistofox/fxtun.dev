@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,11 +27,17 @@ func (s *Server) handleListCustomDomains(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	serverIP := ""
+	if ips, err := net.LookupHost(s.baseDomain); err == nil && len(ips) > 0 {
+		serverIP = ips[0]
+	}
+
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"domains":     domains,
 		"total":       len(domains),
 		"max_domains": s.cfg.CustomDomains.MaxPerUser,
 		"base_domain": s.baseDomain,
+		"server_ip":   serverIP,
 	})
 }
 
@@ -72,7 +79,7 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expectedTarget := req.TargetSubdomain + "." + s.baseDomain
-	verified := fxtls.VerifyCNAME(req.Domain, expectedTarget) == nil
+	verified := fxtls.VerifyDNS(req.Domain, expectedTarget) == nil
 
 	domain := &database.CustomDomain{
 		UserID:          user.ID,
@@ -174,7 +181,7 @@ func (s *Server) handleVerifyCustomDomain(w http.ResponseWriter, r *http.Request
 	}
 
 	expectedTarget := domain.TargetSubdomain + "." + s.baseDomain
-	if err := fxtls.VerifyCNAME(domain.Domain, expectedTarget); err != nil {
+	if err := fxtls.VerifyDNS(domain.Domain, expectedTarget); err != nil {
 		s.respondJSON(w, http.StatusOK, map[string]interface{}{
 			"verified": false,
 			"error":    err.Error(),

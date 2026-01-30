@@ -23,6 +23,53 @@ func VerifyCNAME(domain, expectedTarget string) error {
 	return nil
 }
 
+// IsApexDomain returns true if the domain is a second-level domain (e.g. example.com).
+func IsApexDomain(domain string) bool {
+	parts := strings.Split(domain, ".")
+	return len(parts) == 2
+}
+
+// VerifyARecord checks that domain resolves to the same IP addresses as expectedTarget.
+func VerifyARecord(domain, expectedTarget string) error {
+	targetIPs, err := net.LookupHost(expectedTarget)
+	if err != nil {
+		return fmt.Errorf("failed to resolve target %s: %w", expectedTarget, err)
+	}
+
+	domainIPs, err := net.LookupHost(domain)
+	if err != nil {
+		return fmt.Errorf("DNS lookup failed for %s: %w", domain, err)
+	}
+
+	targetSet := make(map[string]bool, len(targetIPs))
+	for _, ip := range targetIPs {
+		targetSet[ip] = true
+	}
+
+	for _, ip := range domainIPs {
+		if targetSet[ip] {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("A/AAAA mismatch: %s resolves to %v, expected one of %v (from %s)", domain, domainIPs, targetIPs, expectedTarget)
+}
+
+// VerifyDNS checks domain ownership. For apex domains (2nd level) it verifies
+// A/AAAA records point to the same IP as expectedTarget. For subdomains (3rd+ level)
+// it first tries CNAME, then falls back to A/AAAA verification.
+func VerifyDNS(domain, expectedTarget string) error {
+	if IsApexDomain(domain) {
+		return VerifyARecord(domain, expectedTarget)
+	}
+
+	if err := VerifyCNAME(domain, expectedTarget); err == nil {
+		return nil
+	}
+
+	return VerifyARecord(domain, expectedTarget)
+}
+
 // ValidateCustomDomain validates domain format for custom domain usage.
 func ValidateCustomDomain(domain, baseDomain string) error {
 	if domain == "" {
