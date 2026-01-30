@@ -3,14 +3,15 @@ run:
   modules-download-mode: readonly
 
 linters:
-  disable:
-    - errcheck
   enable:
     - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
+    - errcheck
+    - bodyclose
+    - gosec
 
 issues:
   exclude-dirs:

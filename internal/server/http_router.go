@@ -243,7 +243,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(w, bodyReader, *bp)
+		_, _ = io.CopyBuffer(w, bodyReader, *bp)
 		proxyBufPool.Put(bp)
 	}
 
@@ -310,11 +310,11 @@ func (r *HTTPRouter) serveUpgrade(w http.ResponseWriter, req *http.Request, stre
 	go func() {
 		defer wg.Done()
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(clientConn, stream, *bp)
+		_, _ = io.CopyBuffer(clientConn, stream, *bp)
 		proxyBufPool.Put(bp)
 		// Close write side to signal EOF
 		if tc, ok := clientConn.(*net.TCPConn); ok {
-			tc.CloseWrite()
+			_ = tc.CloseWrite()
 		}
 	}()
 
@@ -326,15 +326,15 @@ func (r *HTTPRouter) serveUpgrade(w http.ResponseWriter, req *http.Request, stre
 			buffered := make([]byte, clientBuf.Reader.Buffered())
 			n, _ := clientBuf.Read(buffered)
 			if n > 0 {
-				stream.Write(buffered[:n])
+				_, _ = stream.Write(buffered[:n])
 			}
 		}
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(stream, clientConn, *bp)
+		_, _ = io.CopyBuffer(stream, clientConn, *bp)
 		proxyBufPool.Put(bp)
 		// Close write side to signal EOF
 		if cs, ok := stream.(interface{ CloseWrite() error }); ok {
-			cs.CloseWrite()
+			_ = cs.CloseWrite()
 		}
 	}()
 
@@ -431,7 +431,7 @@ func (r *HTTPRouter) serveInterstitialPage(w http.ResponseWriter, req *http.Requ
 	texts := interstitialLocales[lang]
 
 	var buf bytes.Buffer
-	interstitialTmpl.Execute(&buf, interstitialData{
+	_ = interstitialTmpl.Execute(&buf, interstitialData{
 		Lang:      texts.Lang,
 		Title:     texts.Title,
 		Host:      req.Host,
@@ -443,7 +443,7 @@ func (r *HTTPRouter) serveInterstitialPage(w http.ResponseWriter, req *http.Requ
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
-	w.Write(buf.Bytes())
+	_, _ = w.Write(buf.Bytes())
 }
 
 // errorData holds template data for the error page
@@ -456,7 +456,7 @@ type errorData struct {
 // serveErrorPage serves an error page via http.ResponseWriter
 func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message string) {
 	var buf bytes.Buffer
-	errorTmpl.Execute(&buf, errorData{
+	_ = errorTmpl.Execute(&buf, errorData{
 		StatusCode: status,
 		StatusText: http.StatusText(status),
 		Message:    message,
@@ -464,7 +464,7 @@ func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message s
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	w.Write(buf.Bytes())
+	_, _ = w.Write(buf.Bytes())
 }
 
 

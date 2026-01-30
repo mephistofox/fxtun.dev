@@ -96,7 +96,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionTokenCreated, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionTokenCreated, map[string]interface{}{
 		"token_id":   token.ID,
 		"token_name": token.Name,
 	}, ipAddress)
@@ -150,7 +150,7 @@ func (s *Server) handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionTokenDeleted, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionTokenDeleted, map[string]interface{}{
 		"token_id":   token.ID,
 		"token_name": token.Name,
 	}, ipAddress)

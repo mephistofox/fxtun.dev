@@ -134,7 +134,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 	ch := buf.Subscribe()
 	defer buf.Unsubscribe(ch)
 
-	fmt.Fprintf(w, ": ping\n\n")
+	_, _ = fmt.Fprintf(w, ": ping\n\n")
 	flusher.Flush()
 
 	for {
@@ -144,7 +144,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			data, _ := json.Marshal(ex.Summary())
-			fmt.Fprintf(w, "event: exchange\ndata: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "event: exchange\ndata: %s\n\n", data)
 			flusher.Flush()
 		case <-r.Context().Done():
 			return

@@ -98,7 +98,7 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, "custom_domain_added", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "custom_domain_added", map[string]interface{}{
 		"domain":           req.Domain,
 		"target_subdomain": req.TargetSubdomain,
 		"verified":         verified,
@@ -143,7 +143,7 @@ func (s *Server) handleDeleteCustomDomain(w http.ResponseWriter, r *http.Request
 	}
 
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, "custom_domain_removed", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "custom_domain_removed", map[string]interface{}{
 		"domain": domain.Domain,
 	}, ipAddress)
 
@@ -280,7 +280,7 @@ func (s *Server) handleAdminDeleteCustomDomain(w http.ResponseWriter, r *http.Re
 
 	user := auth.GetUserFromContext(r.Context())
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, "admin_custom_domain_removed", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "admin_custom_domain_removed", map[string]interface{}{
 		"domain":  domain.Domain,
 		"user_id": domain.UserID,
 	}, ipAddress)

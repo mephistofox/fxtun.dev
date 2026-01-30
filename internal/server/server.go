@@ -860,7 +860,7 @@ func generateID() string {
 
 func generateShortID() string {
 	b := make([]byte, 4)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
 
