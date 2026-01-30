@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/mephistofox/fxTunnel/compare/v1.13.0...v1.14.0) (2026-01-30)
+
+
+### Features
+
+* add custom domains with CNAME binding and TLS certificates ([8288168](https://github.com/mephistofox/fxTunnel/commit/8288168390b9225cdb3ee8c8d0a90e56a32b86e2))
+
 ## [1.13.0](https://github.com/mephistofox/fxTunnel/compare/v1.12.2...v1.13.0) (2026-01-30)
 
 
