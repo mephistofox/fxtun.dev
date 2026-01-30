@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/client"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/keyring"
 )
 
 const defaultControlPort = "4443"
@@ -31,7 +33,7 @@ var (
 
 	// Quick tunnel flags
 	remotePort int
-	subdomain  string
+	domain     string
 )
 
 func main() {
@@ -45,8 +47,8 @@ Examples:
   # Expose local HTTP server on port 3000
   fxtunnel http 3000
 
-  # Expose local HTTP server with custom subdomain
-  fxtunnel http 3000 --subdomain myapp
+  # Expose local HTTP server with custom domain
+  fxtunnel http 3000 --domain myapp
 
   # Expose local TCP port
   fxtunnel tcp 22
@@ -72,7 +74,7 @@ For GUI mode, use fxtunnel-gui binary.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runHTTP,
 	}
-	httpCmd.Flags().StringVarP(&subdomain, "subdomain", "d", "", "Subdomain to use (auto-generated if not set)")
+	httpCmd.Flags().StringVarP(&domain, "domain", "d", "", "Subdomain to use (auto-generated if not set)")
 	rootCmd.AddCommand(httpCmd)
 
 	// TCP tunnel command
@@ -95,6 +97,24 @@ For GUI mode, use fxtunnel-gui binary.`,
 	udpCmd.Flags().IntVarP(&remotePort, "remote-port", "r", 0, "Remote port (auto-assigned if 0)")
 	rootCmd.AddCommand(udpCmd)
 
+	// Login command
+	loginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Save authentication token",
+		Long: `Save your API token to the system keyring for future use.
+Use -t to provide token directly, or enter it interactively.`,
+		RunE: runLogin,
+	}
+	rootCmd.AddCommand(loginCmd)
+
+	// Logout command
+	logoutCmd := &cobra.Command{
+		Use:   "logout",
+		Short: "Remove saved credentials",
+		RunE:  runLogout,
+	}
+	rootCmd.AddCommand(logoutCmd)
+
 	// Version command
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -113,6 +133,7 @@ For GUI mode, use fxtunnel-gui binary.`,
 }
 
 func runConfig(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
 	log := setupLogging(logLevel, logFormat)
 
 	// Load config
@@ -141,6 +162,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 }
 
 func runHTTP(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
 	log := setupLogging(logLevel, logFormat)
 
 	port, err := parsePort(args[0])
@@ -152,13 +174,14 @@ func runHTTP(cmd *cobra.Command, args []string) error {
 		Name:      fmt.Sprintf("http-%d", port),
 		Type:      "http",
 		LocalPort: port,
-		Subdomain: subdomain,
+		Subdomain: domain,
 	})
 
 	return runClient(cfg, log)
 }
 
 func runTCP(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
 	log := setupLogging(logLevel, logFormat)
 
 	port, err := parsePort(args[0])
@@ -177,6 +200,7 @@ func runTCP(cmd *cobra.Command, args []string) error {
 }
 
 func runUDP(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
 	log := setupLogging(logLevel, logFormat)
 
 	port, err := parsePort(args[0])
@@ -192,6 +216,64 @@ func runUDP(cmd *cobra.Command, args []string) error {
 	})
 
 	return runClient(cfg, log)
+}
+
+func resolveCredentials() {
+	if token == "" || serverAddr == "" {
+		kr := keyring.New()
+		if creds, err := kr.LoadCredentials(); err == nil {
+			if token == "" && creds.Token != "" {
+				token = creds.Token
+			}
+			if serverAddr == "" && creds.ServerAddress != "" {
+				serverAddr = creds.ServerAddress
+			}
+		}
+	}
+}
+
+func runLogin(cmd *cobra.Command, args []string) error {
+	t := token
+	if t == "" {
+		fmt.Print("Enter your API token: ")
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			t = strings.TrimSpace(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("failed to read token: %w", err)
+		}
+	}
+
+	if t == "" {
+		return fmt.Errorf("token cannot be empty")
+	}
+
+	kr := keyring.New()
+
+	creds := keyring.Credentials{
+		Token:      t,
+		AuthMethod: "token",
+	}
+	if serverAddr != "" {
+		creds.ServerAddress = serverAddr
+	}
+
+	if err := kr.SaveCredentials(creds); err != nil {
+		return fmt.Errorf("failed to save token: %w", err)
+	}
+
+	fmt.Println("Token saved. You can now use fxtunnel without --token flag.")
+	return nil
+}
+
+func runLogout(cmd *cobra.Command, args []string) error {
+	kr := keyring.New()
+	if err := kr.Clear(); err != nil {
+		return fmt.Errorf("failed to remove credentials: %w", err)
+	}
+	fmt.Println("Credentials removed.")
+	return nil
 }
 
 func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {

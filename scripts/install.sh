@@ -10,6 +10,11 @@ main() {
     detect_arch
     check_dependencies
 
+    if command -v "$BINARY_NAME" >/dev/null 2>&1; then
+        CURRENT_VERSION=$("$BINARY_NAME" version 2>/dev/null || echo "unknown")
+        echo "fxTunnel is already installed (${CURRENT_VERSION}). Reinstalling..."
+    fi
+
     echo "Downloading fxTunnel for ${OS}/${ARCH}..."
 
     TMP_DIR=$(mktemp -d)
@@ -30,7 +35,7 @@ main() {
     fi
 
     echo "fxTunnel installed successfully!"
-    "${INSTALL_DIR}/${BINARY_NAME}" --version || true
+    "${INSTALL_DIR}/${BINARY_NAME}" version || true
 }
 
 detect_os() {
