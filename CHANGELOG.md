@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/mephistofox/fxTunnel/compare/v1.12.2...v1.13.0) (2026-01-30)
+
+
+### Features
+
+* **server:** add WebSocket passthrough via connection hijacking ([ea91baf](https://github.com/mephistofox/fxTunnel/commit/ea91baf97ad15c1ba6e80a988cb769f7b57ee9ea))
+
 ## [1.12.2](https://github.com/mephistofox/fxTunnel/compare/v1.12.1...v1.12.2) (2026-01-30)
 
 
