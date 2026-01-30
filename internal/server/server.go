@@ -20,6 +20,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
@@ -40,6 +41,7 @@ type Server struct {
 	httpRouter  *HTTPRouter
 	tcpManager  *TCPManager
 	udpManager  *UDPManager
+	inspectMgr  *inspect.Manager
 
 	// Database integration
 	db            *database.Database
@@ -117,6 +119,19 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s.tcpManager = NewTCPManager(s, log)
 	s.udpManager = NewUDPManager(s, log)
 
+	capacity := 0
+	if cfg.Inspect.Enabled {
+		capacity = cfg.Inspect.MaxEntries
+		if capacity == 0 {
+			capacity = 1000
+		}
+	}
+	maxBody := cfg.Inspect.MaxBodySize
+	if maxBody == 0 {
+		maxBody = inspect.MaxBodySize
+	}
+	s.inspectMgr = inspect.NewManager(capacity, maxBody)
+
 	return s
 }
 
@@ -138,6 +153,11 @@ func (s *Server) GetDatabase() *database.Database {
 // GetConfig returns the server configuration
 func (s *Server) GetConfig() *config.ServerConfig {
 	return s.cfg
+}
+
+// InspectManager returns the inspect manager
+func (s *Server) InspectManager() *inspect.Manager {
+	return s.inspectMgr
 }
 
 // Start starts the server
@@ -208,6 +228,8 @@ func (s *Server) Stop() error {
 	// Stop managers
 	s.tcpManager.Stop()
 	s.udpManager.Stop()
+
+	s.inspectMgr.Close()
 
 	s.wg.Wait()
 	s.log.Info().Msg("Server stopped")
@@ -715,6 +737,8 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		return
 	}
 
+	c.server.inspectMgr.GetOrCreate(tunnelID)
+
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
@@ -845,6 +869,7 @@ func (c *Client) closeTunnel(tunnelID string) {
 	switch tunnel.Type {
 	case protocol.TunnelHTTP:
 		c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
+		c.server.inspectMgr.Remove(tunnelID)
 	case protocol.TunnelTCP:
 		if tunnel.listener != nil {
 			tunnel.listener.Close()
@@ -987,6 +1012,7 @@ func (c *Client) Close() {
 			switch tunnel.Type {
 			case protocol.TunnelHTTP:
 				c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
+				c.server.inspectMgr.Remove(tunnelID)
 			case protocol.TunnelTCP:
 				if tunnel.listener != nil {
 					tunnel.listener.Close()
