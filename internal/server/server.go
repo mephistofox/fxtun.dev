@@ -25,6 +25,35 @@ import (
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
 
+const (
+	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
+	yamuxMaxStreamWindowSize = 4 * 1024 * 1024 // 4MB
+
+	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
+	yamuxKeepAliveInterval = 10 * time.Second
+
+	// yamuxConnectionWriteTimeout is the timeout for writing to a yamux connection.
+	yamuxConnectionWriteTimeout = 30 * time.Second
+
+	// authTimeout is the maximum time to wait for an authentication message.
+	authTimeout = 30 * time.Second
+
+	// keepaliveInterval is the interval between server-side keepalive checks.
+	keepaliveInterval = 30 * time.Second
+
+	// clientTimeout is the duration after which a client is considered unresponsive.
+	clientTimeout = 90 * time.Second
+
+	// drainTimeout is the maximum time to wait for active connections to drain during shutdown.
+	drainTimeout = 10 * time.Second
+
+	// defaultMaxTunnels is the default maximum number of tunnels per client.
+	defaultMaxTunnels = 10
+
+	// defaultInspectMaxEntries is the default capacity for the inspect buffer.
+	defaultInspectMaxEntries = 1000
+)
+
 // Server is the main tunnel server
 type Server struct {
 	cfg    *config.ServerConfig
@@ -130,7 +159,7 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	if cfg.Inspect.Enabled {
 		capacity = cfg.Inspect.MaxEntries
 		if capacity == 0 {
-			capacity = 1000
+			capacity = defaultInspectMaxEntries
 		}
 	}
 	maxBody := cfg.Inspect.MaxBodySize
@@ -298,7 +327,7 @@ func (s *Server) Stop() error {
 
 	// Phase 2: drain in-flight connections (max 10s)
 	s.log.Info().Msg("Draining active connections...")
-	drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), drainTimeout)
 	defer drainCancel()
 
 	// Gracefully shutdown HTTP server (drains keep-alive connections)
@@ -386,9 +415,9 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	// Create yamux session FIRST (server mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
-	yamuxCfg.KeepAliveInterval = 10 * time.Second
-	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
-	yamuxCfg.ConnectionWriteTimeout = 30 * time.Second
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
 	session, err := yamux.Server(rwc, yamuxCfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create yamux session")
@@ -408,7 +437,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	codec := protocol.NewCodec(controlStream, controlStream)
 
 	// Wait for authentication with timeout
-	controlStream.SetReadDeadline(time.Now().Add(30 * time.Second))
+	controlStream.SetReadDeadline(time.Now().Add(authTimeout))
 
 	// Read auth message
 	data, baseMsg, err := codec.DecodeRaw()
@@ -520,7 +549,7 @@ func (c *Client) handleTunnelRequest(data []byte) {
 	req := parsed.(*protocol.TunnelRequestMessage)
 
 	// Check tunnel limit
-	maxTunnels := 10
+	maxTunnels := defaultMaxTunnels
 	if c.Token != nil && c.Token.MaxTunnels > 0 {
 		maxTunnels = c.Token.MaxTunnels
 	}
@@ -743,7 +772,7 @@ func (c *Client) handlePing() {
 }
 
 func (c *Client) keepalive() {
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(keepaliveInterval)
 	defer ticker.Stop()
 
 	for {
@@ -751,7 +780,7 @@ func (c *Client) keepalive() {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
-			if time.Since(time.Unix(0, c.lastPing.Load())) > 90*time.Second {
+			if time.Since(time.Unix(0, c.lastPing.Load())) > clientTimeout {
 				c.log.Warn().Msg("Client timeout, closing")
 				c.Close()
 				return

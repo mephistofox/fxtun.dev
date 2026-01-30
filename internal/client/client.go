@@ -20,6 +20,41 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
+const (
+	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
+	yamuxMaxStreamWindowSize = 4 * 1024 * 1024 // 4MB
+
+	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
+	yamuxKeepAliveInterval = 10 * time.Second
+
+	// yamuxConnectionWriteTimeout is the timeout for writing to a yamux connection.
+	yamuxConnectionWriteTimeout = 30 * time.Second
+
+	// dialTimeout is the maximum time to wait when connecting to the server.
+	dialTimeout = 30 * time.Second
+
+	// authResponseTimeout is the maximum time to wait for an auth response from the server.
+	authResponseTimeout = 30 * time.Second
+
+	// tunnelResponseTimeout is the maximum time to wait for a tunnel creation response.
+	tunnelResponseTimeout = 30 * time.Second
+
+	// keepaliveInterval is the interval between client-side keepalive pings.
+	keepaliveInterval = 30 * time.Second
+
+	// localDialTimeout is the maximum time to wait when connecting to a local service.
+	localDialTimeout = 5 * time.Second
+
+	// trafficStatsInterval is the interval for emitting traffic statistics.
+	trafficStatsInterval = 2 * time.Second
+
+	// defaultReconnectInterval is the default base interval for reconnection attempts.
+	defaultReconnectInterval = 5 * time.Second
+
+	// maxReconnectBackoff is the maximum backoff duration between reconnection attempts.
+	maxReconnectBackoff = 2 * time.Minute
+)
+
 // TokenRefresher is a callback function that refreshes the authentication token.
 // It receives the server address and should return a new token or an error.
 type TokenRefresher func(serverAddr string) (newToken string, err error)
@@ -125,7 +160,7 @@ func (c *Client) Connect() error {
 	c.events.EmitType(EventConnecting)
 
 	// Dial server
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, 30*time.Second)
+	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
 	if err != nil {
 		c.events.EmitError(err)
 		return fmt.Errorf("dial server: %w", err)
@@ -147,9 +182,9 @@ func (c *Client) Connect() error {
 	// Create yamux session FIRST (client mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
-	yamuxCfg.KeepAliveInterval = 10 * time.Second
-	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
-	yamuxCfg.ConnectionWriteTimeout = 30 * time.Second
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
 	c.session, err = yamux.Client(rwc, yamuxCfg)
 	if err != nil {
 		conn.Close()
@@ -225,7 +260,7 @@ func (c *Client) authenticate() error {
 	}
 
 	// Read response
-	c.controlStream.SetReadDeadline(time.Now().Add(30 * time.Second))
+	c.controlStream.SetReadDeadline(time.Now().Add(authResponseTimeout))
 	defer c.controlStream.SetReadDeadline(time.Time{})
 
 	data, baseMsg, err := c.controlCodec.DecodeRaw()
@@ -325,7 +360,7 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 
 		return nil
 
-	case <-time.After(30 * time.Second):
+	case <-time.After(tunnelResponseTimeout):
 		return fmt.Errorf("timeout waiting for tunnel response")
 
 	case <-c.ctx.Done():
@@ -521,7 +556,7 @@ func (c *Client) handleStream(stream net.Conn) {
 	}
 
 	// Connect to local service with IPv4/IPv6 fallback
-	local, err := dialLocalWithFallback(c.log, tunnel.Config.LocalAddr, tunnel.Config.LocalPort, 5*time.Second)
+	local, err := dialLocalWithFallback(c.log, tunnel.Config.LocalAddr, tunnel.Config.LocalPort, localDialTimeout)
 	if err != nil {
 		c.log.Error().Err(err).Int("port", tunnel.Config.LocalPort).Msg("Failed to connect to local service")
 		return
@@ -555,8 +590,8 @@ func (c *Client) handleStream(stream net.Conn) {
 
 	<-done
 	// Close both to unblock the other goroutine
-	local.Close()
-	stream.Close()
+	_ = local.Close()
+	_ = stream.Close()
 	<-done
 }
 
@@ -566,12 +601,12 @@ func (c *Client) keepalive() {
 	// Initialize lastPong to now so we don't immediately timeout
 	c.lastPong.Store(time.Now().UnixNano())
 
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(keepaliveInterval)
 	defer ticker.Stop()
 
 	consecutivePingFailures := 0
 	const maxPingFailures = 3
-	const pongTimeout = 90 * time.Second
+	const pongTimeout = 3 * keepaliveInterval // 90s at default 30s interval
 
 	for {
 		select {
@@ -637,9 +672,9 @@ func (c *Client) reconnect() {
 	attempts := 0
 	baseInterval := c.cfg.Reconnect.Interval
 	if baseInterval == 0 {
-		baseInterval = 5 * time.Second
+		baseInterval = defaultReconnectInterval
 	}
-	const maxBackoff = 2 * time.Minute
+	maxBackoff := maxReconnectBackoff
 	currentBackoff := baseInterval
 
 	for {
@@ -793,7 +828,7 @@ func (c *Client) Close() {
 }
 
 func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(trafficStatsInterval)
 	defer ticker.Stop()
 
 	for {
