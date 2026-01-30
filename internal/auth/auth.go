@@ -103,7 +103,7 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 	}
 
 	// Log audit
-	s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
 		"phone": phone,
 	}, ipAddress)
 
@@ -189,10 +189,10 @@ func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) 
 	}
 
 	// Update last login
-	s.db.Users.UpdateLastLogin(user.ID)
+	_ = s.db.Users.UpdateLastLogin(user.ID)
 
 	// Log audit
-	s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
 		"user_agent": userAgent,
 	}, ipAddress)
 
@@ -209,7 +209,7 @@ func (s *Service) Logout(refreshToken string, ipAddress string, userID int64) er
 	}
 
 	// Log audit
-	s.db.Audit.Log(&userID, database.ActionLogout, nil, ipAddress)
+	_ = s.db.Audit.Log(&userID, database.ActionLogout, nil, ipAddress)
 
 	return nil
 }
@@ -229,7 +229,7 @@ func (s *Service) RefreshTokens(refreshToken string) (*database.User, *TokenPair
 
 	// Check if session is expired
 	if session.IsExpired() {
-		s.db.Sessions.Delete(session.ID)
+		_ = s.db.Sessions.Delete(session.ID)
 		return nil, nil, ErrTokenExpired
 	}
 
@@ -245,7 +245,7 @@ func (s *Service) RefreshTokens(refreshToken string) (*database.User, *TokenPair
 	}
 
 	// Delete old session
-	s.db.Sessions.Delete(session.ID)
+	_ = s.db.Sessions.Delete(session.ID)
 
 	// Generate new tokens
 	tokenPair, newRefreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
@@ -297,10 +297,10 @@ func (s *Service) ChangePassword(userID int64, oldPassword, newPassword, ipAddre
 	}
 
 	// Invalidate all sessions
-	s.db.Sessions.DeleteByUserID(userID)
+	_ = s.db.Sessions.DeleteByUserID(userID)
 
 	// Log audit
-	s.db.Audit.Log(&userID, database.ActionPasswordChange, nil, ipAddress)
+	_ = s.db.Audit.Log(&userID, database.ActionPasswordChange, nil, ipAddress)
 
 	s.log.Info().Int64("user_id", userID).Msg("Password changed")
 
@@ -377,7 +377,7 @@ func (s *Service) VerifyAndEnableTOTP(userID int64, code, ipAddress string) erro
 	}
 
 	// Log audit
-	s.db.Audit.Log(&userID, database.ActionTOTPEnabled, nil, ipAddress)
+	_ = s.db.Audit.Log(&userID, database.ActionTOTPEnabled, nil, ipAddress)
 
 	s.log.Info().Int64("user_id", userID).Msg("TOTP enabled")
 
@@ -412,7 +412,7 @@ func (s *Service) DisableTOTP(userID int64, code, ipAddress string) error {
 	}
 
 	// Log audit
-	s.db.Audit.Log(&userID, database.ActionTOTPDisabled, nil, ipAddress)
+	_ = s.db.Audit.Log(&userID, database.ActionTOTPDisabled, nil, ipAddress)
 
 	s.log.Info().Int64("user_id", userID).Msg("TOTP disabled")
 

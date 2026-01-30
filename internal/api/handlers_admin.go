@@ -148,7 +148,7 @@ func (s *Server) handleCreateInviteCode(w http.ResponseWriter, r *http.Request) 
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionInviteCreated, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionInviteCreated, map[string]interface{}{
 		"invite_id": invite.ID,
 	}, ipAddress)
 
@@ -365,7 +365,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil {
 		details["is_active"] = *req.IsActive
 	}
-	s.db.Audit.Log(&currentUser.ID, database.ActionUserUpdated, details, ipAddress)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserUpdated, details, ipAddress)
 
 	s.respondJSON(w, http.StatusOK, dto.UserFromModel(user))
 }
@@ -415,7 +415,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&currentUser.ID, database.ActionUserDeleted, map[string]interface{}{
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserDeleted, map[string]interface{}{
 		"deleted_user_id":    id,
 		"deleted_user_phone": user.Phone,
 	}, ipAddress)

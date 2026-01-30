@@ -134,6 +134,6 @@ func ProbeLocalAddress(log zerolog.Logger, localAddr string, localPort int) {
 		log.Debug().Int("port", localPort).Msg("Pre-probe failed, will retry on first connection")
 		return
 	}
-	conn.Close()
+	_ = conn.Close()
 	log.Info().Int("port", localPort).Msg("Local address pre-probed successfully")
 }

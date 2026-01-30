@@ -125,22 +125,22 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(stream, conn, *bp)
+		_, _ = io.CopyBuffer(stream, conn, *bp)
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(conn, stream, *bp)
+		_, _ = io.CopyBuffer(conn, stream, *bp)
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	<-done
 	// Close both to unblock the other goroutine
-	conn.Close()
-	stream.Close()
+	_ = conn.Close()
+	_ = stream.Close()
 	<-done
 
 	m.log.Debug().

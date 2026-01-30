@@ -97,7 +97,7 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionDomainReserved, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionDomainReserved, map[string]interface{}{
 		"subdomain": req.Subdomain,
 	}, ipAddress)
 
@@ -146,7 +146,7 @@ func (s *Server) handleReleaseDomain(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionDomainReleased, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionDomainReleased, map[string]interface{}{
 		"subdomain": domain.Subdomain,
 	}, ipAddress)
 

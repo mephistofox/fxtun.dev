@@ -576,14 +576,14 @@ func (c *Client) handleStream(stream net.Conn) {
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(download, stream, *bp) // download: stream → local
+		_, _ = io.CopyBuffer(download, stream, *bp) // download: stream → local
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(upload, local, *bp) // upload: local → stream
+		_, _ = io.CopyBuffer(upload, local, *bp) // upload: local → stream
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
@@ -663,7 +663,7 @@ func (c *Client) handleDisconnect() {
 func backoffWithJitter(d time.Duration) time.Duration {
 	// jitter ±20%: multiply by 0.8..1.2
 	b := make([]byte, 1)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	jitter := 0.8 + float64(b[0])/255.0*0.4 // [0.8, 1.2]
 	return time.Duration(float64(d) * jitter)
 }
@@ -855,6 +855,6 @@ func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
 
 func generateID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }

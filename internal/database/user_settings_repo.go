@@ -172,12 +172,12 @@ func (r *UserSettingsRepository) SyncBulk(userID int64, incoming []*UserSetting)
 	for rows.Next() {
 		setting := &UserSetting{UserID: userID}
 		if err := rows.Scan(&setting.Key, &setting.Value, &setting.UpdatedAt); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return fmt.Errorf("scan setting: %w", err)
 		}
 		existing[setting.Key] = setting
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// Upsert with timestamp comparison
 	upsertQuery := `
