@@ -18,3 +18,6 @@ build/bin/
 *.db-wal
 downloads/
 coverage.out
+
+plan.txt
+
