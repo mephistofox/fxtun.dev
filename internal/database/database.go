@@ -316,6 +316,7 @@ const migrationAddAllowedIPs = `
 ALTER TABLE api_tokens ADD COLUMN allowed_ips TEXT DEFAULT '[]';
 `
 
+//nolint:gosec // not credentials, just index names
 const migrationAddTokenAndSessionIndexes = `
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token_hash ON sessions(refresh_token_hash);

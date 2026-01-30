@@ -260,8 +260,8 @@ func (c *Client) authenticate() error {
 	}
 
 	// Read response
-	c.controlStream.SetReadDeadline(time.Now().Add(authResponseTimeout))
-	defer c.controlStream.SetReadDeadline(time.Time{})
+	_ = c.controlStream.SetReadDeadline(time.Now().Add(authResponseTimeout))
+	defer func() { _ = c.controlStream.SetReadDeadline(time.Time{}) }()
 
 	data, baseMsg, err := c.controlCodec.DecodeRaw()
 	if err != nil {
@@ -472,7 +472,7 @@ func (c *Client) handlePing() {
 	pong := &protocol.PongMessage{
 		Message: protocol.NewMessage(protocol.MsgPong),
 	}
-	c.sendControl(pong)
+	_ = c.sendControl(pong)
 }
 
 func (c *Client) handleError(data []byte) {

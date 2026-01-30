@@ -154,7 +154,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	cfg.Server.Address = normalizeServerAddr(cfg.Server.Address)
 
 	if len(cfg.Tunnels) == 0 {
-		cmd.Help()
+		_ = cmd.Help()
 		return nil
 	}
 

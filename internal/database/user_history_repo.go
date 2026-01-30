@@ -197,7 +197,7 @@ func (r *UserHistoryRepository) AddBulk(userID int64, entries []*UserHistoryEntr
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		INSERT INTO user_history (user_id, bundle_name, tunnel_type, local_port, remote_addr, url, connected_at, disconnected_at, bytes_sent, bytes_received)

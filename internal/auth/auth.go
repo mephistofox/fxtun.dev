@@ -59,7 +59,7 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 	if err != nil {
 		return nil, nil, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Create user
 	user := &database.User{
@@ -166,7 +166,9 @@ func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) 
 				return nil, nil, ErrInvalidTOTPCode
 			}
 			// Update remaining backup codes
-			s.db.TOTP.UpdateBackupCodes(user.ID, remainingCodes)
+			if err := s.db.TOTP.UpdateBackupCodes(user.ID, remainingCodes); err != nil {
+				s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update backup codes")
+			}
 		}
 	}
 

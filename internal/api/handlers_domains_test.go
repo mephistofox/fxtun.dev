@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReserveDomain_Success(t *testing.T) {
@@ -110,7 +111,7 @@ func TestReleaseDomain_Success(t *testing.T) {
 	}
 
 	var created dto.DomainDTO
-	json.NewDecoder(createResp.Body).Decode(&created)
+	require.NoError(t, json.NewDecoder(createResp.Body).Decode(&created))
 	createResp.Body.Close()
 
 	domainID := created.ID

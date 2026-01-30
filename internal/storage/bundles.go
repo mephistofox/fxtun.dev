@@ -53,7 +53,7 @@ func (r *BundleRepository) List() ([]Bundle, error) {
 		}
 		if remotePort.Valid {
 			var port int
-			fmt.Sscanf(remotePort.String, "%d", &port)
+			_, _ = fmt.Sscanf(remotePort.String, "%d", &port)
 			b.RemotePort = port
 		}
 		bundles = append(bundles, b)
