@@ -10,6 +10,7 @@ const MaxBodySize = 256 * 1024
 type CapturedExchange struct {
 	ID        string        `json:"id"`
 	TunnelID  string        `json:"tunnel_id"`
+	TraceID   string        `json:"trace_id,omitempty"`
 	Timestamp time.Time     `json:"timestamp"`
 	Duration  time.Duration `json:"duration_ns"`
 
@@ -30,6 +31,7 @@ type CapturedExchange struct {
 type ExchangeSummary struct {
 	ID               string        `json:"id"`
 	TunnelID         string        `json:"tunnel_id"`
+	TraceID          string        `json:"trace_id,omitempty"`
 	Timestamp        time.Time     `json:"timestamp"`
 	Duration         time.Duration `json:"duration_ns"`
 	Method           string        `json:"method"`
@@ -43,7 +45,7 @@ type ExchangeSummary struct {
 
 func (e *CapturedExchange) Summary() ExchangeSummary {
 	return ExchangeSummary{
-		ID: e.ID, TunnelID: e.TunnelID, Timestamp: e.Timestamp, Duration: e.Duration,
+		ID: e.ID, TunnelID: e.TunnelID, TraceID: e.TraceID, Timestamp: e.Timestamp, Duration: e.Duration,
 		Method: e.Method, Path: e.Path, Host: e.Host, StatusCode: e.StatusCode,
 		RequestBodySize: e.RequestBodySize, ResponseBodySize: e.ResponseBodySize,
 		RemoteAddr: e.RemoteAddr,

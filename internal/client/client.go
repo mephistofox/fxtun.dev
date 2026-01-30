@@ -402,6 +402,8 @@ func (c *Client) handleMessages() {
 			c.handlePing()
 		case protocol.MsgPong:
 			c.lastPong.Store(time.Now().UnixNano())
+		case protocol.MsgServerShutdown:
+			c.handleServerShutdown(data)
 		case protocol.MsgError:
 			c.handleError(data)
 		default:
@@ -492,6 +494,33 @@ func (c *Client) handleError(data []byte) {
 	if msg.Fatal {
 		c.Close()
 	}
+}
+
+func (c *Client) handleServerShutdown(data []byte) {
+	parsed, err := protocol.ParseMessage(data, protocol.MsgServerShutdown)
+	if err != nil {
+		c.log.Error().Err(err).Msg("Failed to parse server shutdown")
+		return
+	}
+	msg := parsed.(*protocol.ServerShutdownMessage)
+
+	c.log.Warn().Str("reason", msg.Reason).Msg("Server is shutting down")
+	c.events.EmitWithPayload(EventDisconnected, map[string]interface{}{
+		"reason": "server_shutdown",
+	})
+
+	// Delay reconnect to give server time to fully shut down
+	c.reconnectMu.Lock()
+	c.reconnecting = true
+	c.reconnectMu.Unlock()
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		c.reconnectMu.Lock()
+		c.reconnecting = false
+		c.reconnectMu.Unlock()
+		c.handleDisconnect()
+	}()
 }
 
 func (c *Client) acceptStreams() {

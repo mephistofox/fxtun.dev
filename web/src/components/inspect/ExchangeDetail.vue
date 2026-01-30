@@ -7,6 +7,13 @@
         {{ exchange.status_code }}
       </span>
       <span class="text-gray-500 text-sm">{{ formatDuration(exchange.duration_ns) }}</span>
+      <button
+        @click="$emit('replay', exchange.id)"
+        :disabled="replaying"
+        class="ml-auto px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition text-white"
+      >
+        {{ replaying ? 'Replaying...' : 'Replay' }}
+      </button>
     </div>
 
     <!-- Tabs -->
@@ -72,6 +79,11 @@ import HeadersTable from './HeadersTable.vue'
 
 defineProps<{
   exchange: CapturedExchange
+  replaying?: boolean
+}>()
+
+defineEmits<{
+  replay: [id: string]
 }>()
 
 const activeTab = ref('Request')

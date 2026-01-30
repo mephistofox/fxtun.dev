@@ -340,6 +340,8 @@ export const inspectApi = {
     api.get<CapturedExchange>(`/tunnels/${tunnelId}/inspect/${exchangeId}`).then(r => r.data),
   clear: (tunnelId: string) =>
     api.delete(`/tunnels/${tunnelId}/inspect`).then(r => r.data),
+  replay: (tunnelId: string, exchangeId: string) =>
+    api.post(`/tunnels/${tunnelId}/inspect/${exchangeId}/replay`).then(r => r.data),
 }
 
 export default api

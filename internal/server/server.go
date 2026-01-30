@@ -60,8 +60,10 @@ type Server struct {
 	log    zerolog.Logger
 
 	// Listeners
-	controlListener net.Listener
-	httpListener    net.Listener
+	controlListener  net.Listener
+	httpListener     net.Listener
+	httpsListener    net.Listener
+	httpsServer      *http.Server
 
 	// Client manager
 	clientMgr *ClientManager
@@ -196,6 +198,11 @@ func (s *Server) InspectManager() *inspect.Manager {
 	return s.inspectMgr
 }
 
+// HTTPRouter returns the HTTP router for replay support.
+func (s *Server) HTTPRouter() *HTTPRouter {
+	return s.httpRouter
+}
+
 // CertManager returns the TLS certificate manager (may be nil).
 func (s *Server) CertManager() *fxtls.CertManager {
 	return s.certManager
@@ -294,6 +301,29 @@ func (s *Server) Start() error {
 	}
 	s.log.Info().Str("addr", httpAddr).Msg("HTTP listener started")
 
+	// Start HTTPS listener for custom domains (if CertManager is available)
+	if s.certManager != nil && s.cfg.TLS.HTTPSPort > 0 {
+		httpsAddr := fmt.Sprintf(":%d", s.cfg.TLS.HTTPSPort)
+		tlsListener, err := newReusePortListener(s.ctx, httpsAddr)
+		if err != nil {
+			s.log.Warn().Err(err).Str("addr", httpsAddr).Msg("Failed to start HTTPS listener for custom domains")
+		} else {
+			s.httpsListener = tls.NewListener(tlsListener, s.certManager.TLSConfig())
+			s.httpsServer = &http.Server{
+				Handler:           s.httpRouter,
+				ReadHeaderTimeout: 10 * time.Second,
+			}
+			s.wg.Add(1)
+			go func() {
+				defer s.wg.Done()
+				if err := s.httpsServer.Serve(s.httpsListener); err != nil && err != http.ErrServerClosed {
+					s.log.Error().Err(err).Msg("HTTPS server error")
+				}
+			}()
+			s.log.Info().Str("addr", httpsAddr).Msg("HTTPS listener started for custom domains")
+		}
+	}
+
 	// Accept control connections
 	s.wg.Add(1)
 	go s.acceptControlConnections()
@@ -325,16 +355,24 @@ func (s *Server) Stop() error {
 	if s.httpListener != nil {
 		s.httpListener.Close()
 	}
+	if s.httpsListener != nil {
+		s.httpsListener.Close()
+	}
 
 	// Phase 2: drain in-flight connections (max 10s)
 	s.log.Info().Msg("Draining active connections...")
 	drainCtx, drainCancel := context.WithTimeout(context.Background(), drainTimeout)
 	defer drainCancel()
 
-	// Gracefully shutdown HTTP server (drains keep-alive connections)
+	// Gracefully shutdown HTTP/HTTPS servers (drains keep-alive connections)
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(drainCtx); err != nil {
 			s.log.Warn().Err(err).Msg("HTTP server shutdown error")
+		}
+	}
+	if s.httpsServer != nil {
+		if err := s.httpsServer.Shutdown(drainCtx); err != nil {
+			s.log.Warn().Err(err).Msg("HTTPS server shutdown error")
 		}
 	}
 
@@ -350,10 +388,29 @@ func (s *Server) Stop() error {
 		s.log.Warn().Msg("Drain timeout, forcing shutdown")
 	}
 
-	// Phase 3: cancel context and close all clients
+	// Phase 3: notify clients and gracefully close sessions
+	clients := s.clientMgr.allClients()
+
+	// Send shutdown notification and GoAway to all clients
+	for _, c := range clients {
+		shutdownMsg := &protocol.ServerShutdownMessage{
+			Message: protocol.NewMessage(protocol.MsgServerShutdown),
+			Reason:  "server shutting down",
+		}
+		_ = c.sendControl(shutdownMsg)
+		if c.Session != nil {
+			_ = c.Session.GoAway()
+		}
+	}
+
+	// Allow in-flight streams to finish
+	if len(clients) > 0 {
+		time.Sleep(2 * time.Second)
+	}
+
 	s.cancel()
 
-	for _, c := range s.clientMgr.allClients() {
+	for _, c := range clients {
 		c.Close()
 	}
 

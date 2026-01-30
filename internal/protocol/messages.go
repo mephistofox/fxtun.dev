@@ -26,6 +26,9 @@ const (
 	MsgPing MessageType = "ping"
 	MsgPong MessageType = "pong"
 
+	// Server lifecycle
+	MsgServerShutdown MessageType = "server_shutdown"
+
 	// Errors
 	MsgError MessageType = "error"
 )
@@ -166,6 +169,12 @@ type ErrorMessage struct {
 	Error string `json:"error"`
 	Code  string `json:"code,omitempty"`
 	Fatal bool   `json:"fatal,omitempty"`
+}
+
+// ServerShutdownMessage is sent by server before shutting down
+type ServerShutdownMessage struct {
+	Message
+	Reason string `json:"reason,omitempty"`
 }
 
 // Error codes

@@ -194,6 +194,8 @@ func ParseMessage(data []byte, msgType MessageType) (any, error) {
 		msg = &PongMessage{}
 	case MsgError:
 		msg = &ErrorMessage{}
+	case MsgServerShutdown:
+		msg = &ServerShutdownMessage{}
 	default:
 		return nil, fmt.Errorf("unknown message type: %s", msgType)
 	}

@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -179,6 +181,96 @@ func (s *Server) handleInspectStatus(w http.ResponseWriter, r *http.Request) {
 		"enabled":     true,
 		"bufferSize":  buf.Len(),
 		"subscribers": buf.SubscribersCount(),
+	})
+}
+
+func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	tunnelID := chi.URLParam(r, "id")
+	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
+		s.respondError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
+	exchangeID := chi.URLParam(r, "exchangeId")
+	buf := s.getInspectBuffer(tunnelID)
+	if buf == nil {
+		s.respondError(w, http.StatusNotFound, "exchange not found")
+		return
+	}
+
+	ex := buf.Get(exchangeID)
+	if ex == nil {
+		s.respondError(w, http.StatusNotFound, "exchange not found")
+		return
+	}
+
+	if s.replayProvider == nil {
+		s.respondError(w, http.StatusServiceUnavailable, "replay not available")
+		return
+	}
+
+	// Find subdomain for this tunnel from the tunnel provider
+	var subdomain string
+	if s.tunnelProvider != nil {
+		tunnels := s.tunnelProvider.GetTunnelsByUserID(user.ID)
+		if user.IsAdmin {
+			tunnels = s.tunnelProvider.GetAllTunnels()
+		}
+		for _, t := range tunnels {
+			if t.ID == tunnelID {
+				subdomain = t.Subdomain
+				break
+			}
+		}
+	}
+	if subdomain == "" {
+		s.respondError(w, http.StatusNotFound, "tunnel subdomain not found")
+		return
+	}
+
+	// Reconstruct request
+	reqBody := ex.RequestBody
+	var bodyReader *bytes.Reader
+	if reqBody != nil {
+		bodyReader = bytes.NewReader(reqBody)
+	} else {
+		bodyReader = bytes.NewReader(nil)
+	}
+
+	replayReq, err := http.NewRequest(ex.Method, ex.Path, bodyReader)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create replay request")
+		return
+	}
+	replayReq.Host = ex.Host
+	replayReq.Header = ex.RequestHeaders.Clone()
+
+	resp, err := s.replayProvider.ReplayRequest(subdomain, replayReq)
+	if err != nil {
+		s.respondError(w, http.StatusBadGateway, fmt.Sprintf("replay failed: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+
+	// Build response
+	respHeaders := make(map[string][]string)
+	for k, v := range resp.Header {
+		respHeaders[k] = v
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status_code":      resp.StatusCode,
+		"response_headers": respHeaders,
+		"response_body":    respBody,
 	})
 }
 

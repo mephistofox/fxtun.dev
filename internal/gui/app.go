@@ -52,6 +52,7 @@ type App struct {
 	CustomDomainService *CustomDomainService
 	SyncService         *SyncService
 	InspectService      *InspectService
+	UpdateService       *UpdateService
 }
 
 // LogHook returns a zerolog Hook that forwards log events to the GUI frontend.
@@ -80,6 +81,7 @@ func NewApp(log zerolog.Logger) *App {
 	app.CustomDomainService = NewCustomDomainService(app)
 	app.SyncService = NewSyncService(app)
 	app.InspectService = NewInspectService(app)
+	app.UpdateService = NewUpdateService(app)
 
 	return app
 }
