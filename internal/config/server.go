@@ -241,8 +241,14 @@ func (c *ServerConfig) Validate() error {
 		if c.Auth.JWTSecret == "" {
 			return fmt.Errorf("auth.jwt_secret is required when web panel is enabled")
 		}
+		if len(c.Auth.JWTSecret) < 32 {
+			return fmt.Errorf("auth.jwt_secret must be at least 32 characters")
+		}
 		if c.TOTP.EncryptionKey == "" {
 			return fmt.Errorf("totp.encryption_key is required when web panel is enabled")
+		}
+		if len(c.TOTP.EncryptionKey) < 16 {
+			return fmt.Errorf("totp.encryption_key must be at least 16 characters")
 		}
 	}
 

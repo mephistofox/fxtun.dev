@@ -114,11 +114,30 @@ func TestValidate_MissingJWTSecret(t *testing.T) {
 func TestValidate_MissingTOTPKey(t *testing.T) {
 	cfg := validServerConfig()
 	cfg.Web.Enabled = true
-	cfg.Auth.JWTSecret = "test-secret"
+	cfg.Auth.JWTSecret = "this-is-a-very-long-jwt-secret-for-testing-purposes"
 	cfg.TOTP.EncryptionKey = ""
 	err := cfg.Validate()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "encryption_key")
+}
+
+func TestValidate_ShortJWTSecret(t *testing.T) {
+	cfg := validServerConfig()
+	cfg.Web.Enabled = true
+	cfg.Auth.JWTSecret = "too-short"
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at least 32 characters")
+}
+
+func TestValidate_ShortTOTPKey(t *testing.T) {
+	cfg := validServerConfig()
+	cfg.Web.Enabled = true
+	cfg.Auth.JWTSecret = "this-is-a-very-long-jwt-secret-for-testing-purposes"
+	cfg.TOTP.EncryptionKey = "short"
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at least 16 characters")
 }
 
 func TestValidate_SecretsNotRequiredWhenWebDisabled(t *testing.T) {
