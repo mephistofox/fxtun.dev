@@ -139,16 +139,16 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	done := make(chan struct{}, 2)
 
 	go func() {
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(stream, conn, buf)
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(stream, conn, *bp)
+		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(conn, stream, buf)
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(conn, stream, *bp)
+		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 

@@ -21,7 +21,7 @@ const (
 var udpFramePool = sync.Pool{
 	New: func() any {
 		buf := make([]byte, udpHeaderSize+maxUDPPacketSize)
-		return buf
+		return &buf
 	},
 }
 
@@ -191,14 +191,15 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			addrMu.Unlock()
 
 			// Frame: [2 bytes length][4 bytes addr hash][payload]
-			frame := udpFramePool.Get().([]byte)
+			fp := udpFramePool.Get().(*[]byte)
+			frame := *fp
 			frameLen := udpHeaderSize + n
 			binary.BigEndian.PutUint16(frame[0:2], uint16(n))
 			binary.BigEndian.PutUint32(frame[2:6], addrHash)
 			copy(frame[udpHeaderSize:], buf[:n])
 
 			_, werr := stream.Write(frame[:frameLen])
-			udpFramePool.Put(frame)
+			udpFramePool.Put(fp)
 			if werr != nil {
 				m.log.Debug().Err(werr).Msg("Failed to write to stream")
 				return
@@ -225,9 +226,10 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		addrHash := binary.BigEndian.Uint32(header[2:6])
 
 		// Read payload into pooled buffer
-		frame := udpFramePool.Get().([]byte)
+		fp := udpFramePool.Get().(*[]byte)
+		frame := *fp
 		if _, err := io.ReadFull(stream, frame[:length]); err != nil {
-			udpFramePool.Put(frame)
+			udpFramePool.Put(fp)
 			m.log.Debug().Err(err).Msg("Failed to read UDP payload")
 			return
 		}
@@ -241,7 +243,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		if addr != nil {
 			tunnel.udpConn.WriteToUDP(frame[:length], addr)
 		}
-		udpFramePool.Put(frame)
+		udpFramePool.Put(fp)
 	}
 }
 

@@ -19,7 +19,7 @@ const (
 var codecBufPool = sync.Pool{
 	New: func() any {
 		buf := make([]byte, 0, 512)
-		return buf
+		return &buf
 	},
 }
 
@@ -50,7 +50,8 @@ func (c *Codec) Encode(msg any) error {
 
 	// Write length prefix + payload in single write using pooled buffer
 	totalLen := HeaderSize + len(data)
-	buf := codecBufPool.Get().([]byte)
+	bp := codecBufPool.Get().(*[]byte)
+	buf := *bp
 	if cap(buf) < totalLen {
 		buf = make([]byte, totalLen)
 	} else {
@@ -60,7 +61,8 @@ func (c *Codec) Encode(msg any) error {
 	copy(buf[HeaderSize:], data)
 
 	_, werr := c.writer.Write(buf)
-	codecBufPool.Put(buf[:0])
+	*bp = buf[:0]
+	codecBufPool.Put(bp)
 	if werr != nil {
 		return fmt.Errorf("write message: %w", werr)
 	}
@@ -82,19 +84,22 @@ func (c *Codec) Decode(msg any) error {
 	}
 
 	// Read payload using pooled buffer
-	buf := codecBufPool.Get().([]byte)
+	bp := codecBufPool.Get().(*[]byte)
+	buf := *bp
 	if uint32(cap(buf)) < length {
 		buf = make([]byte, length)
 	} else {
 		buf = buf[:length]
 	}
 	if _, err := io.ReadFull(c.reader, buf); err != nil {
-		codecBufPool.Put(buf[:0])
+		*bp = buf[:0]
+		codecBufPool.Put(bp)
 		return fmt.Errorf("read payload: %w", err)
 	}
 
 	err := json.Unmarshal(buf, msg)
-	codecBufPool.Put(buf[:0])
+	*bp = buf[:0]
+	codecBufPool.Put(bp)
 	if err != nil {
 		return fmt.Errorf("unmarshal message: %w", err)
 	}
@@ -138,7 +143,8 @@ func (c *Codec) EncodeBytes(data []byte) error {
 
 	// Write length prefix + payload in single write using pooled buffer
 	totalLen := HeaderSize + len(data)
-	buf := codecBufPool.Get().([]byte)
+	bp := codecBufPool.Get().(*[]byte)
+	buf := *bp
 	if cap(buf) < totalLen {
 		buf = make([]byte, totalLen)
 	} else {
@@ -148,7 +154,8 @@ func (c *Codec) EncodeBytes(data []byte) error {
 	copy(buf[HeaderSize:], data)
 
 	_, werr := c.writer.Write(buf)
-	codecBufPool.Put(buf[:0])
+	*bp = buf[:0]
+	codecBufPool.Put(bp)
 	if werr != nil {
 		return fmt.Errorf("write message: %w", werr)
 	}

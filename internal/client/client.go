@@ -497,16 +497,16 @@ func (c *Client) handleStream(stream net.Conn) {
 	upload := &countingWriter{w: stream, count: &tunnel.BytesSent}
 
 	go func() {
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(download, stream, buf) // download: stream → local
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(download, stream, *bp) // download: stream → local
+		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(upload, local, buf) // upload: local → stream
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(upload, local, *bp) // upload: local → stream
+		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
