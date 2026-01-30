@@ -26,6 +26,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, "password must be at least 8 characters")
 		return
 	}
+	if len(req.Password) > 128 {
+		s.respondError(w, http.StatusBadRequest, "password must be at most 128 characters")
+		return
+	}
 
 	ipAddress := auth.GetClientIP(r)
 
