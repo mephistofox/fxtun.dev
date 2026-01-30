@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.15.0](https://github.com/mephistofox/fxTunnel/compare/v1.14.0...v1.15.0) (2026-01-30)
+
+
+### Features
+
+* **custom-domains:** support apex domains via A record and add DNS setup guide ([cac4614](https://github.com/mephistofox/fxTunnel/commit/cac461449bb35aa24a891a0eb00c7c44766e1198))
+
+
+### Bug Fixes
+
+* **api:** add max password length, log JSON encoding errors ([b0206ab](https://github.com/mephistofox/fxTunnel/commit/b0206aba5414b8bc1b0cdbdae00e29ed2529d650))
+* **auth:** wrap registration in transaction to prevent invite code reuse ([2c66b4c](https://github.com/mephistofox/fxTunnel/commit/2c66b4cab24dfa9714c55bbdfd996473c0cd1e8e))
+* **ci:** set CGO_ENABLED=1 for server build to support SQLite ([3ce0ee7](https://github.com/mephistofox/fxTunnel/commit/3ce0ee78cd6f2631d2f80d8e1dfb0dc84d092383))
+* **config:** enforce minimum length for JWT secret and TOTP encryption key ([a370b74](https://github.com/mephistofox/fxTunnel/commit/a370b746a5434b9b7f5fe50431e97b968786f93a))
+* **docker:** add healthcheck and run as non-root user ([a2cbcf5](https://github.com/mephistofox/fxTunnel/commit/a2cbcf51805123a7e890f9a1a1da16f88b05e1a3))
+* **lint:** resolve errcheck and gosec warnings across codebase ([9c66b9c](https://github.com/mephistofox/fxTunnel/commit/9c66b9c52be1d1a8e144d9a03261949c622431c8))
+
 ## [1.14.0](https://github.com/mephistofox/fxTunnel/compare/v1.13.0...v1.14.0) (2026-01-30)
 
 
