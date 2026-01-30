@@ -190,9 +190,9 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 
 	go func() {
 		defer wg.Done()
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(stream, conn, buf)
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(stream, conn, *bp)
+		proxyBufPool.Put(bp)
 		// Signal EOF to the client by closing write side
 		if tcpConn, ok := stream.(interface{ CloseWrite() error }); ok {
 			tcpConn.CloseWrite()
@@ -201,9 +201,9 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 
 	go func() {
 		defer wg.Done()
-		buf := proxyBufPool.Get().([]byte)
-		io.CopyBuffer(conn, stream, buf)
-		proxyBufPool.Put(buf)
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(conn, stream, *bp)
+		proxyBufPool.Put(bp)
 	}()
 
 	// Wait for both directions to complete

@@ -73,11 +73,9 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 
 	// Start IPv6 after 50ms delay (Happy Eyeballs), unless IPv4 already won
 	go func() {
-		select {
-		case <-time.After(50 * time.Millisecond):
-			conn, err := net.DialTimeout("tcp", ipv6Addr, timeout)
-			results <- dialResult{conn, ipv6Addr, err}
-		}
+		time.Sleep(50 * time.Millisecond)
+		conn, err := net.DialTimeout("tcp", ipv6Addr, timeout)
+		results <- dialResult{conn, ipv6Addr, err}
 	}()
 
 	var firstErr error
