@@ -186,15 +186,6 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// --- Inspection: capture response ---
-	var capturedRespBody []byte
-	if inspectBuf != nil {
-		maxBody := r.server.inspectMgr.MaxBodySize()
-		capturedRespBody, _ = io.ReadAll(io.LimitReader(resp.Body, int64(maxBody)))
-		// Re-wrap body so we can still copy it to the client
-		resp.Body = io.NopCloser(bytes.NewReader(capturedRespBody))
-	}
-
 	// Copy response headers to ResponseWriter
 	for key, values := range resp.Header {
 		for _, v := range values {
@@ -203,12 +194,20 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 
+	// --- Inspection: set up TeeReader to capture while streaming ---
+	var capturedRespBuf bytes.Buffer
+	bodyReader := io.Reader(resp.Body)
+	if inspectBuf != nil {
+		maxBody := r.server.inspectMgr.MaxBodySize()
+		bodyReader = io.TeeReader(resp.Body, &limitedWriter{w: &capturedRespBuf, remaining: maxBody})
+	}
+
 	// Copy response body, using Flusher for streaming
 	if flusher, ok := w.(http.Flusher); ok {
 		buf := proxyBufPool.Get().(*[]byte)
 		defer proxyBufPool.Put(buf)
 		for {
-			n, readErr := resp.Body.Read(*buf)
+			n, readErr := bodyReader.Read(*buf)
 			if n > 0 {
 				if _, writeErr := w.Write((*buf)[:n]); writeErr != nil {
 					break
@@ -221,13 +220,13 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(w, resp.Body, *bp)
+		io.CopyBuffer(w, bodyReader, *bp)
 		proxyBufPool.Put(bp)
 	}
 
 	// --- Inspection: build and store exchange ---
 	if inspectBuf != nil {
-		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBody)
+		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBuf.Bytes())
 		inspectBuf.Add(ex)
 	}
 
@@ -391,4 +390,26 @@ func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID string, req *htt
 	}
 
 	return ex
+}
+
+// limitedWriter writes up to `remaining` bytes, then silently discards the rest.
+type limitedWriter struct {
+	w         io.Writer
+	remaining int
+}
+
+func (lw *limitedWriter) Write(p []byte) (int, error) {
+	if lw.remaining <= 0 {
+		return len(p), nil
+	}
+	n := len(p)
+	if n > lw.remaining {
+		n = lw.remaining
+	}
+	written, err := lw.w.Write(p[:n])
+	lw.remaining -= written
+	if err != nil {
+		return written, err
+	}
+	return len(p), nil
 }
