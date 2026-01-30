@@ -358,9 +358,9 @@ async function verifyCustomDomain(id: number) {
               <span v-if="cd.verified && cd.verifiedAt" class="text-muted-foreground ml-auto">{{ formatDate(cd.verifiedAt) }}</span>
             </div>
 
-            <!-- CNAME hint for unverified -->
+            <!-- DNS hint for unverified -->
             <div v-if="!cd.verified" class="mb-3 p-2 rounded-lg bg-muted/50 text-[10px] text-muted-foreground font-mono break-all">
-              CNAME → {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}
+              → {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}
             </div>
 
             <!-- Actions -->
@@ -493,9 +493,21 @@ async function verifyCustomDomain(id: number) {
             </select>
           </div>
 
-          <div v-if="newCustomDomain && newTargetSubdomain" class="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs space-y-1">
-            <p class="text-muted-foreground">{{ t('customDomains.cnameHint') }}:</p>
-            <code class="block text-blue-500 font-mono">{{ newCustomDomain }} → CNAME → {{ newTargetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}</code>
+          <div v-if="newCustomDomain && newTargetSubdomain" class="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs space-y-3">
+            <p class="font-semibold text-blue-500">{{ t('customDomains.cnameHint') }}</p>
+
+            <div class="space-y-2">
+              <div class="bg-blue-500/10 px-3 py-2 rounded">
+                <p class="font-medium text-muted-foreground mb-1">{{ t('customDomains.dnsGuideSubdomain') }}:</p>
+                <code class="block text-blue-500 font-mono">{{ newCustomDomain }} → CNAME → {{ newTargetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}</code>
+              </div>
+              <div class="bg-blue-500/10 px-3 py-2 rounded">
+                <p class="font-medium text-muted-foreground mb-1">{{ t('customDomains.dnsGuideApex') }}:</p>
+                <code class="block text-blue-500 font-mono">{{ newCustomDomain }} → A → {{ customDomainsStore.serverIP || '...' }}</code>
+              </div>
+            </div>
+
+            <p class="text-muted-foreground whitespace-pre-line">{{ t('customDomains.dnsGuideSteps') }}</p>
           </div>
 
           <DialogFooter>

@@ -196,6 +196,7 @@ export interface CustomDomainListResponse {
   total: number
   max_domains: number
   base_domain: string
+  server_ip: string
 }
 
 export interface VerifyResponse {

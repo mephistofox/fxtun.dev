@@ -32,6 +32,7 @@ const newTargetSubdomain = ref('')
 const adding = ref(false)
 const addError = ref('')
 const baseDomain = ref('')
+const serverIP = ref('')
 const maxCustomDomains = ref(0)
 
 async function loadDomains() {
@@ -99,6 +100,7 @@ async function loadCustomDomains() {
     const response = await customDomainsApi.list()
     customDomains.value = response.data.domains || []
     baseDomain.value = response.data.base_domain || ''
+    serverIP.value = response.data.server_ip || ''
     maxCustomDomains.value = response.data.max_domains || 0
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
@@ -361,11 +363,21 @@ onMounted(() => {
                 </select>
               </div>
 
-              <div v-if="newDomain" class="bg-blue-500/10 text-blue-700 dark:text-blue-300 p-3 rounded-md text-sm">
-                {{ t('customDomains.cnameHint') }}
-                <code class="block mt-1 font-mono text-xs bg-blue-500/10 px-2 py-1 rounded">
-                  {{ newDomain }} CNAME {{ newTargetSubdomain || '...' }}.{{ baseDomain }}
-                </code>
+              <div v-if="newDomain && newTargetSubdomain" class="bg-blue-500/10 text-blue-700 dark:text-blue-300 p-4 rounded-md text-sm space-y-3">
+                <p class="font-semibold">{{ t('customDomains.cnameHint') }}</p>
+
+                <div class="space-y-2">
+                  <div class="bg-blue-500/10 px-3 py-2 rounded">
+                    <p class="text-xs font-medium mb-1">{{ t('customDomains.dnsGuideSubdomain') }}:</p>
+                    <code class="block font-mono text-xs">{{ newDomain }} → CNAME → {{ newTargetSubdomain }}.{{ baseDomain }}</code>
+                  </div>
+                  <div class="bg-blue-500/10 px-3 py-2 rounded">
+                    <p class="text-xs font-medium mb-1">{{ t('customDomains.dnsGuideApex') }}:</p>
+                    <code class="block font-mono text-xs">{{ newDomain }} → A → {{ serverIP || '...' }}</code>
+                  </div>
+                </div>
+
+                <div class="text-xs text-blue-600/70 dark:text-blue-400/70 whitespace-pre-line">{{ t('customDomains.dnsGuideSteps') }}</div>
               </div>
 
               <div class="flex space-x-2">
