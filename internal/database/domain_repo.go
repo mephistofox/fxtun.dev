@@ -68,10 +68,7 @@ func (r *DomainRepository) GetByID(id int64) (*ReservedDomain, error) {
 		&domain.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrDomainNotFound
-		}
-		return nil, fmt.Errorf("get reserved domain by id: %w", err)
+		return nil, notFoundOrError(err, ErrDomainNotFound, "get reserved domain by id")
 	}
 
 	return domain, nil
@@ -92,10 +89,7 @@ func (r *DomainRepository) GetBySubdomain(subdomain string) (*ReservedDomain, er
 		&domain.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrDomainNotFound
-		}
-		return nil, fmt.Errorf("get reserved domain by subdomain: %w", err)
+		return nil, notFoundOrError(err, ErrDomainNotFound, "get reserved domain by subdomain")
 	}
 
 	return domain, nil

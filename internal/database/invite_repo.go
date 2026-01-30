@@ -91,10 +91,7 @@ func (r *InviteRepository) scanInvite(row *sql.Row) (*InviteCode, error) {
 		&invite.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrInviteNotFound
-		}
-		return nil, fmt.Errorf("scan invite code: %w", err)
+		return nil, notFoundOrError(err, ErrInviteNotFound, "scan invite code")
 	}
 
 	if createdByUserID.Valid {
