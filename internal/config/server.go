@@ -20,6 +20,7 @@ type ServerConfig struct {
 	Database  DatabaseSettings  `mapstructure:"database"`
 	TOTP      TOTPSettings      `mapstructure:"totp"`
 	Downloads DownloadsSettings `mapstructure:"downloads"`
+	Inspect   InspectSettings   `mapstructure:"inspect"`
 }
 
 // ServerSettings contains network settings
@@ -86,6 +87,13 @@ type DownloadsSettings struct {
 	Path    string `mapstructure:"path"`
 }
 
+// InspectSettings contains traffic inspection configuration
+type InspectSettings struct {
+	Enabled     bool `mapstructure:"enabled"`
+	MaxEntries  int  `mapstructure:"max_entries"`
+	MaxBodySize int  `mapstructure:"max_body_size"`
+}
+
 // TokenConfig defines a single auth token
 type TokenConfig struct {
 	Name              string   `mapstructure:"name"`
@@ -140,6 +148,9 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("web.rate_limit.global_per_min", 100)
 	v.SetDefault("downloads.enabled", true)
 	v.SetDefault("downloads.path", "./downloads")
+	v.SetDefault("inspect.enabled", true)
+	v.SetDefault("inspect.max_entries", 1000)
+	v.SetDefault("inspect.max_body_size", 262144)
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)
