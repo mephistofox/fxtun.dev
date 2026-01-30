@@ -59,6 +59,11 @@ type InspectProvider interface {
 	Enabled() bool
 }
 
+// ReplayProvider sends an HTTP request through a tunnel and returns the response.
+type ReplayProvider interface {
+	ReplayRequest(subdomain string, req *http.Request) (*http.Response, error)
+}
+
 // CustomDomainManager provides custom domain cache and TLS cert management.
 type CustomDomainManager interface {
 	AddCustomDomain(d *database.CustomDomain)
@@ -74,6 +79,7 @@ type Server struct {
 	tunnelProvider       TunnelProvider
 	inspectProvider      InspectProvider
 	customDomainManager  CustomDomainManager
+	replayProvider       ReplayProvider
 	router               chi.Router
 	httpServer     *http.Server
 	log            zerolog.Logger
@@ -100,6 +106,11 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 
 	s.setupRoutes()
 	return s
+}
+
+// SetReplayProvider sets the replay provider for inspect replay feature.
+func (s *Server) SetReplayProvider(rp ReplayProvider) {
+	s.replayProvider = rp
 }
 
 // SetVersion sets the server version string for health endpoint.
@@ -152,6 +163,9 @@ func (s *Server) setupRoutes() {
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
+		// Version (public)
+		r.Get("/version", s.handleVersion)
+
 		// Public routes
 		r.Route("/auth", func(r chi.Router) {
 			if s.cfg.Web.RateLimit.Enabled {
@@ -228,6 +242,7 @@ func (s *Server) setupRoutes() {
 				r.Get("/{id}/inspect/status", s.handleInspectStatus)
 				r.Get("/{id}/inspect/{exchangeId}", s.handleGetExchange)
 				r.Delete("/{id}/inspect", s.handleClearExchanges)
+				r.Post("/{id}/inspect/{exchangeId}/replay", s.handleReplayExchange)
 			})
 
 			// Sync
@@ -363,6 +378,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 
 		defer func() {
 			s.log.Debug().
+				Str("request_id", middleware.GetReqID(r.Context())).
 				Str("method", r.Method).
 				Str("path", r.URL.Path).
 				Int("status", ww.Status()).

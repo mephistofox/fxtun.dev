@@ -45,7 +45,7 @@
 
       <!-- Right: Exchange Detail -->
       <div class="w-1/2 overflow-y-auto">
-        <ExchangeDetail v-if="selectedExchange" :exchange="selectedExchange" />
+        <ExchangeDetail v-if="selectedExchange" :exchange="selectedExchange" :replaying="replaying" @replay="replayExchange" />
         <div v-else class="flex items-center justify-center h-full text-gray-500">
           Select a request to view details
         </div>
@@ -69,6 +69,7 @@ const selectedId = ref<string | null>(null)
 const selectedExchange = ref<CapturedExchange | null>(null)
 const filter = ref('')
 const connected = ref(false)
+const replaying = ref(false)
 let eventSource: EventSource | null = null
 
 const filteredExchanges = computed(() => {
@@ -107,6 +108,17 @@ async function clearExchanges() {
     selectedExchange.value = null
   } catch (e) {
     console.error('Failed to clear:', e)
+  }
+}
+
+async function replayExchange(exchangeId: string) {
+  replaying.value = true
+  try {
+    await inspectApi.replay(tunnelId.value, exchangeId)
+  } catch (e) {
+    console.error('Replay failed:', e)
+  } finally {
+    replaying.value = false
   }
 }
 

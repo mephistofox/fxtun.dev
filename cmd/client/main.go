@@ -115,6 +115,14 @@ Use -t to provide token directly, or enter it interactively.`,
 	}
 	rootCmd.AddCommand(logoutCmd)
 
+	// Update command
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Check for updates and self-update",
+		RunE:  runUpdate,
+	}
+	rootCmd.AddCommand(updateCmd)
+
 	// Version command
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -276,6 +284,51 @@ func runLogout(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func runUpdate(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
+	addr := normalizeServerAddr(serverAddr)
+
+	fmt.Printf("Checking for updates from %s...\n", addr)
+
+	info, err := client.CheckUpdate(addr, Version)
+	if err != nil {
+		return fmt.Errorf("update check failed: %w", err)
+	}
+	if info == nil {
+		fmt.Println("Already up to date.")
+		return nil
+	}
+
+	fmt.Printf("New version available: %s (current: %s)\n", info.ClientVersion, Version)
+
+	if info.DownloadURL == "" {
+		fmt.Println("No download available for your platform.")
+		return nil
+	}
+
+	fmt.Printf("Downloading from %s...\n", info.DownloadURL)
+	if err := client.SelfUpdate(info.DownloadURL); err != nil {
+		return fmt.Errorf("update failed: %w", err)
+	}
+
+	fmt.Printf("Updated to %s. Please restart the client.\n", info.ClientVersion)
+	return nil
+}
+
+func checkUpdateBackground(addr string, log zerolog.Logger) {
+	info, err := client.CheckUpdate(addr, Version)
+	if err != nil {
+		log.Debug().Err(err).Msg("Background update check failed")
+		return
+	}
+	if info != nil {
+		log.Warn().
+			Str("current", Version).
+			Str("latest", info.ClientVersion).
+			Msg("New version available! Run 'fxtunnel update' to upgrade")
+	}
+}
+
 func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 	cfg := &config.ClientConfig{
 		Server: config.ClientServerSettings{
@@ -330,6 +383,9 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	if err := c.Connect(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to server")
 	}
+
+	// Background update check
+	go checkUpdateBackground(cfg.Server.Address, log)
 
 	// Print tunnel info
 	for _, t := range c.GetTunnels() {

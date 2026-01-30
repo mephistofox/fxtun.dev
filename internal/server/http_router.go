@@ -130,6 +130,10 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Generate trace ID for this request
+	traceID := generateShortID() + generateShortID() // 16 hex chars
+	req.Header.Set("X-Trace-Id", traceID)
+
 	// Open stream to client
 	stream, err := client.OpenStream()
 	if err != nil {
@@ -249,7 +253,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// --- Inspection: build and store exchange ---
 	if inspectBuf != nil {
-		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBuf.Bytes())
+		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, traceID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBuf.Bytes())
 		inspectBuf.Add(ex)
 		r.log.Debug().
 			Str("tunnel_id", tunnel.ID).
@@ -259,6 +263,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	r.log.Debug().
+		Str("trace_id", traceID).
 		Str("subdomain", subdomain).
 		Str("method", req.Method).
 		Str("path", req.URL.Path).
@@ -469,10 +474,11 @@ func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message s
 
 
 // buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
-func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
+func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
 	ex := &inspect.CapturedExchange{
 		ID:              generateID(),
 		TunnelID:        tunnelID,
+		TraceID:         traceID,
 		Timestamp:       startTime,
 		Duration:        time.Since(startTime),
 		Method:          req.Method,
@@ -493,6 +499,54 @@ func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID string, req *htt
 	}
 
 	return ex
+}
+
+// ReplayRequest sends an HTTP request through a tunnel and returns the response.
+// Used by the inspect replay feature.
+func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*http.Response, error) {
+	tunnel := r.GetTunnel(subdomain)
+	if tunnel == nil {
+		return nil, fmt.Errorf("tunnel not found for subdomain: %s", subdomain)
+	}
+
+	client := r.server.GetClient(tunnel.ClientID)
+	if client == nil {
+		return nil, fmt.Errorf("client not connected for tunnel: %s", tunnel.ID)
+	}
+
+	stream, err := client.OpenStream()
+	if err != nil {
+		return nil, fmt.Errorf("open stream: %w", err)
+	}
+	defer stream.Close()
+
+	// Send connection info
+	connID := generateID()
+	newConn := &protocol.NewConnectionMessage{
+		Message:      protocol.NewMessage(protocol.MsgNewConnection),
+		TunnelID:     tunnel.ID,
+		ConnectionID: connID,
+		RemoteAddr:   "replay",
+		Host:         req.Host,
+		Method:       req.Method,
+		Path:         req.URL.Path,
+	}
+	streamCodec := protocol.NewCodec(stream, stream)
+	if err := streamCodec.Encode(newConn); err != nil {
+		return nil, fmt.Errorf("send connection info: %w", err)
+	}
+
+	if err := req.Write(stream); err != nil {
+		return nil, fmt.Errorf("write request: %w", err)
+	}
+
+	streamReader := bufio.NewReader(stream)
+	resp, err := http.ReadResponse(streamReader, req)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	return resp, nil
 }
 
 // limitedWriter writes up to `remaining` bytes, then silently discards the rest.
