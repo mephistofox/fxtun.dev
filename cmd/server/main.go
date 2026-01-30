@@ -16,6 +16,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/server"
+	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
 
 var (
@@ -136,6 +137,13 @@ func run(cmd *cobra.Command, args []string) error {
 		srv.SetAuthService(authService)
 	}
 
+	// Initialize custom domains
+	if cfg.CustomDomains.Enabled && db != nil {
+		if err := srv.InitCustomDomains(); err != nil {
+			log.Error().Err(err).Msg("Failed to initialize custom domains")
+		}
+	}
+
 	// Start server
 	if err := srv.Start(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to start server")
@@ -151,7 +159,11 @@ func run(cmd *cobra.Command, args []string) error {
 	// Start API server if web panel is enabled
 	if cfg.Web.Enabled && authService != nil {
 		tunnelProvider := &serverAdapter{srv: srv}
-		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), log)
+		var cdm api.CustomDomainManager
+		if cfg.CustomDomains.Enabled {
+			cdm = &customDomainAdapter{srv: srv}
+		}
+		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log)
 		apiServer.SetVersion(Version)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -291,4 +303,21 @@ func (a *serverAdapter) GetAllTunnels() []api.TunnelInfo {
 
 func (a *serverAdapter) AdminCloseTunnel(tunnelID string) error {
 	return a.srv.AdminCloseTunnel(tunnelID)
+}
+
+// customDomainAdapter wraps *server.Server to implement api.CustomDomainManager
+type customDomainAdapter struct {
+	srv *server.Server
+}
+
+func (a *customDomainAdapter) AddCustomDomain(d *database.CustomDomain) {
+	a.srv.AddCustomDomain(d)
+}
+
+func (a *customDomainAdapter) RemoveCustomDomain(domain string) {
+	a.srv.RemoveCustomDomain(domain)
+}
+
+func (a *customDomainAdapter) CertManager() *fxtls.CertManager {
+	return a.srv.CertManager()
 }

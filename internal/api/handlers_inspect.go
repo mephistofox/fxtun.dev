@@ -152,6 +152,36 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleInspectStatus(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	tunnelID := chi.URLParam(r, "id")
+	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
+		s.respondError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
+	buf := s.getInspectBuffer(tunnelID)
+	if buf == nil {
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"enabled":     false,
+			"bufferSize":  0,
+			"subscribers": 0,
+		})
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"enabled":     true,
+		"bufferSize":  buf.Len(),
+		"subscribers": buf.SubscribersCount(),
+	})
+}
+
 func (s *Server) checkTunnelAccess(tunnelID string, user *auth.AuthenticatedUser) error {
 	if user.IsAdmin {
 		return nil

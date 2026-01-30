@@ -147,6 +147,7 @@
     "adminUsers": "Пользователи",
     "adminInvites": "Инвайты",
     "adminTunnels": "Туннели",
+    "adminCustomDomains": "Кастомные домены",
     "adminAudit": "Аудит"
   },
   "auth": {
@@ -197,6 +198,29 @@
     "failedToReserve": "Не удалось зарезервировать домен",
     "failedToRelease": "Не удалось освободить домен",
     "confirmRelease": "Вы уверены, что хотите освободить этот домен?"
+  },
+  "customDomains": {
+    "title": "Кастомные домены",
+    "subtitle": "Привяжите свои домены через CNAME",
+    "add": "Добавить домен",
+    "addTitle": "Добавить кастомный домен",
+    "domain": "Домен",
+    "domainPlaceholder": "myapp.example.com",
+    "targetSubdomain": "Целевой субдомен",
+    "cnameHint": "Создайте CNAME-запись, указывающую ваш домен на",
+    "verified": "Подтверждён",
+    "pending": "Ожидание",
+    "verify": "Проверить",
+    "verifying": "Проверка...",
+    "verifySuccess": "Домен подтверждён! TLS-сертификат будет получен в ближайшее время.",
+    "verifyFailed": "Проверка не пройдена",
+    "noDomains": "Нет кастомных доменов",
+    "noDomainsHint": "Добавьте свой домен и укажите его CNAME на ваш зарезервированный субдомен",
+    "failedToLoad": "Не удалось загрузить кастомные домены",
+    "failedToAdd": "Не удалось добавить кастомный домен",
+    "failedToDelete": "Не удалось удалить кастомный домен",
+    "confirmDelete": "Вы уверены, что хотите удалить этот кастомный домен?",
+    "delete": "Удалить"
   },
   "tokens": {
     "title": "API Токены",

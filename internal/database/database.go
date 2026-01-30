@@ -15,7 +15,9 @@ import (
 type Database struct {
 	db           *sql.DB
 	log          zerolog.Logger
-	Users        *UserRepository
+	CustomDomains *CustomDomainRepository
+	TLSCerts      *TLSCertRepository
+	Users         *UserRepository
 	Sessions     *SessionRepository
 	Tokens       *APITokenRepository
 	Domains      *DomainRepository
@@ -62,6 +64,8 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	}
 
 	// Initialize repositories
+	database.CustomDomains = NewCustomDomainRepository(db)
+	database.TLSCerts = NewTLSCertRepository(db)
 	database.Users = NewUserRepository(db)
 	database.Sessions = NewSessionRepository(db)
 	database.Tokens = NewAPITokenRepository(db)
@@ -104,6 +108,8 @@ func (d *Database) migrate() error {
 		migrationCreateUserSettings,
 		migrationAddAllowedIPs,
 		migrationAddTokenAndSessionIndexes,
+		migrationCreateCustomDomains,
+		migrationCreateTLSCertificates,
 	}
 
 	for i, migration := range migrations {
@@ -275,4 +281,31 @@ ALTER TABLE api_tokens ADD COLUMN allowed_ips TEXT DEFAULT '[]';
 const migrationAddTokenAndSessionIndexes = `
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token_hash ON sessions(refresh_token_hash);
+`
+
+const migrationCreateCustomDomains = `
+CREATE TABLE IF NOT EXISTS custom_domains (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	domain TEXT UNIQUE NOT NULL,
+	target_subdomain TEXT NOT NULL,
+	verified BOOLEAN DEFAULT FALSE,
+	verified_at TIMESTAMP,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_custom_domains_user ON custom_domains(user_id);
+CREATE INDEX IF NOT EXISTS idx_custom_domains_domain ON custom_domains(domain);
+`
+
+const migrationCreateTLSCertificates = `
+CREATE TABLE IF NOT EXISTS tls_certificates (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	domain TEXT UNIQUE NOT NULL,
+	cert_pem BLOB NOT NULL,
+	key_pem BLOB NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	issued_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 `

@@ -180,6 +180,38 @@ export const downloadsApi = {
   list: () => api.get<DownloadsResponse>('/downloads'),
 }
 
+// Custom domains
+export interface CustomDomain {
+  id: number
+  user_id: number
+  domain: string
+  target_subdomain: string
+  verified: boolean
+  verified_at?: string
+  created_at: string
+}
+
+export interface CustomDomainListResponse {
+  domains: CustomDomain[]
+  total: number
+  max_domains: number
+  base_domain: string
+}
+
+export interface VerifyResponse {
+  verified: boolean
+  error?: string
+  expected?: string
+}
+
+export const customDomainsApi = {
+  list: () => api.get<CustomDomainListResponse>('/custom-domains'),
+  add: (domain: string, target_subdomain: string) =>
+    api.post<CustomDomain>('/custom-domains', { domain, target_subdomain }),
+  delete: (id: number) => api.delete(`/custom-domains/${id}`),
+  verify: (id: number) => api.post<VerifyResponse>(`/custom-domains/${id}/verify`),
+}
+
 // Admin API types
 export interface AdminStats {
   active_clients: number
@@ -264,6 +296,13 @@ export const adminApi = {
   // Tunnels
   listTunnels: () => api.get<{ tunnels: AdminTunnel[]; total: number }>('/admin/tunnels'),
   closeTunnel: (id: string) => api.delete(`/admin/tunnels/${id}`),
+
+  // Custom domains
+  listCustomDomains: (page = 1, limit = 20) =>
+    api.get<{ domains: Array<CustomDomain & { user_phone: string; tls_expiry?: string }>; total: number }>('/admin/custom-domains', {
+      params: { page, limit },
+    }),
+  deleteCustomDomain: (id: number) => api.delete(`/admin/custom-domains/${id}`),
 }
 
 // Inspect API types
