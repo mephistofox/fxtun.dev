@@ -301,7 +301,7 @@ func (s *Server) serveWebUI() http.HandlerFunc {
 			r.URL.Path = "/"
 		} else {
 			stat, _ := f.Stat()
-			f.Close()
+			_ = f.Close()
 			if stat != nil && stat.IsDir() {
 				r.URL.Path = "/"
 			}

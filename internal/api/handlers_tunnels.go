@@ -81,7 +81,7 @@ func (s *Server) handleCloseTunnel(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit
 	ipAddress := auth.GetClientIP(r)
-	s.db.Audit.Log(&user.ID, database.ActionTunnelClosed, map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, database.ActionTunnelClosed, map[string]interface{}{
 		"tunnel_id": tunnelID,
 	}, ipAddress)
 

@@ -163,5 +163,7 @@ func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
 	data := struct{ BaseURL string }{
 		BaseURL: fmt.Sprintf("https://%s/api/downloads", domain),
 	}
-	installTmpl.Execute(w, data)
+	if err := installTmpl.Execute(w, data); err != nil {
+		s.log.Error().Err(err).Msg("failed to execute install script template")
+	}
 }
