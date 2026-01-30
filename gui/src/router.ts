@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/inspect/:tunnelId',
+    name: 'inspect',
+    component: () => import('./views/InspectView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/bundles',
     name: 'bundles',
     component: () => import('./views/BundlesView.vue'),
