@@ -18,8 +18,8 @@ var (
 )
 
 // dialLocalWithFallback connects to a local service with IPv4/IPv6 support.
-// On first call for a port, it races IPv4 and IPv6 in parallel to find
-// the working address as fast as possible, then caches the winner.
+// On first call for a port, it tries IPv4 first (most common), then falls back
+// to IPv6 with a short delay, caching the winner for instant subsequent connections.
 func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, timeout time.Duration) (net.Conn, error) {
 	portStr := strconv.Itoa(localPort)
 
@@ -30,6 +30,7 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 		}
+		tuneTCPConn(conn)
 		return conn, nil
 	}
 
@@ -41,6 +42,7 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 	if hasCached {
 		conn, err := net.DialTimeout("tcp", cached, timeout)
 		if err == nil {
+			tuneTCPConn(conn)
 			return conn, nil
 		}
 		// Cache stale — clear and re-probe
@@ -50,7 +52,8 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 		log.Debug().Str("addr", cached).Msg("Cached address failed, re-probing")
 	}
 
-	// Race IPv4 and IPv6 in parallel — first one wins
+	// Happy Eyeballs style: try IPv4 first, start IPv6 after short delay.
+	// Most local services listen on 127.0.0.1, so IPv4 wins almost always.
 	ipv4Addr := net.JoinHostPort("127.0.0.1", portStr)
 	ipv6Addr := net.JoinHostPort("::1", portStr)
 
@@ -62,13 +65,19 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 
 	results := make(chan dialResult, 2)
 
+	// Start IPv4 immediately
 	go func() {
 		conn, err := net.DialTimeout("tcp", ipv4Addr, timeout)
 		results <- dialResult{conn, ipv4Addr, err}
 	}()
+
+	// Start IPv6 after 50ms delay (Happy Eyeballs), unless IPv4 already won
 	go func() {
-		conn, err := net.DialTimeout("tcp", ipv6Addr, timeout)
-		results <- dialResult{conn, ipv6Addr, err}
+		select {
+		case <-time.After(50 * time.Millisecond):
+			conn, err := net.DialTimeout("tcp", ipv6Addr, timeout)
+			results <- dialResult{conn, ipv6Addr, err}
+		}
 	}()
 
 	var firstErr error
@@ -95,6 +104,7 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 					}
 				}()
 			}
+			tuneTCPConn(r.conn)
 			return r.conn, nil
 		}
 		if firstErr == nil {
@@ -104,6 +114,7 @@ func dialLocalWithFallback(log zerolog.Logger, localAddr string, localPort int, 
 
 	return nil, fmt.Errorf("failed to connect to local service on port %d: %v", localPort, firstErr)
 }
+
 
 // ProbeLocalAddress probes a local port to determine the correct address
 // (IPv4 or IPv6) and caches it. Call this when a tunnel is created

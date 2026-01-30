@@ -110,6 +110,8 @@ func (m *TCPManager) AcceptConnections(tunnel *Tunnel, client *Client) {
 func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Client) {
 	defer conn.Close()
 
+	tuneTCPConn(conn)
+
 	// Open stream to client
 	stream, err := client.OpenStream()
 	if err != nil {
@@ -133,16 +135,20 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 		return
 	}
 
-	// Bidirectional copy
+	// Bidirectional copy with large buffers
 	done := make(chan struct{}, 2)
 
 	go func() {
-		io.Copy(stream, conn)
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(stream, conn, buf)
+		proxyBufPool.Put(buf)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(conn, stream)
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(conn, stream, buf)
+		proxyBufPool.Put(buf)
 		done <- struct{}{}
 	}()
 
