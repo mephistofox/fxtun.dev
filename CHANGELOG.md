@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.1](https://github.com/mephistofox/fxTunnel/compare/v1.11.0...v1.11.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* **gui:** add typed wails bindings for InspectService ([8f1d726](https://github.com/mephistofox/fxTunnel/commit/8f1d726e57baef53ff1cb624e4711caaa5921c86))
+* **gui:** correct wails import paths and add InspectService bindings ([acfc949](https://github.com/mephistofox/fxTunnel/commit/acfc949969de6cc6cef5f153b4a4b9a6d1417ee3))
+* **web:** use correct localStorage key for SSE auth token ([4fa1a80](https://github.com/mephistofox/fxTunnel/commit/4fa1a80c7a68e1d5895692b44d4685a208c5ba6f))
+
 ## [1.11.0](https://github.com/mephistofox/fxTunnel/compare/v1.10.2...v1.11.0) (2026-01-30)
 
 
