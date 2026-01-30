@@ -112,6 +112,10 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, "new password must be at least 8 characters")
 		return
 	}
+	if len(req.NewPassword) > 128 {
+		s.respondError(w, http.StatusBadRequest, "new password must be at most 128 characters")
+		return
+	}
 
 	ipAddress := auth.GetClientIP(r)
 
