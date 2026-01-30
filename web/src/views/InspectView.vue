@@ -111,7 +111,7 @@ async function clearExchanges() {
 }
 
 function connectSSE() {
-  const token = localStorage.getItem('access_token')
+  const token = localStorage.getItem('accessToken')
   const url = `/api/tunnels/${tunnelId.value}/inspect/stream${token ? `?token=${token}` : ''}`
   eventSource = new EventSource(url)
 
