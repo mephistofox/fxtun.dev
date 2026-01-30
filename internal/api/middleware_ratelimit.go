@@ -8,29 +8,46 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type limiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
 type ipRateLimiter struct {
 	limiters sync.Map
 	rate     rate.Limit
 	burst    int
+	ttl      time.Duration
 }
 
 func newIPRateLimiter(perMinute int) *ipRateLimiter {
 	return &ipRateLimiter{
 		rate:  rate.Limit(float64(perMinute) / 60.0),
 		burst: perMinute,
+		ttl:   10 * time.Minute,
 	}
 }
 
 func (rl *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
+	now := time.Now()
 	if v, ok := rl.limiters.Load(ip); ok {
-		return v.(*rate.Limiter)
+		entry := v.(*limiterEntry)
+		entry.lastSeen = now
+		return entry.limiter
 	}
-	limiter := rate.NewLimiter(rl.rate, rl.burst)
-	rl.limiters.Store(ip, limiter)
-	return limiter
+	entry := &limiterEntry{
+		limiter:  rate.NewLimiter(rl.rate, rl.burst),
+		lastSeen: now,
+	}
+	if actual, loaded := rl.limiters.LoadOrStore(ip, entry); loaded {
+		entry = actual.(*limiterEntry)
+		entry.lastSeen = now
+		return entry.limiter
+	}
+	return entry.limiter
 }
 
-// cleanup removes stale limiters periodically
+// cleanup removes stale limiters periodically based on TTL
 func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -40,9 +57,10 @@ func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration)
 			case <-stopCh:
 				return
 			case <-ticker.C:
+				now := time.Now()
 				rl.limiters.Range(func(key, value any) bool {
-					limiter := value.(*rate.Limiter)
-					if limiter.Tokens() >= float64(rl.burst)-0.1 {
+					entry := value.(*limiterEntry)
+					if now.Sub(entry.lastSeen) > rl.ttl {
 						rl.limiters.Delete(key)
 					}
 					return true

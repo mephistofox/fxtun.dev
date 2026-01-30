@@ -365,27 +365,6 @@ func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message s
 	w.Write(buf.Bytes())
 }
 
-// limitedWriter writes up to `remaining` bytes, then silently discards.
-type limitedWriter struct {
-	w         io.Writer
-	remaining int
-}
-
-func (lw *limitedWriter) Write(p []byte) (int, error) {
-	if lw.remaining <= 0 {
-		return len(p), nil
-	}
-	n := len(p)
-	if n > lw.remaining {
-		n = lw.remaining
-	}
-	written, err := lw.w.Write(p[:n])
-	lw.remaining -= written
-	if err != nil {
-		return written, err
-	}
-	return len(p), nil
-}
 
 // buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
 func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
