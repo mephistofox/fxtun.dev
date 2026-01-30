@@ -110,10 +110,7 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 		&lastLoginAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("get user by id: %w", err)
+		return nil, notFoundOrError(err, ErrUserNotFound, "get user by id")
 	}
 
 	if lastLoginAt.Valid {
@@ -144,10 +141,7 @@ func (r *UserRepository) GetByPhone(phone string) (*User, error) {
 		&lastLoginAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("get user by phone: %w", err)
+		return nil, notFoundOrError(err, ErrUserNotFound, "get user by phone")
 	}
 
 	if lastLoginAt.Valid {

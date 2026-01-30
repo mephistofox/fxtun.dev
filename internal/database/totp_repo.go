@@ -76,10 +76,7 @@ func (r *TOTPRepository) GetByUserID(userID int64) (*TOTPSecret, error) {
 		&totp.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrTOTPNotFound
-		}
-		return nil, fmt.Errorf("get totp secret by user id: %w", err)
+		return nil, notFoundOrError(err, ErrTOTPNotFound, "get totp secret by user id")
 	}
 
 	if backupCodes.Valid && backupCodes.String != "" {
