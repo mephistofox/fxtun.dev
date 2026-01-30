@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0](https://github.com/mephistofox/fxTunnel/compare/v1.10.2...v1.11.0) (2026-01-30)
+
+
+### Features
+
+* **api:** add inspect handlers (list, detail, clear, SSE stream) ([efa4863](https://github.com/mephistofox/fxTunnel/commit/efa4863d2b7149cd3e25c8ba4681813d313f8fbe))
+* **api:** add InspectProvider interface and inspect routes ([ce27c99](https://github.com/mephistofox/fxTunnel/commit/ce27c9959c655731326207b6d60ad46144195d83))
+* **config:** add inspect settings ([a611bb1](https://github.com/mephistofox/fxTunnel/commit/a611bb1498b2f428e84153844624f133f76cd179))
+* **gui:** add traffic inspection view with SSE streaming ([da2a494](https://github.com/mephistofox/fxTunnel/commit/da2a4945a1051464a02ac28c71b6dfb0e497cd15))
+* **inspect:** add CapturedExchange data model ([a6bb61b](https://github.com/mephistofox/fxTunnel/commit/a6bb61ba042d1a71d7676cf0ec7d0dd474d2f36d))
+* **inspect:** add Manager for per-tunnel buffers ([b577e7e](https://github.com/mephistofox/fxTunnel/commit/b577e7eccc881f06ed833fc44fb0af948833cb3d))
+* **inspect:** add RingBuffer with fan-out subscriptions ([5a56185](https://github.com/mephistofox/fxTunnel/commit/5a56185f495b56af15ce86b1d84c4eb08461b0ca))
+* **inspect:** capture HTTP traffic in HandleConnection ([5023c3b](https://github.com/mephistofox/fxTunnel/commit/5023c3bc2cb5f86ea8596dcef70edc77b624f1fc))
+* **server:** integrate InspectManager into server lifecycle ([45193c8](https://github.com/mephistofox/fxTunnel/commit/45193c84289a1a189f66cf702c7aaadf03535f9e))
+* **server:** wire InspectManager into API server ([83ef74f](https://github.com/mephistofox/fxTunnel/commit/83ef74fa110fd8015f24600f0249105be14c33f7))
+* **web:** add traffic inspection UI with real-time SSE ([dffe5c2](https://github.com/mephistofox/fxTunnel/commit/dffe5c24085f6aec6b27e2ece6aadf6bc7cd1615))
+
 ## [1.10.2](https://github.com/mephistofox/fxTunnel/compare/v1.10.1...v1.10.2) (2026-01-30)
 
 
