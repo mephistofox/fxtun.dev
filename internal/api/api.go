@@ -17,6 +17,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/web"
 )
 
@@ -51,13 +52,20 @@ type TunnelProvider interface {
 	AdminCloseTunnel(tunnelID string) error
 }
 
+// InspectProvider provides access to traffic inspection buffers.
+type InspectProvider interface {
+	Get(tunnelID string) *inspect.RingBuffer
+	Enabled() bool
+}
+
 // Server represents the API server
 type Server struct {
-	cfg            *config.ServerConfig
-	db             *database.Database
-	authService    *auth.Service
-	tunnelProvider TunnelProvider
-	router         chi.Router
+	cfg             *config.ServerConfig
+	db              *database.Database
+	authService     *auth.Service
+	tunnelProvider  TunnelProvider
+	inspectProvider InspectProvider
+	router          chi.Router
 	httpServer     *http.Server
 	log            zerolog.Logger
 	baseDomain     string
@@ -67,12 +75,13 @@ type Server struct {
 }
 
 // New creates a new API server
-func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, log zerolog.Logger) *Server {
+func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, log zerolog.Logger) *Server {
 	s := &Server{
-		cfg:            cfg,
-		db:             db,
-		authService:    authService,
-		tunnelProvider: tunnelProvider,
+		cfg:             cfg,
+		db:              db,
+		authService:     authService,
+		tunnelProvider:  tunnelProvider,
+		inspectProvider: inspectProvider,
 		log:            log.With().Str("component", "api").Logger(),
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
@@ -151,6 +160,12 @@ func (s *Server) setupRoutes() {
 			r.Get("/{platform}", s.handleDownload)
 		})
 
+		// SSE inspect stream (separate auth to support ?token= for EventSource)
+		r.Route("/tunnels/{id}/inspect/stream", func(r chi.Router) {
+			r.Use(s.queryTokenAuthMiddleware)
+			r.Get("/", s.handleInspectStream)
+		})
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(auth.MiddlewareWithDB(s.authService, s.db))
@@ -191,6 +206,9 @@ func (s *Server) setupRoutes() {
 			r.Route("/tunnels", func(r chi.Router) {
 				r.Get("/", s.handleListTunnels)
 				r.Delete("/{id}", s.handleCloseTunnel)
+				r.Get("/{id}/inspect", s.handleListExchanges)
+				r.Get("/{id}/inspect/{exchangeId}", s.handleGetExchange)
+				r.Delete("/{id}/inspect", s.handleClearExchanges)
 			})
 
 			// Sync
@@ -229,6 +247,18 @@ func (s *Server) setupRoutes() {
 	r.Get("/*", s.serveWebUI())
 
 	s.router = r
+}
+
+func (s *Server) queryTokenAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "" {
+			if token := r.URL.Query().Get("token"); token != "" {
+				r.Header.Set("Authorization", "Bearer "+token)
+			}
+		}
+		// Use the same auth middleware
+		auth.MiddlewareWithDB(s.authService, s.db)(next).ServeHTTP(w, r)
+	})
 }
 
 // serveWebUI returns a handler that serves the embedded web UI with SPA support
