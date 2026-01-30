@@ -158,6 +158,12 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req.Header.Set("X-Forwarded-Proto", "http")
 	req.Header.Set("X-Forwarded-Host", req.Host)
 
+	// WebSocket / HTTP Upgrade: hijack and do bidirectional proxy
+	if isUpgradeRequest(req) {
+		r.serveUpgrade(w, req, stream)
+		return
+	}
+
 	// --- Inspection: capture request body ---
 	inspectBuf := r.server.inspectMgr.Get(tunnel.ID)
 	startTime := time.Now()
@@ -236,6 +242,81 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		Str("path", req.URL.Path).
 		Int("status", resp.StatusCode).
 		Msg("HTTP request completed")
+}
+
+// isUpgradeRequest returns true if the request is a WebSocket or other HTTP upgrade.
+func isUpgradeRequest(req *http.Request) bool {
+	return strings.EqualFold(req.Header.Get("Connection"), "Upgrade") ||
+		strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade")
+}
+
+// serveUpgrade hijacks the connection and performs bidirectional proxying
+// for WebSocket and other HTTP upgrade protocols.
+func (r *HTTPRouter) serveUpgrade(w http.ResponseWriter, req *http.Request, stream net.Conn) {
+	hj, ok := w.(http.Hijacker)
+	if !ok {
+		r.log.Error().Msg("ResponseWriter does not support hijacking for upgrade")
+		r.serveErrorPage(w, http.StatusInternalServerError, "Upgrade not supported")
+		return
+	}
+
+	// Write the HTTP request to the tunnel stream
+	if err := req.Write(stream); err != nil {
+		r.log.Error().Err(err).Msg("Failed to write upgrade request to stream")
+		r.serveErrorPage(w, http.StatusBadGateway, "Failed to proxy upgrade request")
+		return
+	}
+
+	// Hijack the client connection
+	clientConn, clientBuf, err := hj.Hijack()
+	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to hijack connection for upgrade")
+		return
+	}
+	defer clientConn.Close()
+
+	r.log.Debug().
+		Str("upgrade", req.Header.Get("Upgrade")).
+		Str("path", req.URL.Path).
+		Msg("WebSocket/Upgrade connection established")
+
+	// Bidirectional copy between hijacked client conn and tunnel stream
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// stream → client (tunnel response back to browser)
+	go func() {
+		defer wg.Done()
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(clientConn, stream, *bp)
+		proxyBufPool.Put(bp)
+		// Close write side to signal EOF
+		if tc, ok := clientConn.(*net.TCPConn); ok {
+			tc.CloseWrite()
+		}
+	}()
+
+	// client → stream (flush any buffered data, then copy)
+	go func() {
+		defer wg.Done()
+		// Flush any data already buffered by the http server
+		if clientBuf.Reader.Buffered() > 0 {
+			buffered := make([]byte, clientBuf.Reader.Buffered())
+			n, _ := clientBuf.Read(buffered)
+			if n > 0 {
+				stream.Write(buffered[:n])
+			}
+		}
+		bp := proxyBufPool.Get().(*[]byte)
+		io.CopyBuffer(stream, clientConn, *bp)
+		proxyBufPool.Put(bp)
+		// Close write side to signal EOF
+		if cs, ok := stream.(interface{ CloseWrite() error }); ok {
+			cs.CloseWrite()
+		}
+	}()
+
+	wg.Wait()
 }
 
 // extractSubdomain extracts the subdomain from the host
