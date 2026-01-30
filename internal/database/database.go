@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
@@ -48,8 +47,10 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	// Set connection pool settings
-	db.SetMaxOpenConns(1) // SQLite doesn't support concurrent writes
+	// SQLite only supports a single writer at a time. Allowing multiple open
+	// connections would cause concurrent writes to fail with "database is locked"
+	// errors, so we limit the pool to one connection.
+	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
 	database := &Database{
@@ -92,8 +93,17 @@ func (d *Database) DB() *sql.DB {
 	return d.db
 }
 
-// migrate runs all database migrations
+// migrate runs all database migrations with version tracking
 func (d *Database) migrate() error {
+	// Create schema_migrations table
+	_, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version INTEGER PRIMARY KEY,
+		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
+
 	migrations := []string{
 		migrationCreateUsers,
 		migrationCreateInviteCodes,
@@ -112,14 +122,42 @@ func (d *Database) migrate() error {
 		migrationCreateTLSCertificates,
 	}
 
-	for i, migration := range migrations {
-		if _, err := d.db.Exec(migration); err != nil {
-			// Ignore "duplicate column" errors from ALTER TABLE migrations
-			if strings.Contains(err.Error(), "duplicate column") {
-				d.log.Debug().Int("migration", i+1).Msg("Migration already applied, skipping")
-				continue
+	// Bootstrap: if users table exists but schema_migrations is empty,
+	// mark all existing migrations as applied (upgrade from pre-tracking database)
+	var tableCount int
+	_ = d.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'").Scan(&tableCount)
+	if tableCount > 0 {
+		var migrationCount int
+		_ = d.db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrationCount)
+		if migrationCount == 0 {
+			for i := range migrations {
+				_, _ = d.db.Exec("INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)", i+1)
 			}
-			return fmt.Errorf("migration %d failed: %w", i+1, err)
+			d.log.Debug().Msg("Bootstrapped migration tracking for existing database")
+			return nil
+		}
+	}
+
+	for i, migration := range migrations {
+		version := i + 1
+
+		// Check if already applied
+		var count int
+		if err := d.db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count); err != nil {
+			return fmt.Errorf("check migration %d: %w", version, err)
+		}
+		if count > 0 {
+			continue
+		}
+
+		// Apply migration
+		if _, err := d.db.Exec(migration); err != nil {
+			return fmt.Errorf("migration %d failed: %w", version, err)
+		}
+
+		// Record version
+		if _, err := d.db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
+			return fmt.Errorf("record migration %d: %w", version, err)
 		}
 	}
 
