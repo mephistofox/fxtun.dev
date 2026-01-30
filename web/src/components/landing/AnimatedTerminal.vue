@@ -8,7 +8,7 @@ interface TerminalLine {
 }
 
 const lines: TerminalLine[] = [
-  { type: 'command', text: 'fxtunnel http 3000 --subdomain myapp', delay: 50 },
+  { type: 'command', text: 'fxtunnel http 3000 --domain myapp', delay: 50 },
   { type: 'info', text: 'Connecting to fxtunnel server...', delay: 800 },
   { type: 'success', text: 'Tunnel established!', delay: 600 },
   { type: 'output', text: '', delay: 100 },

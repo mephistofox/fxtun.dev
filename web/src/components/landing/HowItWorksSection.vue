@@ -24,7 +24,7 @@ const steps = [
     icon: 'rocket',
     titleKey: 'landing.howItWorks.step3.title',
     descKey: 'landing.howItWorks.step3.desc',
-    code: 'fxtunnel http 3000 --subdomain myapp',
+    code: 'fxtunnel http 3000 --domain myapp',
   },
 ]
 
