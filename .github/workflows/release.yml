@@ -229,7 +229,7 @@ jobs:
 
       - name: Build server
         env:
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
         run: |
           go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o fxtunnel-server-linux-amd64 ./cmd/server
