@@ -28,9 +28,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=go-builder /fxtunnel-server /usr/local/bin/fxtunnel-server
 
 RUN mkdir -p /data /etc/fxtunnel
+
+RUN groupadd -r fxtunnel && useradd -r -g fxtunnel fxtunnel && chown -R fxtunnel:fxtunnel /data /etc/fxtunnel
+USER fxtunnel
+
 VOLUME ["/data"]
 
 EXPOSE 4443 8080 8081
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/usr/local/bin/fxtunnel-server", "--version"]
 
 ENTRYPOINT ["fxtunnel-server"]
 CMD ["--config", "/etc/fxtunnel/server.yaml"]
