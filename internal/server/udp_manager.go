@@ -100,6 +100,8 @@ func (m *UDPManager) ReleasePort(port int) {
 
 // HandlePackets handles incoming UDP packets for a tunnel
 func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
+	m.server.activeConns.Add(1)
+	defer m.server.activeConns.Done()
 	defer func() {
 		m.ReleasePort(tunnel.RemotePort)
 		if tunnel.udpConn != nil {

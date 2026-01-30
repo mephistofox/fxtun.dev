@@ -27,7 +27,8 @@ var (
 	errorTmpl        = template.Must(template.ParseFS(templateFS, "templates/error.html"))
 )
 
-// HTTPRouter routes HTTP requests to the appropriate tunnel
+// HTTPRouter routes HTTP requests to the appropriate tunnel.
+// It implements http.Handler for use with net/http.Server.
 type HTTPRouter struct {
 	server  *Server
 	log     zerolog.Logger
@@ -79,31 +80,17 @@ func (r *HTTPRouter) GetTunnel(subdomain string) *Tunnel {
 	return r.tunnels[subdomain]
 }
 
-// HandleConnection handles an incoming HTTP connection
-func (r *HTTPRouter) HandleConnection(conn net.Conn) {
-	defer conn.Close()
-
-	tuneTCPConn(conn)
-
-	// Set initial read deadline for parsing request
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-
-	// Read the HTTP request to extract Host header
-	reader := bufio.NewReader(conn)
-	req, err := http.ReadRequest(reader)
-	if err != nil {
-		r.log.Debug().Err(err).Msg("Failed to read HTTP request")
-		r.sendErrorResponse(conn, http.StatusBadRequest, "Bad Request")
-		return
-	}
-
-	conn.SetReadDeadline(time.Time{}) // Clear deadline
+// ServeHTTP implements http.Handler. Go's net/http.Server handles HTTP/1.1
+// keep-alive automatically when using this interface.
+func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.server.activeConns.Add(1)
+	defer r.server.activeConns.Done()
 
 	// Extract subdomain from Host header
 	subdomain := r.extractSubdomain(req.Host)
 	if subdomain == "" {
 		r.log.Debug().Str("host", req.Host).Msg("No subdomain in request")
-		r.sendErrorResponse(conn, http.StatusNotFound, "Tunnel not found")
+		r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")
 		return
 	}
 
@@ -111,7 +98,7 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	tunnel := r.GetTunnel(subdomain)
 	if tunnel == nil {
 		r.log.Debug().Str("subdomain", subdomain).Msg("Tunnel not found")
-		r.sendErrorResponse(conn, http.StatusNotFound, "Tunnel not found")
+		r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")
 		return
 	}
 
@@ -119,13 +106,13 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	client := r.server.GetClient(tunnel.ClientID)
 	if client == nil {
 		r.log.Warn().Str("client_id", tunnel.ClientID).Msg("Client not found for tunnel")
-		r.sendErrorResponse(conn, http.StatusBadGateway, "Tunnel unavailable")
+		r.serveErrorPage(w, http.StatusBadGateway, "Tunnel unavailable")
 		return
 	}
 
 	// Check for interstitial warning (skip for admin tunnels)
 	if !client.IsAdmin && r.shouldShowInterstitial(req, subdomain) {
-		r.sendInterstitialResponse(conn, req, subdomain)
+		r.serveInterstitialPage(w, req, subdomain)
 		return
 	}
 
@@ -133,18 +120,19 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	stream, err := client.OpenStream()
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to open stream to client")
-		r.sendErrorResponse(conn, http.StatusBadGateway, "Failed to connect to tunnel")
+		r.serveErrorPage(w, http.StatusBadGateway, "Failed to connect to tunnel")
 		return
 	}
 	defer stream.Close()
 
 	// Notify client about new connection
 	connID := generateID()
+	remoteAddr := req.RemoteAddr
 	newConn := &protocol.NewConnectionMessage{
 		Message:      protocol.NewMessage(protocol.MsgNewConnection),
 		TunnelID:     tunnel.ID,
 		ConnectionID: connID,
-		RemoteAddr:   conn.RemoteAddr().String(),
+		RemoteAddr:   remoteAddr,
 		Host:         req.Host,
 		Method:       req.Method,
 		Path:         req.URL.Path,
@@ -154,12 +142,12 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	streamCodec := protocol.NewCodec(stream, stream)
 	if err := streamCodec.Encode(newConn); err != nil {
 		r.log.Error().Err(err).Msg("Failed to send connection info")
-		r.sendErrorResponse(conn, http.StatusBadGateway, "Failed to connect to tunnel")
+		r.serveErrorPage(w, http.StatusBadGateway, "Failed to connect to tunnel")
 		return
 	}
 
 	// Add forwarding headers
-	clientIP := conn.RemoteAddr().String()
+	clientIP := remoteAddr
 	if host, _, err := net.SplitHostPort(clientIP); err == nil {
 		clientIP = host
 	}
@@ -181,58 +169,65 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		req.Body = io.NopCloser(bytes.NewReader(capturedReqBody))
 	}
 
-	// Write the original request to the stream
+	// Write the HTTP request to the stream
 	if err := req.Write(stream); err != nil {
 		r.log.Error().Err(err).Msg("Failed to write request to stream")
+		r.serveErrorPage(w, http.StatusBadGateway, "Failed to proxy request")
 		return
 	}
 
-	// Also write any buffered data from the reader
-	if reader.Buffered() > 0 {
-		buffered := make([]byte, reader.Buffered())
-		n, _ := reader.Read(buffered)
-		if n > 0 {
-			stream.Write(buffered[:n])
-		}
+	// Read response from stream
+	streamReader := bufio.NewReader(stream)
+	resp, err := http.ReadResponse(streamReader, req)
+	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to read response from tunnel")
+		r.serveErrorPage(w, http.StatusBadGateway, "Failed to read tunnel response")
+		return
+	}
+	defer resp.Body.Close()
+
+	// --- Inspection: capture response ---
+	var capturedRespBody []byte
+	if inspectBuf != nil {
+		maxBody := r.server.inspectMgr.MaxBodySize()
+		capturedRespBody, _ = io.ReadAll(io.LimitReader(resp.Body, int64(maxBody)))
+		// Re-wrap body so we can still copy it to the client
+		resp.Body = io.NopCloser(bytes.NewReader(capturedRespBody))
 	}
 
-	// --- Bidirectional copy with optional response capture ---
-	var capturedRespBuf bytes.Buffer
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Copy response headers to ResponseWriter
+	for key, values := range resp.Header {
+		for _, v := range values {
+			w.Header().Add(key, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
 
-	go func() {
-		defer wg.Done()
+	// Copy response body, using Flusher for streaming
+	if flusher, ok := w.(http.Flusher); ok {
+		buf := proxyBufPool.Get().(*[]byte)
+		defer proxyBufPool.Put(buf)
+		for {
+			n, readErr := resp.Body.Read(*buf)
+			if n > 0 {
+				if _, writeErr := w.Write((*buf)[:n]); writeErr != nil {
+					break
+				}
+				flusher.Flush()
+			}
+			if readErr != nil {
+				break
+			}
+		}
+	} else {
 		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(stream, conn, *bp)
+		io.CopyBuffer(w, resp.Body, *bp)
 		proxyBufPool.Put(bp)
-		// Signal EOF to the client by closing write side
-		if tcpConn, ok := stream.(interface{ CloseWrite() error }); ok {
-			tcpConn.CloseWrite()
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		if inspectBuf != nil {
-			maxCapture := r.server.inspectMgr.MaxBodySize() + 8192
-			lw := &limitedWriter{w: &capturedRespBuf, remaining: maxCapture}
-			tee := io.TeeReader(stream, lw)
-			bp := proxyBufPool.Get().(*[]byte)
-			io.CopyBuffer(conn, tee, *bp)
-			proxyBufPool.Put(bp)
-		} else {
-			bp := proxyBufPool.Get().(*[]byte)
-			io.CopyBuffer(conn, stream, *bp)
-			proxyBufPool.Put(bp)
-		}
-	}()
-
-	wg.Wait()
+	}
 
 	// --- Inspection: build and store exchange ---
 	if inspectBuf != nil {
-		ex := r.buildCapturedExchange(tunnel.ID, req, startTime, capturedReqBody, conn.RemoteAddr().String(), &capturedRespBuf)
+		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBody)
 		inspectBuf.Add(ex)
 	}
 
@@ -240,6 +235,7 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		Str("subdomain", subdomain).
 		Str("method", req.Method).
 		Str("path", req.URL.Path).
+		Int("status", resp.StatusCode).
 		Msg("HTTP request completed")
 }
 
@@ -327,8 +323,8 @@ type interstitialData struct {
 	Lang, Title, Host, Text, Subdomain, Button string
 }
 
-// sendInterstitialResponse sends the interstitial warning page
-func (r *HTTPRouter) sendInterstitialResponse(conn net.Conn, req *http.Request, subdomain string) {
+// serveInterstitialPage serves the interstitial warning page via http.ResponseWriter
+func (r *HTTPRouter) serveInterstitialPage(w http.ResponseWriter, req *http.Request, subdomain string) {
 	lang := detectLanguage(req)
 	texts := interstitialLocales[lang]
 
@@ -341,17 +337,11 @@ func (r *HTTPRouter) sendInterstitialResponse(conn net.Conn, req *http.Request, 
 		Subdomain: subdomain,
 		Button:    texts.Button,
 	})
-	body := buf.Bytes()
 
-	response := fmt.Sprintf("HTTP/1.1 200 OK\r\n"+
-		"Content-Type: text/html; charset=utf-8\r\n"+
-		"Content-Length: %d\r\n"+
-		"Cache-Control: no-store\r\n"+
-		"Connection: close\r\n"+
-		"\r\n", len(body))
-
-	conn.Write([]byte(response))
-	conn.Write(body)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Write(buf.Bytes())
 }
 
 // errorData holds template data for the error page
@@ -359,6 +349,20 @@ type errorData struct {
 	StatusCode int
 	StatusText string
 	Message    string
+}
+
+// serveErrorPage serves an error page via http.ResponseWriter
+func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message string) {
+	var buf bytes.Buffer
+	errorTmpl.Execute(&buf, errorData{
+		StatusCode: status,
+		StatusText: http.StatusText(status),
+		Message:    message,
+	})
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write(buf.Bytes())
 }
 
 // limitedWriter writes up to `remaining` bytes, then silently discards.
@@ -383,8 +387,8 @@ func (lw *limitedWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// buildCapturedExchange constructs a CapturedExchange from captured data.
-func (r *HTTPRouter) buildCapturedExchange(tunnelID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, respBuf *bytes.Buffer) *inspect.CapturedExchange {
+// buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
+func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
 	ex := &inspect.CapturedExchange{
 		ID:              generateID(),
 		TunnelID:        tunnelID,
@@ -397,45 +401,15 @@ func (r *HTTPRouter) buildCapturedExchange(tunnelID string, req *http.Request, s
 		RequestBody:     reqBody,
 		RequestBodySize: int64(len(reqBody)),
 		RemoteAddr:      remoteAddr,
+		StatusCode:      resp.StatusCode,
+		ResponseHeaders: resp.Header.Clone(),
+		ResponseBody:    respBody,
+		ResponseBodySize: int64(len(respBody)),
 	}
 
-	// Parse response from captured bytes
-	if respBuf.Len() > 0 {
-		resp, err := http.ReadResponse(bufio.NewReader(respBuf), req)
-		if err == nil {
-			defer resp.Body.Close()
-			ex.StatusCode = resp.StatusCode
-			ex.ResponseHeaders = resp.Header.Clone()
-			maxBody := r.server.inspectMgr.MaxBodySize()
-			body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(maxBody)))
-			ex.ResponseBody = body
-			ex.ResponseBodySize = int64(len(body))
-			if resp.ContentLength > int64(len(body)) {
-				ex.ResponseBodySize = resp.ContentLength
-			}
-		}
+	if resp.ContentLength > int64(len(respBody)) {
+		ex.ResponseBodySize = resp.ContentLength
 	}
 
 	return ex
 }
-
-// sendErrorResponse sends an HTTP error response
-func (r *HTTPRouter) sendErrorResponse(conn net.Conn, status int, message string) {
-	var buf bytes.Buffer
-	errorTmpl.Execute(&buf, errorData{
-		StatusCode: status,
-		StatusText: http.StatusText(status),
-		Message:    message,
-	})
-	body := buf.Bytes()
-
-	response := fmt.Sprintf("HTTP/1.1 %d %s\r\n"+
-		"Content-Type: text/html; charset=utf-8\r\n"+
-		"Content-Length: %d\r\n"+
-		"Connection: close\r\n"+
-		"\r\n", status, http.StatusText(status), len(body))
-
-	conn.Write([]byte(response))
-	conn.Write(body)
-}
-

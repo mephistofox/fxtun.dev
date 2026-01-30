@@ -41,26 +41,26 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	srv.httpListener = httpLn
 	srv.httpRouter = NewHTTPRouter(srv, srv.log)
 
-	// Accept HTTP connections in background
-	go func() {
-		for {
-			conn, err := httpLn.Accept()
-			if err != nil {
-				return
-			}
-			go srv.httpRouter.HandleConnection(conn)
-		}
-	}()
+	// Serve HTTP via http.Server (supports keep-alive)
+	httpServer := &http.Server{Handler: srv.httpRouter}
+	srv.httpServer = httpServer
+	go httpServer.Serve(httpLn)
 
 	// --- Yamux client session via net.Pipe ---
 	clientConn, serverConn := net.Pipe()
 	srv.wg.Add(1)
 	go srv.handleControlConnection(serverConn)
 
+	// Compression handshake (client side, no compression in benchmarks)
+	rwc, _, err := protocol.NegotiateCompression(clientConn, false, false)
+	if err != nil {
+		b.Fatalf("NegotiateCompression: %v", err)
+	}
+
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = false
 	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024
-	session, err := yamux.Client(clientConn, yamuxCfg)
+	session, err := yamux.Client(rwc, yamuxCfg)
 	if err != nil {
 		b.Fatalf("yamux.Client: %v", err)
 	}

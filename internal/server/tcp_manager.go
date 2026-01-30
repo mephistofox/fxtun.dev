@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -91,6 +92,9 @@ func (m *TCPManager) AcceptConnections(tunnel *Tunnel, client *Client) {
 		}
 	}()
 
+	const maxTempErrors = 10
+	tempErrors := 0
+
 	for {
 		conn, err := tunnel.listener.Accept()
 		if err != nil {
@@ -98,16 +102,32 @@ func (m *TCPManager) AcceptConnections(tunnel *Tunnel, client *Client) {
 			case <-client.ctx.Done():
 				return
 			default:
-				m.log.Debug().Err(err).Int("port", tunnel.RemotePort).Msg("Accept failed")
-				return
 			}
+
+			// Check for temporary errors (e.g. EMFILE, ENFILE)
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				tempErrors++
+				m.log.Warn().Err(err).Int("port", tunnel.RemotePort).Int("consecutive_temp_errors", tempErrors).Msg("Temporary accept error, retrying")
+				if tempErrors >= maxTempErrors {
+					m.log.Error().Int("port", tunnel.RemotePort).Msg("Too many consecutive temporary accept errors, stopping")
+					return
+				}
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			m.log.Debug().Err(err).Int("port", tunnel.RemotePort).Msg("Accept failed")
+			return
 		}
 
+		tempErrors = 0
 		go m.handleConnection(conn, tunnel, client)
 	}
 }
 
 func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Client) {
+	m.server.activeConns.Add(1)
+	defer m.server.activeConns.Done()
 	defer conn.Close()
 
 	tuneTCPConn(conn)

@@ -101,9 +101,15 @@ func dialServer(t *testing.T, srv *Server) *yamux.Session {
 	srv.wg.Add(1)
 	go srv.handleControlConnection(serverConn)
 
+	// Perform compression handshake (client side, no compression in tests)
+	rwc, _, err := protocol.NegotiateCompression(clientConn, false, false)
+	if err != nil {
+		t.Fatalf("NegotiateCompression: %v", err)
+	}
+
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = false
-	session, err := yamux.Client(clientConn, yamuxCfg)
+	session, err := yamux.Client(rwc, yamuxCfg)
 	if err != nil {
 		t.Fatalf("yamux.Client: %v", err)
 	}

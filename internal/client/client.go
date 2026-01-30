@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,11 +48,15 @@ type Client struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
+	streamWorkers chan net.Conn // bounded worker pool for incoming streams
+
 	reconnecting   bool
 	reconnectMu    sync.Mutex
 	mu             sync.Mutex // for writing to control stream
 	tokenRefresher TokenRefresher
 	tokenMu        sync.RWMutex
+
+	lastPong atomic.Int64 // unix nano timestamp of last pong received
 }
 
 // ActiveTunnel represents an active tunnel on the client side
@@ -128,13 +133,24 @@ func (c *Client) Connect() error {
 	tuneTCPConn(conn)
 	c.conn = conn
 
+	// Negotiate compression before yamux
+	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
+	if err != nil {
+		conn.Close()
+		c.events.EmitError(err)
+		return fmt.Errorf("compression negotiation: %w", err)
+	}
+	if compressed {
+		c.log.Info().Msg("Compression enabled (zstd)")
+	}
+
 	// Create yamux session FIRST (client mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = 10 * time.Second
 	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
-	yamuxCfg.ConnectionWriteTimeout = 10 * time.Second
-	c.session, err = yamux.Client(conn, yamuxCfg)
+	yamuxCfg.ConnectionWriteTimeout = 30 * time.Second
+	c.session, err = yamux.Client(rwc, yamuxCfg)
 	if err != nil {
 		conn.Close()
 		return fmt.Errorf("create yamux session: %w", err)
@@ -161,6 +177,14 @@ func (c *Client) Connect() error {
 		"session_id": c.sessionID,
 		"server":     c.cfg.Server.Address,
 	})
+
+	// Start stream worker pool
+	numWorkers := runtime.NumCPU() * 4
+	c.streamWorkers = make(chan net.Conn, numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		c.wg.Add(1)
+		go c.streamWorker()
+	}
 
 	// Start message handler
 	c.wg.Add(1)
@@ -342,7 +366,7 @@ func (c *Client) handleMessages() {
 		case protocol.MsgPing:
 			c.handlePing()
 		case protocol.MsgPong:
-			// Keepalive response
+			c.lastPong.Store(time.Now().UnixNano())
 		case protocol.MsgError:
 			c.handleError(data)
 		default:
@@ -451,7 +475,26 @@ func (c *Client) acceptStreams() {
 			}
 		}
 
-		go c.handleStream(stream)
+		select {
+		case c.streamWorkers <- stream:
+			// Dispatched to worker pool
+		default:
+			// Pool full, handle in overflow goroutine
+			go c.handleStream(stream)
+		}
+	}
+}
+
+func (c *Client) streamWorker() {
+	defer c.wg.Done()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case stream := <-c.streamWorkers:
+			c.handleStream(stream)
+		}
 	}
 }
 
@@ -520,21 +563,41 @@ func (c *Client) handleStream(stream net.Conn) {
 func (c *Client) keepalive() {
 	defer c.wg.Done()
 
+	// Initialize lastPong to now so we don't immediately timeout
+	c.lastPong.Store(time.Now().UnixNano())
+
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+
+	consecutivePingFailures := 0
+	const maxPingFailures = 3
+	const pongTimeout = 90 * time.Second
 
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
+			// Check pong timeout
+			if time.Since(time.Unix(0, c.lastPong.Load())) > pongTimeout {
+				c.log.Warn().Msg("Pong timeout, server appears unresponsive")
+				c.handleDisconnect()
+				return
+			}
+
 			ping := &protocol.PingMessage{
 				Message: protocol.NewMessage(protocol.MsgPing),
 			}
 			if err := c.sendControl(ping); err != nil {
-				c.log.Debug().Err(err).Msg("Failed to send ping")
-				c.handleDisconnect()
-				return
+				consecutivePingFailures++
+				c.log.Warn().Err(err).Int("consecutive_failures", consecutivePingFailures).Msg("Failed to send ping")
+				if consecutivePingFailures >= maxPingFailures {
+					c.log.Warn().Msg("Too many consecutive ping failures, disconnecting")
+					c.handleDisconnect()
+					return
+				}
+			} else {
+				consecutivePingFailures = 0
 			}
 		}
 	}
@@ -561,12 +624,23 @@ func (c *Client) handleDisconnect() {
 	go c.reconnect()
 }
 
+// backoffWithJitter returns the duration with ±20% jitter applied.
+func backoffWithJitter(d time.Duration) time.Duration {
+	// jitter ±20%: multiply by 0.8..1.2
+	b := make([]byte, 1)
+	rand.Read(b)
+	jitter := 0.8 + float64(b[0])/255.0*0.4 // [0.8, 1.2]
+	return time.Duration(float64(d) * jitter)
+}
+
 func (c *Client) reconnect() {
 	attempts := 0
-	interval := c.cfg.Reconnect.Interval
-	if interval == 0 {
-		interval = 5 * time.Second
+	baseInterval := c.cfg.Reconnect.Interval
+	if baseInterval == 0 {
+		baseInterval = 5 * time.Second
 	}
+	const maxBackoff = 2 * time.Minute
+	currentBackoff := baseInterval
 
 	for {
 		select {
@@ -582,7 +656,7 @@ func (c *Client) reconnect() {
 			return
 		}
 
-		c.log.Info().Int("attempt", attempts).Msg("Attempting to reconnect...")
+		c.log.Info().Int("attempt", attempts).Dur("backoff", currentBackoff).Msg("Attempting to reconnect...")
 		c.events.EmitWithPayload(EventReconnecting, map[string]interface{}{
 			"attempt": attempts,
 		})
@@ -623,7 +697,12 @@ func (c *Client) reconnect() {
 					newToken, refreshErr := refresher(c.cfg.Server.Address)
 					if refreshErr != nil {
 						c.log.Error().Err(refreshErr).Msg("Failed to refresh token")
-						time.Sleep(interval)
+						time.Sleep(backoffWithJitter(currentBackoff))
+						// Don't reset backoff after token refresh — server may still be unavailable
+						currentBackoff *= 2
+						if currentBackoff > maxBackoff {
+							currentBackoff = maxBackoff
+						}
 						continue
 					}
 
@@ -639,7 +718,11 @@ func (c *Client) reconnect() {
 			}
 
 			c.log.Error().Err(err).Msg("Reconnection failed")
-			time.Sleep(interval)
+			time.Sleep(backoffWithJitter(currentBackoff))
+			currentBackoff *= 2
+			if currentBackoff > maxBackoff {
+				currentBackoff = maxBackoff
+			}
 			continue
 		}
 
