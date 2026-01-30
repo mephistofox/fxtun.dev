@@ -266,4 +266,40 @@ export const adminApi = {
   closeTunnel: (id: string) => api.delete(`/admin/tunnels/${id}`),
 }
 
+// Inspect API types
+export interface ExchangeSummary {
+  id: string
+  tunnel_id: string
+  timestamp: string
+  duration_ns: number
+  method: string
+  path: string
+  host: string
+  status_code: number
+  request_body_size: number
+  response_body_size: number
+  remote_addr: string
+}
+
+export interface CapturedExchange extends ExchangeSummary {
+  request_headers: Record<string, string[]>
+  request_body: string | null
+  response_headers: Record<string, string[]>
+  response_body: string | null
+}
+
+export interface ExchangeListResponse {
+  exchanges: ExchangeSummary[]
+  total: number
+}
+
+export const inspectApi = {
+  list: (tunnelId: string, offset = 0, limit = 50) =>
+    api.get<ExchangeListResponse>(`/tunnels/${tunnelId}/inspect`, { params: { offset, limit } }).then(r => r.data),
+  get: (tunnelId: string, exchangeId: string) =>
+    api.get<CapturedExchange>(`/tunnels/${tunnelId}/inspect/${exchangeId}`).then(r => r.data),
+  clear: (tunnelId: string) =>
+    api.delete(`/tunnels/${tunnelId}/inspect`).then(r => r.data),
+}
+
 export default api
