@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.1](https://github.com/mephistofox/fxTunnel/compare/v1.10.0...v1.10.1) (2026-01-30)
+
+
+### Bug Fixes
+
+* **lint:** use pointer types in sync.Pool, simplify select to sleep ([06c30c2](https://github.com/mephistofox/fxTunnel/commit/06c30c22903d31b0c7f69622b9d0359ffdb75570))
+
+
+### Performance Improvements
+
+* **proxy:** optimize tunnel proxying for minimal overhead ([3e87fcb](https://github.com/mephistofox/fxTunnel/commit/3e87fcb4c0368cab0ba4b75d732dc942ab2d5006))
+
 ## [1.10.0](https://github.com/mephistofox/fxTunnel/compare/v1.9.1...v1.10.0) (2026-01-30)
 
 
