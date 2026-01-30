@@ -125,7 +125,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	tp := newMockTunnelProvider()
 
-	apiServer := New(cfg, db, authSvc, tp, log)
+	apiServer := New(cfg, db, authSvc, tp, nil, log)
 
 	ts := httptest.NewServer(apiServer.Router())
 	t.Cleanup(func() { ts.Close() })

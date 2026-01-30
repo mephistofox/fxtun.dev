@@ -151,7 +151,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// Start API server if web panel is enabled
 	if cfg.Web.Enabled && authService != nil {
 		tunnelProvider := &serverAdapter{srv: srv}
-		apiServer = api.New(cfg, db, authService, tunnelProvider, log)
+		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), log)
 		apiServer.SetVersion(Version)
 
 		ctx, cancel := context.WithCancel(context.Background())
