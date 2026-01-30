@@ -27,75 +27,40 @@ var udpFramePool = sync.Pool{
 
 // UDPManager manages UDP tunnel ports
 type UDPManager struct {
-	server    *Server
-	log       zerolog.Logger
-	usedPorts map[int]bool
-	mu        sync.Mutex
+	server *Server
+	log    zerolog.Logger
+	ports  *PortAllocator
 }
 
 // NewUDPManager creates a new UDP manager
 func NewUDPManager(server *Server, log zerolog.Logger) *UDPManager {
 	return &UDPManager{
-		server:    server,
-		log:       log.With().Str("component", "udp_manager").Logger(),
-		usedPorts: make(map[int]bool),
+		server: server,
+		log:    log.With().Str("component", "udp_manager").Logger(),
+		ports:  NewPortAllocator(server.cfg.Server.UDPPortRange),
 	}
 }
 
 // AllocatePort allocates a port for a UDP tunnel
 func (m *UDPManager) AllocatePort(requestedPort int) (int, *net.UDPConn, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	portRange := m.server.cfg.Server.UDPPortRange
-
-	if requestedPort != 0 {
-		// Check if requested port is in range
-		if requestedPort < portRange.Min || requestedPort > portRange.Max {
-			return 0, nil, fmt.Errorf("port %d is outside allowed range (%d-%d)",
-				requestedPort, portRange.Min, portRange.Max)
-		}
-
-		// Check if port is already used
-		if m.usedPorts[requestedPort] {
-			return 0, nil, fmt.Errorf("port %d is already in use", requestedPort)
-		}
-
-		// Try to bind
-		addr := &net.UDPAddr{Port: requestedPort}
-		conn, err := net.ListenUDP("udp", addr)
-		if err != nil {
-			return 0, nil, fmt.Errorf("failed to bind port %d: %w", requestedPort, err)
-		}
-
-		m.usedPorts[requestedPort] = true
-		return requestedPort, conn, nil
+	port, err := m.ports.Allocate(requestedPort)
+	if err != nil {
+		return 0, nil, err
 	}
 
-	// Auto-assign port
-	for port := portRange.Min; port <= portRange.Max; port++ {
-		if m.usedPorts[port] {
-			continue
-		}
-
-		addr := &net.UDPAddr{Port: port}
-		conn, err := net.ListenUDP("udp", addr)
-		if err != nil {
-			continue
-		}
-
-		m.usedPorts[port] = true
-		return port, conn, nil
+	addr := &net.UDPAddr{Port: port}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		m.ports.Release(port)
+		return 0, nil, fmt.Errorf("failed to bind port %d: %w", port, err)
 	}
 
-	return 0, nil, fmt.Errorf("no available ports in range %d-%d", portRange.Min, portRange.Max)
+	return port, conn, nil
 }
 
 // ReleasePort releases a previously allocated port
 func (m *UDPManager) ReleasePort(port int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.usedPorts, port)
+	m.ports.Release(port)
 }
 
 // HandlePackets handles incoming UDP packets for a tunnel
