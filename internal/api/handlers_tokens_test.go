@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateToken_Success(t *testing.T) {
@@ -116,7 +117,7 @@ func TestDeleteToken_Success(t *testing.T) {
 	}
 
 	var created dto.CreateTokenResponse
-	json.NewDecoder(createResp.Body).Decode(&created)
+	require.NoError(t, json.NewDecoder(createResp.Body).Decode(&created))
 	createResp.Body.Close()
 
 	tokenID := created.Info.ID

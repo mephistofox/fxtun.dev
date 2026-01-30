@@ -57,7 +57,7 @@ func (c *Codec) Encode(msg any) error {
 	} else {
 		buf = buf[:totalLen]
 	}
-	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
+	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data))) //nolint:gosec // len() is always non-negative and bounded by MaxPayloadSize
 	copy(buf[HeaderSize:], data)
 
 	_, werr := c.writer.Write(buf)
@@ -86,7 +86,7 @@ func (c *Codec) Decode(msg any) error {
 	// Read payload using pooled buffer
 	bp := codecBufPool.Get().(*[]byte)
 	buf := *bp
-	if uint32(cap(buf)) < length {
+	if uint32(cap(buf)) < length { //nolint:gosec // cap() is always non-negative
 		buf = make([]byte, length)
 	} else {
 		buf = buf[:length]
@@ -150,7 +150,7 @@ func (c *Codec) EncodeBytes(data []byte) error {
 	} else {
 		buf = buf[:totalLen]
 	}
-	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
+	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data))) //nolint:gosec // len() is always non-negative and bounded by MaxPayloadSize
 	copy(buf[HeaderSize:], data)
 
 	_, werr := c.writer.Write(buf)

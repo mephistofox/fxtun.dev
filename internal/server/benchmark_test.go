@@ -42,9 +42,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	srv.httpRouter = NewHTTPRouter(srv, srv.log)
 
 	// Serve HTTP via http.Server (supports keep-alive)
-	httpServer := &http.Server{Handler: srv.httpRouter}
+	httpServer := &http.Server{Handler: srv.httpRouter} //nolint:gosec // benchmark test
 	srv.httpServer = httpServer
-	go httpServer.Serve(httpLn)
+	go func() { _ = httpServer.Serve(httpLn) }()
 
 	// --- Yamux client session via net.Pipe ---
 	clientConn, serverConn := net.Pipe()
@@ -113,8 +113,8 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	echoMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(200)
-		io.Copy(w, r.Body)
-		r.Body.Close()
+		_, _ = io.Copy(w, r.Body)
+		_ = r.Body.Close()
 	})
 	echoMux.HandleFunc("/big", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
@@ -125,11 +125,11 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		}
 		// Write 1MB
 		for i := 0; i < 16; i++ {
-			w.Write(buf)
+			_, _ = w.Write(buf)
 		}
 	})
-	echoServer := &http.Server{Handler: echoMux}
-	go echoServer.Serve(echoLn)
+	echoServer := &http.Server{Handler: echoMux} //nolint:gosec // benchmark test
+	go func() { _ = echoServer.Serve(echoLn) }()
 
 	// --- Client-side stream handler (simulates tunnel client) ---
 	go func() {
@@ -179,19 +179,19 @@ func handleBenchStream(stream net.Conn, echoAddr string) {
 	defer local.Close()
 
 	if tc, ok := local.(*net.TCPConn); ok {
-		tc.SetNoDelay(true)
+		_ = tc.SetNoDelay(true)
 	}
 
 	// Bidirectional proxy
 	done := make(chan struct{}, 2)
 	go func() {
 		buf := make([]byte, 256*1024)
-		io.CopyBuffer(local, stream, buf)
+		_, _ = io.CopyBuffer(local, stream, buf)
 		done <- struct{}{}
 	}()
 	go func() {
 		buf := make([]byte, 256*1024)
-		io.CopyBuffer(stream, local, buf)
+		_, _ = io.CopyBuffer(stream, local, buf)
 		done <- struct{}{}
 	}()
 	<-done
@@ -223,7 +223,7 @@ func BenchmarkLatency_Direct(b *testing.B) {
 		if err != nil {
 			b.Fatalf("direct request: %v", err)
 		}
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}
 }
@@ -252,7 +252,7 @@ func BenchmarkLatency_Tunnel(b *testing.B) {
 		if err != nil {
 			b.Fatalf("tunnel request: %v", err)
 		}
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}
 }
@@ -337,7 +337,7 @@ func BenchmarkConcurrentLatency_Tunnel(b *testing.B) {
 				b.Errorf("tunnel request: %v", err)
 				return
 			}
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	})
@@ -367,11 +367,11 @@ func BenchmarkRawProxy(b *testing.B) {
 		// Send HTTP request with body
 		req := fmt.Sprintf("POST / HTTP/1.1\r\nHost: %s\r\nContent-Length: %d\r\nX-FxTunnel-Skip-Warning: 1\r\nConnection: close\r\n\r\n",
 			env.tunnelHost, len(payload))
-		conn.Write([]byte(req))
-		conn.Write(payload)
+		_, _ = conn.Write([]byte(req))
+		_, _ = conn.Write(payload)
 
 		// Read response
-		io.Copy(io.Discard, conn)
+		_, _ = io.Copy(io.Discard, conn)
 		conn.Close()
 	}
 }
@@ -440,7 +440,7 @@ func BenchmarkParallelThroughput(b *testing.B) {
 			if err != nil {
 				return
 			}
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}()
 	}

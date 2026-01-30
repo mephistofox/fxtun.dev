@@ -32,7 +32,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 					Error:   "IP not allowed",
 					Code:    protocol.ErrCodePermissionDenied,
 				}
-				codec.Encode(result)
+				_ = codec.Encode(result)
 				return nil, fmt.Errorf("IP not allowed for token")
 			}
 
@@ -40,7 +40,9 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
 
 			// Update last used
-			s.db.Tokens.UpdateLastUsed(apiToken.ID)
+			if err := s.db.Tokens.UpdateLastUsed(apiToken.ID); err != nil {
+				log.Warn().Err(err).Int64("token_id", apiToken.ID).Msg("Failed to update token last used")
+			}
 
 			// Link user to client
 			s.clientMgr.linkUserClient(apiToken.UserID, client.ID)
@@ -76,7 +78,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 					Error:   "token expired",
 					Code:    protocol.ErrCodeTokenExpired,
 				}
-				codec.Encode(result)
+				_ = codec.Encode(result)
 				return nil, fmt.Errorf("token expired")
 			}
 			// Other JWT errors - continue to legacy token check
@@ -116,7 +118,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				Success: false,
 				Error:   "invalid token",
 			}
-			codec.Encode(result)
+			_ = codec.Encode(result)
 			return nil, fmt.Errorf("invalid token")
 		}
 

@@ -105,7 +105,7 @@ func TestUnregisterTunnel(t *testing.T) {
 	router, _ := newTestRouter("example.com")
 
 	tunnel := &Tunnel{ID: "t1", ClientID: "c1"}
-	router.RegisterTunnel("gone", tunnel)
+	_ = router.RegisterTunnel("gone", tunnel)
 	router.UnregisterTunnel("gone")
 
 	if got := router.GetTunnel("gone"); got != nil {

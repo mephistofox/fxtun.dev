@@ -260,7 +260,7 @@ func (r *UserBundleRepository) SyncBulk(userID int64, bundles []*UserBundle) err
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	for _, bundle := range bundles {
 		bundle.UserID = userID

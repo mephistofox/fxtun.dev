@@ -297,10 +297,7 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 		args[i] = id
 	}
 
-	query := fmt.Sprintf(`
-		SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at
-		FROM users WHERE id IN (%s)
-	`, strings.Join(placeholders, ","))
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {

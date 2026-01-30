@@ -275,7 +275,7 @@ func (s *Server) Start() error {
 		if err != nil {
 			return fmt.Errorf("load TLS certificate: %w", err)
 		}
-		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 		s.controlListener, err = tls.Listen("tcp", controlAddr, tlsCfg)
 	} else {
 		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
@@ -300,7 +300,8 @@ func (s *Server) Start() error {
 
 	// Start HTTP server with keep-alive support
 	s.httpServer = &http.Server{
-		Handler: s.httpRouter,
+		Handler:           s.httpRouter,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	s.wg.Add(1)
 	go func() {
@@ -437,7 +438,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	codec := protocol.NewCodec(controlStream, controlStream)
 
 	// Wait for authentication with timeout
-	controlStream.SetReadDeadline(time.Now().Add(authTimeout))
+	_ = controlStream.SetReadDeadline(time.Now().Add(authTimeout))
 
 	// Read auth message
 	data, baseMsg, err := codec.DecodeRaw()
@@ -462,7 +463,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	}
 
 	authMsg := parsed.(*protocol.AuthMessage)
-	controlStream.SetReadDeadline(time.Time{}) // Clear deadline
+	_ = controlStream.SetReadDeadline(time.Time{}) // Clear deadline
 
 	// Authenticate
 	client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
@@ -490,7 +491,7 @@ func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bo
 		Code:    code,
 		Fatal:   fatal,
 	}
-	codec.Encode(msg)
+	_ = codec.Encode(msg)
 }
 
 func (s *Server) GetClient(clientID string) *Client {
@@ -626,7 +627,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	}
 	resp.RequestID = req.RequestID
 
-	c.sendControl(resp)
+	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Str("url", url).Msg("HTTP tunnel created")
 }
 
@@ -668,7 +669,7 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	}
 	resp.RequestID = req.RequestID
 
-	c.sendControl(resp)
+	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("TCP tunnel created")
 }
 
@@ -710,7 +711,7 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	}
 	resp.RequestID = req.RequestID
 
-	c.sendControl(resp)
+	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("UDP tunnel created")
 }
 
@@ -755,7 +756,7 @@ func (c *Client) closeTunnel(tunnelID string) {
 		Message:  protocol.NewMessage(protocol.MsgTunnelClosed),
 		TunnelID: tunnelID,
 	}
-	c.sendControl(resp)
+	_ = c.sendControl(resp)
 
 	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel closed")
 }
@@ -768,7 +769,7 @@ func (c *Client) handlePing() {
 	pong := &protocol.PongMessage{
 		Message: protocol.NewMessage(protocol.MsgPong),
 	}
-	c.sendControl(pong)
+	_ = c.sendControl(pong)
 }
 
 func (c *Client) keepalive() {
@@ -803,7 +804,7 @@ func (c *Client) sendTunnelError(requestID, tunnelID, code, message string) {
 		Code:     code,
 	}
 	msg.RequestID = requestID
-	c.sendControl(msg)
+	_ = c.sendControl(msg)
 }
 
 // Close closes the client connection
