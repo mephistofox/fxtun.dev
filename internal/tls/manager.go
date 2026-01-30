@@ -78,6 +78,7 @@ func (cm *CertManager) LoadFromDB() error {
 }
 
 // GetCertificate is the tls.Config.GetCertificate callback for SNI-based cert selection.
+// It first checks the local cache/DB, then falls back to autocert for on-demand ACME issuance.
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
 
@@ -89,20 +90,40 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 	}
 
 	dbCert, err := cm.db.TLSCerts.GetByDomain(name)
-	if err != nil {
-		return nil, fmt.Errorf("no certificate for %s", name)
+	if err == nil {
+		tlsCert, err := tls.X509KeyPair(dbCert.CertPEM, dbCert.KeyPEM)
+		if err == nil {
+			cm.mu.Lock()
+			cm.cache[name] = &tlsCert
+			cm.mu.Unlock()
+			return &tlsCert, nil
+		}
+		cm.log.Warn().Str("domain", name).Err(err).Msg("Failed to parse cached certificate, falling back to ACME")
 	}
 
-	tlsCert, err := tls.X509KeyPair(dbCert.CertPEM, dbCert.KeyPEM)
+	// Fall back to autocert — will obtain cert via ACME if domain is in hostPolicy
+	acmeCert, err := cm.acmeMgr.GetCertificate(hello)
 	if err != nil {
-		return nil, fmt.Errorf("parse certificate for %s: %w", name, err)
+		return nil, fmt.Errorf("no certificate for %s: %w", name, err)
 	}
 
-	cm.mu.Lock()
-	cm.cache[name] = &tlsCert
-	cm.mu.Unlock()
+	// Store the obtained cert
+	certPEM, keyPEM, expiresAt, extractErr := extractPEM(acmeCert)
+	if extractErr == nil {
+		_ = cm.db.TLSCerts.Upsert(&database.TLSCertificate{
+			Domain:    name,
+			CertPEM:   certPEM,
+			KeyPEM:    keyPEM,
+			ExpiresAt: expiresAt,
+			IssuedAt:  time.Now(),
+		})
+		cm.mu.Lock()
+		cm.cache[name] = acmeCert
+		cm.mu.Unlock()
+		cm.log.Info().Str("domain", name).Time("expires", expiresAt).Msg("TLS certificate obtained on-demand")
+	}
 
-	return &tlsCert, nil
+	return acmeCert, nil
 }
 
 // ObtainCert obtains a certificate for a domain via ACME in background.
@@ -191,9 +212,11 @@ func (cm *CertManager) Stop() {
 }
 
 // TLSConfig returns a tls.Config using this manager's GetCertificate.
+// Includes acme-tls/1 in NextProtos for tls-alpn-01 challenge support.
 func (cm *CertManager) TLSConfig() *tls.Config {
 	return &tls.Config{
 		GetCertificate: cm.GetCertificate,
+		NextProtos:     []string{"h2", "http/1.1", "acme-tls/1"},
 		MinVersion:     tls.VersionTLS12,
 	}
 }
