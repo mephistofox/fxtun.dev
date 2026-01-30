@@ -18,6 +18,13 @@ const (
 	udpHeaderSize    = 6 // 2 bytes length + 4 bytes addr hash
 )
 
+var udpFramePool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, udpHeaderSize+maxUDPPacketSize)
+		return buf
+	},
+}
+
 // UDPManager manages UDP tunnel ports
 type UDPManager struct {
 	server    *Server
@@ -184,19 +191,23 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			addrMu.Unlock()
 
 			// Frame: [2 bytes length][4 bytes addr hash][payload]
-			frame := make([]byte, udpHeaderSize+n)
+			frame := udpFramePool.Get().([]byte)
+			frameLen := udpHeaderSize + n
 			binary.BigEndian.PutUint16(frame[0:2], uint16(n))
 			binary.BigEndian.PutUint32(frame[2:6], addrHash)
 			copy(frame[udpHeaderSize:], buf[:n])
 
-			if _, err := stream.Write(frame); err != nil {
-				m.log.Debug().Err(err).Msg("Failed to write to stream")
+			_, werr := stream.Write(frame[:frameLen])
+			udpFramePool.Put(frame)
+			if werr != nil {
+				m.log.Debug().Err(werr).Msg("Failed to write to stream")
 				return
 			}
 		}
 	}()
 
 	// Read from stream and send to UDP
+	header := make([]byte, udpHeaderSize)
 	for {
 		select {
 		case <-client.ctx.Done():
@@ -205,7 +216,6 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		}
 
 		// Read frame header
-		header := make([]byte, udpHeaderSize)
 		if _, err := io.ReadFull(stream, header); err != nil {
 			m.log.Debug().Err(err).Msg("Failed to read UDP frame header")
 			return
@@ -214,9 +224,10 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		length := binary.BigEndian.Uint16(header[0:2])
 		addrHash := binary.BigEndian.Uint32(header[2:6])
 
-		// Read payload
-		payload := make([]byte, length)
-		if _, err := io.ReadFull(stream, payload); err != nil {
+		// Read payload into pooled buffer
+		frame := udpFramePool.Get().([]byte)
+		if _, err := io.ReadFull(stream, frame[:length]); err != nil {
+			udpFramePool.Put(frame)
 			m.log.Debug().Err(err).Msg("Failed to read UDP payload")
 			return
 		}
@@ -228,8 +239,9 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		addrMu.RUnlock()
 
 		if addr != nil {
-			tunnel.udpConn.WriteToUDP(payload, addr)
+			tunnel.udpConn.WriteToUDP(frame[:length], addr)
 		}
+		udpFramePool.Put(frame)
 	}
 }
 

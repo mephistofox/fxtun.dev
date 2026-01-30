@@ -82,6 +82,8 @@ func (r *HTTPRouter) GetTunnel(subdomain string) *Tunnel {
 func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	tuneTCPConn(conn)
+
 	// Set initial read deadline for parsing request
 	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
@@ -188,7 +190,9 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 
 	go func() {
 		defer wg.Done()
-		io.Copy(stream, conn)
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(stream, conn, buf)
+		proxyBufPool.Put(buf)
 		// Signal EOF to the client by closing write side
 		if tcpConn, ok := stream.(interface{ CloseWrite() error }); ok {
 			tcpConn.CloseWrite()
@@ -197,7 +201,9 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 
 	go func() {
 		defer wg.Done()
-		io.Copy(conn, stream)
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(conn, stream, buf)
+		proxyBufPool.Put(buf)
 	}()
 
 	// Wait for both directions to complete
