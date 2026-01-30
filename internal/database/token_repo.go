@@ -85,10 +85,7 @@ func (r *APITokenRepository) GetByID(id int64) (*APIToken, error) {
 		&token.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrTokenNotFound
-		}
-		return nil, fmt.Errorf("get api token by id: %w", err)
+		return nil, notFoundOrError(err, ErrTokenNotFound, "get api token by id")
 	}
 
 	if err := json.Unmarshal([]byte(allowedSubdomains), &token.AllowedSubdomains); err != nil {
@@ -129,10 +126,7 @@ func (r *APITokenRepository) GetByTokenHash(tokenHash string) (*APIToken, error)
 		&token.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrTokenNotFound
-		}
-		return nil, fmt.Errorf("get api token by hash: %w", err)
+		return nil, notFoundOrError(err, ErrTokenNotFound, "get api token by hash")
 	}
 
 	if err := json.Unmarshal([]byte(allowedSubdomains), &token.AllowedSubdomains); err != nil {

@@ -69,10 +69,7 @@ func (r *SessionRepository) GetByTokenHash(tokenHash string) (*Session, error) {
 		&session.CreatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrSessionNotFound
-		}
-		return nil, fmt.Errorf("get session by token hash: %w", err)
+		return nil, notFoundOrError(err, ErrSessionNotFound, "get session by token hash")
 	}
 
 	if userAgent.Valid {
