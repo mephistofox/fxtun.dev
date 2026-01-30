@@ -54,6 +54,13 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 		return nil, nil, fmt.Errorf("hash password: %w", err)
 	}
 
+	// Begin transaction for user creation + invite use
+	tx, err := s.db.DB().Begin()
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Create user
 	user := &database.User{
 		Phone:        phone,
@@ -63,7 +70,7 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 		IsAdmin:      false,
 	}
 
-	if err := s.db.Users.Create(user); err != nil {
+	if err := s.db.Users.CreateTx(tx, user); err != nil {
 		if errors.Is(err, database.ErrUserAlreadyExists) {
 			return nil, nil, ErrPhoneAlreadyExists
 		}
@@ -71,9 +78,12 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 	}
 
 	// Mark invite code as used
-	if err := s.db.Invites.Use(inviteCode, user.ID); err != nil {
-		// Log error but don't fail registration
-		s.log.Warn().Err(err).Str("invite_code", inviteCode).Msg("Failed to mark invite code as used")
+	if err := s.db.Invites.UseTx(tx, inviteCode, user.ID); err != nil {
+		return nil, nil, fmt.Errorf("use invite code: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
 	// Generate tokens
