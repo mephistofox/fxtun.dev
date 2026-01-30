@@ -48,9 +48,10 @@ type App struct {
 	BundleService   *BundleService
 	SettingsService *SettingsService
 	HistoryService  *HistoryService
-	DomainService   *DomainService
-	SyncService     *SyncService
-	InspectService  *InspectService
+	DomainService       *DomainService
+	CustomDomainService *CustomDomainService
+	SyncService         *SyncService
+	InspectService      *InspectService
 }
 
 // LogHook returns a zerolog Hook that forwards log events to the GUI frontend.
@@ -76,6 +77,7 @@ func NewApp(log zerolog.Logger) *App {
 	app.SettingsService = NewSettingsService(app)
 	app.HistoryService = NewHistoryService(app)
 	app.DomainService = NewDomainService(app)
+	app.CustomDomainService = NewCustomDomainService(app)
 	app.SyncService = NewSyncService(app)
 	app.InspectService = NewInspectService(app)
 
@@ -117,6 +119,7 @@ func (a *App) UpdateLogger(log zerolog.Logger) {
 	a.SettingsService.log = a.log.With().Str("service", "settings").Logger()
 	a.HistoryService.log = a.log.With().Str("service", "history").Logger()
 	a.DomainService.log = a.log.With().Str("service", "domain").Logger()
+	a.CustomDomainService.log = a.log.With().Str("service", "custom_domain").Logger()
 	a.SyncService.log = a.log.With().Str("service", "sync").Logger()
 	a.InspectService.log = a.log.With().Str("service", "inspect").Logger()
 	a.api.log = a.log.With().Str("component", "api-client").Logger()

@@ -86,10 +86,23 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.server.activeConns.Add(1)
 	defer r.server.activeConns.Done()
 
+	// ACME challenge intercept
+	if r.server.certManager != nil && strings.HasPrefix(req.URL.Path, "/.well-known/acme-challenge/") {
+		r.server.certManager.HandleACMEChallenge(w, req)
+		return
+	}
+
 	// Extract subdomain from Host header
 	subdomain := r.extractSubdomain(req.Host)
 	if subdomain == "" {
-		r.log.Debug().Str("host", req.Host).Msg("No subdomain in request")
+		// Try custom domain lookup
+		cd := r.server.LookupCustomDomain(req.Host)
+		if cd != nil && cd.Verified {
+			subdomain = cd.TargetSubdomain
+		}
+	}
+	if subdomain == "" {
+		r.log.Debug().Str("host", req.Host).Msg("No subdomain or custom domain found")
 		r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")
 		return
 	}
@@ -110,8 +123,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Check for interstitial warning (skip for admin tunnels)
-	if !client.IsAdmin && r.shouldShowInterstitial(req, subdomain) {
+	// Check for interstitial warning (skip for admin tunnels and custom domains)
+	isCustomDomain := r.server.LookupCustomDomain(req.Host) != nil
+	if !client.IsAdmin && !isCustomDomain && r.shouldShowInterstitial(req, subdomain) {
 		r.serveInterstitialPage(w, req, subdomain)
 		return
 	}
@@ -166,6 +180,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// --- Inspection: capture request body ---
 	inspectBuf := r.server.inspectMgr.Get(tunnel.ID)
+	if inspectBuf == nil {
+		r.log.Debug().Str("tunnel_id", tunnel.ID).Msg("Inspect buffer not found for tunnel")
+	}
 	startTime := time.Now()
 	var capturedReqBody []byte
 
@@ -234,6 +251,11 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if inspectBuf != nil {
 		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBuf.Bytes())
 		inspectBuf.Add(ex)
+		r.log.Debug().
+			Str("tunnel_id", tunnel.ID).
+			Str("exchange_id", ex.ID).
+			Int("buffer_len", inspectBuf.Len()).
+			Msg("Exchange captured in inspect buffer")
 	}
 
 	r.log.Debug().

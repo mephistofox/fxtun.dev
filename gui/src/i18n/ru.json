@@ -285,7 +285,10 @@
     "logsExported": "Логи успешно экспортированы",
     "logCopied": "Запись скопирована",
     "domainReserved": "Домен зарезервирован",
-    "domainReleased": "Домен освобождён"
+    "domainReleased": "Домен освобождён",
+    "customDomainAdded": "Кастомный домен добавлен",
+    "customDomainDeleted": "Кастомный домен удалён",
+    "customDomainVerified": "Домен успешно верифицирован"
   },
   "domains": {
     "title": "Мои домены",
@@ -305,5 +308,28 @@
     "failedToReserve": "Не удалось зарезервировать домен",
     "failedToRelease": "Не удалось освободить домен",
     "copyUrl": "Копировать URL"
+  },
+  "customDomains": {
+    "title": "Кастомные домены",
+    "subtitle": "Привязка собственных доменов через CNAME",
+    "add": "Добавить домен",
+    "addTitle": "Добавить кастомный домен",
+    "domain": "Домен",
+    "domainPlaceholder": "myapp.example.com",
+    "targetSubdomain": "Целевой поддомен",
+    "cnameHint": "Создайте CNAME-запись, указывающую на",
+    "verified": "Верифицирован",
+    "pending": "Ожидает",
+    "verify": "Проверить",
+    "verifying": "Проверка...",
+    "verifySuccess": "Домен верифицирован! TLS-сертификат будет получен в ближайшее время.",
+    "verifyFailed": "Верификация не пройдена",
+    "noDomains": "Нет кастомных доменов",
+    "noDomainsHint": "Добавьте свой домен и направьте его CNAME на зарезервированный поддомен",
+    "failedToLoad": "Не удалось загрузить кастомные домены",
+    "failedToAdd": "Не удалось добавить кастомный домен",
+    "failedToDelete": "Не удалось удалить кастомный домен",
+    "confirmDelete": "Вы уверены, что хотите удалить этот кастомный домен?",
+    "delete": "Удалить"
   }
 }

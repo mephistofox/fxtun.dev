@@ -285,7 +285,10 @@
     "logsExported": "Logs exported successfully",
     "logCopied": "Log entry copied",
     "domainReserved": "Domain reserved",
-    "domainReleased": "Domain released"
+    "domainReleased": "Domain released",
+    "customDomainAdded": "Custom domain added",
+    "customDomainDeleted": "Custom domain deleted",
+    "customDomainVerified": "Domain verified successfully"
   },
   "domains": {
     "title": "My Domains",
@@ -305,5 +308,28 @@
     "failedToReserve": "Failed to reserve domain",
     "failedToRelease": "Failed to release domain",
     "copyUrl": "Copy URL"
+  },
+  "customDomains": {
+    "title": "Custom Domains",
+    "subtitle": "Bind your own domains via CNAME",
+    "add": "Add Domain",
+    "addTitle": "Add Custom Domain",
+    "domain": "Domain",
+    "domainPlaceholder": "myapp.example.com",
+    "targetSubdomain": "Target Subdomain",
+    "cnameHint": "Create a CNAME record pointing your domain to",
+    "verified": "Verified",
+    "pending": "Pending",
+    "verify": "Verify",
+    "verifying": "Verifying...",
+    "verifySuccess": "Domain verified! TLS certificate will be obtained shortly.",
+    "verifyFailed": "Verification failed",
+    "noDomains": "No custom domains",
+    "noDomainsHint": "Add your own domain and point its CNAME to your reserved subdomain",
+    "failedToLoad": "Failed to load custom domains",
+    "failedToAdd": "Failed to add custom domain",
+    "failedToDelete": "Failed to delete custom domain",
+    "confirmDelete": "Are you sure you want to delete this custom domain?",
+    "delete": "Delete"
   }
 }
