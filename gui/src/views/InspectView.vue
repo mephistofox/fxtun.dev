@@ -97,8 +97,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { List, Get, Clear, Subscribe, Unsubscribe } from '@/wailsjs/go/gui/InspectService'
-import { EventsOn, EventsOff } from '@/wailsjs/runtime/runtime'
+import { List, Get, Clear, Subscribe, Unsubscribe } from '@/wailsjs/wailsjs/go/gui/InspectService'
+import { EventsOn, EventsOff } from '@/wailsjs/wailsjs/runtime/runtime'
 
 const route = useRoute()
 const tunnelId = computed(() => route.params.tunnelId as string)
