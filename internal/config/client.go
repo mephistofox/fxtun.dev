@@ -20,10 +20,11 @@ type ClientConfig struct {
 
 // ClientServerSettings contains server connection settings
 type ClientServerSettings struct {
-	Address   string `mapstructure:"address"`
-	Token     string `mapstructure:"token"`
-	Insecure  bool   `mapstructure:"insecure"`
-	TLSVerify bool   `mapstructure:"tls_verify"`
+	Address     string `mapstructure:"address"`
+	Token       string `mapstructure:"token"`
+	Insecure    bool   `mapstructure:"insecure"`
+	TLSVerify   bool   `mapstructure:"tls_verify"`
+	Compression bool   `mapstructure:"compression"`
 }
 
 // TunnelConfig defines a single tunnel

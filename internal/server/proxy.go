@@ -3,6 +3,7 @@ package server
 import (
 	"net"
 	"sync"
+	"time"
 )
 
 const proxyBufSize = 256 * 1024 // 256KB buffer for proxying
@@ -23,6 +24,8 @@ func tuneTCPConn(conn net.Conn) {
 		return
 	}
 	tc.SetNoDelay(true)
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(30 * time.Second)
 	tc.SetReadBuffer(512 * 1024)  // 512KB read buffer
 	tc.SetWriteBuffer(512 * 1024) // 512KB write buffer
 }

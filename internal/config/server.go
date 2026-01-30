@@ -25,10 +25,11 @@ type ServerConfig struct {
 
 // ServerSettings contains network settings
 type ServerSettings struct {
-	ControlPort  int       `mapstructure:"control_port"`
-	HTTPPort     int       `mapstructure:"http_port"`
-	TCPPortRange PortRange `mapstructure:"tcp_port_range"`
-	UDPPortRange PortRange `mapstructure:"udp_port_range"`
+	ControlPort        int       `mapstructure:"control_port"`
+	HTTPPort           int       `mapstructure:"http_port"`
+	TCPPortRange       PortRange `mapstructure:"tcp_port_range"`
+	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
+	CompressionEnabled bool      `mapstructure:"compression_enabled"`
 }
 
 // PortRange defines a range of ports
@@ -126,6 +127,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("server.tcp_port_range.max", 20000)
 	v.SetDefault("server.udp_port_range.min", 20001)
 	v.SetDefault("server.udp_port_range.max", 30000)
+	v.SetDefault("server.compression_enabled", true)
 	v.SetDefault("domain.base", "localhost")
 	v.SetDefault("domain.wildcard", true)
 	v.SetDefault("auth.enabled", false)
