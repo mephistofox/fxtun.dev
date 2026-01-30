@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 )
 
 const (
@@ -13,6 +14,14 @@ const (
 	// HeaderSize is the size of the length prefix
 	HeaderSize = 4
 )
+
+// codecBufPool reuses buffers for Encode to avoid per-message allocations.
+var codecBufPool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, 0, 512)
+		return buf
+	},
+}
 
 // Codec handles encoding and decoding of protocol messages
 type Codec struct {
@@ -39,13 +48,21 @@ func (c *Codec) Encode(msg any) error {
 		return fmt.Errorf("message too large: %d > %d", len(data), MaxMessageSize)
 	}
 
-	// Write length prefix + payload in single write
-	buf := make([]byte, HeaderSize+len(data))
+	// Write length prefix + payload in single write using pooled buffer
+	totalLen := HeaderSize + len(data)
+	buf := codecBufPool.Get().([]byte)
+	if cap(buf) < totalLen {
+		buf = make([]byte, totalLen)
+	} else {
+		buf = buf[:totalLen]
+	}
 	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
 	copy(buf[HeaderSize:], data)
 
-	if _, err := c.writer.Write(buf); err != nil {
-		return fmt.Errorf("write message: %w", err)
+	_, werr := c.writer.Write(buf)
+	codecBufPool.Put(buf[:0])
+	if werr != nil {
+		return fmt.Errorf("write message: %w", werr)
 	}
 
 	return nil
@@ -54,23 +71,31 @@ func (c *Codec) Encode(msg any) error {
 // Decode reads a message from the reader
 func (c *Codec) Decode(msg any) error {
 	// Read length prefix
-	header := make([]byte, HeaderSize)
-	if _, err := io.ReadFull(c.reader, header); err != nil {
+	var header [HeaderSize]byte
+	if _, err := io.ReadFull(c.reader, header[:]); err != nil {
 		return fmt.Errorf("read header: %w", err)
 	}
 
-	length := binary.BigEndian.Uint32(header)
+	length := binary.BigEndian.Uint32(header[:])
 	if length > MaxMessageSize {
 		return fmt.Errorf("message too large: %d > %d", length, MaxMessageSize)
 	}
 
-	// Read payload
-	data := make([]byte, length)
-	if _, err := io.ReadFull(c.reader, data); err != nil {
+	// Read payload using pooled buffer
+	buf := codecBufPool.Get().([]byte)
+	if uint32(cap(buf)) < length {
+		buf = make([]byte, length)
+	} else {
+		buf = buf[:length]
+	}
+	if _, err := io.ReadFull(c.reader, buf); err != nil {
+		codecBufPool.Put(buf[:0])
 		return fmt.Errorf("read payload: %w", err)
 	}
 
-	if err := json.Unmarshal(data, msg); err != nil {
+	err := json.Unmarshal(buf, msg)
+	codecBufPool.Put(buf[:0])
+	if err != nil {
 		return fmt.Errorf("unmarshal message: %w", err)
 	}
 
@@ -111,13 +136,21 @@ func (c *Codec) EncodeBytes(data []byte) error {
 		return fmt.Errorf("message too large: %d > %d", len(data), MaxMessageSize)
 	}
 
-	// Write length prefix + payload in single write
-	buf := make([]byte, HeaderSize+len(data))
+	// Write length prefix + payload in single write using pooled buffer
+	totalLen := HeaderSize + len(data)
+	buf := codecBufPool.Get().([]byte)
+	if cap(buf) < totalLen {
+		buf = make([]byte, totalLen)
+	} else {
+		buf = buf[:totalLen]
+	}
 	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data)))
 	copy(buf[HeaderSize:], data)
 
-	if _, err := c.writer.Write(buf); err != nil {
-		return fmt.Errorf("write message: %w", err)
+	_, werr := c.writer.Write(buf)
+	codecBufPool.Put(buf[:0])
+	if werr != nil {
+		return fmt.Errorf("write message: %w", werr)
 	}
 
 	return nil

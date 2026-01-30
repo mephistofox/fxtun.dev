@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -252,6 +253,8 @@ func (s *Server) acceptHTTPConnections() {
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
 
+	tuneTCPConn(conn)
+
 	remoteAddr := conn.RemoteAddr().String()
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
@@ -260,7 +263,8 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = 10 * time.Second
-	yamuxCfg.MaxStreamWindowSize = 1024 * 1024 // 1MB window for better throughput
+	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
+	yamuxCfg.ConnectionWriteTimeout = 10 * time.Second
 	session, err := yamux.Server(conn, yamuxCfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create yamux session")
@@ -949,10 +953,11 @@ func (c *Client) Close() {
 
 // Helper functions
 
+var connIDCounter atomic.Uint64
+
 func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+	id := connIDCounter.Add(1)
+	return strconv.FormatUint(id, 36)
 }
 
 func generateShortID() string {

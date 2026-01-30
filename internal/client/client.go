@@ -125,13 +125,15 @@ func (c *Client) Connect() error {
 		c.events.EmitError(err)
 		return fmt.Errorf("dial server: %w", err)
 	}
+	tuneTCPConn(conn)
 	c.conn = conn
 
 	// Create yamux session FIRST (client mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = 10 * time.Second
-	yamuxCfg.MaxStreamWindowSize = 1024 * 1024 // 1MB window for better throughput
+	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
+	yamuxCfg.ConnectionWriteTimeout = 10 * time.Second
 	c.session, err = yamux.Client(conn, yamuxCfg)
 	if err != nil {
 		conn.Close()
@@ -276,8 +278,8 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		c.tunnels[resp.TunnelID] = tunnel
 		c.tunnelsMu.Unlock()
 
-		// Pre-probe local address so first connection is instant
-		go ProbeLocalAddress(c.log, tunnelCfg.LocalAddr, tunnelCfg.LocalPort)
+		// Pre-probe local address synchronously so first connection is instant
+		ProbeLocalAddress(c.log, tunnelCfg.LocalAddr, tunnelCfg.LocalPort)
 
 		// Emit tunnel created event
 		c.events.EmitTunnelCreated(tunnel)
@@ -476,7 +478,7 @@ func (c *Client) handleStream(stream net.Conn) {
 	}
 
 	// Connect to local service with IPv4/IPv6 fallback
-	local, err := dialLocalWithFallback(c.log, tunnel.Config.LocalAddr, tunnel.Config.LocalPort, 10*time.Second)
+	local, err := dialLocalWithFallback(c.log, tunnel.Config.LocalAddr, tunnel.Config.LocalPort, 5*time.Second)
 	if err != nil {
 		c.log.Error().Err(err).Int("port", tunnel.Config.LocalPort).Msg("Failed to connect to local service")
 		return
@@ -489,18 +491,22 @@ func (c *Client) handleStream(stream net.Conn) {
 		Str("local", local.RemoteAddr().String()).
 		Msg("Forwarding connection")
 
-	// Bidirectional copy with byte counting
+	// Bidirectional copy with byte counting and large buffers
 	done := make(chan struct{}, 2)
 	download := &countingWriter{w: local, count: &tunnel.BytesReceived}
 	upload := &countingWriter{w: stream, count: &tunnel.BytesSent}
 
 	go func() {
-		io.Copy(download, stream) // download: stream → local
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(download, stream, buf) // download: stream → local
+		proxyBufPool.Put(buf)
 		done <- struct{}{}
 	}()
 
 	go func() {
-		io.Copy(upload, local) // upload: local → stream
+		buf := proxyBufPool.Get().([]byte)
+		io.CopyBuffer(upload, local, buf) // upload: local → stream
+		proxyBufPool.Put(buf)
 		done <- struct{}{}
 	}()
 
