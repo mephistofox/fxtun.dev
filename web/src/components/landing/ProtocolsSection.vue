@@ -20,7 +20,7 @@ const protocols = {
       'landing.protocols.http.feature3',
     ],
     example: 'https://myapp.mfdev.ru',
-    command: 'fxtunnel http 3000 --subdomain myapp',
+    command: 'fxtunnel http 3000 --domain myapp',
     useCases: ['Web apps', 'APIs', 'Webhooks'],
   },
   tcp: {

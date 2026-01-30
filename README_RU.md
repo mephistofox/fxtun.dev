@@ -101,7 +101,7 @@ fxtunnel http 3000 --server tunnel.example.com:4443 --token sk_your_token
 
 С указанием поддомена:
 ```bash
-fxtunnel http 3000 --subdomain myapp --server tunnel.example.com:4443 --token sk_your_token
+fxtunnel http 3000 --domain myapp --server tunnel.example.com:4443 --token sk_your_token
 # → https://myapp.tunnel.example.com
 ```
 
