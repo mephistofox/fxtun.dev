@@ -129,6 +129,33 @@ func (s *InspectService) Clear(tunnelID string) error {
 	return nil
 }
 
+// Replay replays a captured exchange through the tunnel
+func (s *InspectService) Replay(tunnelID, exchangeID string) (map[string]interface{}, error) {
+	if s.app.authToken == "" {
+		return nil, fmt.Errorf("not authenticated")
+	}
+
+	url := s.app.api.BuildURL(fmt.Sprintf("/api/tunnels/%s/inspect/%s/replay", tunnelID, exchangeID))
+	body, statusCode, err := s.app.api.Post(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if statusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		json.Unmarshal(body, &errResp)
+		return nil, fmt.Errorf("%s", errResp.Error)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // Subscribe starts SSE streaming for a tunnel and emits Wails events
 func (s *InspectService) Subscribe(tunnelID string) error {
 	// Cancel existing subscription for this tunnel

@@ -81,6 +81,7 @@ func main() {
 			app.CustomDomainService,
 			app.SyncService,
 			app.InspectService,
+			app.UpdateService,
 		},
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{

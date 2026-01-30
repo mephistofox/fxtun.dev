@@ -53,6 +53,13 @@
             <span class="font-mono font-bold">{{ selectedExchange.method }}</span>
             <span class="font-mono text-foreground/70">{{ selectedExchange.path }}</span>
             <span :class="statusColor(selectedExchange.status_code)" class="font-mono text-xs px-1.5 py-0.5 rounded">{{ selectedExchange.status_code }}</span>
+            <button
+              @click="replayExchange(selectedExchange.id)"
+              :disabled="replaying"
+              class="ml-auto px-3 py-1 text-xs bg-primary hover:bg-primary/80 disabled:opacity-50 rounded transition text-primary-foreground"
+            >
+              {{ replaying ? 'Replaying...' : 'Replay' }}
+            </button>
           </div>
 
           <div class="flex border-b border-border mb-3">
@@ -97,7 +104,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { List, Get, Clear, Subscribe, Unsubscribe } from '@/wailsjs/wailsjs/go/gui/InspectService'
+import { List, Get, Clear, Replay, Subscribe, Unsubscribe } from '@/wailsjs/wailsjs/go/gui/InspectService'
 import { EventsOn, EventsOff } from '@/wailsjs/wailsjs/runtime/runtime'
 
 const route = useRoute()
@@ -115,6 +122,7 @@ const selectedExchange = ref<any>(null)
 const filter = ref('')
 const activeTab = ref('Request')
 const connected = ref(false)
+const replaying = ref(false)
 
 const filteredExchanges = computed(() => {
   if (!filter.value) return exchanges.value
@@ -170,6 +178,14 @@ async function selectExchange(id: string) {
   try {
     selectedExchange.value = await Get(tunnelId.value, id)
   } catch (e) { console.error(e) }
+}
+
+async function replayExchange(exchangeId: string) {
+  replaying.value = true
+  try {
+    await Replay(tunnelId.value, exchangeId)
+  } catch (e) { console.error('Replay failed:', e) }
+  finally { replaying.value = false }
 }
 
 async function clearExchanges() {
