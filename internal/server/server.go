@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ type Server struct {
 
 	// Tunnel managers
 	httpRouter  *HTTPRouter
+	httpServer  *http.Server
 	tcpManager  *TCPManager
 	udpManager  *UDPManager
 	inspectMgr  *inspect.Manager
@@ -48,6 +50,9 @@ type Server struct {
 	authService   *auth.Service
 	userClients   map[int64][]string // userID -> clientIDs
 	userClientsMu sync.RWMutex
+
+	// Active connections tracking for graceful drain
+	activeConns sync.WaitGroup
 
 	// Shutdown
 	ctx    context.Context
@@ -175,7 +180,7 @@ func (s *Server) Start() error {
 		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
 		s.controlListener, err = tls.Listen("tcp", controlAddr, tlsCfg)
 	} else {
-		s.controlListener, err = net.Listen("tcp", controlAddr)
+		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
 	}
 	if err != nil {
 		return fmt.Errorf("listen control: %w", err)
@@ -184,7 +189,7 @@ func (s *Server) Start() error {
 
 	// Start HTTP listener
 	httpAddr := fmt.Sprintf(":%d", s.cfg.Server.HTTPPort)
-	s.httpListener, err = net.Listen("tcp", httpAddr)
+	s.httpListener, err = newReusePortListener(s.ctx, httpAddr)
 	if err != nil {
 		s.controlListener.Close()
 		return fmt.Errorf("listen http: %w", err)
@@ -195,9 +200,17 @@ func (s *Server) Start() error {
 	s.wg.Add(1)
 	go s.acceptControlConnections()
 
-	// Accept HTTP connections
+	// Start HTTP server with keep-alive support
+	s.httpServer = &http.Server{
+		Handler: s.httpRouter,
+	}
 	s.wg.Add(1)
-	go s.acceptHTTPConnections()
+	go func() {
+		defer s.wg.Done()
+		if err := s.httpServer.Serve(s.httpListener); err != nil && err != http.ErrServerClosed {
+			s.log.Error().Err(err).Msg("HTTP server error")
+		}
+	}()
 
 	return nil
 }
@@ -205,8 +218,8 @@ func (s *Server) Start() error {
 // Stop stops the server gracefully
 func (s *Server) Stop() error {
 	s.log.Info().Msg("Shutting down server...")
-	s.cancel()
 
+	// Phase 1: stop accepting new connections
 	if s.controlListener != nil {
 		s.controlListener.Close()
 	}
@@ -214,7 +227,33 @@ func (s *Server) Stop() error {
 		s.httpListener.Close()
 	}
 
-	// Close all clients
+	// Phase 2: drain in-flight connections (max 10s)
+	s.log.Info().Msg("Draining active connections...")
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer drainCancel()
+
+	// Gracefully shutdown HTTP server (drains keep-alive connections)
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(drainCtx); err != nil {
+			s.log.Warn().Err(err).Msg("HTTP server shutdown error")
+		}
+	}
+
+	drainDone := make(chan struct{})
+	go func() {
+		s.activeConns.Wait()
+		close(drainDone)
+	}()
+	select {
+	case <-drainDone:
+		s.log.Info().Msg("All connections drained")
+	case <-drainCtx.Done():
+		s.log.Warn().Msg("Drain timeout, forcing shutdown")
+	}
+
+	// Phase 3: cancel context and close all clients
+	s.cancel()
+
 	s.clientsMu.Lock()
 	clients := make([]*Client, 0, len(s.clients))
 	for _, c := range s.clients {
@@ -256,24 +295,6 @@ func (s *Server) acceptControlConnections() {
 	}
 }
 
-func (s *Server) acceptHTTPConnections() {
-	defer s.wg.Done()
-
-	for {
-		conn, err := s.httpListener.Accept()
-		if err != nil {
-			select {
-			case <-s.ctx.Done():
-				return
-			default:
-				s.log.Error().Err(err).Msg("Accept HTTP connection failed")
-				continue
-			}
-		}
-
-		go s.httpRouter.HandleConnection(conn)
-	}
-}
 
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
@@ -284,13 +305,24 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
 
+	// Negotiate compression before yamux
+	rwc, compressed, err := protocol.NegotiateCompression(conn, s.cfg.Server.CompressionEnabled, true)
+	if err != nil {
+		log.Error().Err(err).Msg("Compression negotiation failed")
+		conn.Close()
+		return
+	}
+	if compressed {
+		log.Debug().Msg("Compression enabled (zstd)")
+	}
+
 	// Create yamux session FIRST (server mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = 10 * time.Second
 	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4MB window for high throughput
-	yamuxCfg.ConnectionWriteTimeout = 10 * time.Second
-	session, err := yamux.Server(conn, yamuxCfg)
+	yamuxCfg.ConnectionWriteTimeout = 30 * time.Second
+	session, err := yamux.Server(rwc, yamuxCfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create yamux session")
 		conn.Close()
@@ -935,7 +967,7 @@ func (c *Client) sendTunnelError(requestID, tunnelID, code, message string) {
 	c.sendControl(msg)
 }
 
-const streamPoolSize = 64
+const streamPoolSize = 24
 
 // OpenStream returns a pre-opened yamux stream from the pool,
 // falling back to opening a new one if the pool is empty.

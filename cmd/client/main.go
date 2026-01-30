@@ -355,7 +355,13 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	sig := <-sigChan
 	log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
 
-	c.Close()
+	done := make(chan struct{})
+	go func() { c.Close(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		log.Warn().Msg("Close timeout, exiting")
+	}
 	return nil
 }
 
