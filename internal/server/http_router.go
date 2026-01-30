@@ -15,6 +15,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
@@ -169,6 +170,17 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 	req.Header.Set("X-Forwarded-Proto", "http")
 	req.Header.Set("X-Forwarded-Host", req.Host)
 
+	// --- Inspection: capture request body ---
+	inspectBuf := r.server.inspectMgr.Get(tunnel.ID)
+	startTime := time.Now()
+	var capturedReqBody []byte
+
+	if inspectBuf != nil && req.Body != nil {
+		maxBody := r.server.inspectMgr.MaxBodySize()
+		capturedReqBody, _ = io.ReadAll(io.LimitReader(req.Body, int64(maxBody)))
+		req.Body = io.NopCloser(bytes.NewReader(capturedReqBody))
+	}
+
 	// Write the original request to the stream
 	if err := req.Write(stream); err != nil {
 		r.log.Error().Err(err).Msg("Failed to write request to stream")
@@ -184,7 +196,8 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 		}
 	}
 
-	// Bidirectional copy - wait for BOTH directions to complete
+	// --- Bidirectional copy with optional response capture ---
+	var capturedRespBuf bytes.Buffer
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -201,13 +214,27 @@ func (r *HTTPRouter) HandleConnection(conn net.Conn) {
 
 	go func() {
 		defer wg.Done()
-		bp := proxyBufPool.Get().(*[]byte)
-		io.CopyBuffer(conn, stream, *bp)
-		proxyBufPool.Put(bp)
+		if inspectBuf != nil {
+			maxCapture := r.server.inspectMgr.MaxBodySize() + 8192
+			lw := &limitedWriter{w: &capturedRespBuf, remaining: maxCapture}
+			tee := io.TeeReader(stream, lw)
+			bp := proxyBufPool.Get().(*[]byte)
+			io.CopyBuffer(conn, tee, *bp)
+			proxyBufPool.Put(bp)
+		} else {
+			bp := proxyBufPool.Get().(*[]byte)
+			io.CopyBuffer(conn, stream, *bp)
+			proxyBufPool.Put(bp)
+		}
 	}()
 
-	// Wait for both directions to complete
 	wg.Wait()
+
+	// --- Inspection: build and store exchange ---
+	if inspectBuf != nil {
+		ex := r.buildCapturedExchange(tunnel.ID, req, startTime, capturedReqBody, conn.RemoteAddr().String(), &capturedRespBuf)
+		inspectBuf.Add(ex)
+	}
 
 	r.log.Debug().
 		Str("subdomain", subdomain).
@@ -332,6 +359,64 @@ type errorData struct {
 	StatusCode int
 	StatusText string
 	Message    string
+}
+
+// limitedWriter writes up to `remaining` bytes, then silently discards.
+type limitedWriter struct {
+	w         io.Writer
+	remaining int
+}
+
+func (lw *limitedWriter) Write(p []byte) (int, error) {
+	if lw.remaining <= 0 {
+		return len(p), nil
+	}
+	n := len(p)
+	if n > lw.remaining {
+		n = lw.remaining
+	}
+	written, err := lw.w.Write(p[:n])
+	lw.remaining -= written
+	if err != nil {
+		return written, err
+	}
+	return len(p), nil
+}
+
+// buildCapturedExchange constructs a CapturedExchange from captured data.
+func (r *HTTPRouter) buildCapturedExchange(tunnelID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, respBuf *bytes.Buffer) *inspect.CapturedExchange {
+	ex := &inspect.CapturedExchange{
+		ID:              generateID(),
+		TunnelID:        tunnelID,
+		Timestamp:       startTime,
+		Duration:        time.Since(startTime),
+		Method:          req.Method,
+		Path:            req.URL.RequestURI(),
+		Host:            req.Host,
+		RequestHeaders:  req.Header.Clone(),
+		RequestBody:     reqBody,
+		RequestBodySize: int64(len(reqBody)),
+		RemoteAddr:      remoteAddr,
+	}
+
+	// Parse response from captured bytes
+	if respBuf.Len() > 0 {
+		resp, err := http.ReadResponse(bufio.NewReader(respBuf), req)
+		if err == nil {
+			defer resp.Body.Close()
+			ex.StatusCode = resp.StatusCode
+			ex.ResponseHeaders = resp.Header.Clone()
+			maxBody := r.server.inspectMgr.MaxBodySize()
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(maxBody)))
+			ex.ResponseBody = body
+			ex.ResponseBodySize = int64(len(body))
+			if resp.ContentLength > int64(len(body)) {
+				ex.ResponseBodySize = resp.ContentLength
+			}
+		}
+	}
+
+	return ex
 }
 
 // sendErrorResponse sends an HTTP error response
