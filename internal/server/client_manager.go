@@ -9,6 +9,14 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
+// Lock ordering (to prevent deadlocks):
+//  1. userClientsMu
+//  2. clientsMu
+//  3. client.TunnelsMu
+//
+// Always acquire in this order. Never hold a higher-numbered lock
+// while acquiring a lower-numbered one.
+
 // ClientManager manages connected clients and user-client mappings.
 type ClientManager struct {
 	clients       map[string]*Client
