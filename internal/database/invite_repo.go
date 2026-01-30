@@ -113,6 +113,24 @@ func (r *InviteRepository) scanInvite(row *sql.Row) (*InviteCode, error) {
 	return invite, nil
 }
 
+// UseTx marks an invite code as used within a transaction
+func (r *InviteRepository) UseTx(tx *sql.Tx, code string, userID int64) error {
+	query := `UPDATE invite_codes SET used_by_user_id = ?, used_at = ? WHERE code = ? AND used_by_user_id IS NULL`
+	now := time.Now()
+	result, err := tx.Exec(query, userID, now, code)
+	if err != nil {
+		return fmt.Errorf("use invite code: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrInviteAlreadyUsed
+	}
+	return nil
+}
+
 // Use marks an invite code as used
 func (r *InviteRepository) Use(code string, userID int64) error {
 	// First, get the invite to check validity

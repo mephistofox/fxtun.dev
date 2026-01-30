@@ -23,6 +23,39 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// CreateTx creates a new user within a transaction
+func (r *UserRepository) CreateTx(tx *sql.Tx, user *User) error {
+	query := `
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+
+	now := time.Now()
+	result, err := tx.Exec(query,
+		user.Phone,
+		user.PasswordHash,
+		user.DisplayName,
+		user.IsAdmin,
+		user.IsActive,
+		now,
+	)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return ErrUserAlreadyExists
+		}
+		return fmt.Errorf("create user: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("get last insert id: %w", err)
+	}
+
+	user.ID = id
+	user.CreatedAt = now
+	return nil
+}
+
 // Create creates a new user
 func (r *UserRepository) Create(user *User) error {
 	query := `
