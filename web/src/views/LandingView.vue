@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
+import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
 import HowItWorksSection from '@/components/landing/HowItWorksSection.vue'
 import ProtocolsSection from '@/components/landing/ProtocolsSection.vue'
 import DownloadSection from '@/components/landing/DownloadSection.vue'
@@ -70,6 +71,9 @@ onUnmounted(() => {
           <div class="hidden lg:flex items-center gap-8">
             <a href="#features" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.features') }}
+            </a>
+            <a href="#advanced" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              {{ t('landing.nav.advanced') }}
             </a>
             <a href="#how-it-works" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.howItWorks') }}
@@ -178,6 +182,13 @@ onUnmounted(() => {
                 {{ t('landing.nav.features') }}
               </a>
               <a
+                href="#advanced"
+                @click="isMobileMenuOpen = false"
+                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                {{ t('landing.nav.advanced') }}
+              </a>
+              <a
                 href="#how-it-works"
                 @click="isMobileMenuOpen = false"
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
@@ -214,6 +225,7 @@ onUnmounted(() => {
     <main>
       <HeroSection />
       <FeaturesSection />
+      <AdvancedFeaturesSection />
       <HowItWorksSection />
       <ProtocolsSection />
       <DownloadSection />
