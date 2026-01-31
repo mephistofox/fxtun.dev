@@ -27,6 +27,7 @@ type UserDTO struct {
 	IsAdmin     bool       `json:"is_admin"`
 	IsActive    bool       `json:"is_active"`
 	GitHubID    *int64     `json:"github_id,omitempty"`
+	GoogleID    *string    `json:"google_id,omitempty"`
 	Email       string     `json:"email,omitempty"`
 	AvatarURL   string     `json:"avatar_url,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -42,6 +43,7 @@ func UserFromModel(u *database.User) *UserDTO {
 		IsAdmin:     u.IsAdmin,
 		IsActive:    u.IsActive,
 		GitHubID:    u.GitHubID,
+		GoogleID:    u.GoogleID,
 		Email:       u.Email,
 		AvatarURL:   u.AvatarURL,
 		CreatedAt:   u.CreatedAt,
