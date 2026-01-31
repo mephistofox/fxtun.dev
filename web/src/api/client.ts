@@ -76,6 +76,7 @@ export interface User {
   phone: string
   display_name: string
   is_admin: boolean
+  github_id?: number
   created_at: string
 }
 
