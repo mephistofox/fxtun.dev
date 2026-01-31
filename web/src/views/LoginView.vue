@@ -124,47 +124,15 @@ function cycleTheme() {
 
     <Card variant="glass" class="w-full max-w-md p-8 animate-fade-in-up">
       <div class="text-center mb-8">
-        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div class="flex items-center justify-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold">fxTunnel</h1>
         </div>
-        <h1 class="text-2xl font-bold">fxTunnel</h1>
         <p class="text-muted-foreground mt-2">{{ t('auth.signInTitle') }}</p>
-      </div>
-
-      <form @submit.prevent="handleSubmit" class="space-y-5">
-        <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-lg text-sm border border-destructive/20">
-          {{ error }}
-        </div>
-
-        <div class="space-y-2">
-          <label class="text-sm font-medium">{{ t('auth.phone') }}</label>
-          <Input v-model="phone" phone placeholder="+7 (999) 123-45-67" required />
-        </div>
-
-        <div class="space-y-2">
-          <label class="text-sm font-medium">{{ t('auth.password') }}</label>
-          <Input v-model="password" type="password" :placeholder="t('auth.password')" required />
-        </div>
-
-        <div v-if="showTotp" class="space-y-2">
-          <label class="text-sm font-medium">{{ t('auth.totpCode') }}</label>
-          <Input v-model="totpCode" type="text" placeholder="123456" maxlength="6" required />
-        </div>
-
-        <Button type="submit" variant="glow" class="w-full" size="lg" :loading="authStore.loading">
-          {{ t('auth.signIn') }}
-        </Button>
-      </form>
-
-      <div class="relative my-6">
-        <div class="absolute inset-0 flex items-center">
-          <div class="w-full border-t border-border"></div>
-        </div>
-        <div class="relative flex justify-center text-xs uppercase">
-          <span class="bg-card px-2 text-muted-foreground">{{ t('auth.or') }}</span>
-        </div>
       </div>
 
       <a
@@ -176,6 +144,48 @@ function cycleTheme() {
         </svg>
         {{ t('auth.signInWithGitHub') }}
       </a>
+
+      <div class="relative my-6">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-border"></div>
+        </div>
+        <div class="relative flex justify-center text-xs uppercase">
+          <span class="bg-card px-2 text-muted-foreground">{{ t('auth.or') }}</span>
+        </div>
+      </div>
+
+      <details class="group">
+        <summary class="flex items-center justify-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+          </svg>
+          {{ t('auth.signInWithPhone') }}
+        </summary>
+        <form @submit.prevent="handleSubmit" class="space-y-5 mt-4">
+          <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-lg text-sm border border-destructive/20">
+            {{ error }}
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm font-medium">{{ t('auth.phone') }}</label>
+            <Input v-model="phone" phone placeholder="+7 (999) 123-45-67" required />
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm font-medium">{{ t('auth.password') }}</label>
+            <Input v-model="password" type="password" :placeholder="t('auth.password')" required />
+          </div>
+
+          <div v-if="showTotp" class="space-y-2">
+            <label class="text-sm font-medium">{{ t('auth.totpCode') }}</label>
+            <Input v-model="totpCode" type="text" placeholder="123456" maxlength="6" required />
+          </div>
+
+          <Button type="submit" variant="glow" class="w-full" size="lg" :loading="authStore.loading">
+            {{ t('auth.signIn') }}
+          </Button>
+        </form>
+      </details>
 
       <p class="text-center text-sm text-muted-foreground mt-6">
         {{ t('auth.noAccount') }}
