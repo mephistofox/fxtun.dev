@@ -120,6 +120,7 @@ func (d *Database) migrate() error {
 		migrationAddTokenAndSessionIndexes,
 		migrationCreateCustomDomains,
 		migrationCreateTLSCertificates,
+		migrationAddOAuthFields,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -335,6 +336,14 @@ CREATE TABLE IF NOT EXISTS custom_domains (
 );
 CREATE INDEX IF NOT EXISTS idx_custom_domains_user ON custom_domains(user_id);
 CREATE INDEX IF NOT EXISTS idx_custom_domains_domain ON custom_domains(domain);
+`
+
+const migrationAddOAuthFields = `
+ALTER TABLE users ADD COLUMN github_id INTEGER;
+ALTER TABLE users ADD COLUMN email VARCHAR(255);
+ALTER TABLE users ADD COLUMN avatar_url TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id) WHERE github_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
 `
 
 const migrationCreateTLSCertificates = `

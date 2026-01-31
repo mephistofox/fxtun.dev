@@ -15,6 +15,9 @@ type User struct {
 	IsActive     bool       `json:"is_active"`
 	CreatedAt    time.Time  `json:"created_at"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
+	GitHubID     *int64     `json:"github_id,omitempty"`
+	Email        string     `json:"email,omitempty"`
+	AvatarURL    string     `json:"avatar_url,omitempty"`
 }
 
 // InviteCode represents a one-time invitation code
