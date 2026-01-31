@@ -22,6 +22,7 @@ type ServerConfig struct {
 	Downloads     DownloadsSettings     `mapstructure:"downloads"`
 	Inspect       InspectSettings       `mapstructure:"inspect"`
 	CustomDomains CustomDomainSettings  `mapstructure:"custom_domains"`
+	OAuth         OAuthSettings         `mapstructure:"oauth"`
 }
 
 // ServerSettings contains network settings
@@ -118,6 +119,17 @@ type TLSSettings struct {
 type CustomDomainSettings struct {
 	Enabled    bool `mapstructure:"enabled"`
 	MaxPerUser int  `mapstructure:"max_per_user"`
+}
+
+// OAuthSettings contains OAuth provider configuration
+type OAuthSettings struct {
+	GitHub GitHubOAuthSettings `mapstructure:"github"`
+}
+
+// GitHubOAuthSettings contains GitHub OAuth configuration
+type GitHubOAuthSettings struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
 }
 
 // LoggingSettings contains logging configuration
