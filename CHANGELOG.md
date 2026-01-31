@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.16.0](https://github.com/mephistofox/fxTunnel/compare/v1.15.0...v1.16.0) (2026-01-31)
+
+
+### Features
+
+* add graceful shutdown, trace ID logging, auto-update and inspect replay ([8aad04a](https://github.com/mephistofox/fxTunnel/commit/8aad04ae78244db22d3b9e9e0b44f89222fe4622))
+* **landing:** add advanced features section with interactive demos ([c4cceee](https://github.com/mephistofox/fxTunnel/commit/c4cceee2db3f0dbf88de07129beefc1ca4be871c))
+
+
+### Bug Fixes
+
+* **lint:** handle errcheck warnings in version comparison ([b12a828](https://github.com/mephistofox/fxTunnel/commit/b12a828540ca386bac68ede0eb2cfc64a3fdf201))
+* **security:** protect /metrics endpoint with auth middleware ([eb26ae3](https://github.com/mephistofox/fxTunnel/commit/eb26ae3cfd6e25a221ad40a9d818ff514cd9b510))
+* **tls:** fall back to ACME on-demand when cached cert is missing ([3747c90](https://github.com/mephistofox/fxTunnel/commit/3747c903464ec21e5440db389ae71996e108aaff))
+
 ## [1.15.0](https://github.com/mephistofox/fxTunnel/compare/v1.14.0...v1.15.0) (2026-01-30)
 
 
