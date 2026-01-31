@@ -123,7 +123,14 @@ type CustomDomainSettings struct {
 
 // OAuthSettings contains OAuth provider configuration
 type OAuthSettings struct {
-	GitHub GitHubOAuthSettings `mapstructure:"github"`
+	GitHub GitHubOAuthSettings  `mapstructure:"github"`
+	Google GoogleOAuthSettings  `mapstructure:"google"`
+}
+
+// GoogleOAuthSettings contains Google OAuth configuration
+type GoogleOAuthSettings struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
 }
 
 // GitHubOAuthSettings contains GitHub OAuth configuration

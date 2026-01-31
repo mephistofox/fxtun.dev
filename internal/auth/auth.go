@@ -504,6 +504,84 @@ func (s *Service) LinkGitHub(userID, githubID int64, email, avatarURL string) er
 	return s.db.Users.LinkGitHub(userID, githubID, email, avatarURL)
 }
 
+// GoogleOAuthUserInfo contains user information from Google OAuth
+type GoogleOAuthUserInfo struct {
+	GoogleID    string
+	Email       string
+	DisplayName string
+	AvatarURL   string
+}
+
+// RegisterOrLoginGoogleOAuth authenticates a user via Google OAuth, creating the account if needed
+func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+	// Try to find existing user by Google ID
+	user, err := s.db.Users.GetByGoogleID(info.GoogleID)
+	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
+		return nil, nil, fmt.Errorf("get user by google id: %w", err)
+	}
+
+	if user == nil {
+		// Create new OAuth user
+		user = &database.User{
+			DisplayName: info.DisplayName,
+			IsActive:    true,
+			IsAdmin:     false,
+			GoogleID:    &info.GoogleID,
+			Email:       info.Email,
+			AvatarURL:   info.AvatarURL,
+		}
+		if err := s.db.Users.CreateOAuth(user); err != nil {
+			return nil, nil, fmt.Errorf("create oauth user: %w", err)
+		}
+
+		_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
+			"method":    "google",
+			"google_id": info.GoogleID,
+		}, ipAddress)
+
+		s.log.Info().Int64("user_id", user.ID).Str("google_id", info.GoogleID).Msg("Google OAuth user registered")
+	}
+
+	if !user.IsActive {
+		return nil, nil, ErrUserNotActive
+	}
+
+	// Generate tokens
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate tokens: %w", err)
+	}
+
+	// Create session
+	session := &database.Session{
+		UserID:           user.ID,
+		RefreshTokenHash: refreshTokenHash,
+		UserAgent:        userAgent,
+		IPAddress:        ipAddress,
+		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
+	}
+	if err := s.db.Sessions.Create(session); err != nil {
+		return nil, nil, fmt.Errorf("create session: %w", err)
+	}
+
+	// Update last login
+	_ = s.db.Users.UpdateLastLogin(user.ID)
+
+	_ = s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
+		"method":     "google",
+		"user_agent": userAgent,
+	}, ipAddress)
+
+	s.log.Info().Int64("user_id", user.ID).Str("google_id", info.GoogleID).Msg("Google OAuth user logged in")
+
+	return user, tokenPair, nil
+}
+
+// LinkGoogle links a Google account to an existing user
+func (s *Service) LinkGoogle(userID int64, googleID, email, avatarURL string) error {
+	return s.db.Users.LinkGoogle(userID, googleID, email, avatarURL)
+}
+
 // GetMaxDomains returns the maximum number of domains per user
 func (s *Service) GetMaxDomains() int {
 	return s.maxDomains
