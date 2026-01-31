@@ -92,7 +92,7 @@ func (r *UserRepository) Create(user *User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(id int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
 		FROM users WHERE id = ?`, id,
 	))
 	if err != nil {
@@ -104,7 +104,7 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 // GetByPhone retrieves a user by phone number
 func (r *UserRepository) GetByPhone(phone string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
 		FROM users WHERE phone = ?`, phone,
 	))
 	if err != nil {
@@ -208,7 +208,7 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 	}
 
 	rows, err := r.db.Query(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset,
 	)
 	if err != nil {
@@ -241,7 +241,7 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 		args[i] = id
 	}
 
-	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -280,13 +280,14 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	user := &User{}
 	var lastLoginAt sql.NullTime
 	var githubID sql.NullInt64
+	var googleID sql.NullString
 	var email sql.NullString
 	var avatarURL sql.NullString
 
 	err := s.Scan(
 		&user.ID, &user.Phone, &user.PasswordHash, &user.DisplayName,
 		&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
-		&githubID, &email, &avatarURL,
+		&githubID, &email, &avatarURL, &googleID,
 	)
 	if err != nil {
 		return nil, err
@@ -297,6 +298,9 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	}
 	if githubID.Valid {
 		user.GitHubID = &githubID.Int64
+	}
+	if googleID.Valid {
+		user.GoogleID = &googleID.String
 	}
 	if email.Valid {
 		user.Email = email.String
@@ -319,7 +323,7 @@ func scanUserRows(rows *sql.Rows) (*User, error) {
 // GetByGitHubID retrieves a user by GitHub ID
 func (r *UserRepository) GetByGitHubID(githubID int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
 		FROM users WHERE github_id = ?`, githubID,
 	))
 	if err != nil {
@@ -356,8 +360,8 @@ func (r *UserRepository) LinkGitHub(userID, githubID int64, email, avatarURL str
 // CreateOAuth creates a new user via OAuth (no phone/password required)
 func (r *UserRepository) CreateOAuth(user *User) error {
 	query := `
-		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, email, avatar_url, created_at)
-		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, email, avatar_url, created_at)
+		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
@@ -367,6 +371,7 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 		user.IsAdmin,
 		user.IsActive,
 		user.GitHubID,
+		user.GoogleID,
 		user.Email,
 		user.AvatarURL,
 		now,
@@ -385,6 +390,43 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 
 	user.ID = id
 	user.CreatedAt = now
+	return nil
+}
+
+// GetByGoogleID retrieves a user by Google ID
+func (r *UserRepository) GetByGoogleID(googleID string) (*User, error) {
+	user, err := scanUser(r.db.QueryRow(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		FROM users WHERE google_id = ?`, googleID,
+	))
+	if err != nil {
+		return nil, notFoundOrError(err, ErrUserNotFound, "get user by google id")
+	}
+	return user, nil
+}
+
+// LinkGoogle links a Google account to an existing user
+func (r *UserRepository) LinkGoogle(userID int64, googleID, email, avatarURL string) error {
+	query := `
+		UPDATE users
+		SET google_id = ?, email = COALESCE(NULLIF(email, ''), ?), avatar_url = COALESCE(NULLIF(avatar_url, ''), ?)
+		WHERE id = ?
+	`
+	result, err := r.db.Exec(query, googleID, email, avatarURL, userID)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return fmt.Errorf("google account already linked to another user")
+		}
+		return fmt.Errorf("link google: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
 	return nil
 }
 

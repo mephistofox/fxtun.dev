@@ -187,6 +187,8 @@ func (s *Server) setupRoutes() {
 			r.Get("/device/token", s.handleDevicePoll)
 			r.Get("/github", s.handleGitHubAuth)
 			r.Get("/github/callback", s.handleGitHubCallback)
+			r.Get("/google", s.handleGoogleAuth)
+			r.Get("/google/callback", s.handleGoogleCallback)
 		})
 
 		// Downloads (public)

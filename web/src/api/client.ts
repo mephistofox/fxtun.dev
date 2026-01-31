@@ -77,6 +77,7 @@ export interface User {
   display_name: string
   is_admin: boolean
   github_id?: number
+  google_id?: string
   created_at: string
 }
 

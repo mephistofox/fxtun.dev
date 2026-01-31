@@ -16,6 +16,7 @@ type User struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
 	GitHubID     *int64     `json:"github_id,omitempty"`
+	GoogleID     *string    `json:"google_id,omitempty"`
 	Email        string     `json:"email,omitempty"`
 	AvatarURL    string     `json:"avatar_url,omitempty"`
 }
