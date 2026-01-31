@@ -214,6 +214,8 @@
     "or": "or",
     "signInWithGitHub": "Sign in with GitHub",
     "signUpWithGitHub": "Sign up with GitHub",
+    "signInWithGoogle": "Sign in with Google",
+    "signUpWithGoogle": "Sign up with Google",
     "signInWithPhone": "Sign in with phone",
     "signUpWithPhone": "Sign up with phone"
   },
@@ -357,7 +359,12 @@
     "githubLinked": "GitHub account linked",
     "githubNotLinked": "Link your GitHub account to enable OAuth sign-in.",
     "linkGitHub": "Link GitHub Account",
-    "githubLinkSuccess": "GitHub account linked successfully"
+    "githubLinkSuccess": "GitHub account linked successfully",
+    "googleSection": "Google Account",
+    "googleLinked": "Google account linked",
+    "googleNotLinked": "Link your Google account to enable OAuth sign-in.",
+    "linkGoogle": "Link Google Account",
+    "googleLinkSuccess": "Google account linked successfully"
   },
   "theme": {
     "light": "Light",

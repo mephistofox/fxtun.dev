@@ -214,6 +214,8 @@
     "or": "или",
     "signInWithGitHub": "Войти через GitHub",
     "signUpWithGitHub": "Регистрация через GitHub",
+    "signInWithGoogle": "Войти через Google",
+    "signUpWithGoogle": "Регистрация через Google",
     "signInWithPhone": "Войти по номеру телефона",
     "signUpWithPhone": "Регистрация по номеру"
   },
@@ -357,7 +359,12 @@
     "githubLinked": "Аккаунт GitHub привязан",
     "githubNotLinked": "Привяжите аккаунт GitHub для входа через OAuth.",
     "linkGitHub": "Привязать GitHub",
-    "githubLinkSuccess": "Аккаунт GitHub успешно привязан"
+    "githubLinkSuccess": "Аккаунт GitHub успешно привязан",
+    "googleSection": "Аккаунт Google",
+    "googleLinked": "Аккаунт Google привязан",
+    "googleNotLinked": "Привяжите аккаунт Google для входа через OAuth.",
+    "linkGoogle": "Привязать Google",
+    "googleLinkSuccess": "Аккаунт Google успешно привязан"
   },
   "theme": {
     "light": "Светлая",
