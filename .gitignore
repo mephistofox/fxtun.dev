@@ -22,3 +22,8 @@ coverage.out
 plan.txt
 docs/blog/
 
+# Local binaries and configs
+/server
+/client
+client.yaml
+
