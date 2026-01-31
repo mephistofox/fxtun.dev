@@ -319,7 +319,7 @@
 
   /* Feature card - modern style */
   .feature-card {
-    @apply relative p-8 rounded-2xl border transition-all duration-500;
+    @apply relative p-8 rounded-2xl border transition-all duration-500 flex flex-col;
     background: hsl(var(--surface));
     border-color: hsl(var(--border));
   }

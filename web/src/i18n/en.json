@@ -5,6 +5,7 @@
       "howItWorks": "How It Works",
       "protocols": "Protocols",
       "download": "Download",
+      "advanced": "Superpowers",
       "backToHome": "Back to home"
     },
     "hero": {
@@ -56,6 +57,47 @@
       "gui": {
         "title": "GUI & CLI",
         "short": "Your choice"
+      }
+    },
+    "advanced": {
+      "label": "Advanced Capabilities",
+      "title": "Built for Production",
+      "subtitle": "Advanced features that make fxTunnel ready for real-world use.",
+      "customDomains": {
+        "title": "Custom Domains",
+        "desc": "Bring your own domain with automatic HTTPS. CNAME for subdomains, A record for apex domains — Let's Encrypt certificates provisioned automatically.",
+        "demo": {
+          "step1": "Configure DNS",
+          "step2": "Verifying...",
+          "step3": "Certificate issued",
+          "domain": "app.example.com",
+          "cname": "CNAME → tunnel.example.net",
+          "verified": "DNS Verified",
+          "https": "HTTPS Active"
+        }
+      },
+      "inspector": {
+        "title": "HTTP Inspector & Replay",
+        "desc": "Real-time request/response inspection with search, filtering, and one-click replay. Debug webhooks and APIs without leaving your browser.",
+        "demo": {
+          "replay": "Replay",
+          "method": "Method",
+          "path": "Path",
+          "status": "Status",
+          "duration": "Duration"
+        }
+      },
+      "websocket": {
+        "title": "WebSocket Support",
+        "desc": "Full bidirectional WebSocket passthrough. No configuration needed — just works."
+      },
+      "lowLatency": {
+        "title": "Low Latency",
+        "desc": "Pre-opened stream pool and optimized 256KB buffers minimize connection overhead. First-request latency nearly eliminated."
+      },
+      "metrics": {
+        "title": "Prometheus Metrics",
+        "desc": "Built-in /metrics endpoint for Grafana dashboards, alerting, and production monitoring out of the box."
       }
     },
     "howItWorks": {
