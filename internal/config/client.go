@@ -29,12 +29,12 @@ type ClientServerSettings struct {
 
 // TunnelConfig defines a single tunnel
 type TunnelConfig struct {
-	Name       string `mapstructure:"name"`
-	Type       string `mapstructure:"type"` // http, tcp, udp
-	LocalAddr  string `mapstructure:"local_addr"`
-	LocalPort  int    `mapstructure:"local_port"`
-	RemotePort int    `mapstructure:"remote_port"` // For TCP/UDP, 0 = auto-assign
-	Subdomain  string `mapstructure:"subdomain"`   // For HTTP tunnels
+	Name       string `mapstructure:"name" yaml:"name"`
+	Type       string `mapstructure:"type" yaml:"type"`                          // http, tcp, udp
+	LocalAddr  string `mapstructure:"local_addr" yaml:"local_addr,omitempty"`
+	LocalPort  int    `mapstructure:"local_port" yaml:"local_port"`
+	RemotePort int    `mapstructure:"remote_port" yaml:"remote_port,omitempty"` // For TCP/UDP, 0 = auto-assign
+	Subdomain  string `mapstructure:"subdomain" yaml:"subdomain,omitempty"`    // For HTTP tunnels
 }
 
 // ReconnectSettings contains reconnection configuration
