@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.17.0](https://github.com/mephistofox/fxTunnel/compare/v1.16.0...v1.17.0) (2026-01-31)
+
+
+### Features
+
+* **api:** add device flow endpoints for CLI browser auth ([9b05c2b](https://github.com/mephistofox/fxTunnel/commit/9b05c2b406d1c3aa0146eaccb9a5a0e6f8cf6ea8))
+* **api:** add GitHub OAuth login, register, and account linking ([c4c356d](https://github.com/mephistofox/fxTunnel/commit/c4c356da0bbc0b84422f27b33c3f61977abb76a3))
+* **auth:** add OAuth register/login and GitHub linking ([5a1b099](https://github.com/mephistofox/fxTunnel/commit/5a1b0992d977d1f24c54749cf396e4f5dd76e4c5))
+* **cli:** add 'domains' command for subdomain management ([e006978](https://github.com/mephistofox/fxTunnel/commit/e006978940d3e1bed12c8bd2a70259c9e0145f96))
+* **cli:** add browser-based device flow to login command ([6a51afb](https://github.com/mephistofox/fxTunnel/commit/6a51afba2f00eb257d2ec971a892051ae9156934))
+* **cli:** add checkAuth helper for keyring and home config ([8945bb2](https://github.com/mephistofox/fxTunnel/commit/8945bb2afeaa6f97ac20421ebc1a07828a04adf9))
+* **cli:** add compile-time DefaultServerURL variable ([361e8f6](https://github.com/mephistofox/fxTunnel/commit/361e8f652c33f0b17a39e51f47904d51ef42e257))
+* **cli:** add custom domains management to 'domains' command ([6cda1bf](https://github.com/mephistofox/fxTunnel/commit/6cda1bf8e2d1ac1500c53e5072a9f1cbd7ba0e6d))
+* **cli:** add interactive 'fxtunnel init' command ([bd610fd](https://github.com/mephistofox/fxTunnel/commit/bd610fd19c72017ea8503e6db0e48f3523f64815))
+* **config:** add OAuth settings for GitHub ([6fe35ea](https://github.com/mephistofox/fxTunnel/commit/6fe35ea235d0d4e124901130480a8d0df66ff82b))
+* **config:** prioritize fxtunnel.yaml over client.yaml in CWD ([1b49eb8](https://github.com/mephistofox/fxTunnel/commit/1b49eb88b1ba1b67f96773125b0ec1103b6d716f))
+* **db:** add OAuth fields to users table ([d7e88b8](https://github.com/mephistofox/fxTunnel/commit/d7e88b8f24f075b9a517332346823994970f3c73))
+* **db:** add OAuth user repository methods ([54e83f6](https://github.com/mephistofox/fxTunnel/commit/54e83f66309f74cd7293268d876953d2fed677a4))
+* **web:** add CLI auth confirmation page for device flow ([07585a1](https://github.com/mephistofox/fxTunnel/commit/07585a11b9128cfab826f0c2281608dbaaf763dc))
+* **web:** add GitHub account linking to profile page ([d945d0e](https://github.com/mephistofox/fxTunnel/commit/d945d0e61821e94efe5d10df39ecab8272d8cec9))
+* **web:** add GitHub OAuth button to login and register pages ([781484a](https://github.com/mephistofox/fxTunnel/commit/781484a7edba3112b9f1cf13898e2421630cda53))
+* **web:** add OAuth callback page ([fcdbc3e](https://github.com/mephistofox/fxTunnel/commit/fcdbc3e81aad7ce504826b307fbe854b378a146a))
+* **web:** redesign auth pages with GitHub as primary login method ([07836fb](https://github.com/mephistofox/fxTunnel/commit/07836fbec6c04aa135b7aa0137e0ec09de9c87b5))
+
+
+### Bug Fixes
+
+* **config:** add yaml tags to TunnelConfig for correct serialization ([06ca50c](https://github.com/mephistofox/fxTunnel/commit/06ca50c7d80f1972837a45df28fb611a51cf893d))
+* resolve golangci-lint errors (errcheck, gosec) ([951fc14](https://github.com/mephistofox/fxTunnel/commit/951fc14322f8d4c0343e8522e1ef6c83d3327427))
+
 ## [1.16.0](https://github.com/mephistofox/fxTunnel/compare/v1.15.0...v1.16.0) (2026-01-31)
 
 
