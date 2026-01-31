@@ -20,8 +20,9 @@ import (
 const defaultControlPort = "4443"
 
 var (
-	Version   = "dev"
-	BuildTime = "unknown"
+	Version          = "dev"
+	BuildTime        = "unknown"
+	DefaultServerURL = "https://mfdev.ru"
 )
 
 var (
