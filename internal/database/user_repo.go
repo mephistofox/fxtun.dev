@@ -91,63 +91,25 @@ func (r *UserRepository) Create(user *User) error {
 
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(id int64) (*User, error) {
-	query := `
-		SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at
-		FROM users WHERE id = ?
-	`
-
-	user := &User{}
-	var lastLoginAt sql.NullTime
-
-	err := r.db.QueryRow(query, id).Scan(
-		&user.ID,
-		&user.Phone,
-		&user.PasswordHash,
-		&user.DisplayName,
-		&user.IsAdmin,
-		&user.IsActive,
-		&user.CreatedAt,
-		&lastLoginAt,
-	)
+	user, err := scanUser(r.db.QueryRow(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		FROM users WHERE id = ?`, id,
+	))
 	if err != nil {
 		return nil, notFoundOrError(err, ErrUserNotFound, "get user by id")
 	}
-
-	if lastLoginAt.Valid {
-		user.LastLoginAt = &lastLoginAt.Time
-	}
-
 	return user, nil
 }
 
 // GetByPhone retrieves a user by phone number
 func (r *UserRepository) GetByPhone(phone string) (*User, error) {
-	query := `
-		SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at
-		FROM users WHERE phone = ?
-	`
-
-	user := &User{}
-	var lastLoginAt sql.NullTime
-
-	err := r.db.QueryRow(query, phone).Scan(
-		&user.ID,
-		&user.Phone,
-		&user.PasswordHash,
-		&user.DisplayName,
-		&user.IsAdmin,
-		&user.IsActive,
-		&user.CreatedAt,
-		&lastLoginAt,
-	)
+	user, err := scanUser(r.db.QueryRow(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		FROM users WHERE phone = ?`, phone,
+	))
 	if err != nil {
 		return nil, notFoundOrError(err, ErrUserNotFound, "get user by phone")
 	}
-
-	if lastLoginAt.Valid {
-		user.LastLoginAt = &lastLoginAt.Time
-	}
-
 	return user, nil
 }
 
@@ -245,12 +207,10 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 		return nil, 0, fmt.Errorf("count users: %w", err)
 	}
 
-	query := `
-		SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at
-		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?
-	`
-
-	rows, err := r.db.Query(query, limit, offset)
+	rows, err := r.db.Query(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset,
+	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
 	}
@@ -258,26 +218,10 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 
 	var users []*User
 	for rows.Next() {
-		user := &User{}
-		var lastLoginAt sql.NullTime
-
-		if err := rows.Scan(
-			&user.ID,
-			&user.Phone,
-			&user.PasswordHash,
-			&user.DisplayName,
-			&user.IsAdmin,
-			&user.IsActive,
-			&user.CreatedAt,
-			&lastLoginAt,
-		); err != nil {
+		user, err := scanUserRows(rows)
+		if err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
-
-		if lastLoginAt.Valid {
-			user.LastLoginAt = &lastLoginAt.Time
-		}
-
 		users = append(users, user)
 	}
 
@@ -297,7 +241,7 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 		args[i] = id
 	}
 
-	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -307,16 +251,9 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 
 	users := make(map[int64]*User)
 	for rows.Next() {
-		user := &User{}
-		var lastLoginAt sql.NullTime
-		if err := rows.Scan(
-			&user.ID, &user.Phone, &user.PasswordHash, &user.DisplayName,
-			&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
-		); err != nil {
+		user, err := scanUserRows(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
-		}
-		if lastLoginAt.Valid {
-			user.LastLoginAt = &lastLoginAt.Time
 		}
 		users[user.ID] = user
 	}
@@ -332,6 +269,123 @@ func (r *UserRepository) Count() (int, error) {
 		return 0, fmt.Errorf("count users: %w", err)
 	}
 	return count, nil
+}
+
+// scanner is an interface satisfied by both *sql.Row and *sql.Rows
+type scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanUserFromScanner(s scanner) (*User, error) {
+	user := &User{}
+	var lastLoginAt sql.NullTime
+	var githubID sql.NullInt64
+	var email sql.NullString
+	var avatarURL sql.NullString
+
+	err := s.Scan(
+		&user.ID, &user.Phone, &user.PasswordHash, &user.DisplayName,
+		&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
+		&githubID, &email, &avatarURL,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if lastLoginAt.Valid {
+		user.LastLoginAt = &lastLoginAt.Time
+	}
+	if githubID.Valid {
+		user.GitHubID = &githubID.Int64
+	}
+	if email.Valid {
+		user.Email = email.String
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = avatarURL.String
+	}
+
+	return user, nil
+}
+
+func scanUser(row *sql.Row) (*User, error) {
+	return scanUserFromScanner(row)
+}
+
+func scanUserRows(rows *sql.Rows) (*User, error) {
+	return scanUserFromScanner(rows)
+}
+
+// GetByGitHubID retrieves a user by GitHub ID
+func (r *UserRepository) GetByGitHubID(githubID int64) (*User, error) {
+	user, err := scanUser(r.db.QueryRow(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url
+		FROM users WHERE github_id = ?`, githubID,
+	))
+	if err != nil {
+		return nil, notFoundOrError(err, ErrUserNotFound, "get user by github id")
+	}
+	return user, nil
+}
+
+// LinkGitHub links a GitHub account to an existing user
+func (r *UserRepository) LinkGitHub(userID, githubID int64, email, avatarURL string) error {
+	query := `
+		UPDATE users
+		SET github_id = ?, email = COALESCE(NULLIF(email, ''), ?), avatar_url = COALESCE(NULLIF(avatar_url, ''), ?)
+		WHERE id = ?
+	`
+	result, err := r.db.Exec(query, githubID, email, avatarURL, userID)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return fmt.Errorf("github account already linked to another user")
+		}
+		return fmt.Errorf("link github: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// CreateOAuth creates a new user via OAuth (no phone/password required)
+func (r *UserRepository) CreateOAuth(user *User) error {
+	query := `
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, email, avatar_url, created_at)
+		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	now := time.Now()
+	result, err := r.db.Exec(query,
+		user.Phone,
+		user.DisplayName,
+		user.IsAdmin,
+		user.IsActive,
+		user.GitHubID,
+		user.Email,
+		user.AvatarURL,
+		now,
+	)
+	if err != nil {
+		if isUniqueConstraintError(err) {
+			return ErrUserAlreadyExists
+		}
+		return fmt.Errorf("create oauth user: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("get last insert id: %w", err)
+	}
+
+	user.ID = id
+	user.CreatedAt = now
+	return nil
 }
 
 // isUniqueConstraintError checks if the error is a unique constraint violation
