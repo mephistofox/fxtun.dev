@@ -58,6 +58,12 @@ const router = createRouter({
       component: () => import('./views/ProfileView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/auth/cli',
+      name: 'cli-auth',
+      component: () => import('./views/CliAuthView.vue'),
+      meta: { requiresAuth: true },
+    },
     // Admin routes
     {
       path: '/admin',
@@ -107,7 +113,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'login' })
+    next({ name: 'login', query: { redirect: to.fullPath } })
   } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
     // Redirect authenticated users from guest pages to dashboard
     next({ name: 'dashboard' })

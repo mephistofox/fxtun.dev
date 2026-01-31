@@ -142,6 +142,8 @@ export const authApi = {
   login: (data: LoginRequest) => api.post<TokenPair & { user: User }>('/auth/login', data),
   register: (data: RegisterRequest) => api.post<TokenPair & { user: User }>('/auth/register', data),
   logout: () => api.post('/auth/logout'),
+  deviceAuthorize: (sessionId: string) =>
+    api.post('/auth/device/authorize', { session_id: sessionId }),
   refresh: (refreshToken: string) => api.post<TokenPair>('/auth/refresh', { refresh_token: refreshToken }),
 }
 
