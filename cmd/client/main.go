@@ -115,6 +115,9 @@ Use -t to provide token directly, or enter it interactively.`,
 	}
 	rootCmd.AddCommand(logoutCmd)
 
+	// Init command
+	rootCmd.AddCommand(newInitCmd())
+
 	// Update command
 	updateCmd := &cobra.Command{
 		Use:   "update",
