@@ -86,6 +86,7 @@ type Server struct {
 	baseDomain     string
 	downloadsPath  string
 	version        string
+	deviceStore    *deviceStore
 	shutdownCh     chan struct{}
 }
 
@@ -101,8 +102,11 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		log:            log.With().Str("component", "api").Logger(),
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
+		deviceStore:    newDeviceStore(),
 		shutdownCh:     make(chan struct{}),
 	}
+
+	go s.deviceStore.Cleanup(s.shutdownCh)
 
 	s.setupRoutes()
 	return s
@@ -179,6 +183,8 @@ func (s *Server) setupRoutes() {
 			r.Post("/register", s.handleRegister)
 			r.Post("/login", s.handleLogin)
 			r.Post("/refresh", s.handleRefresh)
+			r.Post("/device/code", s.handleDeviceCode)
+			r.Get("/device/token", s.handleDevicePoll)
 		})
 
 		// Downloads (public)
@@ -199,6 +205,7 @@ func (s *Server) setupRoutes() {
 
 			// Auth
 			r.Post("/auth/logout", s.handleLogout)
+			r.Post("/auth/device/authorize", s.handleDeviceAuthorize)
 
 			// TOTP
 			r.Route("/auth/totp", func(r chi.Router) {
