@@ -213,7 +213,9 @@
     "registrationFailed": "Ошибка регистрации",
     "or": "или",
     "signInWithGitHub": "Войти через GitHub",
-    "signUpWithGitHub": "Регистрация через GitHub"
+    "signUpWithGitHub": "Регистрация через GitHub",
+    "signInWithPhone": "Войти по номеру телефона",
+    "signUpWithPhone": "Регистрация по номеру"
   },
   "dashboard": {
     "title": "Панель управления",

@@ -213,7 +213,9 @@
     "registrationFailed": "Registration failed",
     "or": "or",
     "signInWithGitHub": "Sign in with GitHub",
-    "signUpWithGitHub": "Sign up with GitHub"
+    "signUpWithGitHub": "Sign up with GitHub",
+    "signInWithPhone": "Sign in with phone",
+    "signUpWithPhone": "Sign up with phone"
   },
   "dashboard": {
     "title": "Dashboard",

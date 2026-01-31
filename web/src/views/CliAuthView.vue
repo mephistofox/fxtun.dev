@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import { authApi } from '@/api/client'
 
 const route = useRoute()
-const { t } = useI18n()
+
 
 const sessionId = ref('')
 const loading = ref(false)
