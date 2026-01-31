@@ -61,15 +61,19 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	if configPath != "" {
 		v.SetConfigFile(configPath)
 	} else {
-		// Look for config in standard locations
-		v.SetConfigName("client")
-		v.SetConfigType("yaml")
-		v.AddConfigPath(".")
-		v.AddConfigPath("./configs")
+		// Priority: fxtunnel.yaml in CWD > client.yaml in CWD > configs/ > ~/.fxtunnel/
+		if _, err := os.Stat("fxtunnel.yaml"); err == nil {
+			v.SetConfigFile("fxtunnel.yaml")
+		} else {
+			v.SetConfigName("client")
+			v.SetConfigType("yaml")
+			v.AddConfigPath(".")
+			v.AddConfigPath("./configs")
 
-		home, err := os.UserHomeDir()
-		if err == nil {
-			v.AddConfigPath(filepath.Join(home, ".fxtunnel"))
+			home, err := os.UserHomeDir()
+			if err == nil {
+				v.AddConfigPath(filepath.Join(home, ".fxtunnel"))
+			}
 		}
 	}
 
