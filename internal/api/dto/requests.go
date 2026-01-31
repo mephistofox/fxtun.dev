@@ -59,6 +59,11 @@ type TOTPDisableRequest struct {
 	Code string `json:"code" validate:"required,min=6,max=8"`
 }
 
+// DeviceAuthorizeRequest represents a device flow authorization request
+type DeviceAuthorizeRequest struct {
+	SessionID string `json:"session_id"`
+}
+
 // UpdateUserRequest represents an admin user update request
 type UpdateUserRequest struct {
 	IsAdmin  *bool `json:"is_admin,omitempty"`

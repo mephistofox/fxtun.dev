@@ -268,6 +268,19 @@ type AdminTunnelsListResponse struct {
 	Total   int               `json:"total"`
 }
 
+// DeviceCodeResponse represents a device flow code response
+type DeviceCodeResponse struct {
+	SessionID string `json:"session_id"`
+	AuthURL   string `json:"auth_url"`
+	ExpiresIn int    `json:"expires_in"`
+}
+
+// DevicePollResponse represents a device flow poll response
+type DevicePollResponse struct {
+	Status string `json:"status"`
+	Token  string `json:"token,omitempty"`
+}
+
 // UsersListResponse represents a list of users for admin
 type UsersListResponse struct {
 	Users []*UserDTO `json:"users"`
