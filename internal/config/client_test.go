@@ -88,7 +88,7 @@ tunnels:
   - name: "from-client"
     type: "http"
     local_port: 1111
-`), 0644)
+`), 0600)
 	require.NoError(t, err)
 
 	fxtunnelYaml := filepath.Join(dir, "fxtunnel.yaml")
@@ -97,12 +97,10 @@ tunnels:
   - name: "from-fxtunnel"
     type: "http"
     local_port: 2222
-`), 0644)
+`), 0600)
 	require.NoError(t, err)
 
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
-	os.Chdir(dir)
+	t.Chdir(dir)
 
 	cfg, err := LoadClientConfig("")
 	require.NoError(t, err)
