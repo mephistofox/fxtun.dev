@@ -292,7 +292,7 @@ func loginWithBrowser() error {
 
 	// Request device code
 	apiURL := webURL + "/api/auth/device/code"
-	resp, err := http.Post(apiURL, "application/json", nil)
+	resp, err := http.Post(apiURL, "application/json", nil) //nolint:gosec // URL built from user-configured server
 	if err != nil {
 		return fmt.Errorf("failed to start device flow: %w\nTry: fxtunnel login -t <token>", err)
 	}
@@ -323,7 +323,7 @@ func loginWithBrowser() error {
 	for time.Now().Before(deadline) {
 		time.Sleep(2 * time.Second)
 
-		pollResp, err := http.Get(pollURL)
+		pollResp, err := http.Get(pollURL) //nolint:gosec // URL built from user-configured server
 		if err != nil {
 			continue
 		}
@@ -332,7 +332,7 @@ func loginWithBrowser() error {
 			Status string `json:"status"`
 			Token  string `json:"token"`
 		}
-		json.NewDecoder(pollResp.Body).Decode(&result)
+		_ = json.NewDecoder(pollResp.Body).Decode(&result)
 		pollResp.Body.Close()
 
 		switch result.Status {

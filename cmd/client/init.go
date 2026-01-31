@@ -146,7 +146,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(projectConfigFile, data, 0644); err != nil {
+	if err := os.WriteFile(projectConfigFile, data, 0600); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 
