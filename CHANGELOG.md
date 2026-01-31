@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/mephistofox/fxTunnel/compare/v1.17.0...v1.17.1) (2026-01-31)
+
+
+### Bug Fixes
+
+* restore build/appicon.png accidentally deleted in e006978 ([0734360](https://github.com/mephistofox/fxTunnel/commit/0734360189bfc5e6a2a5cf360ff45b22d13b2a90))
+
 ## [1.17.0](https://github.com/mephistofox/fxTunnel/compare/v1.16.0...v1.17.0) (2026-01-31)
 
 
