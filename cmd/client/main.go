@@ -2,9 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -245,24 +249,133 @@ func resolveCredentials() {
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	t := token
-	if t == "" {
-		fmt.Print("Enter your API token: ")
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
-			t = strings.TrimSpace(scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("failed to read token: %w", err)
-		}
+	if token != "" {
+		return saveToken(token)
 	}
 
+	fmt.Println("How would you like to authenticate?")
+	fmt.Println("  1) Enter API token manually")
+	fmt.Println("  2) Log in with browser")
+	fmt.Print("Choice [1/2] (default: 2): ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	choice := ""
+	if scanner.Scan() {
+		choice = strings.TrimSpace(scanner.Text())
+	}
+
+	switch choice {
+	case "1":
+		return loginWithToken(scanner)
+	default:
+		return loginWithBrowser()
+	}
+}
+
+func loginWithToken(scanner *bufio.Scanner) error {
+	fmt.Print("Enter your API token: ")
+	t := ""
+	if scanner.Scan() {
+		t = strings.TrimSpace(scanner.Text())
+	}
 	if t == "" {
 		return fmt.Errorf("token cannot be empty")
 	}
+	return saveToken(t)
+}
 
+func loginWithBrowser() error {
+	webURL := resolveWebURL()
+
+	// Request device code
+	apiURL := webURL + "/api/auth/device/code"
+	resp, err := http.Post(apiURL, "application/json", nil)
+	if err != nil {
+		return fmt.Errorf("failed to start device flow: %w\nTry: fxtunnel login -t <token>", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("server returned %d — device flow may not be supported\nTry: fxtunnel login -t <token>", resp.StatusCode)
+	}
+
+	var deviceResp struct {
+		SessionID string `json:"session_id"`
+		AuthURL   string `json:"auth_url"`
+		ExpiresIn int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&deviceResp); err != nil {
+		return fmt.Errorf("invalid server response: %w", err)
+	}
+
+	fmt.Printf("\nOpen this URL in your browser to authenticate:\n\n  %s\n\n", deviceResp.AuthURL)
+	fmt.Println("Waiting for authorization...")
+
+	_ = openBrowser(deviceResp.AuthURL)
+
+	// Poll for token
+	pollURL := webURL + "/api/auth/device/token?session=" + deviceResp.SessionID
+	deadline := time.Now().Add(time.Duration(deviceResp.ExpiresIn) * time.Second)
+
+	for time.Now().Before(deadline) {
+		time.Sleep(2 * time.Second)
+
+		pollResp, err := http.Get(pollURL)
+		if err != nil {
+			continue
+		}
+
+		var result struct {
+			Status string `json:"status"`
+			Token  string `json:"token"`
+		}
+		json.NewDecoder(pollResp.Body).Decode(&result)
+		pollResp.Body.Close()
+
+		switch result.Status {
+		case "authorized":
+			fmt.Println("Authorized!")
+			kr := keyring.New()
+			creds := keyring.Credentials{
+				Token:         result.Token,
+				AuthMethod:    "token",
+				ServerAddress: serverAddr,
+			}
+			if err := kr.SaveCredentials(creds); err != nil {
+				return fmt.Errorf("failed to save credentials: %w", err)
+			}
+			fmt.Println("Token saved. You can now use fxtunnel without --token flag.")
+			return nil
+		case "expired":
+			return fmt.Errorf("session expired — please try again")
+		}
+	}
+
+	return fmt.Errorf("authorization timed out — please try again")
+}
+
+func resolveWebURL() string {
+	addr := serverAddr
+	if addr == "" {
+		kr := keyring.New()
+		if creds, err := kr.LoadCredentials(); err == nil && creds.ServerAddress != "" {
+			addr = creds.ServerAddress
+		}
+	}
+
+	if addr != "" {
+		host := addr
+		if idx := strings.Index(addr, ":"); idx != -1 {
+			host = addr[:idx]
+		}
+		return "https://" + host
+	}
+
+	return DefaultServerURL
+}
+
+func saveToken(t string) error {
 	kr := keyring.New()
-
 	creds := keyring.Credentials{
 		Token:      t,
 		AuthMethod: "token",
@@ -270,13 +383,24 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	if serverAddr != "" {
 		creds.ServerAddress = serverAddr
 	}
-
 	if err := kr.SaveCredentials(creds); err != nil {
 		return fmt.Errorf("failed to save token: %w", err)
 	}
-
 	fmt.Println("Token saved. You can now use fxtunnel without --token flag.")
 	return nil
+}
+
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
 }
 
 func runLogout(cmd *cobra.Command, args []string) error {
