@@ -210,7 +210,10 @@
     "passwordsDoNotMatch": "Пароли не совпадают",
     "passwordTooShort": "Пароль должен быть не менее 8 символов",
     "loginFailed": "Ошибка входа",
-    "registrationFailed": "Ошибка регистрации"
+    "registrationFailed": "Ошибка регистрации",
+    "or": "или",
+    "signInWithGitHub": "Войти через GitHub",
+    "signUpWithGitHub": "Регистрация через GitHub"
   },
   "dashboard": {
     "title": "Панель управления",

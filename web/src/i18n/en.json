@@ -210,7 +210,10 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 8 characters",
     "loginFailed": "Login failed",
-    "registrationFailed": "Registration failed"
+    "registrationFailed": "Registration failed",
+    "or": "or",
+    "signInWithGitHub": "Sign in with GitHub",
+    "signUpWithGitHub": "Sign up with GitHub"
   },
   "dashboard": {
     "title": "Dashboard",
