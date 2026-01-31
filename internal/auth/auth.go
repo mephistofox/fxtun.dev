@@ -426,6 +426,84 @@ func (s *Service) IsTOTPEnabled(userID int64) (bool, error) {
 	return s.db.TOTP.IsEnabled(userID)
 }
 
+// OAuthUserInfo contains user information from an OAuth provider
+type OAuthUserInfo struct {
+	GitHubID    int64
+	Email       string
+	DisplayName string
+	AvatarURL   string
+}
+
+// RegisterOrLoginOAuth authenticates a user via OAuth, creating the account if needed
+func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+	// Try to find existing user by GitHub ID
+	user, err := s.db.Users.GetByGitHubID(info.GitHubID)
+	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
+		return nil, nil, fmt.Errorf("get user by github id: %w", err)
+	}
+
+	if user == nil {
+		// Create new OAuth user
+		user = &database.User{
+			DisplayName: info.DisplayName,
+			IsActive:    true,
+			IsAdmin:     false,
+			GitHubID:    &info.GitHubID,
+			Email:       info.Email,
+			AvatarURL:   info.AvatarURL,
+		}
+		if err := s.db.Users.CreateOAuth(user); err != nil {
+			return nil, nil, fmt.Errorf("create oauth user: %w", err)
+		}
+
+		_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
+			"method":    "github",
+			"github_id": info.GitHubID,
+		}, ipAddress)
+
+		s.log.Info().Int64("user_id", user.ID).Int64("github_id", info.GitHubID).Msg("OAuth user registered")
+	}
+
+	if !user.IsActive {
+		return nil, nil, ErrUserNotActive
+	}
+
+	// Generate tokens
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	if err != nil {
+		return nil, nil, fmt.Errorf("generate tokens: %w", err)
+	}
+
+	// Create session
+	session := &database.Session{
+		UserID:           user.ID,
+		RefreshTokenHash: refreshTokenHash,
+		UserAgent:        userAgent,
+		IPAddress:        ipAddress,
+		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
+	}
+	if err := s.db.Sessions.Create(session); err != nil {
+		return nil, nil, fmt.Errorf("create session: %w", err)
+	}
+
+	// Update last login
+	_ = s.db.Users.UpdateLastLogin(user.ID)
+
+	_ = s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
+		"method":     "github",
+		"user_agent": userAgent,
+	}, ipAddress)
+
+	s.log.Info().Int64("user_id", user.ID).Int64("github_id", info.GitHubID).Msg("OAuth user logged in")
+
+	return user, tokenPair, nil
+}
+
+// LinkGitHub links a GitHub account to an existing user
+func (s *Service) LinkGitHub(userID, githubID int64, email, avatarURL string) error {
+	return s.db.Users.LinkGitHub(userID, githubID, email, avatarURL)
+}
+
 // GetMaxDomains returns the maximum number of domains per user
 func (s *Service) GetMaxDomains() int {
 	return s.maxDomains
