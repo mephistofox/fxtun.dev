@@ -77,6 +77,39 @@ func TestLoadClientConfig_Defaults(t *testing.T) {
 	assert.True(t, cfg.Reconnect.Enabled)
 }
 
+func TestLoadClientConfig_FxtunnelYamlPriority(t *testing.T) {
+	dir := t.TempDir()
+
+	clientYaml := filepath.Join(dir, "client.yaml")
+	err := os.WriteFile(clientYaml, []byte(`
+server:
+  address: "server1:4443"
+tunnels:
+  - name: "from-client"
+    type: "http"
+    local_port: 1111
+`), 0644)
+	require.NoError(t, err)
+
+	fxtunnelYaml := filepath.Join(dir, "fxtunnel.yaml")
+	err = os.WriteFile(fxtunnelYaml, []byte(`
+tunnels:
+  - name: "from-fxtunnel"
+    type: "http"
+    local_port: 2222
+`), 0644)
+	require.NoError(t, err)
+
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
+	os.Chdir(dir)
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, 2222, cfg.Tunnels[0].LocalPort)
+	assert.Equal(t, "from-fxtunnel", cfg.Tunnels[0].Name)
+}
+
 func TestLoadClientConfig_FromFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "client.yaml")
