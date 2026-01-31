@@ -123,6 +123,9 @@ Use -t to provide token directly, or enter it interactively.`,
 	// Init command
 	rootCmd.AddCommand(newInitCmd())
 
+	// Domains command
+	rootCmd.AddCommand(newDomainsCmd())
+
 	// Update command
 	updateCmd := &cobra.Command{
 		Use:   "update",
