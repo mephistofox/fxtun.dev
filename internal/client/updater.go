@@ -129,10 +129,10 @@ func compareVersions(a, b string) int {
 	for i := 0; i < 3; i++ {
 		var av, bv int
 		if i < len(aParts) {
-			fmt.Sscanf(aParts[i], "%d", &av)
+			_, _ = fmt.Sscanf(aParts[i], "%d", &av)
 		}
 		if i < len(bParts) {
-			fmt.Sscanf(bParts[i], "%d", &bv)
+			_, _ = fmt.Sscanf(bParts[i], "%d", &bv)
 		}
 		if av != bv {
 			return av - bv
