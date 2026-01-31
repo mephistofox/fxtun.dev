@@ -159,7 +159,10 @@ func (s *Server) setupRoutes() {
 	// Health check
 	r.Get("/health", s.handleHealth)
 	r.Get("/install.sh", s.handleInstallScript)
-	r.Handle("/metrics", metricsHandler())
+	r.Group(func(r chi.Router) {
+		r.Use(auth.MiddlewareWithDB(s.authService, s.db))
+		r.Handle("/metrics", metricsHandler())
+	})
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
