@@ -77,7 +77,7 @@ func apiError(resp *http.Response) error {
 		Error string `json:"error"`
 		Code  string `json:"code,omitempty"`
 	}
-	json.NewDecoder(resp.Body).Decode(&errResp)
+	_ = json.NewDecoder(resp.Body).Decode(&errResp)
 	if errResp.Error != "" {
 		return fmt.Errorf("%s", errResp.Error)
 	}
