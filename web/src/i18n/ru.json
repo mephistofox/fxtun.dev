@@ -350,7 +350,12 @@
     "disable2FAHint": "Введите текущий код 2FA для отключения двухфакторной аутентификации:",
     "failedToSetup": "Не удалось начать настройку TOTP",
     "failedToVerify": "Не удалось проверить код TOTP",
-    "failedToDisable": "Не удалось отключить TOTP"
+    "failedToDisable": "Не удалось отключить TOTP",
+    "githubSection": "Аккаунт GitHub",
+    "githubLinked": "Аккаунт GitHub привязан",
+    "githubNotLinked": "Привяжите аккаунт GitHub для входа через OAuth.",
+    "linkGitHub": "Привязать GitHub",
+    "githubLinkSuccess": "Аккаунт GitHub успешно привязан"
   },
   "theme": {
     "light": "Светлая",

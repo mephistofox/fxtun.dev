@@ -350,7 +350,12 @@
     "disable2FAHint": "Enter your current 2FA code to disable two-factor authentication:",
     "failedToSetup": "Failed to start TOTP setup",
     "failedToVerify": "Failed to verify TOTP code",
-    "failedToDisable": "Failed to disable TOTP"
+    "failedToDisable": "Failed to disable TOTP",
+    "githubSection": "GitHub Account",
+    "githubLinked": "GitHub account linked",
+    "githubNotLinked": "Link your GitHub account to enable OAuth sign-in.",
+    "linkGitHub": "Link GitHub Account",
+    "githubLinkSuccess": "GitHub account linked successfully"
   },
   "theme": {
     "light": "Light",
