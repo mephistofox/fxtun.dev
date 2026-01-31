@@ -26,6 +26,9 @@ type UserDTO struct {
 	DisplayName string     `json:"display_name"`
 	IsAdmin     bool       `json:"is_admin"`
 	IsActive    bool       `json:"is_active"`
+	GitHubID    *int64     `json:"github_id,omitempty"`
+	Email       string     `json:"email,omitempty"`
+	AvatarURL   string     `json:"avatar_url,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
@@ -38,6 +41,9 @@ func UserFromModel(u *database.User) *UserDTO {
 		DisplayName: u.DisplayName,
 		IsAdmin:     u.IsAdmin,
 		IsActive:    u.IsActive,
+		GitHubID:    u.GitHubID,
+		Email:       u.Email,
+		AvatarURL:   u.AvatarURL,
 		CreatedAt:   u.CreatedAt,
 		LastLoginAt: u.LastLoginAt,
 	}
