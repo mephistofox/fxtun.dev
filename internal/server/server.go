@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/auth"
@@ -23,6 +22,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 const (
@@ -98,9 +98,9 @@ type Client struct {
 	ID           string
 	RemoteAddr   string
 	Token        *config.TokenConfig
-	Session      *yamux.Session
+	Session      transport.Session
 	ControlCodec *protocol.Codec
-	ControlConn  net.Conn
+	ControlConn  transport.Stream
 	Tunnels      map[string]*Tunnel
 	TunnelsMu    sync.RWMutex
 	Connected    time.Time
@@ -120,8 +120,8 @@ type Client struct {
 	mu        sync.Mutex // for writing to control stream
 	closeOnce sync.Once
 
-	// Stream pool: pre-opened yamux streams for low-latency connection handling
-	streamPool chan net.Conn
+	// Stream pool: pre-opened streams for low-latency connection handling
+	streamPool chan transport.Stream
 }
 
 // Tunnel represents an active tunnel
@@ -399,7 +399,7 @@ func (s *Server) Stop() error {
 		}
 		_ = c.sendControl(shutdownMsg)
 		if c.Session != nil {
-			_ = c.Session.GoAway()
+			_ = c.Session.CloseWithError(0, "server shutting down")
 		}
 	}
 
@@ -470,21 +470,20 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		log.Debug().Msg("Compression enabled (zstd)")
 	}
 
-	// Create yamux session FIRST (server mode) with optimized config
-	yamuxCfg := yamux.DefaultConfig()
-	yamuxCfg.EnableKeepAlive = true
-	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
-	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
-	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
-	session, err := yamux.Server(rwc, yamuxCfg)
+	// Create transport session (server mode) with optimized config
+	session, err := transport.NewYamuxSessionWithConfig(rwc, true, transport.YamuxConfig{
+		MaxStreamWindowSize:    yamuxMaxStreamWindowSize,
+		KeepAliveInterval:      yamuxKeepAliveInterval,
+		ConnectionWriteTimeout: yamuxConnectionWriteTimeout,
+	})
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create yamux session")
+		log.Error().Err(err).Msg("Failed to create transport session")
 		conn.Close()
 		return
 	}
 
 	// Accept the control stream (first stream from client)
-	controlStream, err := session.Accept()
+	controlStream, err := session.AcceptStream(s.ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to accept control stream")
 		session.Close()
@@ -495,10 +494,29 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	codec := protocol.NewCodec(controlStream, controlStream)
 
 	// Wait for authentication with timeout
-	_ = controlStream.SetReadDeadline(time.Now().Add(authTimeout))
+	type decodeResult struct {
+		data    []byte
+		baseMsg *protocol.Message
+		err     error
+	}
+	authCtx, authCancel := context.WithTimeout(s.ctx, authTimeout)
+	defer authCancel()
+	resultCh := make(chan decodeResult, 1)
+	go func() {
+		data, baseMsg, err := codec.DecodeRaw()
+		resultCh <- decodeResult{data, baseMsg, err}
+	}()
 
-	// Read auth message
-	data, baseMsg, err := codec.DecodeRaw()
+	var data []byte
+	var baseMsg *protocol.Message
+	select {
+	case res := <-resultCh:
+		data, baseMsg, err = res.data, res.baseMsg, res.err
+	case <-authCtx.Done():
+		log.Error().Msg("Auth timeout")
+		session.Close()
+		return
+	}
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read auth message")
 		session.Close()
@@ -520,7 +538,6 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	}
 
 	authMsg := parsed.(*protocol.AuthMessage)
-	_ = controlStream.SetReadDeadline(time.Time{}) // Clear deadline
 
 	// Authenticate
 	client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
@@ -560,7 +577,7 @@ func (s *Server) GetClient(clientID string) *Client {
 func (c *Client) handle() {
 	defer c.Close()
 
-	// Pre-open yamux streams for low-latency connection handling
+	// Pre-open streams for low-latency connection handling
 	c.startStreamPool()
 
 	// Start keepalive
