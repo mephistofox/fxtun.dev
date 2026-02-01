@@ -11,7 +11,7 @@ import StatusIndicator from '@/components/StatusIndicator.vue'
 import {
   Plus, Copy, X, ExternalLink, Check, RefreshCw, ChevronDown, ChevronUp,
   Zap, Boxes, Globe, Server, Radio, ArrowRight, ArrowUpRight, ArrowDownRight,
-  Search
+  Search, Shield, Database, Gamepad2
 } from 'lucide-vue-next'
 import { formatBytes } from '@/utils/format'
 import type { TunnelType, TunnelConfig } from '@/types'
@@ -27,6 +27,38 @@ const subdomain = ref('')
 const remotePort = ref('')
 const copiedId = ref<string | null>(null)
 const isCreating = ref(false)
+
+interface Template {
+  key: string
+  icon: typeof Globe
+  type?: TunnelType
+  port?: string
+  subdomain?: string
+}
+
+const templates = computed<Template[]>(() => [
+  { key: 'webDev', icon: Globe, type: 'http', port: '3000' },
+  { key: 'api', icon: Server, type: 'http', port: '8080', subdomain: 'api' },
+  { key: 'ssh', icon: Shield, type: 'tcp', port: '22' },
+  { key: 'database', icon: Database, type: 'tcp', port: '5432' },
+  { key: 'game', icon: Gamepad2, type: 'tcp', port: '25565' },
+  { key: 'custom', icon: Plus },
+])
+
+function applyTemplate(tpl: Template) {
+  if (tpl.type) {
+    tunnelType.value = tpl.type
+    localPort.value = tpl.port || ''
+    subdomain.value = tpl.subdomain || ''
+    remotePort.value = ''
+  } else {
+    tunnelType.value = 'http'
+    localPort.value = ''
+    subdomain.value = ''
+    remotePort.value = ''
+  }
+  showQuickConnect.value = true
+}
 
 const tunnelTypes = computed(() => [
   { value: 'http', label: 'HTTP' },
@@ -156,13 +188,28 @@ function copyToClipboard(text: string, id: string) {
         </Button>
       </div>
 
-      <!-- Empty state -->
-      <div v-if="tunnelsStore.activeTunnels.length === 0" class="cyber-card p-8 text-center">
-        <div class="mx-auto mb-3 h-12 w-12 rounded-xl bg-muted/50 flex items-center justify-center">
-          <Zap class="h-6 w-6 text-muted-foreground" />
+      <!-- Empty state — use-case templates -->
+      <div v-if="tunnelsStore.activeTunnels.length === 0">
+        <p class="text-sm text-muted-foreground mb-3">{{ t('dashboard.templates.title') }}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <button
+            v-for="tpl in templates"
+            :key="tpl.key"
+            @click="applyTemplate(tpl)"
+            class="group flex flex-col items-center gap-2 p-4 rounded-xl border border-border/50 bg-card/60 hover:bg-muted/40 hover:border-primary/40 transition-all text-center hover:scale-[1.02]"
+          >
+            <div class="h-10 w-10 rounded-lg bg-muted/50 group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+              <component :is="tpl.icon" class="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+            <div>
+              <p class="text-sm font-medium">{{ t(`dashboard.templates.${tpl.key}`) }}</p>
+              <p class="text-[10px] text-muted-foreground">{{ t(`dashboard.templates.${tpl.key}Hint`) }}</p>
+              <p v-if="tpl.type" class="text-[10px] font-mono text-muted-foreground/60 mt-0.5">
+                {{ tpl.type.toUpperCase() }} :{{ tpl.port }}
+              </p>
+            </div>
+          </button>
         </div>
-        <p class="font-medium">{{ t('dashboard.noTunnels') }}</p>
-        <p class="mt-1 text-sm text-muted-foreground">{{ t('dashboard.noTunnelsHint') }}</p>
       </div>
 
       <!-- Tunnel cards -->
