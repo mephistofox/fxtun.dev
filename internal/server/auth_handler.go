@@ -9,16 +9,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
-func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
+func (s *Server) authenticate(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
 	// First, try to authenticate with database token (new system)
 	if s.db != nil {
 		tokenHash := hashToken(authMsg.Token)
@@ -162,7 +162,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 }
 
 // createClientFromDBToken creates a client authenticated with a database token
-func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
+func (s *Server) createClientFromDBToken(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
@@ -199,7 +199,7 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 }
 
 // createClientFromJWT creates a client authenticated with a JWT token
-func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
+func (s *Server) createClientFromJWT(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
@@ -227,7 +227,7 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 	return client
 }
 
-func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
+func (s *Server) createClient(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
