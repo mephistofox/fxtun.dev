@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -150,32 +151,29 @@ func (c *Client) Connect() error {
 	c.log.Info().Str("server", c.cfg.Server.Address).Msg("Connecting to server")
 	c.events.EmitType(EventConnecting)
 
-	// Dial server
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
-	if err != nil {
-		c.events.EmitError(err)
-		return fmt.Errorf("dial server: %w", err)
-	}
-	tuneTCPConn(conn)
-	c.conn = conn
-
-	// Negotiate compression before yamux
-	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
-	if err != nil {
-		conn.Close()
-		c.events.EmitError(err)
-		return fmt.Errorf("compression negotiation: %w", err)
-	}
-	if compressed {
-		c.log.Info().Msg("Compression enabled (zstd)")
+	transportMode := c.cfg.Server.Transport
+	if transportMode == "" {
+		transportMode = "auto"
 	}
 
-	// Create multiplexed session (client mode)
-	c.session, err = transport.NewYamuxSession(rwc, false)
-	if err != nil {
-		conn.Close()
-		return fmt.Errorf("create session: %w", err)
+	var session transport.Session
+	var err error
+
+	if transportMode == "auto" || transportMode == "quic" {
+		session, err = c.connectQUIC()
+		if err != nil && transportMode == "auto" {
+			c.log.Warn().Err(err).Msg("QUIC failed, falling back to TCP/yamux")
+			session, err = c.connectYamux()
+		}
+	} else {
+		session, err = c.connectYamux()
 	}
+
+	if err != nil {
+		c.events.EmitError(err)
+		return fmt.Errorf("connect: %w", err)
+	}
+	c.session = session
 
 	// Open control stream (first stream)
 	controlStream, err := c.session.OpenStream(c.ctx)
@@ -228,6 +226,36 @@ func (c *Client) Connect() error {
 	}
 
 	return nil
+}
+
+func (c *Client) connectQUIC() (transport.Session, error) {
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: c.cfg.Server.Insecure || !c.cfg.Server.TLSVerify, //nolint:gosec // user-controlled setting
+		NextProtos:         []string{"fxtunnel"},
+	}
+	ctx, cancel := context.WithTimeout(c.ctx, dialTimeout)
+	defer cancel()
+	return transport.DialQUIC(ctx, c.cfg.Server.Address, tlsCfg, transport.DefaultQUICConfig())
+}
+
+func (c *Client) connectYamux() (transport.Session, error) {
+	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("dial server: %w", err)
+	}
+	tuneTCPConn(conn)
+	c.conn = conn
+
+	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("compression negotiation: %w", err)
+	}
+	if compressed {
+		c.log.Info().Msg("Compression enabled (zstd)")
+	}
+
+	return transport.NewYamuxSession(rwc, false)
 }
 
 func (c *Client) authenticate() error {
