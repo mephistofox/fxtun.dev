@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
@@ -34,6 +34,11 @@ const addError = ref('')
 const baseDomain = ref('')
 const serverIP = ref('')
 const maxCustomDomains = ref(0)
+
+const availableSubdomains = computed(() => {
+  const usedTargets = new Set(customDomains.value.map(cd => cd.target_subdomain))
+  return domains.value.filter(d => !usedTargets.has(d.subdomain))
+})
 
 async function loadDomains() {
   loading.value = true
@@ -363,21 +368,72 @@ onMounted(() => {
                 </select>
               </div>
 
-              <div v-if="newDomain && newTargetSubdomain" class="bg-blue-500/10 text-blue-700 dark:text-blue-300 p-4 rounded-md text-sm space-y-3">
-                <p class="font-semibold">{{ t('customDomains.cnameHint') }}</p>
+              <!-- Reserve subdomain first -->
+              <div
+                v-if="availableSubdomains.length === 0"
+                class="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 p-4"
+              >
+                <div>
+                  <p class="text-sm font-semibold">{{ t('customDomains.reserveFirst') }}</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('customDomains.reserveFirstHint') }}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    class="mt-2.5"
+                    @click="showAddDialog = false; showReserveDialog = true"
+                  >
+                    {{ t('customDomains.reserveNow') }}
+                  </Button>
+                </div>
+              </div>
 
-                <div class="space-y-2">
-                  <div class="bg-blue-500/10 px-3 py-2 rounded">
-                    <p class="text-xs font-medium mb-1">{{ t('customDomains.dnsGuideSubdomain') }}:</p>
-                    <code class="block font-mono text-xs">{{ newDomain }} → CNAME → {{ newTargetSubdomain }}.{{ baseDomain }}</code>
+              <div class="space-y-3">
+                <!-- DNS setup header -->
+                <div class="flex items-center gap-2">
+                  <div class="h-5 w-5 rounded-full bg-primary/15 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                   </div>
-                  <div class="bg-blue-500/10 px-3 py-2 rounded">
-                    <p class="text-xs font-medium mb-1">{{ t('customDomains.dnsGuideApex') }}:</p>
-                    <code class="block font-mono text-xs">{{ newDomain }} → A → {{ serverIP || '...' }}</code>
+                  <p class="text-sm font-semibold">{{ t('customDomains.cnameHint') }}</p>
+                </div>
+
+                <!-- DNS records -->
+                <div class="space-y-2">
+                  <!-- CNAME record -->
+                  <div class="dns-record-card">
+                    <div class="flex items-center gap-2 mb-3">
+                      <span class="dns-record-badge dns-record-cname">CNAME</span>
+                      <span class="text-xs text-muted-foreground">— для поддоменов (app.example.com)</span>
+                    </div>
+                    <div class="dns-record-terminal">
+                      <div class="flex items-center gap-2 font-mono text-sm">
+                        <span class="text-foreground font-medium">{{ newDomain || 'app.example.com' }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        <span class="text-primary font-medium">{{ newTargetSubdomain || 'my-app' }}.{{ baseDomain || 'mfdev.ru' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- A record -->
+                  <div class="dns-record-card">
+                    <div class="flex items-center gap-2 mb-3">
+                      <span class="dns-record-badge dns-record-a">A</span>
+                      <span class="text-xs text-muted-foreground">— для корневых доменов (example.com)</span>
+                    </div>
+                    <div class="dns-record-terminal">
+                      <div class="flex items-center gap-2 font-mono text-sm">
+                        <span class="text-foreground font-medium">{{ newDomain || 'example.com' }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-[hsl(var(--type-tcp))] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        <span class="text-[hsl(var(--type-tcp))] font-medium">{{ serverIP || '...' }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div class="text-xs text-blue-600/70 dark:text-blue-400/70 whitespace-pre-line">{{ t('customDomains.dnsGuideSteps') }}</div>
+                <!-- Steps -->
+                <div class="flex items-start gap-3 text-[11px] text-muted-foreground bg-muted/30 rounded-lg p-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0 mt-0.5 text-muted-foreground/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  <div class="whitespace-pre-line leading-relaxed">{{ t('customDomains.dnsGuideSteps') }}</div>
+                </div>
               </div>
 
               <div class="flex space-x-2">
@@ -488,3 +544,26 @@ onMounted(() => {
     </div>
   </Layout>
 </template>
+
+<style scoped>
+.dns-record-card {
+  @apply rounded-xl border border-border/60 bg-card/80 p-3 transition-all duration-200;
+}
+.dns-record-card:hover {
+  border-color: hsl(var(--primary) / 0.3);
+}
+.dns-record-badge {
+  @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider;
+}
+.dns-record-cname {
+  @apply bg-primary/15 text-primary;
+}
+.dns-record-a {
+  background: hsl(var(--type-tcp) / 0.15);
+  color: hsl(var(--type-tcp));
+}
+.dns-record-terminal {
+  @apply px-3 py-2 rounded-lg;
+  background: hsl(220, 20%, 6%);
+}
+</style>
