@@ -86,6 +86,7 @@ type Server struct {
 	baseDomain     string
 	downloadsPath  string
 	version        string
+	minVersion     string
 	deviceStore    *deviceStore
 	shutdownCh     chan struct{}
 }
@@ -120,6 +121,11 @@ func (s *Server) SetReplayProvider(rp ReplayProvider) {
 // SetVersion sets the server version string for health endpoint.
 func (s *Server) SetVersion(version string) {
 	s.version = version
+}
+
+// SetMinVersion sets the minimum required client version.
+func (s *Server) SetMinVersion(v string) {
+	s.minVersion = v
 }
 
 // setupRoutes configures all API routes

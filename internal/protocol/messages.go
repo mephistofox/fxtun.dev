@@ -80,6 +80,7 @@ type AuthResultMessage struct {
 	ServerName  string `json:"server_name,omitempty"`
 	SessionID     string `json:"session_id,omitempty"`
 	SessionSecret string `json:"session_secret,omitempty"`
+	MinVersion    string `json:"min_version,omitempty"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel

@@ -58,6 +58,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				ServerName:    s.cfg.Domain.Base,
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
+				MinVersion:    s.cfg.Server.MinVersion,
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -103,6 +104,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				ServerName:    s.cfg.Domain.Base,
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
+				MinVersion:    s.cfg.Server.MinVersion,
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -140,6 +142,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			ServerName:    s.cfg.Domain.Base,
 			SessionID:     client.ID,
 			SessionSecret: client.SessionSecret,
+			MinVersion:    s.cfg.Server.MinVersion,
 		}
 		if err := codec.Encode(result); err != nil {
 			client.Close()
@@ -161,6 +164,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		ServerName:    s.cfg.Domain.Base,
 		SessionID:     client.ID,
 		SessionSecret: client.SessionSecret,
+		MinVersion:    s.cfg.Server.MinVersion,
 	}
 	if err := codec.Encode(result); err != nil {
 		client.Close()
