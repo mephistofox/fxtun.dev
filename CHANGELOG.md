@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.18.0](https://github.com/mephistofox/fxTunnel/compare/v1.17.1...v1.18.0) (2026-02-01)
+
+
+### Features
+
+* **admin:** add user merge and password reset functionality ([430138a](https://github.com/mephistofox/fxTunnel/commit/430138a814c98bf57d3620cf8391ce1802a17463))
+* **client:** add QUIC transport with automatic fallback to yamux ([88f8e9f](https://github.com/mephistofox/fxTunnel/commit/88f8e9ff7f35f5048aa25f70c174500e9d0b3cce))
+* **oauth:** add Google OAuth as second provider alongside GitHub ([35fc1bd](https://github.com/mephistofox/fxTunnel/commit/35fc1bd53bebfd662e3514ceb3246a4b0bc631c1))
+* **server:** add QUIC listener alongside TCP/yamux ([50b4d99](https://github.com/mephistofox/fxTunnel/commit/50b4d994479fa95b40bffa947a980360f9e9a1d8))
+* **transport:** add multiplexed transport abstraction interfaces ([0da2cf1](https://github.com/mephistofox/fxTunnel/commit/0da2cf1bb255ac11912e9232b6f366bf5ba2a58f))
+* **transport:** add QUIC adapter implementing transport.Session ([2d33c0d](https://github.com/mephistofox/fxTunnel/commit/2d33c0d75ce42c9c86ca37aeac06cee16137d9a8))
+* **transport:** add yamux adapter implementing transport.Session ([90c8178](https://github.com/mephistofox/fxTunnel/commit/90c8178f9a42290a2320efaead424ff532a74a0d))
+
+
+### Bug Fixes
+
+* **lint:** suppress gosec G402 in test TLS configs ([e0745e0](https://github.com/mephistofox/fxTunnel/commit/e0745e0fd9ba4fb8f39b58f9dcb117c38e8cfcb4))
+* **oauth:** include google_id in UserDTO API response ([08fddbf](https://github.com/mephistofox/fxTunnel/commit/08fddbf3ac18d0a5b706aa18a43c8d99742dd95f))
+* **server:** start QUIC listener independently of tls.enabled flag ([37f05ea](https://github.com/mephistofox/fxTunnel/commit/37f05ea4c3099456a663d6b85b06ba1e4e2010d9))
+
 ## [1.17.1](https://github.com/mephistofox/fxTunnel/compare/v1.17.0...v1.17.1) (2026-01-31)
 
 
