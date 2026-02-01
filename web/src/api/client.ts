@@ -302,6 +302,14 @@ export const adminApi = {
   listTunnels: () => api.get<{ tunnels: AdminTunnel[]; total: number }>('/admin/tunnels'),
   closeTunnel: (id: string) => api.delete(`/admin/tunnels/${id}`),
 
+  // Merge users
+  mergeUsers: (primaryId: number, secondaryId: number) =>
+    api.post('/admin/users/merge', { primary_user_id: primaryId, secondary_user_id: secondaryId }),
+
+  // Reset password
+  resetPassword: (id: number, newPassword: string) =>
+    api.post(`/admin/users/${id}/reset-password`, { new_password: newPassword }),
+
   // Custom domains
   listCustomDomains: (page = 1, limit = 20) =>
     api.get<{ domains: Array<CustomDomain & { user_phone: string; tls_expiry?: string }>; total: number }>('/admin/custom-domains', {

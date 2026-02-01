@@ -98,7 +98,15 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.authService.LinkGitHub(claims.UserID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
+		// Check if another user already has this GitHub ID — if so, merge
+		existingUser, mergeErr := s.db.Users.GetByGitHubID(ghUser.ID)
+		if mergeErr == nil && existingUser.ID != claims.UserID {
+			if err := s.db.Users.MergeUsers(claims.UserID, existingUser.ID); err != nil {
+				s.log.Error().Err(err).Int64("primary", claims.UserID).Int64("secondary", existingUser.ID).Msg("GitHub account merge failed")
+				s.redirectWithError(w, r, "failed to merge accounts")
+				return
+			}
+		} else if err := s.authService.LinkGitHub(claims.UserID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
 			s.log.Error().Err(err).Int64("user_id", claims.UserID).Msg("GitHub account linking failed")
 			s.redirectWithError(w, r, "failed to link GitHub account")
 			return
@@ -290,7 +298,15 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.authService.LinkGoogle(claims.UserID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
+		// Check if another user already has this Google ID — if so, merge
+		existingUser, mergeErr := s.db.Users.GetByGoogleID(gUser.ID)
+		if mergeErr == nil && existingUser.ID != claims.UserID {
+			if err := s.db.Users.MergeUsers(claims.UserID, existingUser.ID); err != nil {
+				s.log.Error().Err(err).Int64("primary", claims.UserID).Int64("secondary", existingUser.ID).Msg("Google account merge failed")
+				s.redirectWithError(w, r, "failed to merge accounts")
+				return
+			}
+		} else if err := s.authService.LinkGoogle(claims.UserID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
 			s.log.Error().Err(err).Int64("user_id", claims.UserID).Msg("Google account linking failed")
 			s.redirectWithError(w, r, "failed to link Google account")
 			return
