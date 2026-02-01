@@ -71,7 +71,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Phone == "" || req.Password == "" {
-		s.respondError(w, http.StatusBadRequest, "phone and password are required")
+		s.respondError(w, http.StatusBadRequest, "phone/email and password are required")
 		return
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			s.respondErrorWithCode(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid phone or password")
+			s.respondErrorWithCode(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid credentials")
 			return
 		}
 		if errors.Is(err, auth.ErrUserNotActive) {
