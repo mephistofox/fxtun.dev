@@ -285,9 +285,16 @@ func (s *Server) Start() error {
 		}
 		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 		s.controlListener, err = tls.Listen("tcp", controlAddr, tlsCfg)
+	} else {
+		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
+	}
 
-		// Start QUIC listener alongside TCP when transport is not "yamux"
-		if s.cfg.Server.Transport != "yamux" {
+	// Start QUIC listener when transport is not "yamux" and TLS certs are available
+	if s.cfg.Server.Transport != "yamux" && s.cfg.TLS.CertFile != "" && s.cfg.TLS.KeyFile != "" {
+		cert, certErr := tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
+		if certErr != nil {
+			s.log.Warn().Err(certErr).Msg("Failed to load TLS certificate for QUIC, TCP only")
+		} else {
 			quicTLSCfg := &tls.Config{
 				Certificates: []tls.Certificate{cert},
 				MinVersion:   tls.VersionTLS13,
@@ -303,8 +310,6 @@ func (s *Server) Start() error {
 				s.log.Info().Str("addr", controlAddr).Msg("QUIC control plane listening")
 			}
 		}
-	} else {
-		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
 	}
 	if err != nil {
 		return fmt.Errorf("listen control: %w", err)
