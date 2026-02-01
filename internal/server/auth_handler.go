@@ -18,14 +18,31 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
+// remoteAddrFromConn returns the remote address string from a net.Conn or
+// falls back to extracting it from the session (e.g. QUIC).
+func remoteAddrFromConn(conn net.Conn, session transport.Session) string {
+	if conn != nil {
+		return conn.RemoteAddr().String()
+	}
+	type remoteAddrer interface {
+		RemoteAddr() net.Addr
+	}
+	if ra, ok := session.(remoteAddrer); ok {
+		return ra.RemoteAddr().String()
+	}
+	return "unknown"
+}
+
 func (s *Server) authenticate(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
+	remoteAddr := remoteAddrFromConn(conn, session)
+
 	// First, try to authenticate with database token (new system)
 	if s.db != nil {
 		tokenHash := hashToken(authMsg.Token)
 		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
 		if err == nil && apiToken != nil {
 			// Check IP whitelist
-			if !apiToken.IsIPAllowed(conn.RemoteAddr().String()) {
+			if !apiToken.IsIPAllowed(remoteAddr) {
 				result := &protocol.AuthResultMessage{
 					Message: protocol.NewMessage(protocol.MsgAuthResult),
 					Success: false,
@@ -37,7 +54,7 @@ func (s *Server) authenticate(conn net.Conn, session transport.Session, controlS
 			}
 
 			// Valid DB token found
-			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
+			client := s.createClientFromDBToken(conn, remoteAddr, session, controlStream, codec, apiToken, log)
 
 			// Update last used
 			if err := s.db.Tokens.UpdateLastUsed(apiToken.ID); err != nil {
@@ -85,7 +102,7 @@ func (s *Server) authenticate(conn net.Conn, session transport.Session, controlS
 			log.Debug().Err(err).Msg("JWT validation failed, trying legacy tokens")
 		} else if claims != nil {
 			// Valid JWT - create client for user
-			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
+			client := s.createClientFromJWT(conn, remoteAddr, session, controlStream, codec, claims, log)
 
 			// Link user to client
 			s.clientMgr.linkUserClient(claims.UserID, client.ID)
@@ -123,7 +140,7 @@ func (s *Server) authenticate(conn net.Conn, session transport.Session, controlS
 		}
 
 		// Create client with legacy token
-		client := s.createClient(conn, session, controlStream, codec, tokenCfg, log)
+		client := s.createClient(conn, remoteAddr, session, controlStream, codec, tokenCfg, log)
 
 		// Send success
 		result := &protocol.AuthResultMessage{
@@ -143,7 +160,7 @@ func (s *Server) authenticate(conn net.Conn, session transport.Session, controlS
 	}
 
 	// No auth required - create client without token
-	client := s.createClient(conn, session, controlStream, codec, nil, log)
+	client := s.createClient(conn, remoteAddr, session, controlStream, codec, nil, log)
 
 	result := &protocol.AuthResultMessage{
 		Message:    protocol.NewMessage(protocol.MsgAuthResult),
@@ -162,13 +179,13 @@ func (s *Server) authenticate(conn net.Conn, session transport.Session, controlS
 }
 
 // createClientFromDBToken creates a client authenticated with a database token
-func (s *Server) createClientFromDBToken(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
+func (s *Server) createClientFromDBToken(conn net.Conn, remoteAddr string, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, apiToken *database.APIToken, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
 	client := &Client{
 		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
+		RemoteAddr:   remoteAddr,
 		Token:        nil, // No legacy token
 		Session:      session,
 		ControlCodec: codec,
@@ -199,13 +216,13 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session transport.Sessio
 }
 
 // createClientFromJWT creates a client authenticated with a JWT token
-func (s *Server) createClientFromJWT(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
+func (s *Server) createClientFromJWT(conn net.Conn, remoteAddr string, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, claims *auth.Claims, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
 	client := &Client{
 		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
+		RemoteAddr:   remoteAddr,
 		Token:        nil, // No legacy token
 		Session:      session,
 		ControlCodec: codec,
@@ -227,13 +244,13 @@ func (s *Server) createClientFromJWT(conn net.Conn, session transport.Session, c
 	return client
 }
 
-func (s *Server) createClient(conn net.Conn, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
+func (s *Server) createClient(conn net.Conn, remoteAddr string, session transport.Session, controlStream transport.Stream, codec *protocol.Codec, token *config.TokenConfig, log zerolog.Logger) *Client {
 	clientID := generateID()
 	ctx, cancel := context.WithCancel(s.ctx)
 
 	client := &Client{
 		ID:           clientID,
-		RemoteAddr:   conn.RemoteAddr().String(),
+		RemoteAddr:   remoteAddr,
 		Token:        token,
 		Session:      session,
 		ControlCodec: codec,

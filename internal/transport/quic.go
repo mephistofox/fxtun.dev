@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -83,6 +84,11 @@ func (s *quicSession) CloseWithError(code uint64, msg string) error {
 
 func (s *quicSession) IsClosed() bool {
 	return s.conn.Context().Err() != nil
+}
+
+// RemoteAddr returns the remote network address of the QUIC connection.
+func (s *quicSession) RemoteAddr() net.Addr {
+	return s.conn.RemoteAddr()
 }
 
 // QUICListener accepts incoming QUIC connections as transport.Session.
