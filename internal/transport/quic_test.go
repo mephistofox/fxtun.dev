@@ -24,9 +24,13 @@ func generateTestTLSConfig() *tls.Config {
 		PrivateKey:  key,
 	}
 
+	certPool := x509.NewCertPool()
+	certPool.AddCert(&x509.Certificate{Raw: certDER})
+
 	return &tls.Config{
 		Certificates:       []tls.Certificate{cert},
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, //nolint:gosec // test-only self-signed cert
+		RootCAs:            certPool,
 		NextProtos:         []string{"fxtunnel"},
 	}
 }
@@ -48,7 +52,7 @@ func TestQUICTransport(t *testing.T) {
 	}()
 
 	clientTLS := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, //nolint:gosec // test-only self-signed cert
 		NextProtos:         []string{"fxtunnel"},
 	}
 	clientSession, err := DialQUIC(ctx, ln.Addr(), clientTLS, DefaultQUICConfig())

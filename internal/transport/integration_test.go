@@ -50,7 +50,7 @@ func TestQUICMultiStreamParallel(t *testing.T) {
 	}()
 
 	clientTLS := generateTestTLSConfig()
-	clientTLS.InsecureSkipVerify = true
+	clientTLS.InsecureSkipVerify = true //nolint:gosec // test-only self-signed cert
 	clientSession, err := DialQUIC(ctx, ln.Addr(), clientTLS, DefaultQUICConfig())
 	require.NoError(t, err)
 	defer clientSession.Close()
