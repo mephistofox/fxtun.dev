@@ -27,7 +27,7 @@ import (
 
 const (
 	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
-	yamuxMaxStreamWindowSize = 4 * 1024 * 1024 // 4MB
+	yamuxMaxStreamWindowSize = 16 * 1024 * 1024 // 16MB
 
 	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
 	yamuxKeepAliveInterval = 10 * time.Second
@@ -105,6 +105,13 @@ type Client struct {
 	TunnelsMu    sync.RWMutex
 	Connected    time.Time
 	lastPing     atomic.Int64
+
+	// Multi-session pool: additional data connections for parallelism
+	DataSessions  []*yamux.Session
+	DataConns     []net.Conn // underlying TCP connections for data sessions
+	DataMu        sync.RWMutex
+	sessionIdx    atomic.Uint32 // round-robin counter
+	SessionSecret string        // secret for joining additional connections
 
 	// Database integration
 	UserID     int64              // 0 if legacy token
@@ -401,6 +408,11 @@ func (s *Server) Stop() error {
 		if c.Session != nil {
 			_ = c.Session.GoAway()
 		}
+		c.DataMu.RLock()
+		for _, ds := range c.DataSessions {
+			_ = ds.GoAway()
+		}
+		c.DataMu.RUnlock()
 	}
 
 	// Allow in-flight streams to finish
@@ -505,36 +517,95 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		return
 	}
 
-	if baseMsg.Type != protocol.MsgAuth {
-		log.Error().Str("type", string(baseMsg.Type)).Msg("Expected auth message")
-		s.sendError(codec, protocol.ErrCodeProtocolError, "expected auth message", true)
-		session.Close()
-		return
-	}
-
-	parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to parse auth message")
-		session.Close()
-		return
-	}
-
-	authMsg := parsed.(*protocol.AuthMessage)
 	_ = controlStream.SetReadDeadline(time.Time{}) // Clear deadline
 
-	// Authenticate
-	client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
+	switch baseMsg.Type {
+	case protocol.MsgJoinSession:
+		// Additional data connection joining an existing client
+		s.handleJoinSession(conn, session, controlStream, codec, data, log)
+		return
+
+	case protocol.MsgAuth:
+		parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to parse auth message")
+			session.Close()
+			return
+		}
+
+		authMsg := parsed.(*protocol.AuthMessage)
+
+		// Authenticate
+		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
+		if err != nil {
+			log.Warn().Err(err).Msg("Authentication failed")
+			session.Close()
+			return
+		}
+
+		log = log.With().Str("client_id", client.ID).Logger()
+		log.Info().Msg("Client authenticated")
+
+		// Handle client messages
+		client.handle()
+
+	default:
+		log.Error().Str("type", string(baseMsg.Type)).Msg("Expected auth or join_session message")
+		s.sendError(codec, protocol.ErrCodeProtocolError, "expected auth or join_session message", true)
+		session.Close()
+	}
+}
+
+func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, data []byte, log zerolog.Logger) {
+	parsed, err := protocol.ParseMessage(data, protocol.MsgJoinSession)
 	if err != nil {
-		log.Warn().Err(err).Msg("Authentication failed")
+		log.Error().Err(err).Msg("Failed to parse join_session message")
+		session.Close()
+		return
+	}
+	joinMsg := parsed.(*protocol.JoinSessionMessage)
+
+	client := s.findClientBySecret(joinMsg.ClientID, joinMsg.Secret)
+	if client == nil {
+		log.Warn().Str("client_id", joinMsg.ClientID).Msg("Join session failed: invalid client or secret")
+		result := &protocol.JoinSessionResult{
+			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+			Success: false,
+			Error:   "invalid client_id or secret",
+		}
+		_ = codec.Encode(result)
 		session.Close()
 		return
 	}
 
-	log = log.With().Str("client_id", client.ID).Logger()
-	log.Info().Msg("Client authenticated")
+	// Add data session to client
+	client.DataMu.Lock()
+	client.DataSessions = append(client.DataSessions, session)
+	client.DataConns = append(client.DataConns, conn)
+	client.DataMu.Unlock()
 
-	// Handle client messages
-	client.handle()
+	// Send success
+	result := &protocol.JoinSessionResult{
+		Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+		Success: true,
+	}
+	_ = codec.Encode(result)
+
+	// Close the control stream — server will use session.Open() for data streams
+	controlStream.Close()
+
+	log.Info().Str("client_id", client.ID).Int("data_sessions", len(client.DataSessions)).Msg("Data session joined")
+}
+
+func (s *Server) findClientBySecret(clientID, secret string) *Client {
+	client := s.clientMgr.GetClient(clientID)
+	if client == nil {
+		return nil
+	}
+	if client.SessionSecret == "" || client.SessionSecret != secret {
+		return nil
+	}
+	return client
 }
 
 func (s *Server) removeClient(clientID string) {
@@ -898,6 +969,18 @@ func (c *Client) Close() {
 		if c.conn != nil {
 			c.conn.Close()
 		}
+
+		// Close all data sessions
+		c.DataMu.Lock()
+		for _, ds := range c.DataSessions {
+			ds.Close()
+		}
+		for _, dc := range c.DataConns {
+			dc.Close()
+		}
+		c.DataSessions = nil
+		c.DataConns = nil
+		c.DataMu.Unlock()
 
 		// Unlink user from client
 		c.server.clientMgr.unlinkUserClient(c.UserID, c.ID)

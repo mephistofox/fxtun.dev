@@ -82,17 +82,8 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 	}
 	defer stream.Close()
 
-	// Send tunnel info
-	connID := generateID()
-	newConn := &protocol.NewConnectionMessage{
-		Message:      protocol.NewMessage(protocol.MsgNewConnection),
-		TunnelID:     tunnel.ID,
-		ConnectionID: connID,
-		RemoteAddr:   "udp",
-	}
-
-	streamCodec := protocol.NewCodec(stream, stream)
-	if err := streamCodec.Encode(newConn); err != nil {
+	// Send binary stream header
+	if err := protocol.WriteStreamHeader(stream, tunnel.ID, "udp"); err != nil {
 		m.log.Error().Err(err).Msg("Failed to send UDP tunnel info")
 		return
 	}

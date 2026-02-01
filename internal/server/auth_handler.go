@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -38,6 +39,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 			// Valid DB token found
 			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
+			client.SessionSecret = generateSessionSecret()
 
 			// Update last used
 			if err := s.db.Tokens.UpdateLastUsed(apiToken.ID); err != nil {
@@ -53,8 +55,9 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				Success:    true,
 				ClientID:   client.ID,
 				MaxTunnels: apiToken.MaxTunnels,
-				ServerName: s.cfg.Domain.Base,
-				SessionID:  client.ID,
+				ServerName:    s.cfg.Domain.Base,
+				SessionID:     client.ID,
+				SessionSecret: client.SessionSecret,
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -86,18 +89,20 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		} else if claims != nil {
 			// Valid JWT - create client for user
 			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
+			client.SessionSecret = generateSessionSecret()
 
 			// Link user to client
 			s.clientMgr.linkUserClient(claims.UserID, client.ID)
 
 			// Send success
 			result := &protocol.AuthResultMessage{
-				Message:    protocol.NewMessage(protocol.MsgAuthResult),
-				Success:    true,
-				ClientID:   client.ID,
-				MaxTunnels: 10, // Default for JWT auth
-				ServerName: s.cfg.Domain.Base,
-				SessionID:  client.ID,
+				Message:       protocol.NewMessage(protocol.MsgAuthResult),
+				Success:       true,
+				ClientID:      client.ID,
+				MaxTunnels:    10, // Default for JWT auth
+				ServerName:    s.cfg.Domain.Base,
+				SessionID:     client.ID,
+				SessionSecret: client.SessionSecret,
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -124,15 +129,17 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 		// Create client with legacy token
 		client := s.createClient(conn, session, controlStream, codec, tokenCfg, log)
+		client.SessionSecret = generateSessionSecret()
 
 		// Send success
 		result := &protocol.AuthResultMessage{
-			Message:    protocol.NewMessage(protocol.MsgAuthResult),
-			Success:    true,
-			ClientID:   client.ID,
-			MaxTunnels: tokenCfg.MaxTunnels,
-			ServerName: s.cfg.Domain.Base,
-			SessionID:  client.ID,
+			Message:       protocol.NewMessage(protocol.MsgAuthResult),
+			Success:       true,
+			ClientID:      client.ID,
+			MaxTunnels:    tokenCfg.MaxTunnels,
+			ServerName:    s.cfg.Domain.Base,
+			SessionID:     client.ID,
+			SessionSecret: client.SessionSecret,
 		}
 		if err := codec.Encode(result); err != nil {
 			client.Close()
@@ -144,14 +151,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 	// No auth required - create client without token
 	client := s.createClient(conn, session, controlStream, codec, nil, log)
+	client.SessionSecret = generateSessionSecret()
 
 	result := &protocol.AuthResultMessage{
-		Message:    protocol.NewMessage(protocol.MsgAuthResult),
-		Success:    true,
-		ClientID:   client.ID,
-		MaxTunnels: 10, // Default limit
-		ServerName: s.cfg.Domain.Base,
-		SessionID:  client.ID,
+		Message:       protocol.NewMessage(protocol.MsgAuthResult),
+		Success:       true,
+		ClientID:      client.ID,
+		MaxTunnels:    10, // Default limit
+		ServerName:    s.cfg.Domain.Base,
+		SessionID:     client.ID,
+		SessionSecret: client.SessionSecret,
 	}
 	if err := codec.Encode(result); err != nil {
 		client.Close()
@@ -251,6 +260,13 @@ func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStre
 	s.clientMgr.addClient(clientID, client)
 
 	return client
+}
+
+// generateSessionSecret creates a random secret for session pooling.
+func generateSessionSecret() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // isJWT checks if a token looks like a JWT (has 3 dot-separated parts)

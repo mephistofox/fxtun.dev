@@ -143,22 +143,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer stream.Close()
 
-	// Notify client about new connection
-	connID := generateID()
+	// Send binary stream header
 	remoteAddr := req.RemoteAddr
-	newConn := &protocol.NewConnectionMessage{
-		Message:      protocol.NewMessage(protocol.MsgNewConnection),
-		TunnelID:     tunnel.ID,
-		ConnectionID: connID,
-		RemoteAddr:   remoteAddr,
-		Host:         req.Host,
-		Method:       req.Method,
-		Path:         req.URL.Path,
-	}
-
-	// Send connection info through the stream first (as a header)
-	streamCodec := protocol.NewCodec(stream, stream)
-	if err := streamCodec.Encode(newConn); err != nil {
+	if err := protocol.WriteStreamHeader(stream, tunnel.ID, remoteAddr); err != nil {
 		r.log.Error().Err(err).Msg("Failed to send connection info")
 		r.serveErrorPage(w, http.StatusBadGateway, "Failed to connect to tunnel")
 		return
@@ -520,19 +507,8 @@ func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*http.R
 	}
 	defer stream.Close()
 
-	// Send connection info
-	connID := generateID()
-	newConn := &protocol.NewConnectionMessage{
-		Message:      protocol.NewMessage(protocol.MsgNewConnection),
-		TunnelID:     tunnel.ID,
-		ConnectionID: connID,
-		RemoteAddr:   "replay",
-		Host:         req.Host,
-		Method:       req.Method,
-		Path:         req.URL.Path,
-	}
-	streamCodec := protocol.NewCodec(stream, stream)
-	if err := streamCodec.Encode(newConn); err != nil {
+	// Send binary stream header
+	if err := protocol.WriteStreamHeader(stream, tunnel.ID, "replay"); err != nil {
 		return nil, fmt.Errorf("send connection info: %w", err)
 	}
 
