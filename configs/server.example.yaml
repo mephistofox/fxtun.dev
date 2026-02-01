@@ -4,9 +4,6 @@ server:
   # Port for control plane connections (clients connect here)
   control_port: 4443
 
-  # Transport protocol: "yamux", "quic", or "auto" (accepts both)
-  transport: auto
-
   # Port for HTTP traffic (nginx proxies here)
   http_port: 10080
 

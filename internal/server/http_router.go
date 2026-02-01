@@ -279,7 +279,7 @@ func isUpgradeRequest(req *http.Request) bool {
 
 // serveUpgrade hijacks the connection and performs bidirectional proxying
 // for WebSocket and other HTTP upgrade protocols.
-func (r *HTTPRouter) serveUpgrade(w http.ResponseWriter, req *http.Request, stream io.ReadWriteCloser) {
+func (r *HTTPRouter) serveUpgrade(w http.ResponseWriter, req *http.Request, stream net.Conn) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		r.log.Error().Msg("ResponseWriter does not support hijacking for upgrade")

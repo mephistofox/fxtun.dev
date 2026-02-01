@@ -1,27 +1,27 @@
 package server
 
 import (
+	"net"
 	"time"
-
-	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 const streamPoolSize = 24
 
-// OpenStream returns a pre-opened stream from the pool,
+// OpenStream returns a pre-opened yamux stream from the pool,
 // falling back to opening a new one if the pool is empty.
-func (c *Client) OpenStream() (transport.Stream, error) {
+func (c *Client) OpenStream() (net.Conn, error) {
+	// Try pool first (non-blocking)
 	select {
 	case stream := <-c.streamPool:
 		return stream, nil
 	default:
-		return c.Session.OpenStream(c.ctx)
+		return c.Session.Open()
 	}
 }
 
 // startStreamPool launches a background goroutine that keeps the stream pool full.
 func (c *Client) startStreamPool() {
-	c.streamPool = make(chan transport.Stream, streamPoolSize)
+	c.streamPool = make(chan net.Conn, streamPoolSize)
 	go c.refillStreamPool()
 }
 
@@ -29,6 +29,7 @@ func (c *Client) refillStreamPool() {
 	for {
 		select {
 		case <-c.ctx.Done():
+			// Drain and close pooled streams
 			for {
 				select {
 				case s := <-c.streamPool:
@@ -40,7 +41,9 @@ func (c *Client) refillStreamPool() {
 		default:
 		}
 
+		// Only refill if pool has room
 		if len(c.streamPool) >= streamPoolSize {
+			// Pool full, wait a bit
 			select {
 			case <-c.ctx.Done():
 				return
@@ -49,7 +52,7 @@ func (c *Client) refillStreamPool() {
 			continue
 		}
 
-		stream, err := c.Session.OpenStream(c.ctx)
+		stream, err := c.Session.Open()
 		if err != nil {
 			select {
 			case <-c.ctx.Done():

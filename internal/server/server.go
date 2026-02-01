@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/auth"
@@ -22,7 +23,6 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
-	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 const (
@@ -64,7 +64,6 @@ type Server struct {
 	httpListener     net.Listener
 	httpsListener    net.Listener
 	httpsServer      *http.Server
-	quicListener     *transport.QUICListener
 
 	// Client manager
 	clientMgr *ClientManager
@@ -99,9 +98,9 @@ type Client struct {
 	ID           string
 	RemoteAddr   string
 	Token        *config.TokenConfig
-	Session      transport.Session
+	Session      *yamux.Session
 	ControlCodec *protocol.Codec
-	ControlConn  transport.Stream
+	ControlConn  net.Conn
 	Tunnels      map[string]*Tunnel
 	TunnelsMu    sync.RWMutex
 	Connected    time.Time
@@ -121,8 +120,8 @@ type Client struct {
 	mu        sync.Mutex // for writing to control stream
 	closeOnce sync.Once
 
-	// Stream pool: pre-opened streams for low-latency connection handling
-	streamPool chan transport.Stream
+	// Stream pool: pre-opened yamux streams for low-latency connection handling
+	streamPool chan net.Conn
 }
 
 // Tunnel represents an active tunnel
@@ -288,29 +287,6 @@ func (s *Server) Start() error {
 	} else {
 		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
 	}
-
-	// Start QUIC listener when transport is not "yamux" and TLS certs are available
-	if s.cfg.Server.Transport != "yamux" && s.cfg.TLS.CertFile != "" && s.cfg.TLS.KeyFile != "" {
-		cert, certErr := tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
-		if certErr != nil {
-			s.log.Warn().Err(certErr).Msg("Failed to load TLS certificate for QUIC, TCP only")
-		} else {
-			quicTLSCfg := &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				MinVersion:   tls.VersionTLS13,
-				NextProtos:   []string{"fxtunnel"},
-			}
-			quicListener, quicErr := transport.NewQUICListener(controlAddr, quicTLSCfg, transport.DefaultQUICConfig())
-			if quicErr != nil {
-				s.log.Warn().Err(quicErr).Msg("Failed to start QUIC listener, TCP only")
-			} else {
-				s.quicListener = quicListener
-				s.wg.Add(1)
-				go s.acceptQUICConnections()
-				s.log.Info().Str("addr", controlAddr).Msg("QUIC control plane listening")
-			}
-		}
-	}
 	if err != nil {
 		return fmt.Errorf("listen control: %w", err)
 	}
@@ -382,9 +358,6 @@ func (s *Server) Stop() error {
 	if s.httpsListener != nil {
 		s.httpsListener.Close()
 	}
-	if s.quicListener != nil {
-		s.quicListener.Close()
-	}
 
 	// Phase 2: drain in-flight connections (max 10s)
 	s.log.Info().Msg("Draining active connections...")
@@ -426,7 +399,7 @@ func (s *Server) Stop() error {
 		}
 		_ = c.sendControl(shutdownMsg)
 		if c.Session != nil {
-			_ = c.Session.CloseWithError(0, "server shutting down")
+			_ = c.Session.GoAway()
 		}
 	}
 
@@ -477,102 +450,6 @@ func (s *Server) acceptControlConnections() {
 }
 
 
-func (s *Server) acceptQUICConnections() {
-	defer s.wg.Done()
-	for {
-		session, err := s.quicListener.Accept(s.ctx)
-		if err != nil {
-			select {
-			case <-s.ctx.Done():
-				return
-			default:
-				s.log.Error().Err(err).Msg("Accept QUIC connection failed")
-				continue
-			}
-		}
-		s.wg.Add(1)
-		go s.handleQUICSession(session)
-	}
-}
-
-func (s *Server) handleQUICSession(session transport.Session) {
-	defer s.wg.Done()
-
-	log := s.log.With().Str("transport", "quic").Logger()
-	log.Debug().Msg("New QUIC connection")
-
-	// Accept control stream
-	controlStream, err := session.AcceptStream(s.ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to accept QUIC control stream")
-		session.Close()
-		return
-	}
-
-	// Create codec for the control stream
-	codec := protocol.NewCodec(controlStream, controlStream)
-
-	// Wait for auth with timeout
-	type decodeResult struct {
-		data    []byte
-		baseMsg *protocol.Message
-		err     error
-	}
-	authCtx, authCancel := context.WithTimeout(s.ctx, authTimeout)
-	defer authCancel()
-	resultCh := make(chan decodeResult, 1)
-	go func() {
-		data, baseMsg, err := codec.DecodeRaw()
-		resultCh <- decodeResult{data, baseMsg, err}
-	}()
-
-	var data []byte
-	var baseMsg *protocol.Message
-	select {
-	case res := <-resultCh:
-		if res.err != nil {
-			log.Error().Err(res.err).Msg("Failed to read auth message")
-			session.Close()
-			return
-		}
-		data = res.data
-		baseMsg = res.baseMsg
-	case <-authCtx.Done():
-		log.Error().Msg("Auth timeout on QUIC connection")
-		session.Close()
-		return
-	}
-
-	if baseMsg.Type != protocol.MsgAuth {
-		log.Error().Str("type", string(baseMsg.Type)).Msg("Expected auth message")
-		s.sendError(codec, protocol.ErrCodeProtocolError, "expected auth message", true)
-		session.Close()
-		return
-	}
-
-	parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to parse auth message")
-		session.Close()
-		return
-	}
-
-	authMsg := parsed.(*protocol.AuthMessage)
-
-	// Authenticate — pass nil for raw conn; remoteAddr is extracted from session
-	client, err := s.authenticate(nil, session, controlStream, codec, authMsg, log)
-	if err != nil {
-		log.Warn().Err(err).Msg("QUIC authentication failed")
-		session.Close()
-		return
-	}
-
-	log = log.With().Str("client_id", client.ID).Logger()
-	log.Info().Msg("QUIC client authenticated")
-
-	client.handle()
-}
-
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
 
@@ -593,20 +470,21 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		log.Debug().Msg("Compression enabled (zstd)")
 	}
 
-	// Create transport session (server mode) with optimized config
-	session, err := transport.NewYamuxSessionWithConfig(rwc, true, transport.YamuxConfig{
-		MaxStreamWindowSize:    yamuxMaxStreamWindowSize,
-		KeepAliveInterval:      yamuxKeepAliveInterval,
-		ConnectionWriteTimeout: yamuxConnectionWriteTimeout,
-	})
+	// Create yamux session FIRST (server mode) with optimized config
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
+	session, err := yamux.Server(rwc, yamuxCfg)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create transport session")
+		log.Error().Err(err).Msg("Failed to create yamux session")
 		conn.Close()
 		return
 	}
 
 	// Accept the control stream (first stream from client)
-	controlStream, err := session.AcceptStream(s.ctx)
+	controlStream, err := session.Accept()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to accept control stream")
 		session.Close()
@@ -617,29 +495,10 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	codec := protocol.NewCodec(controlStream, controlStream)
 
 	// Wait for authentication with timeout
-	type decodeResult struct {
-		data    []byte
-		baseMsg *protocol.Message
-		err     error
-	}
-	authCtx, authCancel := context.WithTimeout(s.ctx, authTimeout)
-	defer authCancel()
-	resultCh := make(chan decodeResult, 1)
-	go func() {
-		data, baseMsg, err := codec.DecodeRaw()
-		resultCh <- decodeResult{data, baseMsg, err}
-	}()
+	_ = controlStream.SetReadDeadline(time.Now().Add(authTimeout))
 
-	var data []byte
-	var baseMsg *protocol.Message
-	select {
-	case res := <-resultCh:
-		data, baseMsg, err = res.data, res.baseMsg, res.err
-	case <-authCtx.Done():
-		log.Error().Msg("Auth timeout")
-		session.Close()
-		return
-	}
+	// Read auth message
+	data, baseMsg, err := codec.DecodeRaw()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read auth message")
 		session.Close()
@@ -661,6 +520,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	}
 
 	authMsg := parsed.(*protocol.AuthMessage)
+	_ = controlStream.SetReadDeadline(time.Time{}) // Clear deadline
 
 	// Authenticate
 	client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
@@ -700,7 +560,7 @@ func (s *Server) GetClient(clientID string) *Client {
 func (c *Client) handle() {
 	defer c.Close()
 
-	// Pre-open streams for low-latency connection handling
+	// Pre-open yamux streams for low-latency connection handling
 	c.startStreamPool()
 
 	// Start keepalive
