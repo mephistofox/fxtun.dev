@@ -49,7 +49,7 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	v := viper.New()
 
 	// Set defaults
-	v.SetDefault("server.address", "127.0.0.1:4443")
+	v.SetDefault("server.address", "mfdev.ru:4443")
 	v.SetDefault("server.insecure", false)
 	v.SetDefault("server.tls_verify", true)
 	v.SetDefault("server.compression", true)
