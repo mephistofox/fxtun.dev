@@ -5,7 +5,7 @@ BINARY_CLIENT=fxtunnel
 BINARY_GUI=fxtunnel-gui
 WAILS=$(shell go env GOPATH)/bin/wails
 
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
