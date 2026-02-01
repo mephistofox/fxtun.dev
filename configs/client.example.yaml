@@ -8,6 +8,9 @@ server:
   # Authentication token
   token: "sk_user1_token456"
 
+  # Transport protocol: "yamux", "quic", or "auto" (try QUIC, fall back to yamux)
+  transport: auto
+
   # Skip TLS verification (not recommended for production)
   insecure: false
 
