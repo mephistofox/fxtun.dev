@@ -85,18 +85,20 @@ async function copyCommand(command: string) {
 }
 
 // Quick start commands by OS
+const serverHost = window.location.hostname
+
 const quickStartCommands = computed(() => ({
   linux: {
-    install: 'chmod +x fxtunnel && sudo mv fxtunnel /usr/local/bin/',
-    run: 'fxtunnel http 3000 --server mfdev.ru:4443 --token YOUR_TOKEN'
+    install: `curl -fsSL https://${serverHost}/install.sh | sh`,
+    run: 'fxtunnel http 3000 --token YOUR_TOKEN'
   },
   macos: {
-    install: 'chmod +x fxtunnel && sudo mv fxtunnel /usr/local/bin/',
-    run: 'fxtunnel http 3000 --server mfdev.ru:4443 --token YOUR_TOKEN'
+    install: `curl -fsSL https://${serverHost}/install.sh | sh`,
+    run: 'fxtunnel http 3000 --token YOUR_TOKEN'
   },
   windows: {
-    install: 'move fxtunnel.exe C:\\Windows\\System32\\',
-    run: 'fxtunnel.exe http 3000 --server mfdev.ru:4443 --token YOUR_TOKEN'
+    install: `curl -fsSL https://${serverHost}/install.sh | sh`,
+    run: 'fxtunnel.exe http 3000 --token YOUR_TOKEN'
   }
 }))
 
@@ -324,19 +326,11 @@ onMounted(loadDownloads)
 
         <transition name="fade" mode="out-in">
           <div :key="activeOsTab" class="space-y-6">
-            <!-- Step 1: Download -->
+            <!-- Step 1: Install -->
             <div class="space-y-2">
               <div class="flex items-center gap-2">
                 <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
                 <p class="font-medium">{{ t('downloads.step1') }}</p>
-              </div>
-            </div>
-
-            <!-- Step 2: Install -->
-            <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
-                <p class="font-medium">{{ t('downloads.step2') }}</p>
               </div>
               <div class="relative">
                 <div class="code-block">
@@ -358,11 +352,17 @@ onMounted(loadDownloads)
               </div>
             </div>
 
-            <!-- Step 3: Run -->
+            <!-- Step 2: Token + Run -->
             <div class="space-y-2">
               <div class="flex items-center gap-2">
-                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
-                <p class="font-medium">{{ t('downloads.step3') }}</p>
+                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
+                <p class="font-medium">
+                  <i18n-t keypath="downloads.step2" tag="span">
+                    <template #link>
+                      <router-link to="/tokens" class="text-primary hover:underline font-semibold">{{ t('downloads.step2TokenLink') }}</router-link>
+                    </template>
+                  </i18n-t>
+                </p>
               </div>
               <div class="relative">
                 <div class="code-block">
@@ -386,13 +386,15 @@ onMounted(loadDownloads)
 
             <!-- Info Box -->
             <div class="flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/10">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
               </svg>
               <p class="text-sm text-muted-foreground">
-                {{ t('downloads.tokenHint') || 'Replace YOUR_TOKEN with your actual token from the Tokens page.' }}
+                <i18n-t keypath="downloads.tokenHint" tag="span">
+                  <template #link>
+                    <router-link to="/tokens" class="text-primary hover:underline font-medium">{{ t('downloads.tokenHintLink') }}</router-link>
+                  </template>
+                </i18n-t>
               </p>
             </div>
           </div>
