@@ -15,6 +15,7 @@ import (
 type UpdateInfo struct {
 	ServerVersion string            `json:"server_version"`
 	ClientVersion string            `json:"client_version"`
+	MinVersion    string            `json:"min_version"`
 	Downloads     map[string]string `json:"downloads"`
 	DownloadURL   string            `json:"-"` // resolved for current platform
 }
@@ -22,9 +23,11 @@ type UpdateInfo struct {
 // CheckUpdate checks the server for available updates.
 // Returns nil if the client is up to date.
 func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
-	// Build URL: strip port and use HTTP scheme for API
-	scheme := "http"
-	url := fmt.Sprintf("%s://%s/api/version", scheme, serverAddr)
+	// Strip port from server address — API is served on standard HTTPS port,
+	// not on the control/tunnel port (e.g. 4443).
+	host, _, _ := strings.Cut(serverAddr, ":")
+	scheme := "https"
+	url := fmt.Sprintf("%s://%s/api/version", scheme, host)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url) //nolint:gosec // URL is constructed from user-provided server address
@@ -42,18 +45,23 @@ func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
 		return nil, fmt.Errorf("check update: decode: %w", err)
 	}
 
-	// Compare versions
-	if !isNewerVersion(info.ClientVersion, currentVersion) {
-		return nil, nil // up to date
-	}
-
 	// Resolve download URL for current platform
 	platform := runtime.GOOS + "_" + runtime.GOARCH
 	if dlPath, ok := info.Downloads[platform]; ok {
-		info.DownloadURL = fmt.Sprintf("%s://%s%s", scheme, serverAddr, dlPath)
+		info.DownloadURL = fmt.Sprintf("%s://%s%s", scheme, host, dlPath)
 	}
 
-	return &info, nil
+	// Return info if version is incompatible (forced update needed)
+	if IsVersionIncompatible(info.MinVersion, currentVersion) {
+		return &info, nil
+	}
+
+	// Return info if newer version available (optional update)
+	if isNewerVersion(info.ClientVersion, currentVersion) {
+		return &info, nil
+	}
+
+	return nil, nil // up to date
 }
 
 // SelfUpdate downloads a new binary and replaces the current executable.
@@ -102,6 +110,34 @@ func SelfUpdate(downloadURL string) error {
 	}
 
 	return nil
+}
+
+// IsVersionIncompatible returns true if currentVersion is below minVersion.
+// Returns false if minVersion is empty or either version is "dev".
+func IsVersionIncompatible(minVersion, currentVersion string) bool {
+	minVersion = strings.TrimPrefix(minVersion, "v")
+	currentVersion = strings.TrimPrefix(currentVersion, "v")
+
+	if minVersion == "" || currentVersion == "" || currentVersion == "dev" || minVersion == "dev" {
+		return false
+	}
+
+	return compareVersions(currentVersion, minVersion) < 0
+}
+
+// SelfUpdateAndRestart downloads a new binary, replaces the current executable,
+// and restarts the process with the same arguments.
+func SelfUpdateAndRestart(downloadURL string) error {
+	if err := SelfUpdate(downloadURL); err != nil {
+		return err
+	}
+
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+
+	return restartProcess(execPath)
 }
 
 // isNewerVersion returns true if remote is newer than local.
