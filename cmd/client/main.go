@@ -419,45 +419,59 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	resolveCredentials()
 	addr := normalizeServerAddr(serverAddr)
 
-	fmt.Printf("Checking for updates from %s...\n", addr)
+	fmt.Printf("  \033[90mChecking for updates from %s...\033[0m\n", addr)
 
 	info, err := client.CheckUpdate(addr, Version)
 	if err != nil {
-		return fmt.Errorf("update check failed: %w", err)
+		fmt.Fprintf(os.Stderr, "  \033[31mUpdate check failed: %v\033[0m\n", err)
+		return err
 	}
 	if info == nil {
-		fmt.Println("Already up to date.")
+		fmt.Println("  \033[32mAlready up to date.\033[0m")
 		return nil
 	}
 
-	fmt.Printf("New version available: %s (current: %s)\n", info.ClientVersion, Version)
+	if client.IsVersionIncompatible(info.MinVersion, Version) {
+		fmt.Printf("  \033[33mIncompatible version %s (minimum: %s)\033[0m\n", Version, info.MinVersion)
+	} else {
+		fmt.Printf("  \033[33mNew version available: %s (current: %s)\033[0m\n", info.ClientVersion, Version)
+	}
 
 	if info.DownloadURL == "" {
-		fmt.Println("No download available for your platform.")
+		fmt.Println("  \033[31mNo download available for your platform.\033[0m")
 		return nil
 	}
 
-	fmt.Printf("Downloading from %s...\n", info.DownloadURL)
+	fmt.Printf("  \033[90mDownloading...\033[0m\n")
 	if err := client.SelfUpdate(info.DownloadURL); err != nil {
-		return fmt.Errorf("update failed: %w", err)
+		fmt.Fprintf(os.Stderr, "  \033[31mUpdate failed: %v\033[0m\n", err)
+		return err
 	}
 
-	fmt.Printf("Updated to %s. Please restart the client.\n", info.ClientVersion)
+	fmt.Printf("  \033[32mUpdated to %s. Please restart the client.\033[0m\n", info.ClientVersion)
 	return nil
 }
 
-func checkUpdateBackground(addr string, log zerolog.Logger) {
+func checkAndAutoUpdate(addr string) {
 	info, err := client.CheckUpdate(addr, Version)
-	if err != nil {
-		log.Debug().Err(err).Msg("Background update check failed")
+	if err != nil || info == nil {
 		return
 	}
-	if info != nil {
-		log.Warn().
-			Str("current", Version).
-			Str("latest", info.ClientVersion).
-			Msg("New version available! Run 'fxtunnel update' to upgrade")
+
+	if client.IsVersionIncompatible(info.MinVersion, Version) {
+		fmt.Printf("  \033[33mIncompatible version %s (minimum: %s), updating...\033[0m\n", Version, info.MinVersion)
+		if info.DownloadURL == "" {
+			fmt.Fprintf(os.Stderr, "  \033[31mNo download available for this platform\033[0m\n")
+			os.Exit(1)
+		}
+		if err := client.SelfUpdateAndRestart(info.DownloadURL); err != nil {
+			fmt.Fprintf(os.Stderr, "  \033[31mAuto-update failed: %v\033[0m\n", err)
+			os.Exit(1)
+		}
+		return // unreachable after restart
 	}
+
+	fmt.Printf("  \033[33mNew version available: %s (current: %s). Run 'fxtunnel update' to upgrade.\033[0m\n", info.ClientVersion, Version)
 }
 
 func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
@@ -518,8 +532,8 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 		os.Exit(1)
 	}
 
-	// Background update check
-	go checkUpdateBackground(cfg.Server.Address, log)
+	// Background update check (with forced auto-update if incompatible)
+	go checkAndAutoUpdate(cfg.Server.Address)
 
 	fmt.Println("  \033[32mTunnel established!\033[0m")
 	for _, t := range c.GetTunnels() {

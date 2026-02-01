@@ -17,6 +17,7 @@ func NewUpdateService(app *App) *UpdateService {
 // UpdateInfo mirrors client.UpdateInfo for Wails bindings.
 type UpdateInfo struct {
 	Available     bool   `json:"available"`
+	ForceUpdate   bool   `json:"force_update"`
 	ClientVersion string `json:"client_version"`
 	ServerVersion string `json:"server_version"`
 	DownloadURL   string `json:"download_url"`
@@ -39,6 +40,7 @@ func (s *UpdateService) CheckUpdate() (*UpdateInfo, error) {
 
 	return &UpdateInfo{
 		Available:     true,
+		ForceUpdate:   client.IsVersionIncompatible(info.MinVersion, s.app.version),
 		ClientVersion: info.ClientVersion,
 		ServerVersion: info.ServerVersion,
 		DownloadURL:   info.DownloadURL,
@@ -48,4 +50,9 @@ func (s *UpdateService) CheckUpdate() (*UpdateInfo, error) {
 // DownloadUpdate downloads and installs the update.
 func (s *UpdateService) DownloadUpdate(downloadURL string) error {
 	return client.SelfUpdate(downloadURL)
+}
+
+// ApplyUpdateAndRestart downloads the update and restarts the process.
+func (s *UpdateService) ApplyUpdateAndRestart(downloadURL string) error {
+	return client.SelfUpdateAndRestart(downloadURL)
 }
