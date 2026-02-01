@@ -29,6 +29,10 @@ const (
 	// Server lifecycle
 	MsgServerShutdown MessageType = "server_shutdown"
 
+	// Session pooling
+	MsgJoinSession       MessageType = "join_session"
+	MsgJoinSessionResult MessageType = "join_session_result"
+
 	// Errors
 	MsgError MessageType = "error"
 )
@@ -74,7 +78,8 @@ type AuthResultMessage struct {
 	Code        string `json:"code,omitempty"`
 	MaxTunnels  int    `json:"max_tunnels,omitempty"`
 	ServerName  string `json:"server_name,omitempty"`
-	SessionID   string `json:"session_id,omitempty"`
+	SessionID     string `json:"session_id,omitempty"`
+	SessionSecret string `json:"session_secret,omitempty"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel
@@ -175,6 +180,20 @@ type ErrorMessage struct {
 type ServerShutdownMessage struct {
 	Message
 	Reason string `json:"reason,omitempty"`
+}
+
+// JoinSessionMessage is sent by client to join an existing session with additional data connections
+type JoinSessionMessage struct {
+	Message
+	ClientID string `json:"client_id"`
+	Secret   string `json:"secret"`
+}
+
+// JoinSessionResult is the server response to a join session request
+type JoinSessionResult struct {
+	Message
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
 }
 
 // Error codes

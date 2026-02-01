@@ -166,9 +166,7 @@ func (e *benchEnv) close() {
 func handleBenchStream(stream net.Conn, echoAddr string) {
 	defer stream.Close()
 
-	streamCodec := protocol.NewCodec(stream, stream)
-	var msg protocol.NewConnectionMessage
-	if err := streamCodec.Decode(&msg); err != nil {
+	if _, err := protocol.ReadStreamHeader(stream); err != nil {
 		return
 	}
 
