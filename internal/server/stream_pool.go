@@ -24,7 +24,7 @@ func (c *Client) OpenStream() (net.Conn, error) {
 // openStreamRoundRobin opens a stream from one of the available sessions using round-robin.
 func (c *Client) openStreamRoundRobin() (net.Conn, error) {
 	sessions := c.allSessions()
-	n := uint32(len(sessions))
+	n := uint32(len(sessions)) //nolint:gosec // length is bounded by pool size
 	idx := c.sessionIdx.Add(1)
 	// Try starting from idx, fall through to others on error
 	for i := uint32(0); i < n; i++ {
