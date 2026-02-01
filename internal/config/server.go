@@ -32,6 +32,7 @@ type ServerSettings struct {
 	TCPPortRange       PortRange `mapstructure:"tcp_port_range"`
 	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
 	CompressionEnabled bool      `mapstructure:"compression_enabled"`
+	MinVersion         string    `mapstructure:"min_version"`
 }
 
 // PortRange defines a range of ports

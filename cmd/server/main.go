@@ -165,6 +165,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log)
 		apiServer.SetVersion(Version)
+		apiServer.SetMinVersion(cfg.Server.MinVersion)
 		apiServer.SetReplayProvider(srv.HTTPRouter())
 
 		ctx, cancel := context.WithCancel(context.Background())
