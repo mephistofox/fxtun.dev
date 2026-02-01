@@ -32,6 +32,7 @@ type ServerSettings struct {
 	TCPPortRange       PortRange `mapstructure:"tcp_port_range"`
 	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
 	CompressionEnabled bool      `mapstructure:"compression_enabled"`
+	Transport          string    `mapstructure:"transport"` // "auto", "quic", "yamux"
 }
 
 // PortRange defines a range of ports
@@ -157,6 +158,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("server.udp_port_range.min", 20001)
 	v.SetDefault("server.udp_port_range.max", 30000)
 	v.SetDefault("server.compression_enabled", true)
+	v.SetDefault("server.transport", "auto")
 	v.SetDefault("domain.base", "localhost")
 	v.SetDefault("domain.wildcard", true)
 	v.SetDefault("auth.enabled", false)
