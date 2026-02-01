@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/database"
@@ -112,13 +113,19 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 	return user, tokenPair, nil
 }
 
-// Login authenticates a user and returns tokens
-func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
-	// Normalize phone number (remove spaces, parentheses, dashes)
-	phone = normalizePhone(phone)
+// Login authenticates a user and returns tokens.
+// The identifier can be a phone number or email address.
+func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+	var user *database.User
+	var err error
 
-	// Get user by phone
-	user, err := s.db.Users.GetByPhone(phone)
+	// Try email first if it contains @, otherwise treat as phone
+	if strings.Contains(identifier, "@") {
+		user, err = s.db.Users.GetByEmail(identifier)
+	} else {
+		identifier = normalizePhone(identifier)
+		user, err = s.db.Users.GetByPhone(identifier)
+	}
 	if err != nil {
 		if errors.Is(err, database.ErrUserNotFound) {
 			return nil, nil, ErrInvalidCredentials
@@ -173,7 +180,7 @@ func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) 
 	}
 
 	// Generate tokens
-	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -198,7 +205,7 @@ func (s *Service) Login(phone, password, totpCode, userAgent, ipAddress string) 
 		"user_agent": userAgent,
 	}, ipAddress)
 
-	s.log.Info().Int64("user_id", user.ID).Str("phone", phone).Msg("User logged in")
+	s.log.Info().Int64("user_id", user.ID).Str("identifier", identifier).Msg("User logged in")
 
 	return user, tokenPair, nil
 }
@@ -250,7 +257,7 @@ func (s *Service) RefreshTokens(refreshToken string) (*database.User, *TokenPair
 	_ = s.db.Sessions.Delete(session.ID)
 
 	// Generate new tokens
-	tokenPair, newRefreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	tokenPair, newRefreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -468,8 +475,14 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 		return nil, nil, ErrUserNotActive
 	}
 
+	// Update email from OAuth if user has no email
+	if user.Email == "" && info.Email != "" {
+		_ = s.db.Users.UpdateEmail(user.ID, info.Email)
+		user.Email = info.Email
+	}
+
 	// Generate tokens
-	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -546,8 +559,14 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 		return nil, nil, ErrUserNotActive
 	}
 
+	// Update email from OAuth if user has no email
+	if user.Email == "" && info.Email != "" {
+		_ = s.db.Users.UpdateEmail(user.ID, info.Email)
+		user.Email = info.Email
+	}
+
 	// Generate tokens
-	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, user.Phone, user.IsAdmin)
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
@@ -590,6 +609,14 @@ func (s *Service) GetMaxDomains() int {
 // GetJWTManager returns the JWT manager
 func (s *Service) GetJWTManager() *JWTManager {
 	return s.jwt
+}
+
+// userIdentifier returns the best identifier for a user (email if phone is empty)
+func userIdentifier(user *database.User) string {
+	if user.Phone != "" {
+		return user.Phone
+	}
+	return user.Email
 }
 
 // normalizePhone removes all non-digit characters except leading +

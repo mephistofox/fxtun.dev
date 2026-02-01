@@ -198,6 +198,7 @@
     "signInTitle": "Вход в аккаунт",
     "signUpTitle": "Создание аккаунта",
     "phone": "Телефон",
+    "phoneOrEmail": "Телефон или email",
     "password": "Пароль",
     "confirmPassword": "Подтвердите пароль",
     "displayName": "Имя",

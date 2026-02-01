@@ -122,6 +122,7 @@ func (d *Database) migrate() error {
 		migrationCreateTLSCertificates,
 		migrationAddOAuthFields,
 		migrationAddGoogleOAuth,
+		migrationMakePhoneNullable,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -350,6 +351,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS
 const migrationAddGoogleOAuth = `
 ALTER TABLE users ADD COLUMN google_id VARCHAR(255);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
+`
+
+const migrationMakePhoneNullable = `
+-- Recreate users table with phone nullable for OAuth users
+CREATE TABLE users_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone VARCHAR(20),
+    password_hash VARCHAR(255) NOT NULL DEFAULT '',
+    display_name VARCHAR(100),
+    is_admin BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP,
+    github_id INTEGER,
+    email VARCHAR(255),
+    avatar_url TEXT,
+    google_id VARCHAR(255)
+);
+INSERT INTO users_new SELECT id, CASE WHEN phone = '' THEN NULL ELSE phone END, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id FROM users;
+DROP TABLE users;
+ALTER TABLE users_new RENAME TO users;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id) WHERE github_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL AND email != '';
 `
 
 const migrationCreateTLSCertificates = `
