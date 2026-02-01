@@ -608,7 +608,9 @@ func (c *Client) handleStream(stream net.Conn) {
 	// Read binary stream header
 	hdr, err := protocol.ReadStreamHeader(stream)
 	if err != nil {
-		c.log.Error().Err(err).Msg("Failed to read connection info")
+		if c.ctx.Err() == nil {
+			c.log.Error().Err(err).Msg("Failed to read connection info")
+		}
 		return
 	}
 

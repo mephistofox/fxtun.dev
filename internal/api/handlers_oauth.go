@@ -50,6 +50,10 @@ func (s *Server) handleGitHubAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		state = "link:" + token
+	} else if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
+		if isLocalhostURI(desktopRedirect) {
+			state = "login:" + desktopRedirect
+		}
 	}
 
 	redirectURI := s.buildRedirectURI(r)
@@ -144,7 +148,12 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	params.Set("refresh_token", tokenPair.RefreshToken)
 	params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
 
-	http.Redirect(w, r, "/auth/callback?"+params.Encode(), http.StatusTemporaryRedirect)
+	redirectTarget := "/auth/callback"
+	if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
+		redirectTarget = desktopRedirect
+	}
+
+	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
 // exchangeGitHubCode exchanges an authorization code for an access token.
@@ -249,6 +258,10 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		state = "link:" + token
+	} else if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
+		if isLocalhostURI(desktopRedirect) {
+			state = "login:" + desktopRedirect
+		}
 	}
 
 	redirectURI := s.buildGoogleRedirectURI(r)
@@ -339,7 +352,12 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	params.Set("refresh_token", tokenPair.RefreshToken)
 	params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
 
-	http.Redirect(w, r, "/auth/callback?"+params.Encode(), http.StatusTemporaryRedirect)
+	redirectTarget := "/auth/callback"
+	if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
+		redirectTarget = desktopRedirect
+	}
+
+	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
 // exchangeGoogleCode exchanges an authorization code for an access token.
@@ -438,5 +456,30 @@ func (s *Server) buildRedirectURI(r *http.Request) string {
 func (s *Server) redirectWithError(w http.ResponseWriter, r *http.Request, message string) {
 	params := url.Values{}
 	params.Set("error", message)
-	http.Redirect(w, r, "/auth/callback?"+params.Encode(), http.StatusTemporaryRedirect)
+
+	redirectTarget := "/auth/callback"
+	if state := r.URL.Query().Get("state"); state != "" {
+		if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
+			redirectTarget = desktopRedirect
+		}
+	}
+
+	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
+}
+
+// isLocalhostURI checks if a URI starts with http://localhost: or http://127.0.0.1:
+func isLocalhostURI(uri string) bool {
+	return strings.HasPrefix(uri, "http://localhost:") || strings.HasPrefix(uri, "http://127.0.0.1:")
+}
+
+// parseDesktopRedirectFromState extracts desktop redirect URI from state like "login:http://localhost:12345/callback".
+func parseDesktopRedirectFromState(state string) (string, bool) {
+	if !strings.HasPrefix(state, "login:") {
+		return "", false
+	}
+	redirect := strings.TrimPrefix(state, "login:")
+	if redirect == "" || !isLocalhostURI(redirect) {
+		return "", false
+	}
+	return redirect, true
 }
