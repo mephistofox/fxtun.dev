@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net"
@@ -9,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 // testSetup creates a server with a temp SQLite database and a DB API token.
@@ -88,10 +89,10 @@ func testSetup(t *testing.T) (*Server, *database.Database, string) {
 	return srv, db, rawToken
 }
 
-// dialServer creates a net.Pipe, wraps the server side in yamux.Server
-// (via handleControlConnection) and the client side in yamux.Client.
-// Returns the client-side yamux session.
-func dialServer(t *testing.T, srv *Server) *yamux.Session {
+// dialServer creates a net.Pipe, wraps the server side via handleControlConnection
+// and the client side in a transport.Session.
+// Returns the client-side session.
+func dialServer(t *testing.T, srv *Server) transport.Session {
 	t.Helper()
 
 	clientConn, serverConn := net.Pipe()
@@ -107,24 +108,26 @@ func dialServer(t *testing.T, srv *Server) *yamux.Session {
 		t.Fatalf("NegotiateCompression: %v", err)
 	}
 
-	yamuxCfg := yamux.DefaultConfig()
-	yamuxCfg.EnableKeepAlive = false
-	session, err := yamux.Client(rwc, yamuxCfg)
+	session, err := transport.NewYamuxSessionWithConfig(rwc, false, transport.YamuxConfig{
+		MaxStreamWindowSize:    4 * 1024 * 1024,
+		KeepAliveInterval:      24 * time.Hour,
+		ConnectionWriteTimeout: 30 * time.Second,
+	})
 	if err != nil {
-		t.Fatalf("yamux.Client: %v", err)
+		t.Fatalf("transport.NewYamuxSessionWithConfig: %v", err)
 	}
 
 	return session
 }
 
-// openControlStream opens the first yamux stream (control channel) and
+// openControlStream opens the first stream (control channel) and
 // returns a protocol.Codec wrapping it.
-func openControlStream(t *testing.T, session *yamux.Session) (*protocol.Codec, net.Conn) {
+func openControlStream(t *testing.T, session transport.Session) (*protocol.Codec, transport.Stream) {
 	t.Helper()
 
-	stream, err := session.Open()
+	stream, err := session.OpenStream(context.Background())
 	if err != nil {
-		t.Fatalf("session.Open: %v", err)
+		t.Fatalf("session.OpenStream: %v", err)
 	}
 
 	codec := protocol.NewCodec(stream, stream)
