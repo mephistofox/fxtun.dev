@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -635,6 +636,26 @@ func (c *Client) handleStream(stream net.Conn) {
 		Str("local", local.RemoteAddr().String()).
 		Msg("Forwarding connection")
 
+	// For HTTP tunnels, peek at the request line and print it
+	var streamReader io.Reader = stream
+	var reqStart time.Time
+	var httpMethod, httpPath string
+	if tunnel.Config.Type == "http" {
+		br := bufio.NewReaderSize(stream, 4096)
+		if line, err := br.ReadString('\n'); err == nil {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				httpMethod = parts[0]
+				httpPath = parts[1]
+				reqStart = time.Now()
+			}
+			// Prepend consumed line back
+			streamReader = io.MultiReader(strings.NewReader(line), br)
+		} else {
+			streamReader = br
+		}
+	}
+
 	// Bidirectional copy with byte counting and large buffers
 	done := make(chan struct{}, 2)
 	download := &countingWriter{w: local, count: &tunnel.BytesReceived}
@@ -642,7 +663,7 @@ func (c *Client) handleStream(stream net.Conn) {
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		_, _ = io.CopyBuffer(download, stream, *bp) // download: stream → local
+		_, _ = io.CopyBuffer(download, streamReader, *bp) // download: stream → local
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
@@ -659,6 +680,28 @@ func (c *Client) handleStream(stream net.Conn) {
 	_ = local.Close()
 	_ = stream.Close()
 	<-done
+
+	if httpMethod != "" {
+		elapsed := time.Since(reqStart).Milliseconds()
+		var methodColor string
+		switch httpMethod {
+		case "GET":
+			methodColor = "\033[32m" // green
+		case "POST":
+			methodColor = "\033[33m" // yellow
+		case "PUT":
+			methodColor = "\033[34m" // blue
+		case "PATCH":
+			methodColor = "\033[35m" // magenta
+		case "DELETE":
+			methodColor = "\033[31m" // red
+		case "OPTIONS":
+			methodColor = "\033[36m" // cyan
+		default:
+			methodColor = "\033[90m" // gray
+		}
+		fmt.Printf("  %s%s\033[0m %s \033[90m%dms\033[0m\n", methodColor, httpMethod, httpPath, elapsed)
+	}
 }
 
 func (c *Client) keepalive() {

@@ -69,7 +69,7 @@ For GUI mode, use fxtunnel-gui binary.`,
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file path")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "", "Server address (host or host:port, default port: 4443)")
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Authentication token")
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
 
 	// HTTP tunnel command
@@ -480,7 +480,7 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 // normalizeServerAddr adds default port if not specified
 func normalizeServerAddr(addr string) string {
 	if addr == "" {
-		return "127.0.0.1:" + defaultControlPort
+		return "mfdev.ru:" + defaultControlPort
 	}
 	// Check if port is already specified
 	if !strings.Contains(addr, ":") {
@@ -502,7 +502,7 @@ func parsePort(s string) (int, error) {
 }
 
 func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
-	log.Info().
+	log.Debug().
 		Str("version", Version).
 		Str("server", cfg.Server.Address).
 		Msg("Starting fxTunnel Client")
@@ -510,30 +510,27 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	// Create client
 	c := client.New(cfg, log)
 
+	fmt.Println("  \033[90mConnecting to fxtunnel server...\033[0m")
+
 	// Connect
 	if err := c.Connect(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to server")
+		fmt.Fprintf(os.Stderr, "  \033[31mFailed to connect: %v\033[0m\n", err)
+		os.Exit(1)
 	}
 
 	// Background update check
 	go checkUpdateBackground(cfg.Server.Address, log)
 
-	// Print tunnel info
+	fmt.Println("  \033[32mTunnel established!\033[0m")
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
-			log.Info().
-				Str("name", t.Config.Name).
-				Str("url", t.URL).
-				Int("local_port", t.Config.LocalPort).
-				Msg("Tunnel active")
+			fmt.Printf("  HTTP: %s\n", t.URL)
 		} else {
-			log.Info().
-				Str("name", t.Config.Name).
-				Str("addr", t.RemoteAddr).
-				Int("local_port", t.Config.LocalPort).
-				Msg("Tunnel active")
+			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}
+		fmt.Printf("  Forwarding to localhost:%d\n", t.Config.LocalPort)
 	}
+	fmt.Println("  \033[90mReady to receive connections\033[0m")
 
 	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
