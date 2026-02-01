@@ -10,16 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/yamux"
+
 	"github.com/mephistofox/fxtunnel/internal/protocol"
-	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 // benchEnv sets up a full tunnel environment for benchmarking:
-// server + transport session + authenticated tunnel + local echo server.
+// server + yamux client session + authenticated tunnel + local echo server.
 // Returns the HTTP address to send requests through the tunnel and the direct address.
 type benchEnv struct {
 	srv          *Server
-	session      transport.Session
+	session      *yamux.Session
 	tunnelID     string
 	httpListener net.Listener
 	echoAddr     string // direct address of the echo server
@@ -45,7 +46,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	srv.httpServer = httpServer
 	go func() { _ = httpServer.Serve(httpLn) }()
 
-	// --- Transport session via net.Pipe ---
+	// --- Yamux client session via net.Pipe ---
 	clientConn, serverConn := net.Pipe()
 	srv.wg.Add(1)
 	go srv.handleControlConnection(serverConn)
@@ -56,17 +57,16 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("NegotiateCompression: %v", err)
 	}
 
-	session, err := transport.NewYamuxSessionWithConfig(rwc, false, transport.YamuxConfig{
-		MaxStreamWindowSize:    4 * 1024 * 1024,
-		KeepAliveInterval:      24 * time.Hour,
-		ConnectionWriteTimeout: 30 * time.Second,
-	})
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = false
+	yamuxCfg.MaxStreamWindowSize = 4 * 1024 * 1024
+	session, err := yamux.Client(rwc, yamuxCfg)
 	if err != nil {
-		b.Fatalf("transport.NewYamuxSessionWithConfig: %v", err)
+		b.Fatalf("yamux.Client: %v", err)
 	}
 
 	// --- Auth ---
-	controlStream, err := session.OpenStream(context.Background())
+	controlStream, err := session.Open()
 	if err != nil {
 		b.Fatalf("open control: %v", err)
 	}
@@ -134,7 +134,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	// --- Client-side stream handler (simulates tunnel client) ---
 	go func() {
 		for {
-			stream, err := session.AcceptStream(context.Background())
+			stream, err := session.Accept()
 			if err != nil {
 				return
 			}
@@ -163,7 +163,7 @@ func (e *benchEnv) close() {
 
 // handleBenchStream simulates the client-side stream handler:
 // reads NewConnectionMessage, then proxies to local echo server.
-func handleBenchStream(stream io.ReadWriteCloser, echoAddr string) {
+func handleBenchStream(stream net.Conn, echoAddr string) {
 	defer stream.Close()
 
 	streamCodec := protocol.NewCodec(stream, stream)
@@ -343,7 +343,7 @@ func BenchmarkConcurrentLatency_Tunnel(b *testing.B) {
 	})
 }
 
-// BenchmarkRawProxy measures raw bidirectional data transfer through the tunnel
+// BenchmarkRawProxy measures raw bidirectional data transfer through yamux
 // without HTTP parsing overhead — pure proxy speed.
 func BenchmarkRawProxy(b *testing.B) {
 	env := newBenchEnv(b)
