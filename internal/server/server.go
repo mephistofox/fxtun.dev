@@ -64,6 +64,7 @@ type Server struct {
 	httpListener     net.Listener
 	httpsListener    net.Listener
 	httpsServer      *http.Server
+	quicListener     *transport.QUICListener
 
 	// Client manager
 	clientMgr *ClientManager
@@ -284,6 +285,24 @@ func (s *Server) Start() error {
 		}
 		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 		s.controlListener, err = tls.Listen("tcp", controlAddr, tlsCfg)
+
+		// Start QUIC listener alongside TCP when transport is not "yamux"
+		if s.cfg.Server.Transport != "yamux" {
+			quicTLSCfg := &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				MinVersion:   tls.VersionTLS13,
+				NextProtos:   []string{"fxtunnel"},
+			}
+			quicListener, quicErr := transport.NewQUICListener(controlAddr, quicTLSCfg, transport.DefaultQUICConfig())
+			if quicErr != nil {
+				s.log.Warn().Err(quicErr).Msg("Failed to start QUIC listener, TCP only")
+			} else {
+				s.quicListener = quicListener
+				s.wg.Add(1)
+				go s.acceptQUICConnections()
+				s.log.Info().Str("addr", controlAddr).Msg("QUIC control plane listening")
+			}
+		}
 	} else {
 		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
 	}
@@ -357,6 +376,9 @@ func (s *Server) Stop() error {
 	}
 	if s.httpsListener != nil {
 		s.httpsListener.Close()
+	}
+	if s.quicListener != nil {
+		s.quicListener.Close()
 	}
 
 	// Phase 2: drain in-flight connections (max 10s)
@@ -449,6 +471,102 @@ func (s *Server) acceptControlConnections() {
 	}
 }
 
+
+func (s *Server) acceptQUICConnections() {
+	defer s.wg.Done()
+	for {
+		session, err := s.quicListener.Accept(s.ctx)
+		if err != nil {
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				s.log.Error().Err(err).Msg("Accept QUIC connection failed")
+				continue
+			}
+		}
+		s.wg.Add(1)
+		go s.handleQUICSession(session)
+	}
+}
+
+func (s *Server) handleQUICSession(session transport.Session) {
+	defer s.wg.Done()
+
+	log := s.log.With().Str("transport", "quic").Logger()
+	log.Debug().Msg("New QUIC connection")
+
+	// Accept control stream
+	controlStream, err := session.AcceptStream(s.ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to accept QUIC control stream")
+		session.Close()
+		return
+	}
+
+	// Create codec for the control stream
+	codec := protocol.NewCodec(controlStream, controlStream)
+
+	// Wait for auth with timeout
+	type decodeResult struct {
+		data    []byte
+		baseMsg *protocol.Message
+		err     error
+	}
+	authCtx, authCancel := context.WithTimeout(s.ctx, authTimeout)
+	defer authCancel()
+	resultCh := make(chan decodeResult, 1)
+	go func() {
+		data, baseMsg, err := codec.DecodeRaw()
+		resultCh <- decodeResult{data, baseMsg, err}
+	}()
+
+	var data []byte
+	var baseMsg *protocol.Message
+	select {
+	case res := <-resultCh:
+		if res.err != nil {
+			log.Error().Err(res.err).Msg("Failed to read auth message")
+			session.Close()
+			return
+		}
+		data = res.data
+		baseMsg = res.baseMsg
+	case <-authCtx.Done():
+		log.Error().Msg("Auth timeout on QUIC connection")
+		session.Close()
+		return
+	}
+
+	if baseMsg.Type != protocol.MsgAuth {
+		log.Error().Str("type", string(baseMsg.Type)).Msg("Expected auth message")
+		s.sendError(codec, protocol.ErrCodeProtocolError, "expected auth message", true)
+		session.Close()
+		return
+	}
+
+	parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse auth message")
+		session.Close()
+		return
+	}
+
+	authMsg := parsed.(*protocol.AuthMessage)
+
+	// Authenticate — pass nil for raw conn; remoteAddr is extracted from session
+	client, err := s.authenticate(nil, session, controlStream, codec, authMsg, log)
+	if err != nil {
+		log.Warn().Err(err).Msg("QUIC authentication failed")
+		session.Close()
+		return
+	}
+
+	log = log.With().Str("client_id", client.ID).Logger()
+	log.Info().Msg("QUIC client authenticated")
+
+	client.handle()
+}
 
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
