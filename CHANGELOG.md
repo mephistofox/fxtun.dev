@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.0](https://github.com/mephistofox/fxTunnel/compare/v1.19.1...v2.0.0) (2026-02-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* protocol and auth changes since v1.17 make older clients incompatible with the server.
+
+### Features
+
+* bump to v2.0 — no backward compatibility with pre-1.17 clients ([8f86e75](https://github.com/mephistofox/fxTunnel/commit/8f86e752716c543b3ba8db3189dd05d7ccf70f62))
+* **client:** add forced auto-update when client version is below server min_version ([07b6c15](https://github.com/mephistofox/fxTunnel/commit/07b6c15bfa1ab523257da1375f6adfaa9aa64257))
+
+
+### Bug Fixes
+
+* **build:** use nearest semver tag for VERSION instead of git hash ([ba5c767](https://github.com/mephistofox/fxTunnel/commit/ba5c767312745ac7c543643c8564598eb16f6177))
+* **client:** use HTTPS on standard port for update check instead of control port ([371494d](https://github.com/mephistofox/fxTunnel/commit/371494d966be8ea462f4315b921d9a3b81255e42))
+* **lint:** suppress G204 gosec warning for syscall.Exec in self-restart ([d6c4b1c](https://github.com/mephistofox/fxTunnel/commit/d6c4b1c690f95a78a805dbf42bddd99936d9666f))
+
 ## [1.19.1](https://github.com/mephistofox/fxTunnel/compare/v1.19.0...v1.19.1) (2026-02-01)
 
 
