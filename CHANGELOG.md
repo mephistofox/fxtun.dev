@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.1](https://github.com/mephistofox/fxTunnel/compare/v1.19.0...v1.19.1) (2026-02-01)
+
+
+### Bug Fixes
+
+* **auth:** fix OAuth registration and support email-based login ([101e944](https://github.com/mephistofox/fxTunnel/commit/101e9444895bd57bcab41debc5b52fab956691d5))
+
 ## [1.19.0](https://github.com/mephistofox/fxTunnel/compare/v1.18.0...v1.19.0) (2026-02-01)
 
 
