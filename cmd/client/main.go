@@ -80,6 +80,7 @@ For GUI mode, use fxtunnel-gui binary.`,
 		RunE:  runHTTP,
 	}
 	httpCmd.Flags().StringVarP(&domain, "domain", "d", "", "Subdomain to use (auto-generated if not set)")
+	httpCmd.Flags().StringVar(&domain, "subdomain", "", "Alias for --domain")
 	rootCmd.AddCommand(httpCmd)
 
 	// TCP tunnel command
