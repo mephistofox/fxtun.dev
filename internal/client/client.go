@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -14,14 +13,23 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
-	"github.com/mephistofox/fxtunnel/internal/transport"
 )
 
 const (
+	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
+	yamuxMaxStreamWindowSize = 4 * 1024 * 1024 // 4MB
+
+	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
+	yamuxKeepAliveInterval = 10 * time.Second
+
+	// yamuxConnectionWriteTimeout is the timeout for writing to a yamux connection.
+	yamuxConnectionWriteTimeout = 30 * time.Second
+
 	// dialTimeout is the maximum time to wait when connecting to the server.
 	dialTimeout = 30 * time.Second
 
@@ -58,8 +66,8 @@ type Client struct {
 	events *EventEmitter
 
 	conn          net.Conn
-	session       transport.Session
-	controlStream transport.Stream
+	session       *yamux.Session
+	controlStream net.Conn
 	controlCodec  *protocol.Codec
 
 	clientID  string
@@ -75,7 +83,7 @@ type Client struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	streamWorkers chan transport.Stream // bounded worker pool for incoming streams
+	streamWorkers chan net.Conn // bounded worker pool for incoming streams
 
 	reconnecting   bool
 	reconnectMu    sync.Mutex
@@ -151,37 +159,44 @@ func (c *Client) Connect() error {
 	c.log.Info().Str("server", c.cfg.Server.Address).Msg("Connecting to server")
 	c.events.EmitType(EventConnecting)
 
-	transportMode := c.cfg.Server.Transport
-	if transportMode == "" {
-		transportMode = "auto"
-	}
-
-	var session transport.Session
-	var err error
-
-	if transportMode == "auto" || transportMode == "quic" {
-		session, err = c.connectQUIC()
-		if err != nil && transportMode == "auto" {
-			c.log.Warn().Err(err).Msg("QUIC failed, falling back to TCP/yamux")
-			session, err = c.connectYamux()
-		}
-	} else {
-		session, err = c.connectYamux()
-	}
-
+	// Dial server
+	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
 	if err != nil {
 		c.events.EmitError(err)
-		return fmt.Errorf("connect: %w", err)
+		return fmt.Errorf("dial server: %w", err)
 	}
-	c.session = session
+	tuneTCPConn(conn)
+	c.conn = conn
+
+	// Negotiate compression before yamux
+	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
+	if err != nil {
+		conn.Close()
+		c.events.EmitError(err)
+		return fmt.Errorf("compression negotiation: %w", err)
+	}
+	if compressed {
+		c.log.Info().Msg("Compression enabled (zstd)")
+	}
+
+	// Create yamux session FIRST (client mode) with optimized config
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
+	c.session, err = yamux.Client(rwc, yamuxCfg)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("create yamux session: %w", err)
+	}
 
 	// Open control stream (first stream)
-	controlStream, err := c.session.OpenStream(c.ctx)
+	c.controlStream, err = c.session.Open()
 	if err != nil {
 		c.session.Close()
 		return fmt.Errorf("open control stream: %w", err)
 	}
-	c.controlStream = controlStream
 
 	c.controlCodec = protocol.NewCodec(c.controlStream, c.controlStream)
 
@@ -200,7 +215,7 @@ func (c *Client) Connect() error {
 
 	// Start stream worker pool
 	numWorkers := runtime.NumCPU() * 4
-	c.streamWorkers = make(chan transport.Stream, numWorkers)
+	c.streamWorkers = make(chan net.Conn, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		c.wg.Add(1)
 		go c.streamWorker()
@@ -228,36 +243,6 @@ func (c *Client) Connect() error {
 	return nil
 }
 
-func (c *Client) connectQUIC() (transport.Session, error) {
-	tlsCfg := &tls.Config{
-		InsecureSkipVerify: c.cfg.Server.Insecure || !c.cfg.Server.TLSVerify, //nolint:gosec // user-controlled setting
-		NextProtos:         []string{"fxtunnel"},
-	}
-	ctx, cancel := context.WithTimeout(c.ctx, dialTimeout)
-	defer cancel()
-	return transport.DialQUIC(ctx, c.cfg.Server.Address, tlsCfg, transport.DefaultQUICConfig())
-}
-
-func (c *Client) connectYamux() (transport.Session, error) {
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("dial server: %w", err)
-	}
-	tuneTCPConn(conn)
-	c.conn = conn
-
-	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("compression negotiation: %w", err)
-	}
-	if compressed {
-		c.log.Info().Msg("Compression enabled (zstd)")
-	}
-
-	return transport.NewYamuxSession(rwc, false)
-}
-
 func (c *Client) authenticate() error {
 	c.tokenMu.RLock()
 	token := c.cfg.Server.Token
@@ -274,31 +259,13 @@ func (c *Client) authenticate() error {
 		return fmt.Errorf("send auth: %w", err)
 	}
 
-	// Read response with timeout
-	type authResult struct {
-		data    []byte
-		baseMsg *protocol.Message
-		err     error
-	}
-	authCtx, authCancel := context.WithTimeout(c.ctx, authResponseTimeout)
-	defer authCancel()
-	resultCh := make(chan authResult, 1)
-	go func() {
-		data, baseMsg, err := c.controlCodec.DecodeRaw()
-		resultCh <- authResult{data, baseMsg, err}
-	}()
+	// Read response
+	_ = c.controlStream.SetReadDeadline(time.Now().Add(authResponseTimeout))
+	defer func() { _ = c.controlStream.SetReadDeadline(time.Time{}) }()
 
-	var data []byte
-	var baseMsg *protocol.Message
-	select {
-	case res := <-resultCh:
-		if res.err != nil {
-			return fmt.Errorf("read auth result: %w", res.err)
-		}
-		data = res.data
-		baseMsg = res.baseMsg
-	case <-authCtx.Done():
-		return fmt.Errorf("auth response timeout")
+	data, baseMsg, err := c.controlCodec.DecodeRaw()
+	if err != nil {
+		return fmt.Errorf("read auth result: %w", err)
 	}
 
 	if baseMsg.Type != protocol.MsgAuthResult {
@@ -560,7 +527,7 @@ func (c *Client) acceptStreams() {
 	defer c.wg.Done()
 
 	for {
-		stream, err := c.session.AcceptStream(c.ctx)
+		stream, err := c.session.Accept()
 		if err != nil {
 			select {
 			case <-c.ctx.Done():
@@ -595,7 +562,7 @@ func (c *Client) streamWorker() {
 	}
 }
 
-func (c *Client) handleStream(stream transport.Stream) {
+func (c *Client) handleStream(stream net.Conn) {
 	defer stream.Close()
 
 	// Read connection info
