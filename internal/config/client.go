@@ -25,6 +25,7 @@ type ClientServerSettings struct {
 	Insecure    bool   `mapstructure:"insecure"`
 	TLSVerify   bool   `mapstructure:"tls_verify"`
 	Compression bool   `mapstructure:"compression"`
+	Transport   string `mapstructure:"transport"` // "auto", "quic", "yamux"
 }
 
 // TunnelConfig defines a single tunnel
