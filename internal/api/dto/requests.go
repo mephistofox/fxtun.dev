@@ -69,3 +69,14 @@ type UpdateUserRequest struct {
 	IsAdmin  *bool `json:"is_admin,omitempty"`
 	IsActive *bool `json:"is_active,omitempty"`
 }
+
+// MergeUsersRequest represents a request to merge two users
+type MergeUsersRequest struct {
+	PrimaryUserID   int64 `json:"primary_user_id"`
+	SecondaryUserID int64 `json:"secondary_user_id"`
+}
+
+// ResetPasswordRequest represents an admin password reset request
+type ResetPasswordRequest struct {
+	NewPassword string `json:"new_password"`
+}

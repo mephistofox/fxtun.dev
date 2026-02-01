@@ -282,6 +282,9 @@ func (s *Server) setupRoutes() {
 				r.Get("/tunnels", s.handleListAllTunnels)
 				r.Delete("/tunnels/{id}", s.handleAdminCloseTunnel)
 
+				r.Post("/users/merge", s.handleMergeUsers)
+				r.Post("/users/{id}/reset-password", s.handleAdminResetPassword)
+
 				r.Get("/custom-domains", s.handleAdminListCustomDomains)
 				r.Delete("/custom-domains/{id}", s.handleAdminDeleteCustomDomain)
 

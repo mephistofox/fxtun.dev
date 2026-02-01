@@ -50,6 +50,43 @@ async function toggleActive(user: AdminUser) {
   }
 }
 
+async function resetPassword(user: AdminUser) {
+  const newPassword = prompt(t('admin.users.resetPasswordPrompt', { phone: user.phone }))
+  if (!newPassword) return
+  if (newPassword.length < 8) {
+    error.value = t('auth.passwordTooShort')
+    return
+  }
+  try {
+    await adminApi.resetPassword(user.id, newPassword)
+    error.value = ''
+    alert(t('admin.users.passwordResetSuccess'))
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    error.value = err.response?.data?.error || t('admin.users.failedToResetPassword')
+  }
+}
+
+async function mergeUsers(user: AdminUser) {
+  const secondaryIdStr = prompt(t('admin.users.mergePrompt', { phone: user.phone, id: user.id }))
+  if (!secondaryIdStr) return
+  const secondaryId = parseInt(secondaryIdStr, 10)
+  if (isNaN(secondaryId) || secondaryId <= 0) {
+    error.value = 'Invalid user ID'
+    return
+  }
+  if (!confirm(t('admin.users.confirmMerge', { primaryId: user.id, secondaryId, phone: user.phone }))) return
+  try {
+    await adminApi.mergeUsers(user.id, secondaryId)
+    error.value = ''
+    alert(t('admin.users.mergeSuccess'))
+    loadUsers()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    error.value = err.response?.data?.error || t('admin.users.failedToMerge')
+  }
+}
+
 async function deleteUser(user: AdminUser) {
   if (!confirm(t('admin.users.confirmDelete', { phone: user.phone }))) return
 
@@ -170,6 +207,16 @@ onMounted(loadUsers)
                     <Button variant="ghost" size="sm" @click="toggleAdmin(user)" :title="user.is_admin ? t('admin.users.removeAdmin') : t('admin.users.makeAdmin')">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="user.is_admin ? 'text-purple-500' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    </Button>
+                    <Button variant="ghost" size="sm" @click="resetPassword(user)" :title="t('admin.users.resetPassword')">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                      </svg>
+                    </Button>
+                    <Button variant="ghost" size="sm" @click="mergeUsers(user)" :title="t('admin.users.merge')">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
                       </svg>
                     </Button>
                     <Button variant="ghost" size="sm" @click="deleteUser(user)" :title="t('common.delete')">

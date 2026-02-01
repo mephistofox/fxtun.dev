@@ -172,6 +172,8 @@ const (
 	ActionInviteUsed      = "invite_used"
 	ActionUserUpdated     = "user_updated"
 	ActionUserDeleted     = "user_deleted"
+	ActionUsersMerged     = "users_merged"
+	ActionPasswordReset   = "password_reset"
 )
 
 // CustomDomain represents a user-bound custom domain

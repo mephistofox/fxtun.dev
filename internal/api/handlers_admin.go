@@ -426,6 +426,135 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleMergeUsers merges two users (admin only)
+func (s *Server) handleMergeUsers(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req dto.MergeUsersRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.PrimaryUserID == 0 || req.SecondaryUserID == 0 {
+		s.respondError(w, http.StatusBadRequest, "both primary_user_id and secondary_user_id are required")
+		return
+	}
+
+	if req.PrimaryUserID == req.SecondaryUserID {
+		s.respondError(w, http.StatusBadRequest, "cannot merge a user with itself")
+		return
+	}
+
+	if req.PrimaryUserID == currentUser.ID || req.SecondaryUserID == currentUser.ID {
+		s.respondError(w, http.StatusForbidden, "cannot merge your own account")
+		return
+	}
+
+	// Verify both users exist
+	primaryUser, err := s.db.Users.GetByID(req.PrimaryUserID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "primary user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get primary user")
+		return
+	}
+
+	secondaryUser, err := s.db.Users.GetByID(req.SecondaryUserID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "secondary user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get secondary user")
+		return
+	}
+
+	if err := s.db.Users.MergeUsers(req.PrimaryUserID, req.SecondaryUserID); err != nil {
+		s.log.Error().Err(err).Int64("primary", req.PrimaryUserID).Int64("secondary", req.SecondaryUserID).Msg("Failed to merge users")
+		s.respondError(w, http.StatusInternalServerError, "failed to merge users")
+		return
+	}
+
+	ipAddress := auth.GetClientIP(r)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUsersMerged, map[string]interface{}{
+		"primary_user_id":    req.PrimaryUserID,
+		"primary_phone":      primaryUser.Phone,
+		"secondary_user_id":  req.SecondaryUserID,
+		"secondary_phone":    secondaryUser.Phone,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "users merged successfully",
+	})
+}
+
+// handleAdminResetPassword resets a user's password (admin only)
+func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	var req dto.ResetPasswordRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		s.respondError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	// Verify user exists
+	_, err = s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	if err := s.db.Users.UpdatePassword(id, hash); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to reset password")
+		return
+	}
+
+	ipAddress := auth.GetClientIP(r)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionPasswordReset, map[string]interface{}{
+		"target_user_id": id,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "password reset successfully",
+	})
+}
+
 // handleAdminCloseTunnel closes any tunnel (admin only)
 func (s *Server) handleAdminCloseTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelID := chi.URLParam(r, "id")

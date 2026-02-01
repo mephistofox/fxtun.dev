@@ -430,6 +430,76 @@ func (r *UserRepository) LinkGoogle(userID int64, googleID, email, avatarURL str
 	return nil
 }
 
+// MergeUsers transfers all data from secondary user to primary user and deletes the secondary user.
+// This is done in a single transaction. OAuth fields are copied to primary if they are empty.
+func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Transfer simple foreign key tables
+	tables := []string{"sessions", "api_tokens", "reserved_domains", "totp_secrets", "custom_domains", "audit_logs", "user_history"}
+	for _, table := range tables {
+		_, err := tx.Exec(fmt.Sprintf(`UPDATE %s SET user_id = ? WHERE user_id = ?`, table), primaryID, secondaryID) //nolint:gosec // table names are hardcoded
+		if err != nil {
+			return fmt.Errorf("transfer %s: %w", table, err)
+		}
+	}
+
+	// Transfer invite_codes references
+	_, err = tx.Exec(`UPDATE invite_codes SET created_by_user_id = ? WHERE created_by_user_id = ?`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer invite_codes created_by: %w", err)
+	}
+	_, err = tx.Exec(`UPDATE invite_codes SET used_by_user_id = ? WHERE used_by_user_id = ?`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer invite_codes used_by: %w", err)
+	}
+
+	// Transfer user_bundles (has UNIQUE(user_id, name) constraint)
+	_, err = tx.Exec(`UPDATE OR IGNORE user_bundles SET user_id = ? WHERE user_id = ?`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer user_bundles: %w", err)
+	}
+	_, err = tx.Exec(`DELETE FROM user_bundles WHERE user_id = ?`, secondaryID)
+	if err != nil {
+		return fmt.Errorf("cleanup user_bundles: %w", err)
+	}
+
+	// Transfer user_settings (has PRIMARY KEY(user_id, key))
+	_, err = tx.Exec(`UPDATE OR IGNORE user_settings SET user_id = ? WHERE user_id = ?`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer user_settings: %w", err)
+	}
+	_, err = tx.Exec(`DELETE FROM user_settings WHERE user_id = ?`, secondaryID)
+	if err != nil {
+		return fmt.Errorf("cleanup user_settings: %w", err)
+	}
+
+	// Copy OAuth fields from secondary to primary if primary's are empty
+	_, err = tx.Exec(`
+		UPDATE users SET
+			github_id = COALESCE(github_id, (SELECT github_id FROM users WHERE id = ?)),
+			google_id = COALESCE(google_id, (SELECT google_id FROM users WHERE id = ?)),
+			email = CASE WHEN email = '' OR email IS NULL THEN (SELECT email FROM users WHERE id = ?) ELSE email END,
+			avatar_url = CASE WHEN avatar_url = '' OR avatar_url IS NULL THEN (SELECT avatar_url FROM users WHERE id = ?) ELSE avatar_url END
+		WHERE id = ?
+	`, secondaryID, secondaryID, secondaryID, secondaryID, primaryID)
+	if err != nil {
+		return fmt.Errorf("merge oauth fields: %w", err)
+	}
+
+	// Delete secondary user
+	_, err = tx.Exec(`DELETE FROM users WHERE id = ?`, secondaryID)
+	if err != nil {
+		return fmt.Errorf("delete secondary user: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // isUniqueConstraintError checks if the error is a unique constraint violation
 func isUniqueConstraintError(err error) bool {
 	if err == nil {

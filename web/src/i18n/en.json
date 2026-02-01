@@ -407,7 +407,16 @@
       "noUsers": "No users found",
       "failedToUpdate": "Failed to update user",
       "failedToDelete": "Failed to delete user",
-      "confirmDelete": "Are you sure you want to delete user {phone}? This action cannot be undone."
+      "confirmDelete": "Are you sure you want to delete user {phone}? This action cannot be undone.",
+      "resetPassword": "Reset password",
+      "resetPasswordPrompt": "Enter new password for user {phone}:",
+      "passwordResetSuccess": "Password reset successfully",
+      "failedToResetPassword": "Failed to reset password",
+      "merge": "Merge",
+      "mergePrompt": "Enter the ID of the user to be absorbed (their data will be transferred to user {phone}, ID {id}):",
+      "mergeSuccess": "Users merged successfully",
+      "failedToMerge": "Failed to merge users",
+      "confirmMerge": "Are you sure? User with ID {secondaryId} will be deleted, all their data will be transferred to user {phone} (ID {primaryId})."
     },
     "invites": {
       "title": "Invite Codes",
