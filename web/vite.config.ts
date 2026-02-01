@@ -17,8 +17,9 @@ export default defineConfig({
     allowedHosts: ["tun.mfdev.ru", "mfdev.ru", "unms.ru"],
     proxy: {
       "/api": {
-        target: "http://localhost:8081",
+        target: "https://mfdev.ru",
         changeOrigin: true,
+        secure: true,
       },
     },
   },
