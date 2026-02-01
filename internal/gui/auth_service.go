@@ -2,15 +2,20 @@ package gui
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/mephistofox/fxtunnel/internal/client"
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -24,6 +29,11 @@ var ErrTOTPRequired = errors.New("TOTP code required")
 type AuthService struct {
 	app *App
 	log zerolog.Logger
+
+	// OAuth callback state
+	oauthMu     sync.Mutex
+	oauthCh     chan *authTokens
+	oauthServer *http.Server
 }
 
 // NewAuthService creates a new auth service
@@ -40,6 +50,7 @@ type AuthMethod string
 const (
 	AuthMethodToken    AuthMethod = "token"
 	AuthMethodPassword AuthMethod = "password"
+	AuthMethodOAuth    AuthMethod = "oauth"
 )
 
 // LoginRequest represents a login request from the frontend
@@ -433,6 +444,156 @@ func (s *AuthService) refreshAccessToken(serverAddr, refreshToken string) (*auth
 		AccessToken:  refreshResp.AccessToken,
 		RefreshToken: refreshResp.RefreshToken,
 	}, nil
+}
+
+// StartOAuthFlow opens the system browser for OAuth and starts a localhost callback server.
+// Returns the provider URL that was opened.
+func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error) {
+	s.oauthMu.Lock()
+	defer s.oauthMu.Unlock()
+
+	// Clean up any previous OAuth server
+	s.stopOAuthServerLocked()
+
+	// Listen on a random port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", fmt.Errorf("listen: %w", err)
+	}
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	s.oauthCh = make(chan *authTokens, 1)
+	ch := s.oauthCh
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		accessToken := r.URL.Query().Get("access_token")
+		refreshToken := r.URL.Query().Get("refresh_token")
+
+		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html><html><body><h2>Ошибка авторизации</h2><p>%s</p><p>Вы можете закрыть это окно.</p></body></html>`, errMsg)
+			select {
+			case ch <- nil:
+			default:
+			}
+			return
+		}
+
+		if accessToken == "" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(w, `<!DOCTYPE html><html><body><h2>Ошибка</h2><p>Токен не получен.</p></body></html>`)
+			select {
+			case ch <- nil:
+			default:
+			}
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, `<!DOCTYPE html><html><body><h2>Авторизация успешна!</h2><p>Вы можете закрыть это окно и вернуться в приложение.</p><script>window.close()</script></body></html>`)
+
+		select {
+		case ch <- &authTokens{AccessToken: accessToken, RefreshToken: refreshToken}:
+		default:
+		}
+	})
+
+	srv := &http.Server{Handler: mux}
+	s.oauthServer = srv
+
+	go func() {
+		if err := srv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.log.Error().Err(err).Msg("OAuth callback server error")
+		}
+	}()
+
+	// Build OAuth URL
+	host := serverAddr
+	if idx := strings.Index(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	callbackURI := fmt.Sprintf("http://localhost:%d/callback", port)
+	oauthURL := fmt.Sprintf("https://%s/api/auth/%s?redirect_uri=%s", host, provider, url.QueryEscape(callbackURI))
+
+	s.log.Info().Str("provider", provider).Int("port", port).Msg("Starting OAuth flow")
+
+	// Open in system browser
+	wailsRuntime.BrowserOpenURL(s.app.ctx, oauthURL)
+
+	return oauthURL, nil
+}
+
+// WaitOAuthCallback waits for the OAuth callback and returns a LoginResponse.
+func (s *AuthService) WaitOAuthCallback(serverAddr string, remember bool) (*LoginResponse, error) {
+	s.oauthMu.Lock()
+	ch := s.oauthCh
+	s.oauthMu.Unlock()
+
+	if ch == nil {
+		return &LoginResponse{Success: false, Error: "no OAuth flow in progress"}, nil
+	}
+
+	// Wait with timeout
+	select {
+	case tokens, ok := <-ch:
+		s.stopOAuthServer()
+
+		if !ok || tokens == nil {
+			return &LoginResponse{Success: false, Error: "OAuth authentication cancelled"}, nil
+		}
+
+		// Bring the app window to the front
+		s.bringWindowToFront()
+
+		// Login with the received tokens
+		return s.Login(LoginRequest{
+			Method:        AuthMethodToken,
+			ServerAddress: serverAddr,
+			Token:         tokens.AccessToken,
+			RefreshToken:  tokens.RefreshToken,
+			Remember:      remember,
+		})
+
+	case <-time.After(5 * time.Minute):
+		s.stopOAuthServer()
+		return &LoginResponse{Success: false, Error: "OAuth flow timed out"}, nil
+	}
+}
+
+// CancelOAuthFlow cancels any in-progress OAuth flow.
+func (s *AuthService) CancelOAuthFlow() {
+	s.stopOAuthServer()
+}
+
+func (s *AuthService) stopOAuthServer() {
+	s.oauthMu.Lock()
+	defer s.oauthMu.Unlock()
+	s.stopOAuthServerLocked()
+}
+
+func (s *AuthService) stopOAuthServerLocked() {
+	if s.oauthServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = s.oauthServer.Shutdown(ctx)
+		s.oauthServer = nil
+	}
+	if s.oauthCh != nil {
+		close(s.oauthCh)
+		s.oauthCh = nil
+	}
+}
+
+// bringWindowToFront activates the app window after OAuth callback.
+func (s *AuthService) bringWindowToFront() {
+	if s.app.ctx == nil {
+		return
+	}
+	wailsRuntime.WindowUnminimise(s.app.ctx)
+	wailsRuntime.WindowShow(s.app.ctx)
+	wailsRuntime.WindowSetAlwaysOnTop(s.app.ctx, true)
+	wailsRuntime.WindowSetAlwaysOnTop(s.app.ctx, false)
 }
 
 // buildAPIURL constructs API URL from server address

@@ -11,6 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
   const authMethod = ref<'token' | 'password'>('token')
   const totpRequired = ref(false)
   const isBlocked = ref(false)
+  const oauthWaiting = ref(false)
 
   async function checkAuth(): Promise<boolean> {
     try {
@@ -121,6 +122,47 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function loginWithOAuth(
+    server: string,
+    provider: string,
+    remember: boolean
+  ): Promise<boolean> {
+    isLoading.value = true
+    oauthWaiting.value = true
+    error.value = null
+
+    try {
+      await AuthService.StartOAuthFlow(server, provider)
+      const response = await AuthService.WaitOAuthCallback(server, remember)
+
+      if (response.success) {
+        isAuthenticated.value = true
+        serverAddress.value = server
+        authMethod.value = 'token'
+      } else {
+        error.value = response.error || 'OAuth login failed'
+      }
+
+      return response.success
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'OAuth login failed'
+      return false
+    } finally {
+      isLoading.value = false
+      oauthWaiting.value = false
+    }
+  }
+
+  async function cancelOAuth(): Promise<void> {
+    try {
+      await AuthService.CancelOAuthFlow()
+    } catch {
+      // ignore
+    }
+    oauthWaiting.value = false
+    isLoading.value = false
+  }
+
   async function logout(): Promise<void> {
     try {
       await AuthService.Logout()
@@ -150,11 +192,14 @@ export const useAuthStore = defineStore('auth', () => {
     authMethod,
     totpRequired,
     isBlocked,
+    oauthWaiting,
     setBlocked,
     checkAuth,
     autoLogin,
     loginWithToken,
     loginWithPassword,
+    loginWithOAuth,
+    cancelOAuth,
     logout,
     resetTotpRequired,
   }

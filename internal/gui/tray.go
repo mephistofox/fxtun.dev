@@ -28,10 +28,7 @@ func (a *App) initTray(icon []byte) {
 						runtime.WindowShow(a.ctx)
 					}
 				case <-mQuit.ClickedCh:
-					systray.Quit()
-					if a.ctx != nil {
-						runtime.Quit(a.ctx)
-					}
+					a.forceShutdown()
 					return
 				}
 			}
