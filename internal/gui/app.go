@@ -4,7 +4,10 @@ package gui
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -26,8 +29,11 @@ type App struct {
 	// Centralized API client
 	api *apiClient
 
+	// Shutdown state
+	shuttingDown atomic.Bool
+
 	// Build info
-	version   string
+	version string
 	buildTime string
 
 	// Tray
@@ -128,10 +134,21 @@ func (a *App) UpdateLogger(log zerolog.Logger) {
 }
 
 // Shutdown is called when the app is closing
-func (a *App) Shutdown(ctx context.Context) {
+func (a *App) Shutdown(_ context.Context) {
+	if !a.shuttingDown.CompareAndSwap(false, true) {
+		return // already shutting down
+	}
+
 	a.log.Info().Msg("GUI application shutting down")
 
-	a.cleanupTray()
+	// Force exit after deadline to prevent hanging goroutines
+	go func() {
+		time.Sleep(3 * time.Second)
+		os.Exit(0)
+	}()
+
+	// Stop any pending OAuth flow
+	a.AuthService.CancelOAuthFlow()
 
 	if a.client != nil {
 		a.client.Close()
@@ -140,6 +157,14 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.db != nil {
 		a.db.Close()
 	}
+
+	a.cleanupTray()
+}
+
+// forceShutdown performs cleanup and terminates the process.
+func (a *App) forceShutdown() {
+	a.Shutdown(context.Background())
+	os.Exit(0)
 }
 
 // emitEvent sends an event to the frontend
