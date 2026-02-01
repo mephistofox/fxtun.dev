@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -22,7 +23,7 @@ import (
 
 const (
 	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
-	yamuxMaxStreamWindowSize = 4 * 1024 * 1024 // 4MB
+	yamuxMaxStreamWindowSize = 16 * 1024 * 1024 // 16MB
 
 	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
 	yamuxKeepAliveInterval = 10 * time.Second
@@ -48,6 +49,9 @@ const (
 	// trafficStatsInterval is the interval for emitting traffic statistics.
 	trafficStatsInterval = 2 * time.Second
 
+	// dataConnectionCount is the number of additional data connections to open (total = 1 primary + N data).
+	dataConnectionCount = 15
+
 	// defaultReconnectInterval is the default base interval for reconnection attempts.
 	defaultReconnectInterval = 5 * time.Second
 
@@ -70,8 +74,14 @@ type Client struct {
 	controlStream net.Conn
 	controlCodec  *protocol.Codec
 
-	clientID  string
-	sessionID string
+	// Multi-session pool: additional data connections for parallelism
+	dataSessions []*yamux.Session
+	dataConns    []net.Conn
+	dataSessionMu sync.Mutex
+
+	clientID      string
+	sessionID     string
+	sessionSecret string
 
 	tunnels   map[string]*ActiveTunnel
 	tunnelsMu sync.RWMutex
@@ -233,6 +243,11 @@ func (c *Client) Connect() error {
 	c.wg.Add(1)
 	go c.keepalive()
 
+	// Open additional data connections for parallelism
+	if c.sessionSecret != "" {
+		c.openDataConnections()
+	}
+
 	// Request tunnels from config
 	for _, tunnelCfg := range c.cfg.Tunnels {
 		if err := c.RequestTunnel(tunnelCfg); err != nil {
@@ -288,6 +303,7 @@ func (c *Client) authenticate() error {
 
 	c.clientID = result.ClientID
 	c.sessionID = result.SessionID
+	c.sessionSecret = result.SessionSecret
 
 	return nil
 }
@@ -549,6 +565,29 @@ func (c *Client) acceptStreams() {
 	}
 }
 
+func (c *Client) acceptDataStreams(session *yamux.Session) {
+	defer c.wg.Done()
+
+	for {
+		stream, err := session.Accept()
+		if err != nil {
+			select {
+			case <-c.ctx.Done():
+				return
+			default:
+				c.log.Debug().Err(err).Msg("Data session stream accept error")
+				return
+			}
+		}
+
+		select {
+		case c.streamWorkers <- stream:
+		default:
+			go c.handleStream(stream)
+		}
+	}
+}
+
 func (c *Client) streamWorker() {
 	defer c.wg.Done()
 
@@ -565,22 +604,20 @@ func (c *Client) streamWorker() {
 func (c *Client) handleStream(stream net.Conn) {
 	defer stream.Close()
 
-	// Read connection info
-	streamCodec := protocol.NewCodec(stream, stream)
-
-	var msg protocol.NewConnectionMessage
-	if err := streamCodec.Decode(&msg); err != nil {
+	// Read binary stream header
+	hdr, err := protocol.ReadStreamHeader(stream)
+	if err != nil {
 		c.log.Error().Err(err).Msg("Failed to read connection info")
 		return
 	}
 
 	// Find tunnel
 	c.tunnelsMu.RLock()
-	tunnel, exists := c.tunnels[msg.TunnelID]
+	tunnel, exists := c.tunnels[hdr.TunnelID]
 	c.tunnelsMu.RUnlock()
 
 	if !exists {
-		c.log.Warn().Str("tunnel_id", msg.TunnelID).Msg("Unknown tunnel")
+		c.log.Warn().Str("tunnel_id", hdr.TunnelID).Msg("Unknown tunnel")
 		return
 	}
 
@@ -594,7 +631,7 @@ func (c *Client) handleStream(stream net.Conn) {
 
 	c.log.Debug().
 		Str("tunnel", tunnel.Config.Name).
-		Str("remote", msg.RemoteAddr).
+		Str("remote", hdr.RemoteAddr).
 		Str("local", local.RemoteAddr().String()).
 		Msg("Forwarding connection")
 
@@ -736,6 +773,18 @@ func (c *Client) reconnect() {
 			c.conn.Close()
 		}
 
+		// Close data sessions
+		c.dataSessionMu.Lock()
+		for _, ds := range c.dataSessions {
+			ds.Close()
+		}
+		for _, dc := range c.dataConns {
+			dc.Close()
+		}
+		c.dataSessions = nil
+		c.dataConns = nil
+		c.dataSessionMu.Unlock()
+
 		// Clear tunnels
 		c.tunnelsMu.Lock()
 		c.tunnels = make(map[string]*ActiveTunnel)
@@ -853,6 +902,18 @@ func (c *Client) Close() {
 		c.conn.Close()
 	}
 
+	// Close all data sessions
+	c.dataSessionMu.Lock()
+	for _, ds := range c.dataSessions {
+		ds.Close()
+	}
+	for _, dc := range c.dataConns {
+		dc.Close()
+	}
+	c.dataSessions = nil
+	c.dataConns = nil
+	c.dataSessionMu.Unlock()
+
 	c.log.Info().Msg("Client closed")
 }
 
@@ -880,6 +941,130 @@ func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
 			})
 		}
 	}
+}
+
+func (c *Client) openDataConnections() {
+	var wg sync.WaitGroup
+	for i := 0; i < dataConnectionCount; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			if err := c.openDataConnection(idx); err != nil {
+				c.log.Warn().Err(err).Int("index", idx).Msg("Failed to open data connection")
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func (c *Client) openDataConnection(idx int) error {
+	backoff := []time.Duration{100 * time.Millisecond, 300 * time.Millisecond, 1 * time.Second}
+	var lastErr error
+	for attempt := 0; attempt <= len(backoff); attempt++ {
+		if attempt > 0 {
+			c.log.Debug().Err(lastErr).Int("index", idx).Int("attempt", attempt).Msg("Data connection attempt failed, retrying")
+			select {
+			case <-c.ctx.Done():
+				return c.ctx.Err()
+			case <-time.After(backoff[attempt-1]):
+			}
+		}
+		lastErr = c.tryOpenDataConnection(idx)
+		if lastErr == nil {
+			return nil
+		}
+		// Only retry on "join session rejected" errors (race condition on server side)
+		if !strings.Contains(lastErr.Error(), "join session rejected") {
+			return lastErr
+		}
+	}
+	return lastErr
+}
+
+func (c *Client) tryOpenDataConnection(idx int) error {
+	// Dial server
+	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+	if err != nil {
+		return fmt.Errorf("dial server: %w", err)
+	}
+	tuneTCPConn(conn)
+
+	// Negotiate compression
+	rwc, _, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("compression negotiation: %w", err)
+	}
+
+	// Create yamux session (client mode)
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
+	yamuxCfg.LogOutput = io.Discard
+	session, err := yamux.Client(rwc, yamuxCfg)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("create yamux session: %w", err)
+	}
+
+	// Open control stream to send JoinSession
+	stream, err := session.Open()
+	if err != nil {
+		session.Close()
+		conn.Close()
+		return fmt.Errorf("open stream: %w", err)
+	}
+
+	codec := protocol.NewCodec(stream, stream)
+
+	// Send join session message
+	joinMsg := &protocol.JoinSessionMessage{
+		Message:  protocol.NewMessage(protocol.MsgJoinSession),
+		ClientID: c.clientID,
+		Secret:   c.sessionSecret,
+	}
+	if err := codec.Encode(joinMsg); err != nil {
+		stream.Close()
+		session.Close()
+		conn.Close()
+		return fmt.Errorf("send join_session: %w", err)
+	}
+
+	// Read result
+	_ = stream.SetReadDeadline(time.Now().Add(authResponseTimeout))
+	var result protocol.JoinSessionResult
+	if err := codec.Decode(&result); err != nil {
+		stream.Close()
+		session.Close()
+		conn.Close()
+		return fmt.Errorf("read join_session result: %w", err)
+	}
+	_ = stream.SetReadDeadline(time.Time{})
+
+	if !result.Success {
+		stream.Close()
+		session.Close()
+		conn.Close()
+		return fmt.Errorf("join session rejected: %s", result.Error)
+	}
+
+	// Close the handshake stream — server will Open() streams on this session
+	stream.Close()
+
+	// Store data session
+	c.dataSessionMu.Lock()
+	c.dataSessions = append(c.dataSessions, session)
+	c.dataConns = append(c.dataConns, conn)
+	c.dataSessionMu.Unlock()
+
+	// Accept streams on this data session (Task 7)
+	c.wg.Add(1)
+	go c.acceptDataStreams(session)
+
+	c.log.Info().Int("index", idx).Msg("Data connection established")
+	return nil
 }
 
 func generateID() string {

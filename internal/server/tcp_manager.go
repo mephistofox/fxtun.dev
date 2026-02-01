@@ -105,17 +105,8 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	}
 	defer stream.Close()
 
-	// Send connection info through the stream
-	connID := generateID()
-	newConn := &protocol.NewConnectionMessage{
-		Message:      protocol.NewMessage(protocol.MsgNewConnection),
-		TunnelID:     tunnel.ID,
-		ConnectionID: connID,
-		RemoteAddr:   conn.RemoteAddr().String(),
-	}
-
-	streamCodec := protocol.NewCodec(stream, stream)
-	if err := streamCodec.Encode(newConn); err != nil {
+	// Send binary stream header
+	if err := protocol.WriteStreamHeader(stream, tunnel.ID, conn.RemoteAddr().String()); err != nil {
 		m.log.Error().Err(err).Msg("Failed to send connection info")
 		return
 	}

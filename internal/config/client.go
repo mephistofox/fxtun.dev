@@ -52,6 +52,7 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	v.SetDefault("server.address", "127.0.0.1:4443")
 	v.SetDefault("server.insecure", false)
 	v.SetDefault("server.tls_verify", true)
+	v.SetDefault("server.compression", true)
 	v.SetDefault("reconnect.enabled", true)
 	v.SetDefault("reconnect.interval", "5s")
 	v.SetDefault("reconnect.max_attempts", 0)

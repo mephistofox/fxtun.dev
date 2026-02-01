@@ -196,6 +196,10 @@ func ParseMessage(data []byte, msgType MessageType) (any, error) {
 		msg = &ErrorMessage{}
 	case MsgServerShutdown:
 		msg = &ServerShutdownMessage{}
+	case MsgJoinSession:
+		msg = &JoinSessionMessage{}
+	case MsgJoinSessionResult:
+		msg = &JoinSessionResult{}
 	default:
 		return nil, fmt.Errorf("unknown message type: %s", msgType)
 	}
