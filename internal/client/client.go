@@ -1,16 +1,16 @@
 package client
 
 import (
-	"context"
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
