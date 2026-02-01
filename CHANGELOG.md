@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.19.0](https://github.com/mephistofox/fxTunnel/compare/v1.18.0...v1.19.0) (2026-02-01)
+
+
+### Features
+
+* add multi-session connection pooling with binary stream headers ([8c51490](https://github.com/mephistofox/fxTunnel/commit/8c514901c8ab25a58f855a1fc4110b5f9f5e5367))
+* **client:** pretty CLI output with HTTP request logging ([4a84c12](https://github.com/mephistofox/fxTunnel/commit/4a84c12e4380a38c6cee599d1e838c87630cf3fb))
+
+
+### Bug Fixes
+
+* resolve lint errors in import order and integer conversion ([4260b21](https://github.com/mephistofox/fxTunnel/commit/4260b21b90e7e5a41c881f53250806d0c8d3b7f9))
+* **test:** update default server address in config test ([c84e793](https://github.com/mephistofox/fxTunnel/commit/c84e7938abb61b49bd6e3d25bc43c052578d5a4b))
+
+
+### Reverts
+
+* remove QUIC transport, restore yamux-only operation ([02b2246](https://github.com/mephistofox/fxTunnel/commit/02b22467684e5b64e9b363a979f30498bf56de75))
+
 ## [1.18.0](https://github.com/mephistofox/fxTunnel/compare/v1.17.1...v1.18.0) (2026-02-01)
 
 
