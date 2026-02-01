@@ -13,7 +13,7 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const { t } = useI18n()
 
-const phone = ref('')
+const identifier = ref('')
 const password = ref('')
 const totpCode = ref('')
 const showTotp = ref(false)
@@ -23,7 +23,7 @@ async function handleSubmit() {
   error.value = ''
   try {
     await authStore.login({
-      phone: phone.value,
+      phone: identifier.value,
       password: password.value,
       totp_code: showTotp.value ? totpCode.value : undefined,
     })
@@ -182,8 +182,8 @@ function cycleTheme() {
           </div>
 
           <div class="space-y-2">
-            <label class="text-sm font-medium">{{ t('auth.phone') }}</label>
-            <Input v-model="phone" phone placeholder="+7 (999) 123-45-67" required />
+            <label class="text-sm font-medium">{{ t('auth.phoneOrEmail') }}</label>
+            <Input v-model="identifier" placeholder="email@example.com" required />
           </div>
 
           <div class="space-y-2">

@@ -283,9 +283,10 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	var googleID sql.NullString
 	var email sql.NullString
 	var avatarURL sql.NullString
+	var phone sql.NullString
 
 	err := s.Scan(
-		&user.ID, &user.Phone, &user.PasswordHash, &user.DisplayName,
+		&user.ID, &phone, &user.PasswordHash, &user.DisplayName,
 		&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
 		&githubID, &email, &avatarURL, &googleID,
 	)
@@ -293,6 +294,9 @@ func scanUserFromScanner(s scanner) (*User, error) {
 		return nil, err
 	}
 
+	if phone.Valid {
+		user.Phone = phone.String
+	}
 	if lastLoginAt.Valid {
 		user.LastLoginAt = &lastLoginAt.Time
 	}
@@ -318,6 +322,28 @@ func scanUser(row *sql.Row) (*User, error) {
 
 func scanUserRows(rows *sql.Rows) (*User, error) {
 	return scanUserFromScanner(rows)
+}
+
+// GetByEmail retrieves a user by email
+func (r *UserRepository) GetByEmail(email string) (*User, error) {
+	user, err := scanUser(r.db.QueryRow(
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		FROM users WHERE email = ?`, email,
+	))
+	if err != nil {
+		return nil, notFoundOrError(err, ErrUserNotFound, "get user by email")
+	}
+	return user, nil
+}
+
+// UpdateEmail updates user's email
+func (r *UserRepository) UpdateEmail(userID int64, email string) error {
+	query := `UPDATE users SET email = ? WHERE id = ?`
+	_, err := r.db.Exec(query, email, userID)
+	if err != nil {
+		return fmt.Errorf("update email: %w", err)
+	}
+	return nil
 }
 
 // GetByGitHubID retrieves a user by GitHub ID
@@ -364,9 +390,15 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
+	// Use NULL for empty phone to avoid UNIQUE constraint issues
+	var phone interface{}
+	if user.Phone != "" {
+		phone = user.Phone
+	}
+
 	now := time.Now()
 	result, err := r.db.Exec(query,
-		user.Phone,
+		phone,
 		user.DisplayName,
 		user.IsAdmin,
 		user.IsActive,
