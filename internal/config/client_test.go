@@ -73,7 +73,7 @@ func TestLoadClientConfig_Defaults(t *testing.T) {
 
 	cfg, err := LoadClientConfig("")
 	require.NoError(t, err)
-	assert.Equal(t, "127.0.0.1:4443", cfg.Server.Address)
+	assert.Equal(t, "mfdev.ru:4443", cfg.Server.Address)
 	assert.True(t, cfg.Reconnect.Enabled)
 }
 
