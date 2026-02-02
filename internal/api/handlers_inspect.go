@@ -13,10 +13,21 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 )
 
+func (s *Server) checkInspectorAccess(w http.ResponseWriter, user *auth.AuthenticatedUser) bool {
+	if !user.IsAdmin && (user.Plan == nil || !user.Plan.InspectorEnabled) {
+		s.respondErrorWithCode(w, http.StatusForbidden, "INSPECTOR_DISABLED", "inspector not available on your plan")
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if !s.checkInspectorAccess(w, user) {
 		return
 	}
 
@@ -59,6 +70,9 @@ func (s *Server) handleGetExchange(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if !s.checkInspectorAccess(w, user) {
+		return
+	}
 
 	tunnelID := chi.URLParam(r, "id")
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
@@ -88,6 +102,9 @@ func (s *Server) handleClearExchanges(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if !s.checkInspectorAccess(w, user) {
+		return
+	}
 
 	tunnelID := chi.URLParam(r, "id")
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
@@ -107,6 +124,9 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if !s.checkInspectorAccess(w, user) {
 		return
 	}
 
@@ -160,6 +180,9 @@ func (s *Server) handleInspectStatus(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if !s.checkInspectorAccess(w, user) {
+		return
+	}
 
 	tunnelID := chi.URLParam(r, "id")
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
@@ -188,6 +211,9 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if !s.checkInspectorAccess(w, user) {
 		return
 	}
 

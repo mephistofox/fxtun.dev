@@ -34,10 +34,19 @@ func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 		domainDTOs[i] = dto.DomainFromModel(d, s.baseDomain)
 	}
 
+	maxDomains := 1
+	if user.Plan != nil {
+		if user.Plan.MaxDomains < 0 {
+			maxDomains = -1
+		} else {
+			maxDomains = user.Plan.MaxDomains
+		}
+	}
+
 	s.respondJSON(w, http.StatusOK, dto.DomainsListResponse{
 		Domains:    domainDTOs,
 		Total:      len(domainDTOs),
-		MaxDomains: s.authService.GetMaxDomains(),
+		MaxDomains: maxDomains,
 	})
 }
 
@@ -74,7 +83,15 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if count >= s.authService.GetMaxDomains() {
+	maxDomains := 1
+	if user.Plan != nil {
+		if user.Plan.MaxDomains < 0 {
+			maxDomains = -1
+		} else {
+			maxDomains = user.Plan.MaxDomains
+		}
+	}
+	if maxDomains >= 0 && count >= maxDomains {
 		s.respondErrorWithCode(w, http.StatusForbidden, "MAX_DOMAINS", "maximum domains reached")
 		return
 	}
