@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/mephistofox/fxTunnel/compare/v2.2.0...v2.2.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* **client:** create temp file in same dir as binary to avoid cross-device rename ([41173e2](https://github.com/mephistofox/fxTunnel/commit/41173e27400b3703283cab894a0a6ad46a059351))
+
 ## [2.2.0](https://github.com/mephistofox/fxTunnel/compare/v2.1.0...v2.2.0) (2026-02-02)
 
 
