@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.0](https://github.com/mephistofox/fxTunnel/compare/v2.1.0...v2.2.0) (2026-02-02)
+
+
+### Features
+
+* **cli:** add up/status/down commands and daemon-aware tunnel creation ([65d9d08](https://github.com/mephistofox/fxTunnel/commit/65d9d082f765a232cb2886c56868bbb1e300712e))
+* **daemon:** add ClientManager adapter for tunnel management ([475a6fd](https://github.com/mephistofox/fxTunnel/commit/475a6fd37fee4ca8f7a94e2d8462f48066fa4d9d))
+* **daemon:** add local HTTP API for daemon IPC ([ba893d4](https://github.com/mephistofox/fxTunnel/commit/ba893d4fc591d5fce90c5de390200e38abe3d948))
+* **daemon:** add process liveness and daemon running check ([d0008c5](https://github.com/mephistofox/fxTunnel/commit/d0008c5ca04b1930d579dbf58f4d0a7e9a9731dc))
+* **daemon:** add state file save/load helpers ([10cbae5](https://github.com/mephistofox/fxTunnel/commit/10cbae505b36b9907fcb16509c4d0328a8a59cd5))
+
+
+### Bug Fixes
+
+* **daemon:** fix lint issues — file perms, ReadHeaderTimeout, errcheck ([fe17938](https://github.com/mephistofox/fxTunnel/commit/fe17938a7e0f9df9331be67716ae092e4bd1c3f7))
+
 ## [2.1.0](https://github.com/mephistofox/fxTunnel/compare/v2.0.0...v2.1.0) (2026-02-02)
 
 
