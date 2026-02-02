@@ -127,6 +127,11 @@ Use -t to provide token directly, or enter it interactively.`,
 	// Domains command
 	rootCmd.AddCommand(newDomainsCmd())
 
+	// Daemon commands
+	rootCmd.AddCommand(newUpCmd())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newDownCmd())
+
 	// Update command
 	updateCmd := &cobra.Command{
 		Use:   "update",
@@ -190,13 +195,17 @@ func runHTTP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg := buildConfig(config.TunnelConfig{
+	tunnelCfg := config.TunnelConfig{
 		Name:      fmt.Sprintf("http-%d", port),
 		Type:      "http",
 		LocalPort: port,
 		Subdomain: domain,
-	})
+	}
+	if addTunnelToDaemon(tunnelCfg) {
+		return nil
+	}
 
+	cfg := buildConfig(tunnelCfg)
 	return runClient(cfg, log)
 }
 
@@ -209,13 +218,17 @@ func runTCP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg := buildConfig(config.TunnelConfig{
+	tunnelCfg := config.TunnelConfig{
 		Name:       fmt.Sprintf("tcp-%d", port),
 		Type:       "tcp",
 		LocalPort:  port,
 		RemotePort: remotePort,
-	})
+	}
+	if addTunnelToDaemon(tunnelCfg) {
+		return nil
+	}
 
+	cfg := buildConfig(tunnelCfg)
 	return runClient(cfg, log)
 }
 
@@ -228,13 +241,17 @@ func runUDP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg := buildConfig(config.TunnelConfig{
+	tunnelCfg := config.TunnelConfig{
 		Name:       fmt.Sprintf("udp-%d", port),
 		Type:       "udp",
 		LocalPort:  port,
 		RemotePort: remotePort,
-	})
+	}
+	if addTunnelToDaemon(tunnelCfg) {
+		return nil
+	}
 
+	cfg := buildConfig(tunnelCfg)
 	return runClient(cfg, log)
 }
 
