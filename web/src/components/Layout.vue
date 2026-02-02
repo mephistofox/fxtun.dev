@@ -17,7 +17,7 @@ const appVersion = ref('')
 
 onMounted(async () => {
   try {
-    const res = await fetch('/api/health')
+    const res = await fetch('/health')
     const data = await res.json()
     appVersion.value = data.version || ''
   } catch {
@@ -39,6 +39,7 @@ const adminNavigation = [
   { key: 'adminInvites', path: '/admin/invites', icon: 'ticket' },
   { key: 'adminTunnels', path: '/admin/tunnels', icon: 'network' },
   { key: 'adminCustomDomains', path: '/admin/custom-domains', icon: 'globe' },
+  { key: 'adminPlans', path: '/admin/plans', icon: 'credit-card' },
   { key: 'adminAudit', path: '/admin/audit', icon: 'file-text' },
 ]
 
@@ -219,6 +220,17 @@ function cycleTheme() {
                         <rect x="9" y="2" width="6" height="6" rx="1" />
                         <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
                         <path d="M12 12V8" />
+                      </svg>
+                      <!-- Globe icon (custom domains) -->
+                      <svg v-else-if="item.icon === 'globe'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                      <!-- Credit-card icon -->
+                      <svg v-else-if="item.icon === 'credit-card'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                        <line x1="1" y1="10" x2="23" y2="10" />
                       </svg>
                       <!-- File-text icon -->
                       <svg v-else-if="item.icon === 'file-text'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
