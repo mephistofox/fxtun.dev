@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  class?: string
+  class?: string | string[]
   variant?: 'default' | 'glass' | 'glass-glow'
 }
 
