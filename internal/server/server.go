@@ -118,6 +118,7 @@ type Client struct {
 	APITokenID int64              // 0 if legacy token
 	DBToken    *database.APIToken // nil if legacy token
 	IsAdmin    bool               // true if user is admin
+	Plan       *database.Plan     // user's plan (nil if none)
 
 	server    *Server
 	conn      net.Conn
@@ -677,22 +678,48 @@ func (c *Client) handleTunnelRequest(data []byte) {
 	}
 	req := parsed.(*protocol.TunnelRequestMessage)
 
-	// Check tunnel limit
-	maxTunnels := defaultMaxTunnels
+	// Global limit from plan
+	globalMax := defaultMaxTunnels
+	if c.Plan != nil {
+		if IsUnlimited(c.Plan.MaxTunnels) {
+			globalMax = 0 // no global limit
+		} else {
+			globalMax = c.Plan.MaxTunnels
+		}
+	}
+
+	// Per-token limit
+	tokenMax := 0
 	if c.Token != nil && c.Token.MaxTunnels > 0 {
-		maxTunnels = c.Token.MaxTunnels
+		tokenMax = c.Token.MaxTunnels
 	}
 	if c.DBToken != nil && c.DBToken.MaxTunnels > 0 {
-		maxTunnels = c.DBToken.MaxTunnels
+		tokenMax = c.DBToken.MaxTunnels
 	}
 
-	c.TunnelsMu.RLock()
-	tunnelCount := len(c.Tunnels)
-	c.TunnelsMu.RUnlock()
+	var tunnelCount int
+	if c.UserID > 0 {
+		tunnelCount = c.server.clientMgr.CountTunnelsByUserID(c.UserID)
+	} else {
+		c.TunnelsMu.RLock()
+		tunnelCount = len(c.Tunnels)
+		c.TunnelsMu.RUnlock()
+	}
 
-	if tunnelCount >= maxTunnels {
+	if globalMax > 0 && tunnelCount >= globalMax {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeTunnelLimit, "tunnel limit reached")
 		return
+	}
+
+	// Also check per-token limit
+	if tokenMax > 0 {
+		c.TunnelsMu.RLock()
+		clientTunnels := len(c.Tunnels)
+		c.TunnelsMu.RUnlock()
+		if clientTunnels >= tokenMax {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeTunnelLimit, "token tunnel limit reached")
+			return
+		}
 	}
 
 	switch req.TunnelType {

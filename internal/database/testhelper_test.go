@@ -19,11 +19,14 @@ func newTestDB(t *testing.T) *Database {
 
 func createTestUser(t *testing.T, db *Database, phone string) *User {
 	t.Helper()
+	freePlan, err := db.Plans.GetDefault()
+	require.NoError(t, err)
 	user := &User{
 		Phone:        phone,
 		PasswordHash: "$2a$12$fakehashfakehashfakehashfakehashfakehashfakehashfake",
 		DisplayName:  "Test User",
 		IsActive:     true,
+		PlanID:       freePlan.ID,
 	}
 	require.NoError(t, db.Users.Create(user))
 	return user

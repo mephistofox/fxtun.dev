@@ -19,10 +19,12 @@ func TestUserRepo_CreateDuplicate(t *testing.T) {
 	db := newTestDB(t)
 	createTestUser(t, db, "+1111111111")
 
+	freePlan, _ := db.Plans.GetDefault()
 	dup := &User{
 		Phone:        "+1111111111",
 		PasswordHash: "hash",
 		IsActive:     true,
+		PlanID:       freePlan.ID,
 	}
 	err := db.Users.Create(dup)
 	assert.ErrorIs(t, err, ErrUserAlreadyExists)
