@@ -10,6 +10,7 @@ import { tokensApi, type APIToken } from '@/api/client'
 const { t, locale } = useI18n()
 
 const tokens = ref<APIToken[]>([])
+const maxTokens = ref(-1)
 const loading = ref(true)
 const error = ref('')
 const showCreateDialog = ref(false)
@@ -29,6 +30,9 @@ async function loadTokens() {
   try {
     const response = await tokensApi.list()
     tokens.value = response.data.tokens || []
+    if (response.data.max_tokens !== undefined) {
+      maxTokens.value = response.data.max_tokens
+    }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     error.value = err.response?.data?.error || t('tokens.failedToLoad')
@@ -127,9 +131,9 @@ onMounted(loadTokens)
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold">{{ t('tokens.title') }}</h1>
-          <p class="text-muted-foreground">{{ t('tokens.subtitle') }}</p>
+          <p class="text-muted-foreground">{{ t('tokens.subtitle') }} ({{ tokens.length }}/{{ maxTokens < 0 ? '∞' : maxTokens }})</p>
         </div>
-        <Button @click="showCreateDialog = true">{{ t('tokens.createToken') }}</Button>
+        <Button @click="showCreateDialog = true" :disabled="maxTokens >= 0 && tokens.length >= maxTokens">{{ t('tokens.createToken') }}</Button>
       </div>
 
       <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm">

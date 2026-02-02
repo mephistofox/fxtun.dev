@@ -74,6 +74,7 @@ export interface TokenPair {
 export interface User {
   id: number
   phone: string
+  email?: string
   display_name: string
   is_admin: boolean
   github_id?: number
@@ -87,6 +88,7 @@ export interface ProfileResponse {
   reserved_domains: Domain[]
   max_domains: number
   token_count: number
+  plan?: Plan
 }
 
 export interface Tunnel {
@@ -168,14 +170,14 @@ export const tunnelsApi = {
 }
 
 export const domainsApi = {
-  list: () => api.get<{ domains: Domain[] }>('/domains'),
+  list: () => api.get<{ domains: Domain[]; max_domains: number }>('/domains'),
   reserve: (subdomain: string) => api.post<Domain>('/domains', { subdomain }),
   release: (id: number) => api.delete(`/domains/${id}`),
   check: (subdomain: string) => api.get<{ available: boolean }>(`/domains/check/${subdomain}`),
 }
 
 export const tokensApi = {
-  list: () => api.get<{ tokens: APIToken[] }>('/tokens'),
+  list: () => api.get<{ tokens: APIToken[]; max_tokens: number }>('/tokens'),
   create: (data: CreateTokenRequest) => api.post<CreateTokenResponse>('/tokens', data),
   delete: (id: number) => api.delete(`/tokens/${id}`),
 }
@@ -233,6 +235,8 @@ export interface AdminUser {
   display_name: string
   is_admin: boolean
   is_active: boolean
+  plan_id: number
+  plan?: Plan
   created_at: string
   last_login_at?: string
 }
@@ -270,6 +274,19 @@ export interface AdminTunnel {
   created_at: string
 }
 
+export interface Plan {
+  id: number
+  slug: string
+  name: string
+  price: number
+  max_tunnels: number
+  max_domains: number
+  max_custom_domains: number
+  max_tokens: number
+  max_tunnels_per_token: number
+  inspector_enabled: boolean
+}
+
 export const adminApi = {
   // Stats
   getStats: () => api.get<AdminStats>('/admin/stats'),
@@ -279,7 +296,7 @@ export const adminApi = {
     api.get<{ users: AdminUser[]; total: number; page: number; limit: number }>('/admin/users', {
       params: { page, limit },
     }),
-  updateUser: (id: number, data: { is_admin?: boolean; is_active?: boolean }) =>
+  updateUser: (id: number, data: { is_admin?: boolean; is_active?: boolean; plan_id?: number }) =>
     api.put<AdminUser>(`/admin/users/${id}`, data),
   deleteUser: (id: number) => api.delete(`/admin/users/${id}`),
 
@@ -316,6 +333,12 @@ export const adminApi = {
       params: { page, limit },
     }),
   deleteCustomDomain: (id: number) => api.delete(`/admin/custom-domains/${id}`),
+
+  // Plans
+  listPlans: () => api.get<{ plans: Plan[]; total: number }>('/admin/plans'),
+  createPlan: (data: Omit<Plan, 'id'>) => api.post<Plan>('/admin/plans', data),
+  updatePlan: (id: number, data: Partial<Omit<Plan, 'id' | 'slug'>>) => api.put<Plan>(`/admin/plans/${id}`, data),
+  deletePlan: (id: number) => api.delete(`/admin/plans/${id}`),
 }
 
 // Inspect API types
