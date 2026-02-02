@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.1.0](https://github.com/mephistofox/fxTunnel/compare/v2.0.0...v2.1.0) (2026-02-02)
+
+
+### Features
+
+* **api:** add plan management endpoints and enforce plan limits ([ef96a0d](https://github.com/mephistofox/fxTunnel/commit/ef96a0d43fe2f6ef64a82d4885e1cd0fd3dd7869))
+* **cli:** add --subdomain alias for --domain on http command ([f3c229e](https://github.com/mephistofox/fxTunnel/commit/f3c229e2fa36d4a244803861d720121e1f67f6cc))
+* **gui:** add GitHub OAuth authentication flow ([ca80658](https://github.com/mephistofox/fxTunnel/commit/ca80658d0ee28ceede40c9f35c7893274d580927))
+* **gui:** add use-case template cards to dashboard empty state ([7a1ea10](https://github.com/mephistofox/fxTunnel/commit/7a1ea1086a18e1fc9d7770acdc6713ef24ad4018))
+* **server:** add plans system with per-user limits ([bf34366](https://github.com/mephistofox/fxTunnel/commit/bf34366470da52cda1c1d92d4dd7f2b9304ec043))
+* **web:** add plan support, redesign profile, fix limits display ([06c1a59](https://github.com/mephistofox/fxTunnel/commit/06c1a59d2f444e2f093bfcefe27e5e189215d1e4))
+* **web:** improve dashboard, tokens, domains, and downloads UX ([672e709](https://github.com/mephistofox/fxTunnel/commit/672e7098da1e7ebad8e844720ac870bd6655c2f7))
+* **web:** redesign all admin views with filters and full i18n ([3754bfc](https://github.com/mephistofox/fxTunnel/commit/3754bfcfc4d741d99cdb612f433b50825570f19c))
+* **web:** show email instead of phone in admin users table ([7f44996](https://github.com/mephistofox/fxTunnel/commit/7f44996b28bda715c99cd8d8991e335a3f536087))
+
+
+### Bug Fixes
+
+* **server:** fix embed directive and OAuth phone field ([6cde91e](https://github.com/mephistofox/fxTunnel/commit/6cde91e6b11820df35638b9c620c3bd5197ea00e))
+* **web:** show blocked account message on login and fix TOTP code check ([2c76c2b](https://github.com/mephistofox/fxTunnel/commit/2c76c2b348dcafbb4ecfd78d87b69fc8add93717))
+
 ## [2.0.0](https://github.com/mephistofox/fxTunnel/compare/v1.19.1...v2.0.0) (2026-02-01)
 
 
