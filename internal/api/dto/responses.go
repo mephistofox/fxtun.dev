@@ -19,6 +19,33 @@ type SuccessResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+// PlanDTO represents a plan in API responses
+type PlanDTO struct {
+	ID                 int64   `json:"id"`
+	Slug               string  `json:"slug"`
+	Name               string  `json:"name"`
+	Price              float64 `json:"price"`
+	MaxTunnels         int     `json:"max_tunnels"`
+	MaxDomains         int     `json:"max_domains"`
+	MaxCustomDomains   int     `json:"max_custom_domains"`
+	MaxTokens          int     `json:"max_tokens"`
+	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
+	InspectorEnabled   bool    `json:"inspector_enabled"`
+}
+
+// PlanFromModel converts a database Plan to PlanDTO
+func PlanFromModel(p *database.Plan) *PlanDTO {
+	if p == nil {
+		return nil
+	}
+	return &PlanDTO{
+		ID: p.ID, Slug: p.Slug, Name: p.Name, Price: p.Price,
+		MaxTunnels: p.MaxTunnels, MaxDomains: p.MaxDomains,
+		MaxCustomDomains: p.MaxCustomDomains, MaxTokens: p.MaxTokens,
+		MaxTunnelsPerToken: p.MaxTunnelsPerToken, InspectorEnabled: p.InspectorEnabled,
+	}
+}
+
 // UserDTO represents a user in API responses
 type UserDTO struct {
 	ID          int64      `json:"id"`
@@ -26,6 +53,8 @@ type UserDTO struct {
 	DisplayName string     `json:"display_name"`
 	IsAdmin     bool       `json:"is_admin"`
 	IsActive    bool       `json:"is_active"`
+	PlanID      int64      `json:"plan_id"`
+	Plan        *PlanDTO   `json:"plan,omitempty"`
 	GitHubID    *int64     `json:"github_id,omitempty"`
 	GoogleID    *string    `json:"google_id,omitempty"`
 	Email       string     `json:"email,omitempty"`
@@ -42,6 +71,7 @@ func UserFromModel(u *database.User) *UserDTO {
 		DisplayName: u.DisplayName,
 		IsAdmin:     u.IsAdmin,
 		IsActive:    u.IsActive,
+		PlanID:      u.PlanID,
 		GitHubID:    u.GitHubID,
 		GoogleID:    u.GoogleID,
 		Email:       u.Email,
@@ -66,6 +96,7 @@ type ProfileResponse struct {
 	ReservedDomains []*DomainDTO      `json:"reserved_domains"`
 	MaxDomains      int               `json:"max_domains"`
 	TokenCount      int               `json:"token_count"`
+	Plan            *PlanDTO          `json:"plan,omitempty"`
 }
 
 // TokenDTO represents an API token in API responses
@@ -100,8 +131,9 @@ type CreateTokenResponse struct {
 
 // TokensListResponse represents a list of tokens
 type TokensListResponse struct {
-	Tokens []*TokenDTO `json:"tokens"`
-	Total  int         `json:"total"`
+	Tokens    []*TokenDTO `json:"tokens"`
+	Total     int         `json:"total"`
+	MaxTokens int         `json:"max_tokens"`
 }
 
 // DomainDTO represents a reserved domain in API responses

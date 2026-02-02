@@ -31,9 +31,15 @@ func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 		tokenDTOs[i] = dto.TokenFromModel(t)
 	}
 
+	maxTokens := -1
+	if user.Plan != nil && user.Plan.MaxTokens >= 0 {
+		maxTokens = user.Plan.MaxTokens
+	}
+
 	s.respondJSON(w, http.StatusOK, dto.TokensListResponse{
-		Tokens: tokenDTOs,
-		Total:  len(tokenDTOs),
+		Tokens:    tokenDTOs,
+		Total:     len(tokenDTOs),
+		MaxTokens: maxTokens,
 	})
 }
 
@@ -56,6 +62,17 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check token count against plan limit
+	maxTokens := 10
+	if user.Plan != nil && user.Plan.MaxTokens >= 0 {
+		maxTokens = user.Plan.MaxTokens
+	}
+	tokenCount, _ := s.db.Tokens.Count(user.ID)
+	if user.Plan != nil && user.Plan.MaxTokens >= 0 && tokenCount >= maxTokens {
+		s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached")
+		return
+	}
+
 	// Set defaults
 	if len(req.AllowedSubdomains) == 0 {
 		req.AllowedSubdomains = []string{"*"}
@@ -65,6 +82,9 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MaxTunnels > 100 {
 		req.MaxTunnels = 100
+	}
+	if user.Plan != nil && user.Plan.MaxTunnelsPerToken >= 0 && req.MaxTunnels > user.Plan.MaxTunnelsPerToken {
+		req.MaxTunnels = user.Plan.MaxTunnelsPerToken
 	}
 
 	// Generate token

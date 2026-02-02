@@ -15,7 +15,7 @@ func TestCreateToken_Success(t *testing.T) {
 	env := setupTestEnv(t)
 	user := env.createTestUser(t, "+10000000001", "password123", "Token User")
 
-	body := `{"name":"my-token","max_tunnels":5}`
+	body := `{"name":"my-token","max_tunnels":5}` // free plan caps to max_tunnels_per_token=3
 	req, err := http.NewRequest(http.MethodPost, env.Server.URL+"/api/tokens", strings.NewReader(body))
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
@@ -47,8 +47,8 @@ func TestCreateToken_Success(t *testing.T) {
 	if result.Info.Name != "my-token" {
 		t.Fatalf("expected name 'my-token', got %q", result.Info.Name)
 	}
-	if result.Info.MaxTunnels != 5 {
-		t.Fatalf("expected max_tunnels 5, got %d", result.Info.MaxTunnels)
+	if result.Info.MaxTunnels != 3 {
+		t.Fatalf("expected max_tunnels 3 (capped by free plan), got %d", result.Info.MaxTunnels)
 	}
 }
 
