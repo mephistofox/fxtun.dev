@@ -18,8 +18,8 @@ func TestDaemonAPILifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := &http.Server{Handler: api}
-	go srv.Serve(ln)
+	srv := &http.Server{Handler: api, ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = srv.Serve(ln) }()
 	defer srv.Close()
 
 	base := fmt.Sprintf("http://%s", ln.Addr().String())

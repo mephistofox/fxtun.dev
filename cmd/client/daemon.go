@@ -129,7 +129,7 @@ func runDaemonForeground() error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
-	srv := &http.Server{Handler: api}
+	srv := &http.Server{Handler: api, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(listener) }()
 
 	statePath := daemon.DefaultStatePath()
