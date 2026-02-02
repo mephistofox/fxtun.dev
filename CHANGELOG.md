@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/mephistofox/fxTunnel/compare/v2.2.1...v2.2.2) (2026-02-02)
+
+
+### Bug Fixes
+
+* **client:** use UDP socket for local proxy in UDP tunnels ([daaf93e](https://github.com/mephistofox/fxTunnel/commit/daaf93e26d7954110213f9a383487dca9512b4c5))
+
 ## [2.2.1](https://github.com/mephistofox/fxTunnel/compare/v2.2.0...v2.2.1) (2026-02-02)
 
 
