@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -83,8 +84,8 @@ func SelfUpdate(downloadURL string) error {
 		return fmt.Errorf("get executable path: %w", err)
 	}
 
-	// Write to temp file next to the executable
-	tmpFile, err := os.CreateTemp("", "fxtunnel-update-*")
+	// Write to temp file in the same directory as the executable to avoid cross-device rename
+	tmpFile, err := os.CreateTemp(filepath.Dir(execPath), "fxtunnel-update-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
