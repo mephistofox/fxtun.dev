@@ -29,8 +29,11 @@ async function handleSubmit() {
     })
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string; code?: string } } }
-    if (err.response?.data?.code === 'totp_required') {
+    const code = err.response?.data?.code?.toUpperCase()
+    if (code === 'TOTP_REQUIRED') {
       showTotp.value = true
+    } else if (code === 'USER_INACTIVE') {
+      error.value = t('auth.accountBlocked')
     } else {
       error.value = err.response?.data?.error || t('auth.loginFailed')
     }

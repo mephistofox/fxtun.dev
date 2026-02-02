@@ -213,6 +213,7 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 8 characters",
     "loginFailed": "Login failed",
+    "accountBlocked": "Your account has been blocked. Please contact the administrator.",
     "registrationFailed": "Registration failed",
     "or": "or",
     "signInWithGitHub": "Sign in with GitHub",
