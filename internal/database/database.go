@@ -26,6 +26,7 @@ type Database struct {
 	UserBundles  *UserBundleRepository
 	UserHistory  *UserHistoryRepository
 	UserSettings *UserSettingsRepository
+	Plans        *PlanRepository
 }
 
 // New creates a new database connection and initializes repositories
@@ -77,6 +78,7 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	database.UserBundles = NewUserBundleRepository(db)
 	database.UserHistory = NewUserHistoryRepository(db)
 	database.UserSettings = NewUserSettingsRepository(db)
+	database.Plans = NewPlanRepository(db)
 
 	log.Info().Str("path", dbPath).Msg("Database initialized")
 
@@ -123,6 +125,7 @@ func (d *Database) migrate() error {
 		migrationAddOAuthFields,
 		migrationAddGoogleOAuth,
 		migrationMakePhoneNullable,
+		migrationCreatePlans,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -376,6 +379,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id) WHERE github_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL AND email != '';
+`
+
+const migrationCreatePlans = `
+CREATE TABLE plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    price REAL NOT NULL DEFAULT 0,
+    max_tunnels INTEGER NOT NULL DEFAULT 3,
+    max_domains INTEGER NOT NULL DEFAULT 1,
+    max_custom_domains INTEGER NOT NULL DEFAULT 0,
+    max_tokens INTEGER NOT NULL DEFAULT 1,
+    max_tunnels_per_token INTEGER NOT NULL DEFAULT 3,
+    inspector_enabled BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+INSERT INTO plans (slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, inspector_enabled) VALUES
+    ('free', 'Free', 0, 3, 1, 0, 1, 3, 0),
+    ('base', 'Base', 5, 5, 5, 1, 5, 5, 1),
+    ('pro', 'Pro', 10, 15, 15, 5, 10, 10, 1),
+    ('business', 'Business', 20, 50, 50, 50, 50, 50, 1),
+    ('admin', 'Admin', 0, -1, -1, -1, -1, -1, 1);
+
+ALTER TABLE users ADD COLUMN plan_id INTEGER REFERENCES plans(id);
+UPDATE users SET plan_id = (SELECT id FROM plans WHERE slug = 'admin') WHERE is_admin = 1;
+UPDATE users SET plan_id = (SELECT id FROM plans WHERE slug = 'free') WHERE plan_id IS NULL;
 `
 
 const migrationCreateTLSCertificates = `

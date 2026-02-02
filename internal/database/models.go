@@ -19,6 +19,21 @@ type User struct {
 	GoogleID     *string    `json:"google_id,omitempty"`
 	Email        string     `json:"email,omitempty"`
 	AvatarURL    string     `json:"avatar_url,omitempty"`
+	PlanID       int64      `json:"plan_id"`
+}
+
+// Plan represents a subscription plan
+type Plan struct {
+	ID                 int64   `json:"id"`
+	Slug               string  `json:"slug"`
+	Name               string  `json:"name"`
+	Price              float64 `json:"price"`
+	MaxTunnels         int     `json:"max_tunnels"`
+	MaxDomains         int     `json:"max_domains"`
+	MaxCustomDomains   int     `json:"max_custom_domains"`
+	MaxTokens          int     `json:"max_tokens"`
+	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
+	InspectorEnabled   bool    `json:"inspector_enabled"`
 }
 
 // InviteCode represents a one-time invitation code

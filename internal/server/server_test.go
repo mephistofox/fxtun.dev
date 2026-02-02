@@ -59,10 +59,15 @@ func testSetup(t *testing.T) (*Server, *database.Database, string) {
 	srv.SetDatabase(db)
 
 	// Create a user for the API token foreign key
+	freePlan, err := db.Plans.GetDefault()
+	if err != nil {
+		t.Fatalf("get default plan: %v", err)
+	}
 	user := &database.User{
 		Phone:        "+10000000000",
 		PasswordHash: "fakehash",
 		IsActive:     true,
+		PlanID:       freePlan.ID,
 	}
 	if err := db.Users.Create(user); err != nil {
 		t.Fatalf("create user: %v", err)
@@ -169,8 +174,8 @@ func TestServerValidAuth(t *testing.T) {
 	if result.ServerName != "test.local" {
 		t.Fatalf("expected server name 'test.local', got %q", result.ServerName)
 	}
-	if result.MaxTunnels != 10 {
-		t.Fatalf("expected max_tunnels=10, got %d", result.MaxTunnels)
+	if result.MaxTunnels != 3 {
+		t.Fatalf("expected max_tunnels=3 (free plan limit), got %d", result.MaxTunnels)
 	}
 
 	// Verify client is registered on the server
