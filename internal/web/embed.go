@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-//go:embed dist/*
+//go:embed all:dist
 var distFS embed.FS
 
 // GetFileSystem returns the embedded file system for the web UI

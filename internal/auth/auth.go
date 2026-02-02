@@ -55,6 +55,12 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 		return nil, nil, fmt.Errorf("hash password: %w", err)
 	}
 
+	// Assign default plan (must be before Begin() to avoid deadlock with MaxOpenConns=1)
+	var defaultPlanID int64
+	if defaultPlan, err := s.db.Plans.GetDefault(); err == nil {
+		defaultPlanID = defaultPlan.ID
+	}
+
 	// Begin transaction for user creation + invite use
 	tx, err := s.db.DB().Begin()
 	if err != nil {
@@ -69,6 +75,7 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 		DisplayName:  displayName,
 		IsActive:     true,
 		IsAdmin:      false,
+		PlanID:       defaultPlanID,
 	}
 
 	if err := s.db.Users.CreateTx(tx, user); err != nil {
@@ -451,6 +458,10 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 
 	if user == nil {
 		// Create new OAuth user
+		var oauthPlanID int64
+		if dp, err := s.db.Plans.GetDefault(); err == nil {
+			oauthPlanID = dp.ID
+		}
 		user = &database.User{
 			DisplayName: info.DisplayName,
 			IsActive:    true,
@@ -458,6 +469,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 			GitHubID:    &info.GitHubID,
 			Email:       info.Email,
 			AvatarURL:   info.AvatarURL,
+			PlanID:      oauthPlanID,
 		}
 		if err := s.db.Users.CreateOAuth(user); err != nil {
 			return nil, nil, fmt.Errorf("create oauth user: %w", err)
@@ -479,6 +491,12 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 	if user.Email == "" && info.Email != "" {
 		_ = s.db.Users.UpdateEmail(user.ID, info.Email)
 		user.Email = info.Email
+	}
+
+	// Set phone to email if phone is empty (OAuth users have no phone)
+	if user.Phone == "" && info.Email != "" {
+		_ = s.db.Users.UpdatePhone(user.ID, info.Email)
+		user.Phone = info.Email
 	}
 
 	// Generate tokens
@@ -535,6 +553,10 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 
 	if user == nil {
 		// Create new OAuth user
+		var googlePlanID int64
+		if dp, err := s.db.Plans.GetDefault(); err == nil {
+			googlePlanID = dp.ID
+		}
 		user = &database.User{
 			DisplayName: info.DisplayName,
 			IsActive:    true,
@@ -542,6 +564,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 			GoogleID:    &info.GoogleID,
 			Email:       info.Email,
 			AvatarURL:   info.AvatarURL,
+			PlanID:      googlePlanID,
 		}
 		if err := s.db.Users.CreateOAuth(user); err != nil {
 			return nil, nil, fmt.Errorf("create oauth user: %w", err)
@@ -563,6 +586,12 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 	if user.Email == "" && info.Email != "" {
 		_ = s.db.Users.UpdateEmail(user.ID, info.Email)
 		user.Email = info.Email
+	}
+
+	// Set phone to email if phone is empty (OAuth users have no phone)
+	if user.Phone == "" && info.Email != "" {
+		_ = s.db.Users.UpdatePhone(user.ID, info.Email)
+		user.Phone = info.Email
 	}
 
 	// Generate tokens
