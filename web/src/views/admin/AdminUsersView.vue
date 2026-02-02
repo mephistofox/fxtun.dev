@@ -68,6 +68,7 @@ const filteredUsers = computed(() => {
   const q = search.value.toLowerCase().trim()
   if (q) {
     result = result.filter(u =>
+      (u.email && u.email.toLowerCase().includes(q)) ||
       u.phone.toLowerCase().includes(q) ||
       (u.display_name && u.display_name.toLowerCase().includes(q))
     )
@@ -339,7 +340,7 @@ onUnmounted(() => {
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b bg-muted/30">
-                <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.phone') }}</th>
+                <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.email') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.name') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.status') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.role') }}</th>
@@ -352,7 +353,7 @@ onUnmounted(() => {
               <template v-for="user in filteredUsers" :key="user.id">
                 <tr class="border-b border-border/50 hover:bg-muted/20 transition-colors">
                   <!-- Phone -->
-                  <td class="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{{ user.phone }}</td>
+                  <td class="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{{ user.email || user.phone }}</td>
 
                   <!-- Name -->
                   <td class="px-3 py-2.5 whitespace-nowrap">

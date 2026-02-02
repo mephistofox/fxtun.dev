@@ -232,6 +232,7 @@ export interface AdminStats {
 export interface AdminUser {
   id: number
   phone: string
+  email?: string
   display_name: string
   is_admin: boolean
   is_active: boolean

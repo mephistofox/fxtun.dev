@@ -435,7 +435,7 @@
     "users": {
       "title": "User Management",
       "subtitle": "Manage all registered users",
-      "phone": "Phone",
+      "email": "Email",
       "name": "Name",
       "status": "Status",
       "role": "Role",
