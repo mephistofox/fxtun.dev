@@ -49,12 +49,18 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			// Link user to client
 			s.clientMgr.linkUserClient(apiToken.UserID, client.ID)
 
+			// Compute effective max tunnels
+			maxTunnels := apiToken.MaxTunnels
+			if client.Plan != nil && !IsUnlimited(client.Plan.MaxTunnels) && client.Plan.MaxTunnels < maxTunnels {
+				maxTunnels = client.Plan.MaxTunnels
+			}
+
 			// Send success
 			result := &protocol.AuthResultMessage{
 				Message:    protocol.NewMessage(protocol.MsgAuthResult),
 				Success:    true,
 				ClientID:   client.ID,
-				MaxTunnels: apiToken.MaxTunnels,
+				MaxTunnels: maxTunnels,
 				ServerName:    s.cfg.Domain.Base,
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
@@ -95,12 +101,20 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			// Link user to client
 			s.clientMgr.linkUserClient(claims.UserID, client.ID)
 
+			// Compute effective max tunnels for JWT auth
+			maxTunnels := 10
+			if client.Plan != nil && !IsUnlimited(client.Plan.MaxTunnels) {
+				maxTunnels = client.Plan.MaxTunnels
+			} else if client.Plan != nil && IsUnlimited(client.Plan.MaxTunnels) {
+				maxTunnels = -1
+			}
+
 			// Send success
 			result := &protocol.AuthResultMessage{
 				Message:       protocol.NewMessage(protocol.MsgAuthResult),
 				Success:       true,
 				ClientID:      client.ID,
-				MaxTunnels:    10, // Default for JWT auth
+				MaxTunnels:    maxTunnels,
 				ServerName:    s.cfg.Domain.Base,
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
@@ -199,10 +213,15 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 	}
 	client.lastPing.Store(time.Now().UnixNano())
 
-	// Resolve admin status from user record
+	// Resolve admin status and plan from user record
 	if s.db != nil && apiToken.UserID > 0 {
 		if user, err := s.db.Users.GetByID(apiToken.UserID); err == nil && user != nil {
 			client.IsAdmin = user.IsAdmin
+			if user.PlanID > 0 {
+				if plan, err := s.db.Plans.GetByID(user.PlanID); err == nil {
+					client.Plan = plan
+				}
+			}
 		}
 	}
 
@@ -234,6 +253,17 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 		cancel:       cancel,
 	}
 	client.lastPing.Store(time.Now().UnixNano())
+
+	// Load user plan
+	if s.db != nil {
+		if user, err := s.db.Users.GetByID(claims.UserID); err == nil && user != nil {
+			if user.PlanID > 0 {
+				if plan, err := s.db.Plans.GetByID(user.PlanID); err == nil {
+					client.Plan = plan
+				}
+			}
+		}
+	}
 
 	s.clientMgr.addClient(clientID, client)
 

@@ -210,6 +210,28 @@ func (cm *ClientManager) CloseTunnelByID(tunnelID string, userID int64) error {
 	return fmt.Errorf("tunnel not found")
 }
 
+// CountTunnelsByUserID returns total tunnel count across all sessions for a user.
+func (cm *ClientManager) CountTunnelsByUserID(userID int64) int {
+	cm.userClientsMu.RLock()
+	clientIDs := cm.userClients[userID]
+	cm.userClientsMu.RUnlock()
+
+	count := 0
+	cm.clientsMu.RLock()
+	defer cm.clientsMu.RUnlock()
+
+	for _, clientID := range clientIDs {
+		client, ok := cm.clients[clientID]
+		if !ok {
+			continue
+		}
+		client.TunnelsMu.RLock()
+		count += len(client.Tunnels)
+		client.TunnelsMu.RUnlock()
+	}
+	return count
+}
+
 // GetStats returns server statistics.
 func (cm *ClientManager) GetStats() Stats {
 	cm.clientsMu.RLock()

@@ -26,8 +26,8 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // CreateTx creates a new user within a transaction
 func (r *UserRepository) CreateTx(tx *sql.Tx, user *User) error {
 	query := `
-		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, plan_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
@@ -37,6 +37,7 @@ func (r *UserRepository) CreateTx(tx *sql.Tx, user *User) error {
 		user.DisplayName,
 		user.IsAdmin,
 		user.IsActive,
+		user.PlanID,
 		now,
 	)
 	if err != nil {
@@ -59,8 +60,8 @@ func (r *UserRepository) CreateTx(tx *sql.Tx, user *User) error {
 // Create creates a new user
 func (r *UserRepository) Create(user *User) error {
 	query := `
-		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, plan_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
@@ -70,6 +71,7 @@ func (r *UserRepository) Create(user *User) error {
 		user.DisplayName,
 		user.IsAdmin,
 		user.IsActive,
+		user.PlanID,
 		now,
 	)
 	if err != nil {
@@ -92,7 +94,7 @@ func (r *UserRepository) Create(user *User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(id int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users WHERE id = ?`, id,
 	))
 	if err != nil {
@@ -104,7 +106,7 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 // GetByPhone retrieves a user by phone number
 func (r *UserRepository) GetByPhone(phone string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users WHERE phone = ?`, phone,
 	))
 	if err != nil {
@@ -117,7 +119,7 @@ func (r *UserRepository) GetByPhone(phone string) (*User, error) {
 func (r *UserRepository) Update(user *User) error {
 	query := `
 		UPDATE users
-		SET display_name = ?, is_admin = ?, is_active = ?, last_login_at = ?
+		SET display_name = ?, is_admin = ?, is_active = ?, last_login_at = ?, plan_id = ?
 		WHERE id = ?
 	`
 
@@ -126,6 +128,7 @@ func (r *UserRepository) Update(user *User) error {
 		user.IsAdmin,
 		user.IsActive,
 		user.LastLoginAt,
+		user.PlanID,
 		user.ID,
 	)
 	if err != nil {
@@ -208,7 +211,7 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 	}
 
 	rows, err := r.db.Query(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset,
 	)
 	if err != nil {
@@ -241,7 +244,7 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 		args[i] = id
 	}
 
-	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -284,11 +287,12 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	var email sql.NullString
 	var avatarURL sql.NullString
 	var phone sql.NullString
+	var planID sql.NullInt64
 
 	err := s.Scan(
 		&user.ID, &phone, &user.PasswordHash, &user.DisplayName,
 		&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
-		&githubID, &email, &avatarURL, &googleID,
+		&githubID, &email, &avatarURL, &googleID, &planID,
 	)
 	if err != nil {
 		return nil, err
@@ -312,6 +316,9 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	if avatarURL.Valid {
 		user.AvatarURL = avatarURL.String
 	}
+	if planID.Valid {
+		user.PlanID = planID.Int64
+	}
 
 	return user, nil
 }
@@ -327,7 +334,7 @@ func scanUserRows(rows *sql.Rows) (*User, error) {
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(email string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users WHERE email = ?`, email,
 	))
 	if err != nil {
@@ -346,10 +353,20 @@ func (r *UserRepository) UpdateEmail(userID int64, email string) error {
 	return nil
 }
 
+// UpdatePhone updates a user's phone field
+func (r *UserRepository) UpdatePhone(userID int64, phone string) error {
+	query := `UPDATE users SET phone = ? WHERE id = ?`
+	_, err := r.db.Exec(query, phone, userID)
+	if err != nil {
+		return fmt.Errorf("update phone: %w", err)
+	}
+	return nil
+}
+
 // GetByGitHubID retrieves a user by GitHub ID
 func (r *UserRepository) GetByGitHubID(githubID int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users WHERE github_id = ?`, githubID,
 	))
 	if err != nil {
@@ -386,8 +403,8 @@ func (r *UserRepository) LinkGitHub(userID, githubID int64, email, avatarURL str
 // CreateOAuth creates a new user via OAuth (no phone/password required)
 func (r *UserRepository) CreateOAuth(user *User) error {
 	query := `
-		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, email, avatar_url, created_at)
-		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, email, avatar_url, plan_id, created_at)
+		VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	// Use NULL for empty phone to avoid UNIQUE constraint issues
@@ -406,6 +423,7 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 		user.GoogleID,
 		user.Email,
 		user.AvatarURL,
+		user.PlanID,
 		now,
 	)
 	if err != nil {
@@ -428,7 +446,7 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 // GetByGoogleID retrieves a user by Google ID
 func (r *UserRepository) GetByGoogleID(googleID string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
 		FROM users WHERE google_id = ?`, googleID,
 	))
 	if err != nil {
@@ -452,6 +470,22 @@ func (r *UserRepository) LinkGoogle(userID int64, googleID, email, avatarURL str
 		return fmt.Errorf("link google: %w", err)
 	}
 
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// UpdatePlan updates the user's plan
+func (r *UserRepository) UpdatePlan(userID, planID int64) error {
+	result, err := r.db.Exec(`UPDATE users SET plan_id = ? WHERE id = ?`, planID, userID)
+	if err != nil {
+		return fmt.Errorf("update plan: %w", err)
+	}
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("get rows affected: %w", err)
