@@ -21,6 +21,7 @@ type AuthenticatedUser struct {
 	ID      int64
 	Phone   string
 	IsAdmin bool
+	Plan    *database.Plan
 }
 
 // MiddlewareWithDB creates an authentication middleware that supports both JWT and API tokens
@@ -67,10 +68,16 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 					return
 				}
 
+				var plan *database.Plan
+				if dbUser.PlanID > 0 {
+					plan, _ = db.Plans.GetByID(dbUser.PlanID)
+				}
+
 				user = &AuthenticatedUser{
 					ID:      dbUser.ID,
 					Phone:   dbUser.Phone,
 					IsAdmin: dbUser.IsAdmin,
+					Plan:    plan,
 				}
 			} else {
 				// Validate as JWT
@@ -95,10 +102,16 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 					return
 				}
 
+				var plan *database.Plan
+				if jwtUser.PlanID > 0 {
+					plan, _ = db.Plans.GetByID(jwtUser.PlanID)
+				}
+
 				user = &AuthenticatedUser{
 					ID:      claims.UserID,
 					Phone:   claims.Phone,
 					IsAdmin: claims.IsAdmin,
+					Plan:    plan,
 				}
 			}
 
@@ -200,7 +213,7 @@ func AdminMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if !user.IsAdmin {
+		if !user.IsAdmin && !(user.Plan != nil && user.Plan.Slug == "admin") {
 			http.Error(w, `{"error": "admin access required"}`, http.StatusForbidden)
 			return
 		}
