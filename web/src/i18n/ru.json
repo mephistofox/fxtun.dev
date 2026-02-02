@@ -190,6 +190,7 @@
     "adminInvites": "Инвайты",
     "adminTunnels": "Туннели",
     "adminCustomDomains": "Кастомные домены",
+    "adminPlans": "Тарифы",
     "adminAudit": "Аудит"
   },
   "auth": {
@@ -198,6 +199,7 @@
     "signInTitle": "Вход в аккаунт",
     "signUpTitle": "Создание аккаунта",
     "phone": "Телефон",
+    "email": "Почта",
     "phoneOrEmail": "Телефон или email",
     "password": "Пароль",
     "confirmPassword": "Подтвердите пароль",
@@ -295,7 +297,8 @@
     "failedToAdd": "Не удалось добавить кастомный домен",
     "failedToDelete": "Не удалось удалить кастомный домен",
     "confirmDelete": "Вы уверены, что хотите удалить этот кастомный домен?",
-    "delete": "Удалить"
+    "delete": "Удалить",
+    "deleteDomain": "Удалить домен"
   },
   "tokens": {
     "title": "Ключи доступа",
@@ -435,6 +438,7 @@
       "name": "Имя",
       "status": "Статус",
       "role": "Роль",
+      "plan": "Тариф",
       "lastLogin": "Последний вход",
       "actions": "Действия",
       "active": "Активен",
@@ -504,10 +508,66 @@
       "detailsData": "Подробности",
       "noLogs": "Записи аудита не найдены"
     },
+    "plans": {
+      "title": "Управление тарифами",
+      "subtitle": "Тарифные планы и их лимиты",
+      "create": "Создать тариф",
+      "createTitle": "Создать тариф",
+      "editTitle": "Редактирование тарифа",
+      "slug": "Идентификатор",
+      "slugPlaceholder": "free",
+      "name": "Название",
+      "namePlaceholder": "Бесплатный",
+      "price": "Цена",
+      "maxTunnels": "Туннели",
+      "maxDomains": "Домены",
+      "maxCustomDomains": "Кастомные домены",
+      "maxTokens": "Токены",
+      "tunnelsPerToken": "Туннели/Токен",
+      "inspector": "Инспектор",
+      "inspectorEnabled": "Включён",
+      "unlimitedHint": "-1 = безлимит",
+      "noPlans": "Тарифы не найдены. Создайте первый.",
+      "failedToLoad": "Не удалось загрузить тарифы",
+      "failedToCreate": "Не удалось создать тариф",
+      "failedToUpdate": "Не удалось обновить тариф",
+      "failedToDelete": "Не удалось удалить тариф",
+      "confirmDelete": "Удалить тариф «{name}»? Не получится, если к нему привязаны пользователи.",
+      "yes": "Да",
+      "no": "Нет",
+      "unlimited": "безлимит"
+    },
+    "customDomains": {
+      "title": "Кастомные домены",
+      "subtitle": "Все кастомные домены ({total} всего)",
+      "domain": "Домен",
+      "target": "Цель",
+      "user": "Пользователь",
+      "status": "Статус",
+      "verified": "Подтверждён",
+      "pending": "Ожидание",
+      "tlsExpiry": "Истечение TLS",
+      "created": "Создан",
+      "noDomains": "Кастомные домены не зарегистрированы",
+      "failedToLoad": "Не удалось загрузить кастомные домены",
+      "failedToDelete": "Не удалось удалить кастомный домен",
+      "confirmDelete": "Удалить кастомный домен «{domain}»?"
+    },
+    "search": "Поиск...",
+    "searchUsers": "Поиск по имени, телефону или email...",
+    "searchDomains": "Поиск по домену или пользователю...",
+    "searchAudit": "Поиск по действию, пользователю или IP...",
+    "searchTunnels": "Поиск по URL, типу или владельцу...",
+    "filterAll": "Все",
+    "filterByType": "Тип",
+    "filterByStatus": "Статус",
+    "filterByAction": "Действие",
+    "noResults": "Ничего не найдено",
     "pagination": {
       "showing": "Показано {from}-{to} из {total}",
       "prev": "Назад",
-      "next": "Вперёд"
+      "next": "Вперёд",
+      "page": "Страница {page} из {total}"
     }
   }
 }
