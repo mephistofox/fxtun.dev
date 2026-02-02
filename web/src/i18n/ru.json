@@ -213,6 +213,7 @@
     "passwordsDoNotMatch": "Пароли не совпадают",
     "passwordTooShort": "Пароль должен быть не менее 8 символов",
     "loginFailed": "Ошибка входа",
+    "accountBlocked": "Ваш аккаунт заблокирован. Обратитесь к администратору.",
     "registrationFailed": "Ошибка регистрации",
     "or": "или",
     "signInWithGitHub": "Войти через GitHub",
