@@ -20,7 +20,7 @@ const reserveError = ref('')
 const checkingAvailability = ref(false)
 const isAvailable = ref<boolean | null>(null)
 
-const MAX_DOMAINS = 3
+const maxDomains = ref(1)
 
 // Custom domains state
 const customDomains = ref<CustomDomain[]>([])
@@ -46,6 +46,9 @@ async function loadDomains() {
   try {
     const response = await domainsApi.list()
     domains.value = response.data.domains || []
+    if (response.data.max_domains !== undefined) {
+      maxDomains.value = response.data.max_domains
+    }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     error.value = err.response?.data?.error || t('domains.failedToLoad')
@@ -183,12 +186,12 @@ onMounted(() => {
         <div>
           <h1 class="text-2xl font-bold">{{ t('domains.title') }}</h1>
           <p class="text-muted-foreground">
-            {{ t('domains.subtitle') }} ({{ domains.length }}/{{ MAX_DOMAINS }})
+            {{ t('domains.subtitle') }} ({{ domains.length }}/{{ maxDomains < 0 ? '∞' : maxDomains }})
           </p>
         </div>
         <Button
           @click="showReserveDialog = true"
-          :disabled="domains.length >= MAX_DOMAINS"
+          :disabled="maxDomains >= 0 && domains.length >= maxDomains"
         >
           {{ t('domains.reserve') }}
         </Button>
@@ -318,12 +321,12 @@ onMounted(() => {
           <div>
             <h2 class="text-2xl font-bold">{{ t('customDomains.title') }}</h2>
             <p class="text-muted-foreground">
-              {{ t('customDomains.subtitle') }} ({{ customDomains.length }}/{{ maxCustomDomains }})
+              {{ t('customDomains.subtitle') }} ({{ customDomains.length }}/{{ maxCustomDomains < 0 ? '∞' : maxCustomDomains }})
             </p>
           </div>
           <Button
             @click="showAddDialog = true"
-            :disabled="maxCustomDomains > 0 && customDomains.length >= maxCustomDomains"
+            :disabled="maxCustomDomains >= 0 && customDomains.length >= maxCustomDomains"
           >
             {{ t('customDomains.add') }}
           </Button>
