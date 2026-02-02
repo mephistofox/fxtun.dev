@@ -614,13 +614,30 @@ func (c *Client) handleStream(stream net.Conn) {
 		return
 	}
 
-	// Find tunnel
-	c.tunnelsMu.RLock()
-	tunnel, exists := c.tunnels[hdr.TunnelID]
-	c.tunnelsMu.RUnlock()
-
-	if !exists {
+	// Find tunnel (may arrive before control channel registers it, so retry briefly)
+	var tunnel *ActiveTunnel
+	for i := 0; i < 50; i++ {
+		c.tunnelsMu.RLock()
+		t, exists := c.tunnels[hdr.TunnelID]
+		c.tunnelsMu.RUnlock()
+		if exists {
+			tunnel = t
+			break
+		}
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	if tunnel == nil {
 		c.log.Warn().Str("tunnel_id", hdr.TunnelID).Msg("Unknown tunnel")
+		return
+	}
+
+	// UDP tunnels use a different proxy path
+	if tunnel.Config.Type == "udp" {
+		c.handleUDPStream(stream, tunnel)
 		return
 	}
 
