@@ -38,18 +38,32 @@ func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 	// Get token count
 	tokenCount, _ := s.db.Tokens.Count(user.ID)
 
+	// Load plan
+	var planDTO *dto.PlanDTO
+	if dbUser.PlanID > 0 {
+		if plan, err := s.db.Plans.GetByID(dbUser.PlanID); err == nil {
+			planDTO = dto.PlanFromModel(plan)
+		}
+	}
+
 	// Convert domains to DTOs
 	domainDTOs := make([]*dto.DomainDTO, len(domains))
 	for i, d := range domains {
 		domainDTOs[i] = dto.DomainFromModel(d, s.baseDomain)
 	}
 
+	maxDomains := 1
+	if planDTO != nil {
+		maxDomains = planDTO.MaxDomains
+	}
+
 	s.respondJSON(w, http.StatusOK, dto.ProfileResponse{
 		User:            dto.UserFromModel(dbUser),
 		TOTPEnabled:     totpEnabled,
 		ReservedDomains: domainDTOs,
-		MaxDomains:      s.authService.GetMaxDomains(),
+		MaxDomains:      maxDomains,
 		TokenCount:      tokenCount,
+		Plan:            planDTO,
 	})
 }
 

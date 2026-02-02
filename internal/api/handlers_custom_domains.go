@@ -35,7 +35,12 @@ func (s *Server) handleListCustomDomains(w http.ResponseWriter, r *http.Request)
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"domains":     domains,
 		"total":       len(domains),
-		"max_domains": s.cfg.CustomDomains.MaxPerUser,
+		"max_domains": func() int {
+			if user.Plan != nil {
+				return user.Plan.MaxCustomDomains
+			}
+			return 0
+		}(),
 		"base_domain": s.baseDomain,
 		"server_ip":   serverIP,
 	})
@@ -73,7 +78,11 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusInternalServerError, "failed to check limit")
 		return
 	}
-	if count >= s.cfg.CustomDomains.MaxPerUser {
+	maxCustomDomains := 0
+	if user.Plan != nil {
+		maxCustomDomains = user.Plan.MaxCustomDomains
+	}
+	if maxCustomDomains >= 0 && count >= maxCustomDomains {
 		s.respondErrorWithCode(w, http.StatusConflict, "LIMIT_REACHED", "custom domain limit reached")
 		return
 	}

@@ -56,6 +56,18 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		userDTOs[i] = dto.UserFromModel(u)
 	}
 
+	// Load plans for users
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+	for i, u := range users {
+		if p, ok := planMap[u.PlanID]; ok {
+			userDTOs[i].Plan = dto.PlanFromModel(p)
+		}
+	}
+
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"users": userDTOs,
 		"total": total,
@@ -347,6 +359,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive
 	}
+	if req.PlanID != nil {
+		user.PlanID = *req.PlanID
+	}
 
 	if err := s.db.Users.Update(user); err != nil {
 		s.log.Error().Err(err).Msg("Failed to update user")
@@ -364,6 +379,9 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.IsActive != nil {
 		details["is_active"] = *req.IsActive
+	}
+	if req.PlanID != nil {
+		details["plan_id"] = *req.PlanID
 	}
 	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserUpdated, details, ipAddress)
 
@@ -578,4 +596,116 @@ func (s *Server) handleAdminCloseTunnel(w http.ResponseWriter, r *http.Request) 
 		Success: true,
 		Message: "tunnel closed",
 	})
+}
+
+// handleListPlans returns all plans
+func (s *Server) handleListPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.db.Plans.List()
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to list plans")
+		return
+	}
+	planDTOs := make([]*dto.PlanDTO, len(plans))
+	for i, p := range plans {
+		planDTOs[i] = dto.PlanFromModel(p)
+	}
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs, "total": len(planDTOs)})
+}
+
+// handleCreatePlan creates a new plan
+func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
+	var req dto.CreatePlanRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Slug == "" || req.Name == "" {
+		s.respondError(w, http.StatusBadRequest, "slug and name are required")
+		return
+	}
+	plan := &database.Plan{
+		Slug: req.Slug, Name: req.Name, Price: req.Price,
+		MaxTunnels: req.MaxTunnels, MaxDomains: req.MaxDomains,
+		MaxCustomDomains: req.MaxCustomDomains, MaxTokens: req.MaxTokens,
+		MaxTunnelsPerToken: req.MaxTunnelsPerToken, InspectorEnabled: req.InspectorEnabled,
+	}
+	if err := s.db.Plans.Create(plan); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create plan")
+		return
+	}
+	s.respondJSON(w, http.StatusCreated, dto.PlanFromModel(plan))
+}
+
+// handleUpdatePlan updates a plan
+func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid plan id")
+		return
+	}
+	plan, err := s.db.Plans.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrPlanNotFound) {
+			s.respondError(w, http.StatusNotFound, "plan not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get plan")
+		return
+	}
+	var req dto.UpdatePlanRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name != nil {
+		plan.Name = *req.Name
+	}
+	if req.Price != nil {
+		plan.Price = *req.Price
+	}
+	if req.MaxTunnels != nil {
+		plan.MaxTunnels = *req.MaxTunnels
+	}
+	if req.MaxDomains != nil {
+		plan.MaxDomains = *req.MaxDomains
+	}
+	if req.MaxCustomDomains != nil {
+		plan.MaxCustomDomains = *req.MaxCustomDomains
+	}
+	if req.MaxTokens != nil {
+		plan.MaxTokens = *req.MaxTokens
+	}
+	if req.MaxTunnelsPerToken != nil {
+		plan.MaxTunnelsPerToken = *req.MaxTunnelsPerToken
+	}
+	if req.InspectorEnabled != nil {
+		plan.InspectorEnabled = *req.InspectorEnabled
+	}
+	if err := s.db.Plans.Update(plan); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to update plan")
+		return
+	}
+	s.respondJSON(w, http.StatusOK, dto.PlanFromModel(plan))
+}
+
+// handleDeletePlan deletes a plan
+func (s *Server) handleDeletePlan(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid plan id")
+		return
+	}
+	if err := s.db.Plans.Delete(id); err != nil {
+		if errors.Is(err, database.ErrPlanNotFound) {
+			s.respondError(w, http.StatusNotFound, "plan not found")
+			return
+		}
+		if errors.Is(err, database.ErrPlanHasUsers) {
+			s.respondError(w, http.StatusConflict, "cannot delete plan with active users")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to delete plan")
+		return
+	}
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{Success: true, Message: "plan deleted"})
 }

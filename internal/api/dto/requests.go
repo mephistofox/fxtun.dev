@@ -66,8 +66,34 @@ type DeviceAuthorizeRequest struct {
 
 // UpdateUserRequest represents an admin user update request
 type UpdateUserRequest struct {
-	IsAdmin  *bool `json:"is_admin,omitempty"`
-	IsActive *bool `json:"is_active,omitempty"`
+	IsAdmin  *bool  `json:"is_admin,omitempty"`
+	IsActive *bool  `json:"is_active,omitempty"`
+	PlanID   *int64 `json:"plan_id,omitempty"`
+}
+
+// CreatePlanRequest represents a plan creation request
+type CreatePlanRequest struct {
+	Slug               string  `json:"slug"`
+	Name               string  `json:"name"`
+	Price              float64 `json:"price"`
+	MaxTunnels         int     `json:"max_tunnels"`
+	MaxDomains         int     `json:"max_domains"`
+	MaxCustomDomains   int     `json:"max_custom_domains"`
+	MaxTokens          int     `json:"max_tokens"`
+	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
+	InspectorEnabled   bool    `json:"inspector_enabled"`
+}
+
+// UpdatePlanRequest represents a plan update request
+type UpdatePlanRequest struct {
+	Name               *string  `json:"name,omitempty"`
+	Price              *float64 `json:"price,omitempty"`
+	MaxTunnels         *int     `json:"max_tunnels,omitempty"`
+	MaxDomains         *int     `json:"max_domains,omitempty"`
+	MaxCustomDomains   *int     `json:"max_custom_domains,omitempty"`
+	MaxTokens          *int     `json:"max_tokens,omitempty"`
+	MaxTunnelsPerToken *int     `json:"max_tunnels_per_token,omitempty"`
+	InspectorEnabled   *bool    `json:"inspector_enabled,omitempty"`
 }
 
 // MergeUsersRequest represents a request to merge two users

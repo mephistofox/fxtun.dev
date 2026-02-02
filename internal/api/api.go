@@ -294,6 +294,11 @@ func (s *Server) setupRoutes() {
 				r.Get("/custom-domains", s.handleAdminListCustomDomains)
 				r.Delete("/custom-domains/{id}", s.handleAdminDeleteCustomDomain)
 
+				r.Get("/plans", s.handleListPlans)
+				r.Post("/plans", s.handleCreatePlan)
+				r.Put("/plans/{id}", s.handleUpdatePlan)
+				r.Delete("/plans/{id}", s.handleDeletePlan)
+
 				r.Route("/invite-codes", func(r chi.Router) {
 					r.Get("/", s.handleListInviteCodes)
 					r.Post("/", s.handleCreateInviteCode)
