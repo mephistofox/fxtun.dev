@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.3](https://github.com/mephistofox/fxTunnel/compare/v2.2.2...v2.2.3) (2026-02-03)
+
+
+### Bug Fixes
+
+* **server:** show interstitial only for HTML responses ([36e8abb](https://github.com/mephistofox/fxTunnel/commit/36e8abbd9165770a2613a78e90d0aa800d9c3fb3))
+
 ## [2.2.2](https://github.com/mephistofox/fxTunnel/compare/v2.2.1...v2.2.2) (2026-02-02)
 
 
