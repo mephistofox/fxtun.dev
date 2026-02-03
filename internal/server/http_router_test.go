@@ -143,40 +143,67 @@ func TestServeHTTPNoSubdomain(t *testing.T) {
 	}
 }
 
-func TestShouldShowInterstitial(t *testing.T) {
+func TestMayNeedInterstitial(t *testing.T) {
 	router, _ := newTestRouter("example.com")
 
 	tests := []struct {
 		name   string
 		method string
-		accept string
 		cookie string
 		header string
 		want   bool
 	}{
-		{"GET html", http.MethodGet, "text/html", "", "", true},
-		{"POST skips", http.MethodPost, "text/html", "", "", false},
-		{"API request", http.MethodGet, "application/json", "", "", false},
-		{"skip header", http.MethodGet, "text/html", "", "1", false},
-		{"consent cookie", http.MethodGet, "text/html", "1", "", false},
-		{"wildcard accept", http.MethodGet, "*/*", "", "", true},
+		{"GET request", http.MethodGet, "", "", true},
+		{"POST skips", http.MethodPost, "", "", false},
+		{"skip header", http.MethodGet, "", "1", false},
+		{"consent cookie", http.MethodGet, "1", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "http://app.example.com/", nil)
-			if tt.accept != "" {
-				req.Header.Set("Accept", tt.accept)
-			}
 			if tt.header != "" {
 				req.Header.Set("X-FxTunnel-Skip-Warning", tt.header)
 			}
 			if tt.cookie != "" {
 				req.AddCookie(&http.Cookie{Name: "_fxt_consent_app", Value: tt.cookie})
 			}
-			got := router.shouldShowInterstitial(req, "app")
+			got := router.mayNeedInterstitial(req, "app")
 			if got != tt.want {
-				t.Errorf("shouldShowInterstitial = %v, want %v", got, tt.want)
+				t.Errorf("mayNeedInterstitial = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsHTMLResponse(t *testing.T) {
+	router, _ := newTestRouter("example.com")
+
+	tests := []struct {
+		contentType string
+		want        bool
+	}{
+		{"text/html", true},
+		{"text/html; charset=utf-8", true},
+		{"TEXT/HTML", true},
+		{"application/xhtml+xml", true},
+		{"application/json", false},
+		{"text/plain", false},
+		{"text/markdown", false},
+		{"application/javascript", false},
+		{"image/png", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.contentType, func(t *testing.T) {
+			resp := &http.Response{Header: http.Header{}}
+			if tt.contentType != "" {
+				resp.Header.Set("Content-Type", tt.contentType)
+			}
+			got := router.isHTMLResponse(resp)
+			if got != tt.want {
+				t.Errorf("isHTMLResponse(%q) = %v, want %v", tt.contentType, got, tt.want)
 			}
 		})
 	}

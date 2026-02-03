@@ -123,12 +123,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Check for interstitial warning (skip for admin tunnels and custom domains)
+	// Determine if interstitial might be needed (will check response Content-Type later)
 	isCustomDomain := r.server.LookupCustomDomain(req.Host) != nil
-	if !client.IsAdmin && !isCustomDomain && r.shouldShowInterstitial(req, subdomain) {
-		r.serveInterstitialPage(w, req, subdomain)
-		return
-	}
+	mayNeedInterstitial := !client.IsAdmin && !isCustomDomain && r.mayNeedInterstitial(req, subdomain)
 
 	// Generate trace ID for this request
 	traceID := generateShortID() + generateShortID() // 16 hex chars
@@ -199,6 +196,13 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
+	// Check if interstitial is needed based on response Content-Type
+	// Only show interstitial for HTML responses to avoid blocking JSON/text/etc
+	if mayNeedInterstitial && r.isHTMLResponse(resp) {
+		r.serveInterstitialPage(w, req, subdomain)
+		return
+	}
 
 	// Copy response headers to ResponseWriter
 	for key, values := range resp.Header {
@@ -360,27 +364,38 @@ func (r *HTTPRouter) extractSubdomain(host string) string {
 	return strings.ToLower(subdomain)
 }
 
-// shouldShowInterstitial determines if an interstitial warning page should be shown
-func (r *HTTPRouter) shouldShowInterstitial(req *http.Request, subdomain string) bool {
+// mayNeedInterstitial determines if an interstitial warning page might be needed.
+// The actual decision is made after seeing the response Content-Type.
+func (r *HTTPRouter) mayNeedInterstitial(req *http.Request, subdomain string) bool {
+	// Only for GET requests
 	if req.Method != http.MethodGet {
 		return false
 	}
 
-	accept := req.Header.Get("Accept")
-	if accept != "" && !strings.Contains(accept, "text/html") && !strings.Contains(accept, "*/*") {
-		return false
-	}
-
+	// Skip if explicit header is set
 	if req.Header.Get("X-FxTunnel-Skip-Warning") != "" {
 		return false
 	}
 
+	// Skip if user already consented
 	cookieName := "_fxt_consent_" + subdomain
 	if cookie, err := req.Cookie(cookieName); err == nil && cookie.Value == "1" {
 		return false
 	}
 
 	return true
+}
+
+// isHTMLResponse checks if the response Content-Type indicates HTML content.
+// This is used to determine whether to show the interstitial warning.
+func (r *HTTPRouter) isHTMLResponse(resp *http.Response) bool {
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		return false
+	}
+	// Check for text/html or application/xhtml+xml
+	ct := strings.ToLower(contentType)
+	return strings.Contains(ct, "text/html") || strings.Contains(ct, "application/xhtml+xml")
 }
 
 // interstitialTexts holds localized strings for the interstitial page
