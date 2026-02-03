@@ -63,7 +63,7 @@ func TestUDPProxyFraming(t *testing.T) {
 	// Write a framed UDP packet to the stream
 	payload := []byte("hello udp")
 	frame := make([]byte, udpHeaderSize+len(payload))
-	binary.BigEndian.PutUint16(frame[0:2], uint16(len(payload)))
+	binary.BigEndian.PutUint16(frame[0:2], uint16(len(payload))) //nolint:gosec // G115: test uses fixed short payload
 	binary.BigEndian.PutUint32(frame[2:6], 0xDEADBEEF)
 	copy(frame[udpHeaderSize:], payload)
 
