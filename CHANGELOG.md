@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.4](https://github.com/mephistofox/fxTunnel/compare/v2.2.3...v2.2.4) (2026-02-03)
+
+
+### Bug Fixes
+
+* **server:** stream full request body instead of truncating to 256KB ([831c434](https://github.com/mephistofox/fxTunnel/commit/831c434e12927acee962c5341b0de1f06888bf19))
+
 ## [2.2.3](https://github.com/mephistofox/fxTunnel/compare/v2.2.2...v2.2.3) (2026-02-03)
 
 
