@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.5](https://github.com/mephistofox/fxTunnel/compare/v2.2.4...v2.2.5) (2026-02-03)
+
+
+### Bug Fixes
+
+* **ci:** fetch full git history in deploy workflow for correct version tags ([6899468](https://github.com/mephistofox/fxTunnel/commit/689946876f1748ff6c6c750f2356e04771174ecc))
+
 ## [2.2.4](https://github.com/mephistofox/fxTunnel/compare/v2.2.3...v2.2.4) (2026-02-03)
 
 
