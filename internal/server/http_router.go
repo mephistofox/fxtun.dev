@@ -166,18 +166,18 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// --- Inspection: capture request body ---
+	// --- Inspection: set up TeeReader to capture request body while streaming ---
 	inspectBuf := r.server.inspectMgr.Get(tunnel.ID)
 	if inspectBuf == nil {
 		r.log.Debug().Str("tunnel_id", tunnel.ID).Msg("Inspect buffer not found for tunnel")
 	}
 	startTime := time.Now()
-	var capturedReqBody []byte
+	var capturedReqBuf bytes.Buffer
 
 	if inspectBuf != nil && req.Body != nil {
 		maxBody := r.server.inspectMgr.MaxBodySize()
-		capturedReqBody, _ = io.ReadAll(io.LimitReader(req.Body, int64(maxBody)))
-		req.Body = io.NopCloser(bytes.NewReader(capturedReqBody))
+		// Wrap body in TeeReader to capture first maxBody bytes while streaming full body
+		req.Body = io.NopCloser(io.TeeReader(req.Body, &limitedWriter{w: &capturedReqBuf, remaining: maxBody}))
 	}
 
 	// Write the HTTP request to the stream
@@ -244,7 +244,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// --- Inspection: build and store exchange ---
 	if inspectBuf != nil {
-		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, traceID, req, startTime, capturedReqBody, remoteAddr, resp, capturedRespBuf.Bytes())
+		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, traceID, req, startTime, capturedReqBuf.Bytes(), remoteAddr, resp, capturedRespBuf.Bytes())
 		inspectBuf.Add(ex)
 		r.log.Debug().
 			Str("tunnel_id", tunnel.ID).
