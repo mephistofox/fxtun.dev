@@ -177,3 +177,31 @@ func (r *PaymentRepository) scanMultiple(rows *sql.Rows) ([]*Payment, error) {
 	}
 	return payments, nil
 }
+
+// DeleteStalePending deletes pending payments older than the specified duration
+// and their associated pending subscriptions
+func (r *PaymentRepository) DeleteStalePending(olderThan time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-olderThan)
+
+	// First, delete associated pending subscriptions
+	_, err := r.db.Exec(`
+		DELETE FROM subscriptions
+		WHERE status = 'pending' AND id IN (
+			SELECT subscription_id FROM payments
+			WHERE status = 'pending' AND created_at < ?
+		)`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("delete stale pending subscriptions: %w", err)
+	}
+
+	// Then delete the pending payments
+	result, err := r.db.Exec(`
+		DELETE FROM payments
+		WHERE status = 'pending' AND created_at < ?`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("delete stale pending payments: %w", err)
+	}
+
+	deleted, _ := result.RowsAffected()
+	return deleted, nil
+}
