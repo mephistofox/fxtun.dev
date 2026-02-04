@@ -10,6 +10,7 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/exchange"
 	"github.com/mephistofox/fxtunnel/internal/payment"
 )
 
@@ -246,8 +247,9 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Call Robokassa recurring API
-		success, err := s.callRecurringAPI(invoiceID, *sub.RobokassaInvoiceID, plan.Price)
+		// Call Robokassa recurring API (convert USD to RUB)
+		priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+		success, err := s.callRecurringAPI(invoiceID, *sub.RobokassaInvoiceID, priceRUB)
 		if err != nil {
 			s.log.Error().Err(err).
 				Int64("invoice_id", invoiceID).
