@@ -346,7 +346,7 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	}
 
 	// Log audit
-	s.db.Audit.Log(&user.ID, "subscription_cancelled", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "subscription_cancelled", map[string]interface{}{
 		"subscription_id": sub.ID,
 		"expires_at":      sub.CurrentPeriodEnd,
 	}, auth.GetClientIP(r))
@@ -419,7 +419,7 @@ func (s *Server) handleChangePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log audit
-	s.db.Audit.Log(&user.ID, "plan_change_scheduled", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "plan_change_scheduled", map[string]interface{}{
 		"subscription_id": sub.ID,
 		"current_plan_id": sub.PlanID,
 		"next_plan_id":    req.PlanID,
