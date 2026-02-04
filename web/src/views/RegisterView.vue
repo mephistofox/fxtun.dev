@@ -131,6 +131,120 @@ function cycleTheme() {
         </a>
       </div>
 
+      <!-- Tunnel illustration -->
+      <div class="my-8 flex justify-center">
+        <div class="relative w-full max-w-xs">
+          <div class="flex items-center justify-between">
+            <!-- Local server -->
+            <div class="flex flex-col items-center">
+              <div class="w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
+                </svg>
+              </div>
+              <span class="text-xs text-muted-foreground mt-2">localhost</span>
+            </div>
+            <!-- Tunnel line -->
+            <div class="flex-1 mx-3 relative h-0.5">
+              <div class="absolute inset-0 bg-border rounded-full"></div>
+              <div class="absolute inset-0 bg-primary/30 rounded-full"></div>
+              <!-- Moving dots - outgoing (green to violet) -->
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-out dot-1"></div>
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-out dot-2"></div>
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-out dot-3"></div>
+              <!-- Moving dots - incoming (violet to green) -->
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-in dot-4"></div>
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-in dot-5"></div>
+              <div class="absolute top-1/2 -translate-y-1/2 w-1 h-1 rounded-full dot-in dot-6"></div>
+            </div>
+            <!-- Internet/Globe -->
+            <div class="flex flex-col items-center">
+              <div class="w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              </div>
+              <span class="text-xs text-muted-foreground mt-2">internet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features list -->
+      <div class="grid grid-cols-3 gap-3 text-center text-xs">
+        <div class="p-3 rounded-lg bg-muted/30">
+          <div class="text-primary font-semibold">HTTP</div>
+          <div class="text-muted-foreground">TCP / UDP</div>
+        </div>
+        <div class="p-3 rounded-lg bg-muted/30">
+          <div class="text-primary font-semibold">TLS</div>
+          <div class="text-muted-foreground">{{ t('auth.encryption') }}</div>
+        </div>
+        <div class="p-3 rounded-lg bg-muted/30">
+          <div class="text-primary font-semibold">CLI</div>
+          <div class="text-muted-foreground">{{ t('auth.crossPlatform') }}</div>
+        </div>
+      </div>
+
     </Card>
   </div>
 </template>
+
+<style scoped>
+.dot-out {
+  background-color: hsl(var(--primary));
+  box-shadow: 0 0 3px hsl(var(--primary));
+  animation: move-out var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+.dot-in {
+  background-color: hsl(280 70% 65%);
+  box-shadow: 0 0 3px hsl(280 70% 65%);
+  animation: move-in var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+.dot-1 { --duration: 2s; --delay: 0s; }
+.dot-2 { --duration: 2.5s; --delay: 0.7s; }
+.dot-3 { --duration: 1.8s; --delay: 1.4s; }
+.dot-4 { --duration: 2.2s; --delay: 0.3s; }
+.dot-5 { --duration: 1.9s; --delay: 1s; }
+.dot-6 { --duration: 2.4s; --delay: 1.7s; }
+
+@keyframes move-out {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+  }
+}
+
+@keyframes move-in {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+  }
+}
+</style>

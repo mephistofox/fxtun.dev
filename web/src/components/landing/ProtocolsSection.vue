@@ -218,13 +218,19 @@ onMounted(() => {
                 <span>Local</span>
                 <span>Public</span>
               </div>
-              <div class="mt-2 relative h-1.5 rounded-full bg-border/50 overflow-hidden">
-                <!-- Static track -->
-                <div class="absolute inset-0 rounded-full" :class="`bg-${currentProtocol.color}/20`" />
-                <!-- Animated particles -->
-                <div class="data-flow-particles" :style="`--flow-color: var(--${currentProtocol.color})`">
-                  <span /><span /><span /><span /><span />
-                </div>
+              <div class="mt-2 relative h-1.5">
+                <!-- Line with gradient transparency -->
+                <div class="absolute inset-0 rounded-full tunnel-line-bg" />
+                <!-- Moving dots -->
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-1"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-2"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-3"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-4"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-5"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-6"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue dot-7"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue dot-8"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue-in dot-9"></div>
               </div>
               <div class="flex items-center justify-between mt-2 text-sm">
                 <span class="font-mono text-foreground/70">localhost:3000</span>
@@ -237,3 +243,372 @@ onMounted(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.tunnel-line-bg {
+  background: linear-gradient(to right,
+    transparent 0%,
+    hsl(var(--muted-foreground) / 0.3) 15%,
+    hsl(var(--muted-foreground) / 0.3) 85%,
+    transparent 100%
+  );
+}
+
+.dot-out {
+  animation: move-out-green var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.dot-in {
+  animation: move-in-violet var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.dot-blue {
+  animation: move-out-blue var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.dot-blue-in {
+  animation: move-in-cyan var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+/* Color shifting variants */
+.dot-1 { animation-name: move-out-green-violet-blue; }
+.dot-3 { animation-name: move-out-green-to-cyan; }
+.dot-5 { animation-name: move-in-violet-blue-green; }
+.dot-6 { animation-name: move-in-pink-to-violet; }
+.dot-7 { animation-name: move-out-blue-green-violet; }
+.dot-9 { animation-name: move-in-cyan-to-pink; }
+
+.dot-1 { --duration: 2.2s; --delay: 0s; }
+.dot-2 { --duration: 2.4s; --delay: 0.25s; }
+.dot-3 { --duration: 2s; --delay: 0.5s; }
+.dot-4 { --duration: 2.3s; --delay: 0.15s; }
+.dot-5 { --duration: 2.1s; --delay: 0.4s; }
+.dot-6 { --duration: 2.5s; --delay: 0.65s; }
+.dot-7 { --duration: 2.2s; --delay: 0.1s; }
+.dot-8 { --duration: 2.3s; --delay: 0.35s; }
+.dot-9 { --duration: 2s; --delay: 0.55s; }
+
+/* Green outgoing */
+@keyframes move-out-green {
+  0% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+}
+
+/* Green -> Violet -> Blue (rainbow out) */
+@keyframes move-out-green-violet-blue {
+  0% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  35% {
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  65% {
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+}
+
+/* Green to Cyan */
+@keyframes move-out-green-to-cyan {
+  0% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+}
+
+/* Violet incoming */
+@keyframes move-in-violet {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+}
+
+/* Violet -> Blue -> Green (rainbow in) */
+@keyframes move-in-violet-blue-green {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  35% {
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  65% {
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+}
+
+/* Pink to Violet */
+@keyframes move-in-pink-to-violet {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(330 70% 60%);
+    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(260 70% 60%);
+    box-shadow: 0 0 4px 1px hsl(260 70% 60%);
+  }
+}
+
+/* Blue outgoing */
+@keyframes move-out-blue {
+  0% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+}
+
+/* Blue -> Green -> Violet */
+@keyframes move-out-blue-green-violet {
+  0% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  35% {
+    background-color: hsl(var(--primary));
+    box-shadow: 0 0 4px 1px hsl(var(--primary));
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  65% {
+    background-color: hsl(280 70% 65%);
+    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(330 70% 60%);
+    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
+  }
+}
+
+/* Cyan incoming */
+@keyframes move-in-cyan {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+}
+
+/* Cyan to Pink */
+@keyframes move-in-cyan-to-pink {
+  0% {
+    left: calc(100% - 4px);
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(180 70% 50%);
+    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  50% {
+    transform: translateY(-50%) scaleX(2.5);
+    background-color: hsl(210 80% 60%);
+    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1.5);
+  }
+  100% {
+    left: 0;
+    opacity: 0;
+    transform: translateY(-50%) scaleX(1);
+    background-color: hsl(330 70% 60%);
+    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
+  }
+}
+</style>
