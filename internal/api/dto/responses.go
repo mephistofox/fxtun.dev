@@ -331,3 +331,77 @@ type UsersListResponse struct {
 	Page  int        `json:"page"`
 	Limit int        `json:"limit"`
 }
+
+// SubscriptionDTO represents a subscription in API responses
+type SubscriptionDTO struct {
+	ID                 int64      `json:"id"`
+	PlanID             int64      `json:"plan_id"`
+	Plan               *PlanDTO   `json:"plan,omitempty"`
+	NextPlanID         *int64     `json:"next_plan_id,omitempty"`
+	NextPlan           *PlanDTO   `json:"next_plan,omitempty"`
+	Status             string     `json:"status"`
+	Recurring          bool       `json:"recurring"`
+	CurrentPeriodStart *time.Time `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd   *time.Time `json:"current_period_end,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+}
+
+// SubscriptionFromModel converts a database Subscription to SubscriptionDTO
+func SubscriptionFromModel(s *database.Subscription) *SubscriptionDTO {
+	if s == nil {
+		return nil
+	}
+	return &SubscriptionDTO{
+		ID:                 s.ID,
+		PlanID:             s.PlanID,
+		NextPlanID:         s.NextPlanID,
+		Status:             string(s.Status),
+		Recurring:          s.Recurring,
+		CurrentPeriodStart: s.CurrentPeriodStart,
+		CurrentPeriodEnd:   s.CurrentPeriodEnd,
+		CreatedAt:          s.CreatedAt,
+	}
+}
+
+// PaymentDTO represents a payment in API responses
+type PaymentDTO struct {
+	ID          int64     `json:"id"`
+	InvoiceID   int64     `json:"invoice_id"`
+	Amount      float64   `json:"amount"`
+	Status      string    `json:"status"`
+	IsRecurring bool      `json:"is_recurring"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// PaymentFromModel converts a database Payment to PaymentDTO
+func PaymentFromModel(p *database.Payment) *PaymentDTO {
+	if p == nil {
+		return nil
+	}
+	return &PaymentDTO{
+		ID:          p.ID,
+		InvoiceID:   p.InvoiceID,
+		Amount:      p.Amount,
+		Status:      string(p.Status),
+		IsRecurring: p.IsRecurring,
+		CreatedAt:   p.CreatedAt,
+	}
+}
+
+// SubscriptionResponse represents a subscription response with plan details
+type SubscriptionResponse struct {
+	Subscription *SubscriptionDTO `json:"subscription"`
+	HasActive    bool             `json:"has_active"`
+}
+
+// CheckoutResponse represents a checkout response with payment URL
+type CheckoutResponse struct {
+	PaymentURL string `json:"payment_url"`
+	InvoiceID  int64  `json:"invoice_id"`
+}
+
+// PaymentsListResponse represents a list of payments
+type PaymentsListResponse struct {
+	Payments []*PaymentDTO `json:"payments"`
+	Total    int           `json:"total"`
+}
