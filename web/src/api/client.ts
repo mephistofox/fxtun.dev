@@ -283,7 +283,8 @@ export interface Plan {
   id: number
   slug: string
   name: string
-  price: number
+  price: number       // Price in USD
+  price_rub?: number  // Price in RUB (calculated on backend, readonly)
   max_tunnels: number
   max_domains: number
   max_custom_domains: number

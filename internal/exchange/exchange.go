@@ -120,8 +120,15 @@ func fetchFromAPI(url string) (float64, error) {
 	return rate, nil
 }
 
-// ConvertUSDToRUB converts USD amount to RUB
+// ConvertUSDToRUB converts USD amount to RUB with nice rounding (to nearest 5)
 func ConvertUSDToRUB(usd float64) float64 {
 	rate, _ := GetRate()
-	return usd * rate
+	rub := usd * rate
+	// Round to nearest 5 for nice pricing (e.g., 746.25 -> 745)
+	return roundToNearest5(rub)
+}
+
+// roundToNearest5 rounds a number to the nearest multiple of 5
+func roundToNearest5(n float64) float64 {
+	return float64(int((n+2.5)/5) * 5)
 }
