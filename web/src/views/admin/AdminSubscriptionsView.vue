@@ -20,7 +20,8 @@ const page = ref(1)
 const limit = 20
 
 const activeTab = ref<'subscriptions' | 'payments'>('subscriptions')
-const activeFilter = ref<'all' | 'active' | 'cancelled' | 'expired'>('all')
+const activeFilter = ref<'all' | 'active' | 'cancelled' | 'expired'>('active')
+const paymentFilter = ref<'all' | 'success' | 'pending' | 'failed'>('all')
 
 // Extend modal
 const extendSubId = ref<number | null>(null)
@@ -31,11 +32,23 @@ const filteredSubscriptions = computed(() => {
   return subscriptions.value.filter(s => s.status === activeFilter.value)
 })
 
+const filteredPayments = computed(() => {
+  if (paymentFilter.value === 'all') return payments.value
+  return payments.value.filter(p => p.status === paymentFilter.value)
+})
+
 const filterTabs = computed(() => [
   { key: 'all' as const, label: t('admin.filterAll'), count: subscriptions.value.length },
   { key: 'active' as const, label: t('admin.subscriptions.active'), count: subscriptions.value.filter(s => s.status === 'active').length },
   { key: 'cancelled' as const, label: t('admin.subscriptions.cancelled'), count: subscriptions.value.filter(s => s.status === 'cancelled').length },
   { key: 'expired' as const, label: t('admin.subscriptions.expired'), count: subscriptions.value.filter(s => s.status === 'expired').length },
+])
+
+const paymentFilterTabs = computed(() => [
+  { key: 'all' as const, label: t('admin.filterAll'), count: payments.value.length },
+  { key: 'success' as const, label: t('admin.subscriptions.payment_success'), count: payments.value.filter(p => p.status === 'success').length },
+  { key: 'pending' as const, label: t('admin.subscriptions.payment_pending'), count: payments.value.filter(p => p.status === 'pending').length },
+  { key: 'failed' as const, label: t('admin.subscriptions.payment_failed'), count: payments.value.filter(p => p.status === 'failed').length },
 ])
 
 const statusColors: Record<string, string> = {
@@ -272,12 +285,25 @@ onMounted(() => {
 
       <!-- Payments Tab -->
       <template v-else>
+        <!-- Payment filter tabs -->
+        <div class="flex gap-2 flex-wrap">
+          <button
+            v-for="tab in paymentFilterTabs"
+            :key="tab.key"
+            class="px-3 py-1.5 text-sm rounded-full transition-colors"
+            :class="paymentFilter === tab.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'"
+            @click="paymentFilter = tab.key"
+          >
+            {{ tab.label }} ({{ tab.count }})
+          </button>
+        </div>
+
         <Card>
           <div v-if="loading" class="flex justify-center py-12">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
 
-          <div v-else-if="payments.length === 0" class="text-center py-12 text-muted-foreground">
+          <div v-else-if="filteredPayments.length === 0" class="text-center py-12 text-muted-foreground">
             {{ t('admin.subscriptions.noPayments') }}
           </div>
 
@@ -294,7 +320,7 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="payment in payments" :key="payment.id" class="border-b border-border last:border-0 hover:bg-muted/50">
+                <tr v-for="payment in filteredPayments" :key="payment.id" class="border-b border-border last:border-0 hover:bg-muted/50">
                   <td class="p-4 font-mono text-sm">#{{ payment.invoice_id }}</td>
                   <td class="p-4">
                     <div>{{ payment.user_email || payment.user_phone }}</div>

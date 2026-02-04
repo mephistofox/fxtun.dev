@@ -12,7 +12,7 @@ const { t, locale } = useI18n()
 
 const plans = ref<Plan[]>([])
 const selectedPlanId = ref<number | null>(null)
-const recurring = ref(true)
+const recurring = ref(false)
 const loading = ref(false)
 const error = ref('')
 const submitting = ref(false)
@@ -168,22 +168,20 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Recurring toggle -->
-      <Card v-if="selectedPlan" class="p-6 mt-6">
+      <!-- Recurring toggle (disabled until recurring payments enabled) -->
+      <Card v-if="selectedPlan" class="p-6 mt-6 opacity-50">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="font-medium">{{ t('checkout.autoRenewal') }}</h3>
-            <p class="text-sm text-muted-foreground">{{ t('checkout.autoRenewalHint') }}</p>
+            <p class="text-sm text-muted-foreground">{{ t('checkout.autoRenewalDisabled') }}</p>
           </div>
           <button
             type="button"
-            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            :class="recurring ? 'bg-primary' : 'bg-muted'"
-            @click="recurring = !recurring"
+            disabled
+            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-not-allowed rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-muted"
           >
             <span
-              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-              :class="recurring ? 'translate-x-5' : 'translate-x-0'"
+              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"
             />
           </button>
         </div>

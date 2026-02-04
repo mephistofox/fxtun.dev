@@ -201,7 +201,8 @@
     "copy": "Copy to Clipboard",
     "copied": "Copied!",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "actions": "Actions"
   },
   "checkout": {
     "title": "Choose a Plan",
@@ -217,6 +218,7 @@
     "inspector": "Inspector",
     "autoRenewal": "Auto-renewal",
     "autoRenewalHint": "Subscription will automatically renew every month",
+    "autoRenewalDisabled": "Auto-renewal is temporarily unavailable",
     "selectedPlan": "Selected Plan",
     "total": "Total",
     "paymentType": "Payment Type",
