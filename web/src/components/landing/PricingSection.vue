@@ -3,18 +3,33 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
-import { useCurrencyRate } from '@/composables/useCurrencyRate'
 
 const { t } = useI18n()
-const { isRuDomain, loadRate, formatPrice } = useCurrencyRate()
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
+// Check if we're on a RU domain
+const isRuDomain = computed(() => {
+  const host = window.location.hostname
+  return host.endsWith('.ru') || host === 'localhost'
+})
+
 function displayLimit(val: number): string {
   return val < 0 ? t('landing.pricing.unlimited') : String(val)
+}
+
+// Format price using backend-calculated values
+function formatPrice(plan: Plan): string {
+  if (plan.price === 0) return ''
+  if (isRuDomain.value) {
+    // Use backend price_rub or fallback to price * 75
+    const priceRub = plan.price_rub ?? plan.price * 75
+    return `${Math.round(priceRub)} ₽`
+  }
+  return `$${plan.price}`
 }
 
 const sortedPlans = computed(() =>
@@ -35,11 +50,6 @@ onMounted(async () => {
   )
   if (sectionRef.value) {
     observer.observe(sectionRef.value)
-  }
-
-  // Load currency rate for RU domains
-  if (isRuDomain.value) {
-    loadRate()
   }
 
   try {
@@ -150,7 +160,7 @@ onMounted(async () => {
                 {{ t('landing.pricing.free') }}
               </span>
               <template v-else>
-                <span class="text-3xl font-display font-bold">{{ formatPrice(plan.price) }}</span>
+                <span class="text-3xl font-display font-bold">{{ formatPrice(plan) }}</span>
                 <span class="text-sm text-muted-foreground">{{ t('landing.pricing.perMonth') }}</span>
               </template>
             </div>

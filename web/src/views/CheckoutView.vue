@@ -5,13 +5,10 @@ import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
-import api, { plansApi, subscriptionApi, type Plan } from '@/api/client'
+import { plansApi, subscriptionApi, type Plan } from '@/api/client'
 
 const route = useRoute()
 const { t, locale } = useI18n()
-
-// Exchange rate from API
-const exchangeRate = ref(75) // fallback
 
 const plans = ref<Plan[]>([])
 const selectedPlanId = ref<number | null>(null)
@@ -63,23 +60,14 @@ async function handleCheckout() {
   }
 }
 
-function formatPrice(priceUSD: number) {
-  // Convert USD to RUB for Russian locale
+// Format price using backend-calculated price_rub
+function formatPrice(plan: Plan) {
   if (locale.value === 'ru') {
-    const priceRUB = priceUSD * exchangeRate.value
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(priceRUB)
+    // Use backend price_rub or fallback to price * 75
+    const priceRub = plan.price_rub ?? plan.price * 75
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(priceRub)
   }
-  // Display in USD for other locales
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceUSD)
-}
-
-async function loadExchangeRate() {
-  try {
-    const response = await api.get<{ rate: number }>('/exchange-rate')
-    exchangeRate.value = response.data.rate
-  } catch {
-    // Use fallback rate
-  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(plan.price)
 }
 
 function formatLimit(value: number) {
@@ -87,7 +75,6 @@ function formatLimit(value: number) {
 }
 
 onMounted(() => {
-  loadExchangeRate()
   loadPlans()
 })
 </script>
@@ -139,7 +126,7 @@ onMounted(() => {
           </div>
 
           <div class="mb-4">
-            <span class="text-3xl font-bold">{{ formatPrice(plan.price) }}</span>
+            <span class="text-3xl font-bold">{{ formatPrice(plan) }}</span>
             <span class="text-muted-foreground">/{{ t('checkout.month') }}</span>
           </div>
 
@@ -210,7 +197,7 @@ onMounted(() => {
         </div>
         <div class="flex items-center justify-between mb-4">
           <span class="text-muted-foreground">{{ t('checkout.total') }}</span>
-          <span class="text-2xl font-bold">{{ formatPrice(selectedPlan.price) }}</span>
+          <span class="text-2xl font-bold">{{ formatPrice(selectedPlan) }}</span>
         </div>
         <div class="flex items-center justify-between text-sm text-muted-foreground mb-6">
           <span>{{ t('checkout.paymentType') }}</span>
