@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.1](https://github.com/mephistofox/fxTunnel/compare/v2.9.0...v2.9.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **payment:** store RUB amount in payment record to match Robokassa callback ([8e73237](https://github.com/mephistofox/fxTunnel/commit/8e73237d20e131d4909eaf004074aecd386277ef))
+
 ## [2.9.0](https://github.com/mephistofox/fxTunnel/compare/v2.8.0...v2.9.0) (2026-02-04)
 
 
