@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.0](https://github.com/mephistofox/fxTunnel/compare/v2.3.0...v2.4.0) (2026-02-04)
+
+
+### Features
+
+* **web:** add descriptive hints to pricing plan features ([f9b9d1a](https://github.com/mephistofox/fxTunnel/commit/f9b9d1a616cc765e84beff5cd05cf4512f8f7a47))
+
+
+### Bug Fixes
+
+* **ci:** use systemctl kill for quick service restart ([dbd7004](https://github.com/mephistofox/fxTunnel/commit/dbd7004202d833dc2a34e58ddff8bcd88f5edf5f))
+* **web:** remove GitHub button from hero, keep Learn More ([7a76868](https://github.com/mephistofox/fxTunnel/commit/7a76868ef953652f9bb7deb539a7d5a555aea92c))
+* **web:** return number type from Input component for type=number ([4efcda1](https://github.com/mephistofox/fxTunnel/commit/4efcda1cb10248388f5800962c888f0e7af9239e))
+
 ## [2.3.0](https://github.com/mephistofox/fxTunnel/compare/v2.2.5...v2.3.0) (2026-02-04)
 
 
