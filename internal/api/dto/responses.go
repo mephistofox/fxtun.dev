@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/exchange"
 )
 
 // ErrorResponse represents an error response
@@ -24,7 +25,8 @@ type PlanDTO struct {
 	ID                 int64   `json:"id"`
 	Slug               string  `json:"slug"`
 	Name               string  `json:"name"`
-	Price              float64 `json:"price"`
+	Price              float64 `json:"price"`               // Price in USD
+	PriceRUB           float64 `json:"price_rub"`           // Price in RUB (converted on backend)
 	MaxTunnels         int     `json:"max_tunnels"`
 	MaxDomains         int     `json:"max_domains"`
 	MaxCustomDomains   int     `json:"max_custom_domains"`
@@ -41,11 +43,19 @@ func PlanFromModel(p *database.Plan) *PlanDTO {
 		return nil
 	}
 	return &PlanDTO{
-		ID: p.ID, Slug: p.Slug, Name: p.Name, Price: p.Price,
-		MaxTunnels: p.MaxTunnels, MaxDomains: p.MaxDomains,
-		MaxCustomDomains: p.MaxCustomDomains, MaxTokens: p.MaxTokens,
-		MaxTunnelsPerToken: p.MaxTunnelsPerToken, InspectorEnabled: p.InspectorEnabled,
-		IsPublic: p.IsPublic, IsRecommended: p.IsRecommended,
+		ID:                 p.ID,
+		Slug:               p.Slug,
+		Name:               p.Name,
+		Price:              p.Price,
+		PriceRUB:           exchange.ConvertUSDToRUB(p.Price),
+		MaxTunnels:         p.MaxTunnels,
+		MaxDomains:         p.MaxDomains,
+		MaxCustomDomains:   p.MaxCustomDomains,
+		MaxTokens:          p.MaxTokens,
+		MaxTunnelsPerToken: p.MaxTunnelsPerToken,
+		InspectorEnabled:   p.InspectorEnabled,
+		IsPublic:           p.IsPublic,
+		IsRecommended:      p.IsRecommended,
 	}
 }
 
