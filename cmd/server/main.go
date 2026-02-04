@@ -15,6 +15,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
@@ -198,6 +199,43 @@ func run(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}()
+
+		// Start subscription scheduler if payments are enabled
+		if cfg.Robokassa.Enabled {
+			subscriptionScheduler := scheduler.New(db, cfg, log)
+
+			// Register event handler for logging (email notifications can be added here later)
+			subscriptionScheduler.OnEvent(func(event scheduler.Event) {
+				switch event.Type {
+				case scheduler.EventSubscriptionExpiring:
+					log.Info().
+						Int64("user_id", event.UserID).
+						Int("days_left", event.DaysLeft).
+						Msg("Subscription expiring soon")
+				case scheduler.EventSubscriptionExpired:
+					log.Info().
+						Int64("user_id", event.UserID).
+						Msg("Subscription expired")
+				case scheduler.EventSubscriptionRenewed:
+					log.Info().
+						Int64("user_id", event.UserID).
+						Msg("Subscription renewed")
+				case scheduler.EventSubscriptionRenewFailed:
+					log.Error().
+						Int64("user_id", event.UserID).
+						Err(event.Error).
+						Msg("Subscription renewal failed")
+				case scheduler.EventPlanChanged:
+					log.Info().
+						Int64("user_id", event.UserID).
+						Int64("plan_id", event.Plan.ID).
+						Msg("Plan changed")
+				}
+			})
+
+			go subscriptionScheduler.Start(ctx)
+			log.Info().Msg("Subscription scheduler started")
+		}
 	}
 
 	// Wait for shutdown signal
