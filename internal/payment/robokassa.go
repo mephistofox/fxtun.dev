@@ -154,15 +154,18 @@ func (r *Robokassa) GenerateRecurringPaymentURL(params RecurringPaymentParams) (
 // ResultParams holds parameters received on ResultURL callback
 type ResultParams struct {
 	OutSum         float64
+	OutSumRaw      string // Raw string from callback for signature verification
 	InvID          int64
 	SignatureValue string
 	PaymentMethod  string
 	EMail          string
+	IsTest         bool
 }
 
 // ParseResultParams parses ResultURL callback parameters
 func ParseResultParams(values url.Values) (*ResultParams, error) {
-	outSum, err := strconv.ParseFloat(values.Get("OutSum"), 64)
+	outSumRaw := values.Get("OutSum")
+	outSum, err := strconv.ParseFloat(outSumRaw, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid OutSum: %w", err)
 	}
@@ -172,31 +175,46 @@ func ParseResultParams(values url.Values) (*ResultParams, error) {
 		return nil, fmt.Errorf("invalid InvId: %w", err)
 	}
 
+	isTest := values.Get("IsTest") == "1"
+
 	return &ResultParams{
 		OutSum:         outSum,
+		OutSumRaw:      outSumRaw,
 		InvID:          invID,
 		SignatureValue: values.Get("SignatureValue"),
 		PaymentMethod:  values.Get("PaymentMethod"),
 		EMail:          values.Get("EMail"),
+		IsTest:         isTest,
 	}, nil
 }
 
 // VerifyResultSignature verifies signature from ResultURL callback
 func (r *Robokassa) VerifyResultSignature(params *ResultParams) bool {
-	outSum := formatAmount(params.OutSum)
+	// Use raw OutSum string from callback (not reformatted)
+	outSum := params.OutSumRaw
 	invoiceID := strconv.FormatInt(params.InvID, 10)
 
+	// Use password based on IsTest flag from callback, not server config
+	password2 := r.config.Password2
+	if params.IsTest {
+		password2 = r.config.TestPassword2
+	}
+
 	// Signature: OutSum:InvId:Password2
-	expected := r.GenerateSignature(outSum, invoiceID, r.getPassword2())
+	expected := r.GenerateSignature(outSum, invoiceID, password2)
 
 	return strings.EqualFold(expected, params.SignatureValue)
 }
 
 // GetExpectedSignature returns the expected signature for debugging
 func (r *Robokassa) GetExpectedSignature(params *ResultParams) string {
-	outSum := formatAmount(params.OutSum)
+	outSum := params.OutSumRaw
 	invoiceID := strconv.FormatInt(params.InvID, 10)
-	return r.GenerateSignature(outSum, invoiceID, r.getPassword2())
+	password2 := r.config.Password2
+	if params.IsTest {
+		password2 = r.config.TestPassword2
+	}
+	return r.GenerateSignature(outSum, invoiceID, password2)
 }
 
 // SuccessParams holds parameters received on SuccessURL redirect
