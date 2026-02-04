@@ -27,7 +27,15 @@ onMounted(async () => {
     localStorage.setItem('refreshToken', refreshToken)
     await authStore.refreshProfile()
     authStore.initialized = true
-    router.replace({ name: 'dashboard' })
+
+    // Check for saved redirect (e.g., from pricing page)
+    const savedRedirect = localStorage.getItem('authRedirect')
+    if (savedRedirect) {
+      localStorage.removeItem('authRedirect')
+      router.replace(savedRedirect)
+    } else {
+      router.replace({ name: 'dashboard' })
+    }
     return
   }
 

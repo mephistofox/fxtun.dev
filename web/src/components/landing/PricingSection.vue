@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
@@ -16,6 +17,12 @@ const isRuDomain = computed(() => {
   const host = window.location.hostname
   return host.endsWith('.ru') || host === 'localhost'
 })
+
+// Handle plan selection - save redirect and go to login
+function selectPlan(planId: number) {
+  localStorage.setItem('authRedirect', `/checkout?plan=${planId}`)
+  router.push('/login')
+}
 
 function displayLimit(val: number): string {
   return val < 0 ? t('landing.pricing.unlimited') : String(val)
@@ -212,17 +219,17 @@ onMounted(async () => {
             </ul>
 
             <!-- CTA Button -->
-            <RouterLink
-              to="/register"
+            <button
+              @click="selectPlan(plan.id)"
               :class="[
-                'block w-full py-2.5 px-4 rounded-lg text-center text-sm font-medium transition-all duration-300 mt-auto',
+                'block w-full py-2.5 px-4 rounded-lg text-center text-sm font-medium transition-all duration-300 mt-auto cursor-pointer',
                 plan.is_recommended
                   ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30'
                   : 'bg-surface border border-border hover:border-primary/50 hover:bg-primary/5',
               ]"
             >
               {{ t('landing.pricing.selectPlan') }}
-            </RouterLink>
+            </button>
           </div>
         </div>
       </div>
