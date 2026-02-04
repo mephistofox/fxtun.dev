@@ -386,4 +386,52 @@ export const inspectApi = {
     api.post(`/tunnels/${tunnelId}/inspect/${exchangeId}/replay`).then(r => r.data),
 }
 
+// Subscription types
+export interface Subscription {
+  id: number
+  plan_id: number
+  plan?: Plan
+  next_plan_id?: number
+  next_plan?: Plan
+  status: 'pending' | 'active' | 'cancelled' | 'expired'
+  recurring: boolean
+  current_period_start?: string
+  current_period_end?: string
+  created_at: string
+}
+
+export interface SubscriptionResponse {
+  subscription: Subscription | null
+  has_active: boolean
+}
+
+export interface CheckoutResponse {
+  payment_url: string
+  invoice_id: number
+}
+
+export interface Payment {
+  id: number
+  invoice_id: number
+  amount: number
+  status: 'pending' | 'success' | 'failed'
+  is_recurring: boolean
+  created_at: string
+}
+
+export interface PaymentsListResponse {
+  payments: Payment[]
+  total: number
+}
+
+export const subscriptionApi = {
+  get: () => api.get<SubscriptionResponse>('/subscription'),
+  checkout: (planId: number, recurring: boolean) =>
+    api.post<CheckoutResponse>('/subscription/checkout', { plan_id: planId, recurring }),
+  cancel: () => api.post<{ success: boolean; message: string }>('/subscription/cancel'),
+  changePlan: (planId: number) =>
+    api.post<{ success: boolean; message: string }>('/subscription/change', { plan_id: planId }),
+  getPayments: () => api.get<PaymentsListResponse>('/subscription/payments'),
+}
+
 export default api
