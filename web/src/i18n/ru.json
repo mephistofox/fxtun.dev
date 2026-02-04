@@ -469,7 +469,20 @@
     "googleLinked": "Аккаунт Google привязан",
     "googleNotLinked": "Привяжите аккаунт Google для входа через OAuth.",
     "linkGoogle": "Привязать Google",
-    "googleLinkSuccess": "Аккаунт Google успешно привязан"
+    "googleLinkSuccess": "Аккаунт Google успешно привязан",
+    "subscriptionSection": "Подписка",
+    "subscriptionActive": "Активна",
+    "subscriptionCancelled": "Отменена",
+    "renewsOn": "Продлится",
+    "expiresOn": "Истекает",
+    "autoRenewal": "Автопродление",
+    "nextPlan": "Следующий тариф",
+    "cancelSubscription": "Отменить подписку",
+    "changePlan": "Сменить тариф",
+    "noSubscription": "У вас нет активной подписки",
+    "upgradePlan": "Выбрать тариф",
+    "confirmCancelSubscription": "Вы уверены, что хотите отменить автопродление? Подписка будет активна до конца оплаченного периода.",
+    "failedToCancelSubscription": "Не удалось отменить подписку"
   },
   "theme": {
     "light": "Светлая",
