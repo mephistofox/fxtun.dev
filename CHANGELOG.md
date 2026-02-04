@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/mephistofox/fxTunnel/compare/v2.10.0...v2.11.0) (2026-02-04)
+
+
+### Features
+
+* **payment:** send email notification after successful payment ([86855c6](https://github.com/mephistofox/fxTunnel/commit/86855c62f77dbb205426415f2f2b861a1aaf6ec8))
+
 ## [2.10.0](https://github.com/mephistofox/fxTunnel/compare/v2.9.1...v2.10.0) (2026-02-04)
 
 
