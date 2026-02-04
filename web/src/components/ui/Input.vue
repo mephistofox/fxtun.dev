@@ -49,11 +49,14 @@ function formatPhone(value: string): string {
 
 function handleInput(event: Event) {
   const target = event.target as HTMLInputElement
-  let value = target.value
+  let value: string | number = target.value
 
   if (props.phone) {
     value = formatPhone(value)
     target.value = value
+  } else if (props.type === 'number') {
+    // Return number for number inputs
+    value = target.value === '' ? 0 : Number(target.value)
   }
 
   emit('update:modelValue', value)
