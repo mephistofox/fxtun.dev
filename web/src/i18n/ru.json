@@ -249,6 +249,7 @@
     "adminTunnels": "Туннели",
     "adminCustomDomains": "Кастомные домены",
     "adminPlans": "Тарифы",
+    "adminSubscriptions": "Подписки",
     "adminAudit": "Аудит"
   },
   "auth": {
