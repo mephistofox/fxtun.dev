@@ -405,3 +405,49 @@ type PaymentsListResponse struct {
 	Payments []*PaymentDTO `json:"payments"`
 	Total    int           `json:"total"`
 }
+
+// AdminSubscriptionDTO represents a subscription with user info for admin
+type AdminSubscriptionDTO struct {
+	ID                 int64      `json:"id"`
+	UserID             int64      `json:"user_id"`
+	UserPhone          string     `json:"user_phone"`
+	UserEmail          string     `json:"user_email"`
+	PlanID             int64      `json:"plan_id"`
+	Plan               *PlanDTO   `json:"plan,omitempty"`
+	NextPlan           *PlanDTO   `json:"next_plan,omitempty"`
+	Status             string     `json:"status"`
+	Recurring          bool       `json:"recurring"`
+	CurrentPeriodStart *time.Time `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd   *time.Time `json:"current_period_end,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+}
+
+// AdminSubscriptionsListResponse represents a list of subscriptions for admin
+type AdminSubscriptionsListResponse struct {
+	Subscriptions []*AdminSubscriptionDTO `json:"subscriptions"`
+	Total         int                     `json:"total"`
+	Page          int                     `json:"page"`
+	Limit         int                     `json:"limit"`
+}
+
+// AdminPaymentDTO represents a payment with user info for admin
+type AdminPaymentDTO struct {
+	ID             int64     `json:"id"`
+	UserID         int64     `json:"user_id"`
+	UserPhone      string    `json:"user_phone"`
+	UserEmail      string    `json:"user_email"`
+	SubscriptionID *int64    `json:"subscription_id,omitempty"`
+	InvoiceID      int64     `json:"invoice_id"`
+	Amount         float64   `json:"amount"`
+	Status         string    `json:"status"`
+	IsRecurring    bool      `json:"is_recurring"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// AdminPaymentsListResponse represents a list of payments for admin
+type AdminPaymentsListResponse struct {
+	Payments []*AdminPaymentDTO `json:"payments"`
+	Total    int                `json:"total"`
+	Page     int                `json:"page"`
+	Limit    int                `json:"limit"`
+}

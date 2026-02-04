@@ -294,6 +294,49 @@ export interface Plan {
   is_recommended: boolean
 }
 
+// Admin subscription and payment types
+export interface AdminSubscription {
+  id: number
+  user_id: number
+  user_phone: string
+  user_email: string
+  plan_id: number
+  plan?: Plan
+  next_plan?: Plan
+  status: 'pending' | 'active' | 'cancelled' | 'expired'
+  recurring: boolean
+  current_period_start?: string
+  current_period_end?: string
+  created_at: string
+}
+
+export interface AdminSubscriptionsResponse {
+  subscriptions: AdminSubscription[]
+  total: number
+  page: number
+  limit: number
+}
+
+export interface AdminPayment {
+  id: number
+  user_id: number
+  user_phone: string
+  user_email: string
+  subscription_id?: number
+  invoice_id: number
+  amount: number
+  status: 'pending' | 'success' | 'failed'
+  is_recurring: boolean
+  created_at: string
+}
+
+export interface AdminPaymentsResponse {
+  payments: AdminPayment[]
+  total: number
+  page: number
+  limit: number
+}
+
 export const adminApi = {
   // Stats
   getStats: () => api.get<AdminStats>('/admin/stats'),
@@ -346,6 +389,18 @@ export const adminApi = {
   createPlan: (data: Omit<Plan, 'id'>) => api.post<Plan>('/admin/plans', data),
   updatePlan: (id: number, data: Partial<Omit<Plan, 'id' | 'slug'>>) => api.put<Plan>(`/admin/plans/${id}`, data),
   deletePlan: (id: number) => api.delete(`/admin/plans/${id}`),
+
+  // Subscriptions
+  listSubscriptions: (page = 1, limit = 20) =>
+    api.get<AdminSubscriptionsResponse>('/admin/subscriptions', { params: { page, limit } }),
+  cancelSubscription: (id: number) =>
+    api.post<{ success: boolean; message: string }>(`/admin/subscriptions/${id}/cancel`),
+  extendSubscription: (id: number, days: number) =>
+    api.post<{ success: boolean; message: string }>(`/admin/subscriptions/${id}/extend`, { days }),
+
+  // Payments
+  listPayments: (page = 1, limit = 20) =>
+    api.get<AdminPaymentsResponse>('/admin/payments', { params: { page, limit } }),
 }
 
 // Inspect API types
