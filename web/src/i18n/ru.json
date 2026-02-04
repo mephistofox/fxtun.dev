@@ -243,7 +243,10 @@
     "signInWithGoogle": "Продолжить с Google",
     "signUpWithGoogle": "Продолжить с Google",
     "signInWithPhone": "Войти по телефону",
-    "signUpWithPhone": "Регистрация по телефону"
+    "signUpWithPhone": "Регистрация по телефону",
+    "encryption": "шифрование",
+    "noCard": "без карты",
+    "crossPlatform": "все ОС"
   },
   "dashboard": {
     "title": "Панель управления",
