@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mephistofox/fxtunnel/internal/auth"
+	"github.com/mephistofox/fxtunnel/internal/config"
 )
 
 const (
@@ -33,11 +34,12 @@ type githubUser struct {
 
 // handleGitHubAuth initiates the GitHub OAuth flow.
 func (s *Server) handleGitHubAuth(w http.ResponseWriter, r *http.Request) {
-	clientID := s.cfg.OAuth.GitHub.ClientID
-	if clientID == "" {
-		s.respondError(w, http.StatusNotImplemented, "GitHub OAuth is not configured")
+	creds := s.cfg.OAuth.GitHub.GetCredentials(r.Host)
+	if creds == nil {
+		s.respondError(w, http.StatusNotImplemented, "GitHub OAuth is not configured for this domain")
 		return
 	}
+	clientID := creds.ClientID
 
 	state := "login"
 	if r.URL.Query().Get("link") == "true" {
@@ -77,8 +79,15 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get credentials for this domain
+	creds := s.cfg.OAuth.GitHub.GetCredentials(r.Host)
+	if creds == nil {
+		s.redirectWithError(w, r, "GitHub OAuth is not configured for this domain")
+		return
+	}
+
 	// Exchange code for access token
-	ghToken, err := s.exchangeGitHubCode(code, s.buildRedirectURI(r))
+	ghToken, err := s.exchangeGitHubCode(code, s.buildRedirectURI(r), creds)
 	if err != nil {
 		s.log.Error().Err(err).Msg("GitHub code exchange failed")
 		s.redirectWithError(w, r, "failed to exchange authorization code")
@@ -157,10 +166,10 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 // exchangeGitHubCode exchanges an authorization code for an access token.
-func (s *Server) exchangeGitHubCode(code, redirectURI string) (string, error) {
+func (s *Server) exchangeGitHubCode(code, redirectURI string, creds *config.GitHubDomainCredentials) (string, error) {
 	data := url.Values{}
-	data.Set("client_id", s.cfg.OAuth.GitHub.ClientID)
-	data.Set("client_secret", s.cfg.OAuth.GitHub.ClientSecret)
+	data.Set("client_id", creds.ClientID)
+	data.Set("client_secret", creds.ClientSecret)
 	data.Set("code", code)
 	data.Set("redirect_uri", redirectURI)
 

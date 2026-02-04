@@ -203,6 +203,9 @@ func (s *Server) setupRoutes() {
 			r.Get("/{platform}", s.handleDownload)
 		})
 
+		// Plans (public)
+		r.Get("/plans/public", s.handleListPublicPlans)
+
 		// SSE inspect stream (separate auth to support ?token= for EventSource)
 		r.Route("/tunnels/{id}/inspect/stream", func(r chi.Router) {
 			r.Use(s.queryTokenAuthMiddleware)

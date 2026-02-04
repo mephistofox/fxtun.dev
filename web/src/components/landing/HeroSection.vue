@@ -49,7 +49,7 @@ onMounted(() => {
           >
             <span class="pulse-indicator" />
             <span class="text-sm font-medium text-muted-foreground">
-              {{ t('landing.hero.badge') || 'Self-hosted tunneling' }}
+              {{ t('landing.hero.badge') || 'Secure tunneling' }}
             </span>
           </div>
 

@@ -124,20 +124,45 @@ type CustomDomainSettings struct {
 
 // OAuthSettings contains OAuth provider configuration
 type OAuthSettings struct {
-	GitHub GitHubOAuthSettings  `mapstructure:"github"`
-	Google GoogleOAuthSettings  `mapstructure:"google"`
+	GitHub GitHubOAuthSettings `mapstructure:"github"`
+	Google GoogleOAuthSettings `mapstructure:"google"`
 }
 
-// GoogleOAuthSettings contains Google OAuth configuration
+// GitHubOAuthSettings contains GitHub OAuth configuration with per-domain credentials
+type GitHubOAuthSettings struct {
+	Domains []GitHubDomainCredentials `mapstructure:"domains"`
+}
+
+// GitHubDomainCredentials contains GitHub OAuth credentials for a specific domain
+type GitHubDomainCredentials struct {
+	Domain       string `mapstructure:"domain"`
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+}
+
+// GetCredentials returns GitHub OAuth credentials for the given host
+func (g *GitHubOAuthSettings) GetCredentials(host string) *GitHubDomainCredentials {
+	domain := extractDomain(host)
+	for i := range g.Domains {
+		if g.Domains[i].Domain == domain && g.Domains[i].ClientID != "" {
+			return &g.Domains[i]
+		}
+	}
+	return nil
+}
+
+// GoogleOAuthSettings contains Google OAuth configuration (single app for all domains)
 type GoogleOAuthSettings struct {
 	ClientID     string `mapstructure:"client_id"`
 	ClientSecret string `mapstructure:"client_secret"`
 }
 
-// GitHubOAuthSettings contains GitHub OAuth configuration
-type GitHubOAuthSettings struct {
-	ClientID     string `mapstructure:"client_id"`
-	ClientSecret string `mapstructure:"client_secret"`
+// extractDomain removes port from host if present
+func extractDomain(host string) string {
+	if idx := strings.Index(host, ":"); idx != -1 {
+		return host[:idx]
+	}
+	return host
 }
 
 // LoggingSettings contains logging configuration

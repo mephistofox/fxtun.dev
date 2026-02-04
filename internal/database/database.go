@@ -126,6 +126,7 @@ func (d *Database) migrate() error {
 		migrationAddGoogleOAuth,
 		migrationMakePhoneNullable,
 		migrationCreatePlans,
+		migrationAddPlanVisibility,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -417,4 +418,9 @@ CREATE TABLE IF NOT EXISTS tls_certificates (
 	issued_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+`
+
+const migrationAddPlanVisibility = `
+ALTER TABLE plans ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN is_recommended BOOLEAN NOT NULL DEFAULT 0;
 `

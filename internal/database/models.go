@@ -34,6 +34,8 @@ type Plan struct {
 	MaxTokens          int     `json:"max_tokens"`
 	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
 	InspectorEnabled   bool    `json:"inspector_enabled"`
+	IsPublic           bool    `json:"is_public"`
+	IsRecommended      bool    `json:"is_recommended"`
 }
 
 // InviteCode represents a one-time invitation code

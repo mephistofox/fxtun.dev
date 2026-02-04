@@ -45,7 +45,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Steps -->
-    <div class="flex-1 p-5 space-y-5 overflow-hidden">
+    <div class="flex-1 p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-hidden">
       <!-- Step 0: Configure DNS -->
       <div
         class="flex items-start gap-3 transition-opacity duration-300"
@@ -67,11 +67,11 @@ onUnmounted(() => {
             1
           </div>
         </div>
-        <div>
+        <div class="min-w-0 flex-1">
           <div class="text-sm text-foreground font-medium">{{ steps[0].label }}</div>
           <div
             v-if="currentStep === 0"
-            class="mt-1.5 text-xs px-3 py-1.5 rounded bg-surface border border-border text-muted-foreground"
+            class="mt-1.5 text-xs px-3 py-1.5 rounded bg-surface border border-border text-muted-foreground break-all"
           >
             {{ t('landing.advanced.customDomains.demo.cname') }}
           </div>
@@ -107,7 +107,7 @@ onUnmounted(() => {
             2
           </div>
         </div>
-        <div>
+        <div class="min-w-0 flex-1">
           <div class="text-sm font-medium" :class="currentStep === 1 ? 'text-amber-400' : 'text-foreground'">
             {{ currentStep > 1 ? t('landing.advanced.customDomains.demo.verified') : steps[1].label }}
           </div>
@@ -135,7 +135,7 @@ onUnmounted(() => {
             3
           </div>
         </div>
-        <div>
+        <div class="min-w-0 flex-1">
           <div class="text-sm text-foreground font-medium">{{ steps[2].label }}</div>
           <div
             v-if="currentStep === 2"
