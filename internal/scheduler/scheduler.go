@@ -233,12 +233,15 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Create payment record
+		// Convert USD to RUB for Robokassa
+		priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+
+		// Create payment record with RUB amount (same as sent to Robokassa)
 		pmt := &database.Payment{
 			UserID:         sub.UserID,
 			SubscriptionID: &sub.ID,
 			InvoiceID:      invoiceID,
-			Amount:         plan.Price,
+			Amount:         priceRUB,
 			Status:         database.PaymentStatusPending,
 			IsRecurring:    true,
 		}
@@ -247,8 +250,7 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Call Robokassa recurring API (convert USD to RUB)
-		priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+		// Call Robokassa recurring API
 		success, err := s.callRecurringAPI(invoiceID, *sub.RobokassaInvoiceID, priceRUB)
 		if err != nil {
 			s.log.Error().Err(err).
