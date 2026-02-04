@@ -243,7 +243,10 @@
     "signInWithGoogle": "Continue with Google",
     "signUpWithGoogle": "Continue with Google",
     "signInWithPhone": "Sign in with phone",
-    "signUpWithPhone": "Sign up with phone"
+    "signUpWithPhone": "Sign up with phone",
+    "encryption": "encrypted",
+    "noCard": "no card",
+    "crossPlatform": "cross-platform"
   },
   "dashboard": {
     "title": "Dashboard",
