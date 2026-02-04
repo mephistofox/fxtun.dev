@@ -27,6 +27,9 @@ const paymentFilter = ref<'all' | 'success' | 'pending' | 'failed'>('all')
 const extendSubId = ref<number | null>(null)
 const extendDays = ref(30)
 
+// Cancel confirmation
+const confirmCancelId = ref<number | null>(null)
+
 const filteredSubscriptions = computed(() => {
   if (activeFilter.value === 'all') return subscriptions.value
   return subscriptions.value.filter(s => s.status === activeFilter.value)
@@ -113,7 +116,15 @@ function showSuccess(msg: string) {
   setTimeout(() => { successMsg.value = '' }, 3000)
 }
 
-async function cancelSubscription(id: number) {
+function requestCancelSubscription(id: number) {
+  confirmCancelId.value = id
+}
+
+async function confirmCancelSubscription() {
+  if (!confirmCancelId.value) return
+  const id = confirmCancelId.value
+  confirmCancelId.value = null
+
   try {
     await adminApi.cancelSubscription(id)
     const sub = subscriptions.value.find(s => s.id === id)
@@ -270,7 +281,7 @@ onMounted(() => {
                         size="sm"
                         variant="ghost"
                         class="text-destructive"
-                        @click="cancelSubscription(sub.id)"
+                        @click="requestCancelSubscription(sub.id)"
                       >
                         {{ t('admin.subscriptions.cancel') }}
                       </Button>
@@ -358,6 +369,18 @@ onMounted(() => {
               <Button variant="ghost" @click="extendSubId = null">{{ t('common.cancel') }}</Button>
               <Button @click="extendSubscription">{{ t('admin.subscriptions.extend') }}</Button>
             </div>
+          </div>
+        </Card>
+      </div>
+
+      <!-- Cancel Confirmation Modal -->
+      <div v-if="confirmCancelId" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="confirmCancelId = null">
+        <Card class="w-full max-w-md p-6">
+          <h3 class="text-lg font-bold mb-4">{{ t('admin.subscriptions.confirmCancelTitle') }}</h3>
+          <p class="text-muted-foreground mb-6">{{ t('admin.subscriptions.confirmCancelText') }}</p>
+          <div class="flex gap-2 justify-end">
+            <Button variant="ghost" @click="confirmCancelId = null">{{ t('common.no') }}</Button>
+            <Button variant="destructive" @click="confirmCancelSubscription">{{ t('common.yes') }}</Button>
           </div>
         </Card>
       </div>

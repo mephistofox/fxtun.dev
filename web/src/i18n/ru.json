@@ -671,7 +671,9 @@
       "date": "Дата",
       "payment_success": "Оплачен",
       "payment_failed": "Отклонён",
-      "payment_pending": "Ожидание"
+      "payment_pending": "Ожидание",
+      "confirmCancelTitle": "Отмена подписки",
+      "confirmCancelText": "Вы уверены, что хотите отменить эту подписку? Пользователь потеряет доступ к платным функциям."
     },
     "search": "Поиск...",
     "searchUsers": "Поиск по имени, телефону или email...",
