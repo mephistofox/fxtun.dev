@@ -110,3 +110,14 @@ type MergeUsersRequest struct {
 type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
+
+// CheckoutRequest represents a subscription checkout request
+type CheckoutRequest struct {
+	PlanID    int64 `json:"plan_id" validate:"required"`
+	Recurring bool  `json:"recurring"`
+}
+
+// ChangePlanRequest represents a plan change request
+type ChangePlanRequest struct {
+	PlanID int64 `json:"plan_id" validate:"required"`
+}
