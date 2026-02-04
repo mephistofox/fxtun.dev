@@ -326,6 +326,12 @@ func (s *Server) setupRoutes() {
 					r.Post("/", s.handleCreateInviteCode)
 					r.Delete("/{id}", s.handleDeleteInviteCode)
 				})
+
+				r.Get("/subscriptions", s.handleAdminListSubscriptions)
+				r.Post("/subscriptions/{id}/cancel", s.handleAdminCancelSubscription)
+				r.Post("/subscriptions/{id}/extend", s.handleAdminExtendSubscription)
+
+				r.Get("/payments", s.handleAdminListPayments)
 			})
 		})
 	})

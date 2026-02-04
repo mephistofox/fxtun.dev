@@ -730,3 +730,249 @@ func (s *Server) handleDeletePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{Success: true, Message: "plan deleted"})
 }
+
+// handleAdminListSubscriptions returns all subscriptions for admin
+func (s *Server) handleAdminListSubscriptions(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	subs, total, err := s.db.Subscriptions.ListAll(limit, offset)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list subscriptions")
+		s.respondError(w, http.StatusInternalServerError, "failed to list subscriptions")
+		return
+	}
+
+	// Batch fetch users and plans
+	userIDs := make([]int64, 0)
+	planIDs := make(map[int64]bool)
+	for _, sub := range subs {
+		userIDs = append(userIDs, sub.UserID)
+		planIDs[sub.PlanID] = true
+		if sub.NextPlanID != nil {
+			planIDs[*sub.NextPlanID] = true
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+
+	subDTOs := make([]*dto.AdminSubscriptionDTO, len(subs))
+	for i, sub := range subs {
+		var userPhone, userEmail string
+		if user, ok := usersMap[sub.UserID]; ok {
+			userPhone = user.Phone
+			userEmail = user.Email
+		}
+
+		subDTO := &dto.AdminSubscriptionDTO{
+			ID:                 sub.ID,
+			UserID:             sub.UserID,
+			UserPhone:          userPhone,
+			UserEmail:          userEmail,
+			PlanID:             sub.PlanID,
+			Status:             string(sub.Status),
+			Recurring:          sub.Recurring,
+			CurrentPeriodStart: sub.CurrentPeriodStart,
+			CurrentPeriodEnd:   sub.CurrentPeriodEnd,
+			CreatedAt:          sub.CreatedAt,
+		}
+
+		if plan, ok := planMap[sub.PlanID]; ok {
+			subDTO.Plan = dto.PlanFromModel(plan)
+		}
+		if sub.NextPlanID != nil {
+			if plan, ok := planMap[*sub.NextPlanID]; ok {
+				subDTO.NextPlan = dto.PlanFromModel(plan)
+			}
+		}
+
+		subDTOs[i] = subDTO
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminSubscriptionsListResponse{
+		Subscriptions: subDTOs,
+		Total:         total,
+		Page:          page,
+		Limit:         limit,
+	})
+}
+
+// handleAdminListPayments returns all payments for admin
+func (s *Server) handleAdminListPayments(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	payments, total, err := s.db.Payments.ListAll(limit, offset)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list payments")
+		s.respondError(w, http.StatusInternalServerError, "failed to list payments")
+		return
+	}
+
+	// Batch fetch users
+	userIDs := make([]int64, 0)
+	for _, p := range payments {
+		userIDs = append(userIDs, p.UserID)
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
+	paymentDTOs := make([]*dto.AdminPaymentDTO, len(payments))
+	for i, p := range payments {
+		var userPhone, userEmail string
+		if user, ok := usersMap[p.UserID]; ok {
+			userPhone = user.Phone
+			userEmail = user.Email
+		}
+
+		paymentDTOs[i] = &dto.AdminPaymentDTO{
+			ID:             p.ID,
+			UserID:         p.UserID,
+			UserPhone:      userPhone,
+			UserEmail:      userEmail,
+			SubscriptionID: p.SubscriptionID,
+			InvoiceID:      p.InvoiceID,
+			Amount:         p.Amount,
+			Status:         string(p.Status),
+			IsRecurring:    p.IsRecurring,
+			CreatedAt:      p.CreatedAt,
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminPaymentsListResponse{
+		Payments: paymentDTOs,
+		Total:    total,
+		Page:     page,
+		Limit:    limit,
+	})
+}
+
+// handleAdminCancelSubscription cancels a user's subscription (admin)
+func (s *Server) handleAdminCancelSubscription(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid subscription id")
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByID(id)
+	if err != nil || sub == nil {
+		s.respondError(w, http.StatusNotFound, "subscription not found")
+		return
+	}
+
+	sub.Status = database.SubscriptionStatusCancelled
+	sub.Recurring = false
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to cancel subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to cancel subscription")
+		return
+	}
+
+	// Log audit
+	s.db.Audit.Log(&currentUser.ID, "admin_subscription_cancelled", map[string]interface{}{
+		"subscription_id": sub.ID,
+		"user_id":         sub.UserID,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "subscription cancelled",
+	})
+}
+
+// handleAdminExtendSubscription extends a subscription period
+func (s *Server) handleAdminExtendSubscription(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid subscription id")
+		return
+	}
+
+	var req dto.ExtendSubscriptionRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Days <= 0 {
+		s.respondError(w, http.StatusBadRequest, "days must be positive")
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByID(id)
+	if err != nil || sub == nil {
+		s.respondError(w, http.StatusNotFound, "subscription not found")
+		return
+	}
+
+	// Extend period
+	now := time.Now()
+	if sub.CurrentPeriodEnd == nil || sub.CurrentPeriodEnd.Before(now) {
+		sub.CurrentPeriodStart = &now
+		newEnd := now.AddDate(0, 0, req.Days)
+		sub.CurrentPeriodEnd = &newEnd
+	} else {
+		newEnd := sub.CurrentPeriodEnd.AddDate(0, 0, req.Days)
+		sub.CurrentPeriodEnd = &newEnd
+	}
+
+	// Reactivate if expired or cancelled
+	if sub.Status == database.SubscriptionStatusExpired || sub.Status == database.SubscriptionStatusCancelled {
+		sub.Status = database.SubscriptionStatusActive
+	}
+
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to extend subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to extend subscription")
+		return
+	}
+
+	// Update user plan
+	if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+		user.PlanID = sub.PlanID
+		s.db.Users.Update(user)
+	}
+
+	// Log audit
+	s.db.Audit.Log(&currentUser.ID, "admin_subscription_extended", map[string]interface{}{
+		"subscription_id": sub.ID,
+		"user_id":         sub.UserID,
+		"days":            req.Days,
+		"new_end":         sub.CurrentPeriodEnd,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "subscription extended",
+	})
+}
