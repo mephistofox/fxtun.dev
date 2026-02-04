@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.9.0](https://github.com/mephistofox/fxTunnel/compare/v2.8.0...v2.9.0) (2026-02-04)
+
+
+### Features
+
+* **web:** redirect to checkout after login when selecting a plan ([e6ad693](https://github.com/mephistofox/fxTunnel/commit/e6ad69337d8266491d8781b7ca1a7631c8ad3514))
+
+
+### Bug Fixes
+
+* **web:** add /payments/* routes for Robokassa redirects ([7656ffc](https://github.com/mephistofox/fxTunnel/commit/7656ffc9446a0261c431427e5e36abeff9cdc5bc))
+
 ## [2.8.0](https://github.com/mephistofox/fxTunnel/compare/v2.7.0...v2.8.0) (2026-02-04)
 
 
