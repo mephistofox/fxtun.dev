@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/mephistofox/fxTunnel/compare/v2.2.5...v2.3.0) (2026-02-04)
+
+
+### Features
+
+* **web:** add pricing section to landing page ([d5b3ccf](https://github.com/mephistofox/fxTunnel/commit/d5b3ccf472ce0a4d2cabf4c42ee9be197bf6560c))
+
+
+### Bug Fixes
+
+* **web:** remove unused index variable in PricingSection ([19bad17](https://github.com/mephistofox/fxTunnel/commit/19bad174b582c7a7cdecbc41a946a4bb58b055c2))
+
 ## [2.2.5](https://github.com/mephistofox/fxTunnel/compare/v2.2.4...v2.2.5) (2026-02-03)
 
 
