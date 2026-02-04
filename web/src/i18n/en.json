@@ -671,7 +671,9 @@
       "date": "Date",
       "payment_success": "Paid",
       "payment_failed": "Declined",
-      "payment_pending": "Pending"
+      "payment_pending": "Pending",
+      "confirmCancelTitle": "Cancel Subscription",
+      "confirmCancelText": "Are you sure you want to cancel this subscription? The user will lose access to paid features."
     },
     "search": "Search...",
     "searchUsers": "Search by name, phone or email...",
