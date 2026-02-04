@@ -17,6 +17,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/email"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 	"github.com/mephistofox/fxtunnel/internal/web"
@@ -80,6 +81,7 @@ type Server struct {
 	inspectProvider      InspectProvider
 	customDomainManager  CustomDomainManager
 	replayProvider       ReplayProvider
+	notifier             *email.Notifier
 	router               chi.Router
 	httpServer     *http.Server
 	log            zerolog.Logger
@@ -116,6 +118,11 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 // SetReplayProvider sets the replay provider for inspect replay feature.
 func (s *Server) SetReplayProvider(rp ReplayProvider) {
 	s.replayProvider = rp
+}
+
+// SetNotifier sets the email notifier for payment notifications.
+func (s *Server) SetNotifier(n *email.Notifier) {
+	s.notifier = n
 }
 
 // SetVersion sets the server version string for health endpoint.

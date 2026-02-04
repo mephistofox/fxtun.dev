@@ -327,6 +327,18 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 				"plan_id":         sub.PlanID,
 				"subscription_id": sub.ID,
 			}, r.RemoteAddr)
+
+			// Send payment success email notification
+			if s.notifier != nil {
+				plan, _ := s.db.Plans.GetByID(sub.PlanID)
+				planName := "Unknown"
+				if plan != nil {
+					planName = plan.Name
+				}
+				if err := s.notifier.SendPaymentSuccessNotification(sub.UserID, planName, params.OutSum); err != nil {
+					s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to send payment success email")
+				}
+			}
 		}
 	}
 

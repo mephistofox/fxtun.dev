@@ -216,6 +216,7 @@ func run(cmd *cobra.Command, args []string) error {
 				baseURL = fmt.Sprintf("http://%s:%d", cfg.Domain.Base, cfg.Web.Port)
 			}
 			notifier = email.NewNotifier(emailService, db, baseURL, cfg.SMTP.From, log)
+			apiServer.SetNotifier(notifier)
 			log.Info().Msg("Email service initialized")
 		}
 
