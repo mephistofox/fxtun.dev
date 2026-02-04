@@ -160,7 +160,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Log audit
-	s.db.Audit.Log(&user.ID, "payment_initiated", map[string]interface{}{
+	_ = s.db.Audit.Log(&user.ID, "payment_initiated", map[string]interface{}{
 		"invoice_id": invoiceID,
 		"plan_id":    plan.ID,
 		"amount":     plan.Price,
@@ -229,7 +229,7 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 
 	// Already processed
 	if pmt.Status == database.PaymentStatusSuccess {
-		w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
+		_, _ = w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
 		return
 	}
 
@@ -287,7 +287,7 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 				Msg("Subscription activated")
 
 			// Log audit
-			s.db.Audit.Log(&sub.UserID, "subscription_activated", map[string]interface{}{
+			_ = s.db.Audit.Log(&sub.UserID, "subscription_activated", map[string]interface{}{
 				"invoice_id":      params.InvID,
 				"plan_id":         sub.PlanID,
 				"subscription_id": sub.ID,
@@ -296,7 +296,7 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with OK{InvoiceID}
-	w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
+	_, _ = w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
 }
 
 // handlePaymentSuccess handles Robokassa SuccessURL redirect (GET)

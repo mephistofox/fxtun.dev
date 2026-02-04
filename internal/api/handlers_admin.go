@@ -893,7 +893,7 @@ func (s *Server) handleAdminCancelSubscription(w http.ResponseWriter, r *http.Re
 	}
 
 	// Log audit
-	s.db.Audit.Log(&currentUser.ID, "admin_subscription_cancelled", map[string]interface{}{
+	_ = s.db.Audit.Log(&currentUser.ID, "admin_subscription_cancelled", map[string]interface{}{
 		"subscription_id": sub.ID,
 		"user_id":         sub.UserID,
 	}, auth.GetClientIP(r))
@@ -960,11 +960,11 @@ func (s *Server) handleAdminExtendSubscription(w http.ResponseWriter, r *http.Re
 	// Update user plan
 	if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
 		user.PlanID = sub.PlanID
-		s.db.Users.Update(user)
+		_ = s.db.Users.Update(user)
 	}
 
 	// Log audit
-	s.db.Audit.Log(&currentUser.ID, "admin_subscription_extended", map[string]interface{}{
+	_ = s.db.Audit.Log(&currentUser.ID, "admin_subscription_extended", map[string]interface{}{
 		"subscription_id": sub.ID,
 		"user_id":         sub.UserID,
 		"days":            req.Days,
