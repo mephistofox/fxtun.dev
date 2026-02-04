@@ -121,3 +121,8 @@ type CheckoutRequest struct {
 type ChangePlanRequest struct {
 	PlanID int64 `json:"plan_id" validate:"required"`
 }
+
+// ExtendSubscriptionRequest represents an admin request to extend subscription
+type ExtendSubscriptionRequest struct {
+	Days int `json:"days" validate:"required,min=1"`
+}
