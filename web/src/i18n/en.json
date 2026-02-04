@@ -199,7 +199,42 @@
     "refresh": "Refresh",
     "logout": "Logout",
     "copy": "Copy to Clipboard",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "checkout": {
+    "title": "Choose a Plan",
+    "subtitle": "Select a plan and complete your subscription",
+    "subscriptionWarning": "You are subscribing with automatic renewal",
+    "subscriptionWarningHint": "If you want to pay for only one month without auto-renewal, disable the toggle below.",
+    "recommended": "Popular",
+    "month": "mo",
+    "tunnels": "Tunnels",
+    "domains": "Domains",
+    "customDomains": "Custom Domains",
+    "tokens": "Tokens",
+    "inspector": "Inspector",
+    "autoRenewal": "Auto-renewal",
+    "autoRenewalHint": "Subscription will automatically renew every month",
+    "selectedPlan": "Selected Plan",
+    "total": "Total",
+    "paymentType": "Payment Type",
+    "subscription": "Subscription",
+    "oneTime": "One-time",
+    "payNow": "Pay Now",
+    "securePayment": "Secure payment via Robokassa",
+    "failedToLoadPlans": "Failed to load plans",
+    "paymentFailed": "Failed to create payment"
+  },
+  "payment": {
+    "successTitle": "Payment Successful!",
+    "successMessage": "Your subscription is now active. Thank you for your purchase!",
+    "failTitle": "Payment Failed",
+    "failMessage": "The payment was not completed. Please try again or choose a different payment method.",
+    "goToProfile": "Go to Profile",
+    "goToDashboard": "Go to Dashboard",
+    "tryAgain": "Try Again"
   },
   "nav": {
     "dashboard": "Dashboard",

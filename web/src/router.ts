@@ -28,6 +28,24 @@ const router = createRouter({
       component: () => import('./views/OfferView.vue'),
     },
     {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('./views/CheckoutView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/payment/success',
+      name: 'payment-success',
+      component: () => import('./views/PaymentSuccessView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/payment/fail',
+      name: 'payment-fail',
+      component: () => import('./views/PaymentFailView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/auth/callback',
       name: 'auth-callback',
       component: () => import('./views/AuthCallbackView.vue'),
