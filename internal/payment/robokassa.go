@@ -192,6 +192,13 @@ func (r *Robokassa) VerifyResultSignature(params *ResultParams) bool {
 	return strings.EqualFold(expected, params.SignatureValue)
 }
 
+// GetExpectedSignature returns the expected signature for debugging
+func (r *Robokassa) GetExpectedSignature(params *ResultParams) string {
+	outSum := formatAmount(params.OutSum)
+	invoiceID := strconv.FormatInt(params.InvID, 10)
+	return r.GenerateSignature(outSum, invoiceID, r.getPassword2())
+}
+
 // SuccessParams holds parameters received on SuccessURL redirect
 type SuccessParams struct {
 	OutSum         float64

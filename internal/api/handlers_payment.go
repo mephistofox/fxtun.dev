@@ -230,7 +230,14 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 
 	// Verify signature
 	if !robokassa.VerifyResultSignature(params) {
-		s.log.Warn().Int64("invoice_id", params.InvID).Msg("Invalid payment signature")
+		expected := robokassa.GetExpectedSignature(params)
+		s.log.Warn().
+			Int64("invoice_id", params.InvID).
+			Float64("out_sum", params.OutSum).
+			Str("received_sig", params.SignatureValue[:32]+"...").
+			Str("expected_sig", expected[:32]+"...").
+			Bool("test_mode", s.cfg.Robokassa.TestMode).
+			Msg("Invalid payment signature - check TestPassword2 in config")
 		http.Error(w, "invalid signature", http.StatusBadRequest)
 		return
 	}
