@@ -180,6 +180,11 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 
 // handlePaymentResult handles Robokassa ResultURL callback (POST)
 func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
+	s.log.Info().
+		Str("remote_addr", r.RemoteAddr).
+		Str("method", r.Method).
+		Msg("Payment result callback received")
+
 	if !s.cfg.Robokassa.Enabled {
 		http.Error(w, "payments disabled", http.StatusServiceUnavailable)
 		return
@@ -216,6 +221,12 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid params", http.StatusBadRequest)
 		return
 	}
+
+	s.log.Info().
+		Int64("invoice_id", params.InvID).
+		Float64("out_sum", params.OutSum).
+		Str("signature", params.SignatureValue[:16]+"...").
+		Msg("Payment result params parsed")
 
 	// Verify signature
 	if !robokassa.VerifyResultSignature(params) {
