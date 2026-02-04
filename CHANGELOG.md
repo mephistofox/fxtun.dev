@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.10.0](https://github.com/mephistofox/fxTunnel/compare/v2.9.1...v2.10.0) (2026-02-04)
+
+
+### Features
+
+* improve subscriptions and payments management ([b5a1698](https://github.com/mephistofox/fxTunnel/commit/b5a16989f39f1be41113379da443e6c6692272ab))
+* **payment:** reject test payments in production mode ([0c45533](https://github.com/mephistofox/fxTunnel/commit/0c45533158ad69a7f2b33261d07cf8ca074999a5))
+* **web:** add subscriptions to admin navigation menu ([7b48221](https://github.com/mephistofox/fxTunnel/commit/7b48221bc94cd8d8973d11956608be22b4c2d814))
+* **web:** mobile admin sidebar and subscription cancel confirm ([b4d532a](https://github.com/mephistofox/fxTunnel/commit/b4d532ab17db9198e190199afb75293a65c74024))
+
+
+### Bug Fixes
+
+* **payment:** remove unused getPassword2 function ([59cc154](https://github.com/mephistofox/fxTunnel/commit/59cc15461af6a6188fdb2cc9994e17e9b6c67192))
+* **payment:** use raw OutSum and IsTest flag from Robokassa callback ([9ad59f6](https://github.com/mephistofox/fxTunnel/commit/9ad59f66e8430f4ec15c48a91d7be54c338efbda))
+* **web:** show all admin menu items on mobile ([c8f162f](https://github.com/mephistofox/fxTunnel/commit/c8f162f720b71acfab446e1e3727f38d89ee4c83))
+
 ## [2.9.1](https://github.com/mephistofox/fxTunnel/compare/v2.9.0...v2.9.1) (2026-02-04)
 
 
