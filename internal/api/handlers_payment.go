@@ -8,8 +8,10 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/exchange"
 	"github.com/mephistofox/fxtunnel/internal/payment"
 )
+
 
 // handleGetSubscription returns the current user's subscription
 func (s *Server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
@@ -151,9 +153,12 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		email = dbUser.Email
 	}
 
+	// Convert USD to RUB for Robokassa
+	priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+
 	paymentURL := robokassa.GeneratePaymentURL(payment.PaymentParams{
 		InvoiceID:   invoiceID,
-		OutSum:      plan.Price,
+		OutSum:      priceRUB,
 		Description: "fxTunnel " + plan.Name + " subscription",
 		Email:       email,
 		Recurring:   req.Recurring,

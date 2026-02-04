@@ -5,10 +5,13 @@ import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
-import { plansApi, subscriptionApi, type Plan } from '@/api/client'
+import api, { plansApi, subscriptionApi, type Plan } from '@/api/client'
 
 const route = useRoute()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+// Exchange rate from API
+const exchangeRate = ref(75) // fallback
 
 const plans = ref<Plan[]>([])
 const selectedPlanId = ref<number | null>(null)
@@ -60,8 +63,23 @@ async function handleCheckout() {
   }
 }
 
-function formatPrice(price: number) {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(price)
+function formatPrice(priceUSD: number) {
+  // Convert USD to RUB for Russian locale
+  if (locale.value === 'ru') {
+    const priceRUB = priceUSD * exchangeRate.value
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(priceRUB)
+  }
+  // Display in USD for other locales
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceUSD)
+}
+
+async function loadExchangeRate() {
+  try {
+    const response = await api.get<{ rate: number }>('/exchange-rate')
+    exchangeRate.value = response.data.rate
+  } catch {
+    // Use fallback rate
+  }
 }
 
 function formatLimit(value: number) {
@@ -69,6 +87,7 @@ function formatLimit(value: number) {
 }
 
 onMounted(() => {
+  loadExchangeRate()
   loadPlans()
 })
 </script>
@@ -207,7 +226,8 @@ onMounted(() => {
           {{ t('checkout.payNow') }}
         </Button>
         <p class="text-xs text-muted-foreground text-center mt-4">
-          {{ t('checkout.securePayment') }}
+          {{ t('checkout.securePaymentVia') }}
+          <a href="https://robokassa.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Robokassa</a>
         </p>
       </Card>
     </div>
