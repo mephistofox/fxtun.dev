@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
@@ -7,6 +8,10 @@ import Card from '@/components/ui/Card.vue'
 
 const themeStore = useThemeStore()
 const { t } = useI18n()
+
+const showOffer = computed(() => {
+  return window.location.hostname === 'fxtun.ru'
+})
 
 function toggleLocale() {
   const current = getLocale()
@@ -189,6 +194,14 @@ function cycleTheme() {
           <div class="text-muted-foreground">{{ t('auth.crossPlatform') }}</div>
         </div>
       </div>
+
+      <!-- Terms agreement (only on fxtun.ru) -->
+      <p v-if="showOffer" class="mt-6 text-center text-xs text-muted-foreground">
+        {{ t('legal.offerAgreement') }}
+        <RouterLink to="/offer" class="text-primary hover:underline">
+          {{ t('legal.offer') }}
+        </RouterLink>
+      </p>
 
     </Card>
   </div>
