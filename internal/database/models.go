@@ -251,3 +251,72 @@ type UserSetting struct {
 	Value     string    `json:"value"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// SubscriptionStatus represents the status of a subscription
+type SubscriptionStatus string
+
+const (
+	SubscriptionStatusPending   SubscriptionStatus = "pending"
+	SubscriptionStatusActive    SubscriptionStatus = "active"
+	SubscriptionStatusCancelled SubscriptionStatus = "cancelled"
+	SubscriptionStatusExpired   SubscriptionStatus = "expired"
+)
+
+// Subscription represents a user's subscription to a plan
+type Subscription struct {
+	ID                  int64              `json:"id"`
+	UserID              int64              `json:"user_id"`
+	PlanID              int64              `json:"plan_id"`
+	NextPlanID          *int64             `json:"next_plan_id,omitempty"`
+	Status              SubscriptionStatus `json:"status"`
+	Recurring           bool               `json:"recurring"`
+	CurrentPeriodStart  *time.Time         `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd    *time.Time         `json:"current_period_end,omitempty"`
+	RobokassaInvoiceID  *int64             `json:"robokassa_invoice_id,omitempty"`
+	CreatedAt           time.Time          `json:"created_at"`
+	UpdatedAt           time.Time          `json:"updated_at"`
+}
+
+// IsActive returns true if the subscription is currently active
+func (s *Subscription) IsActive() bool {
+	return s.Status == SubscriptionStatusActive
+}
+
+// IsCancelled returns true if the subscription is cancelled (but may still be active until period end)
+func (s *Subscription) IsCancelled() bool {
+	return s.Status == SubscriptionStatusCancelled
+}
+
+// PaymentStatus represents the status of a payment
+type PaymentStatus string
+
+const (
+	PaymentStatusPending PaymentStatus = "pending"
+	PaymentStatusSuccess PaymentStatus = "success"
+	PaymentStatusFailed  PaymentStatus = "failed"
+)
+
+// Payment represents a payment record
+type Payment struct {
+	ID             int64         `json:"id"`
+	UserID         int64         `json:"user_id"`
+	SubscriptionID *int64        `json:"subscription_id,omitempty"`
+	InvoiceID      int64         `json:"invoice_id"`
+	Amount         float64       `json:"amount"`
+	Status         PaymentStatus `json:"status"`
+	IsRecurring    bool          `json:"is_recurring"`
+	RobokassaData  string        `json:"robokassa_data,omitempty"`
+	CreatedAt      time.Time     `json:"created_at"`
+}
+
+// Audit log action constants for payments
+const (
+	ActionSubscriptionCreated   = "subscription_created"
+	ActionSubscriptionActivated = "subscription_activated"
+	ActionSubscriptionCancelled = "subscription_cancelled"
+	ActionSubscriptionExpired   = "subscription_expired"
+	ActionSubscriptionChanged   = "subscription_changed"
+	ActionPaymentCreated        = "payment_created"
+	ActionPaymentSuccess        = "payment_success"
+	ActionPaymentFailed         = "payment_failed"
+)

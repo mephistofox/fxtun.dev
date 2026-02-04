@@ -12,21 +12,23 @@ import (
 
 // Database holds the database connection and repositories
 type Database struct {
-	db           *sql.DB
-	log          zerolog.Logger
+	db            *sql.DB
+	log           zerolog.Logger
 	CustomDomains *CustomDomainRepository
 	TLSCerts      *TLSCertRepository
 	Users         *UserRepository
-	Sessions     *SessionRepository
-	Tokens       *APITokenRepository
-	Domains      *DomainRepository
-	Invites      *InviteRepository
-	TOTP         *TOTPRepository
-	Audit        *AuditRepository
-	UserBundles  *UserBundleRepository
-	UserHistory  *UserHistoryRepository
-	UserSettings *UserSettingsRepository
-	Plans        *PlanRepository
+	Sessions      *SessionRepository
+	Tokens        *APITokenRepository
+	Domains       *DomainRepository
+	Invites       *InviteRepository
+	TOTP          *TOTPRepository
+	Audit         *AuditRepository
+	UserBundles   *UserBundleRepository
+	UserHistory   *UserHistoryRepository
+	UserSettings  *UserSettingsRepository
+	Plans         *PlanRepository
+	Subscriptions *SubscriptionRepository
+	Payments      *PaymentRepository
 }
 
 // New creates a new database connection and initializes repositories
@@ -79,6 +81,8 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	database.UserHistory = NewUserHistoryRepository(db)
 	database.UserSettings = NewUserSettingsRepository(db)
 	database.Plans = NewPlanRepository(db)
+	database.Subscriptions = NewSubscriptionRepository(db)
+	database.Payments = NewPaymentRepository(db)
 
 	log.Info().Str("path", dbPath).Msg("Database initialized")
 
@@ -127,6 +131,8 @@ func (d *Database) migrate() error {
 		migrationMakePhoneNullable,
 		migrationCreatePlans,
 		migrationAddPlanVisibility,
+		migrationCreateSubscriptions,
+		migrationCreatePayments,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -423,4 +429,45 @@ CREATE TABLE IF NOT EXISTS tls_certificates (
 const migrationAddPlanVisibility = `
 ALTER TABLE plans ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE plans ADD COLUMN is_recommended BOOLEAN NOT NULL DEFAULT 0;
+`
+
+const migrationCreateSubscriptions = `
+CREATE TABLE subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    plan_id INTEGER NOT NULL,
+    next_plan_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    recurring BOOLEAN NOT NULL DEFAULT 1,
+    current_period_start TIMESTAMP,
+    current_period_end TIMESTAMP,
+    robokassa_invoice_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES plans(id),
+    FOREIGN KEY (next_plan_id) REFERENCES plans(id)
+);
+CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX idx_subscriptions_period_end ON subscriptions(current_period_end);
+`
+
+const migrationCreatePayments = `
+CREATE TABLE payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    subscription_id INTEGER,
+    invoice_id INTEGER NOT NULL UNIQUE,
+    amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    is_recurring BOOLEAN NOT NULL DEFAULT 0,
+    robokassa_data TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_payments_user_id ON payments(user_id);
+CREATE INDEX idx_payments_invoice_id ON payments(invoice_id);
+CREATE INDEX idx_payments_status ON payments(status);
 `
