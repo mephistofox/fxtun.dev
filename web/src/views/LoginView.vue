@@ -1,44 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
-import Button from '@/components/ui/Button.vue'
-import Input from '@/components/ui/Input.vue'
 import Card from '@/components/ui/Card.vue'
 
-const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const { t } = useI18n()
-
-const identifier = ref('')
-const password = ref('')
-const totpCode = ref('')
-const showTotp = ref(false)
-const error = ref('')
-
-async function handleSubmit() {
-  error.value = ''
-  try {
-    await authStore.login({
-      phone: identifier.value,
-      password: password.value,
-      totp_code: showTotp.value ? totpCode.value : undefined,
-    })
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string; code?: string } } }
-    const code = err.response?.data?.code?.toUpperCase()
-    if (code === 'TOTP_REQUIRED') {
-      showTotp.value = true
-    } else if (code === 'USER_INACTIVE') {
-      error.value = t('auth.accountBlocked')
-    } else {
-      error.value = err.response?.data?.error || t('auth.loginFailed')
-    }
-  }
-}
 
 function toggleLocale() {
   const current = getLocale()
@@ -163,52 +131,6 @@ function cycleTheme() {
         </a>
       </div>
 
-      <div class="relative my-6">
-        <div class="absolute inset-0 flex items-center">
-          <div class="w-full border-t border-border"></div>
-        </div>
-        <div class="relative flex justify-center text-xs uppercase">
-          <span class="bg-card px-2 text-muted-foreground">{{ t('auth.or') }}</span>
-        </div>
-      </div>
-
-      <details class="group">
-        <summary class="flex items-center justify-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-          </svg>
-          {{ t('auth.signInWithPhone') }}
-        </summary>
-        <form @submit.prevent="handleSubmit" class="space-y-5 mt-4">
-          <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-lg text-sm border border-destructive/20">
-            {{ error }}
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-sm font-medium">{{ t('auth.phoneOrEmail') }}</label>
-            <Input v-model="identifier" placeholder="email@example.com" required />
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-sm font-medium">{{ t('auth.password') }}</label>
-            <Input v-model="password" type="password" :placeholder="t('auth.password')" required />
-          </div>
-
-          <div v-if="showTotp" class="space-y-2">
-            <label class="text-sm font-medium">{{ t('auth.totpCode') }}</label>
-            <Input v-model="totpCode" type="text" placeholder="123456" maxlength="6" required />
-          </div>
-
-          <Button type="submit" variant="glow" class="w-full" size="lg" :loading="authStore.loading">
-            {{ t('auth.signIn') }}
-          </Button>
-        </form>
-      </details>
-
-      <p class="text-center text-sm text-muted-foreground mt-6">
-        {{ t('auth.noAccount') }}
-        <RouterLink to="/register" class="text-primary hover:underline font-medium">{{ t('auth.signUp') }}</RouterLink>
-      </p>
     </Card>
   </div>
 </template>
