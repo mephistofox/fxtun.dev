@@ -230,6 +230,15 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 		Str("signature", params.SignatureValue[:16]+"...").
 		Msg("Payment result params parsed")
 
+	// Reject test payments in production mode
+	if params.IsTest && !s.cfg.Robokassa.TestMode {
+		s.log.Warn().
+			Int64("invoice_id", params.InvID).
+			Msg("Test payment rejected in production mode")
+		http.Error(w, "test payments not allowed", http.StatusBadRequest)
+		return
+	}
+
 	// Verify signature
 	if !robokassa.VerifyResultSignature(params) {
 		expected := robokassa.GetExpectedSignature(params)
