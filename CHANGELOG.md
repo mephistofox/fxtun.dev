@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/mephistofox/fxTunnel/compare/v2.6.0...v2.7.0) (2026-02-04)
+
+
+### Features
+
+* **payment:** add dynamic USD to RUB exchange rate ([cec0050](https://github.com/mephistofox/fxTunnel/commit/cec0050560bfc743e7ebb0bfecdb478e415e8345))
+
 ## [2.6.0](https://github.com/mephistofox/fxTunnel/compare/v2.5.0...v2.6.0) (2026-02-04)
 
 
