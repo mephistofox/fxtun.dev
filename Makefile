@@ -37,8 +37,11 @@ test:
 fmt:
 	go fmt ./...
 
+GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
+
 lint:
-	golangci-lint run
+	@test -f $(GOLANGCI_LINT) || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+	$(GOLANGCI_LINT) run
 
 deps:
 	go mod download

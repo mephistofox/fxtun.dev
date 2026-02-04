@@ -280,13 +280,13 @@ func (s *Scheduler) processRecurringRenewals() {
 
 // callRecurringAPI calls Robokassa recurring payment API
 func (s *Scheduler) callRecurringAPI(invoiceID, previousInvoiceID int64, amount float64) (bool, error) {
-	url, values := s.robokassa.GenerateRecurringPaymentURL(payment.RecurringPaymentParams{
+	apiURL, values := s.robokassa.GenerateRecurringPaymentURL(payment.RecurringPaymentParams{
 		InvoiceID:         invoiceID,
 		PreviousInvoiceID: previousInvoiceID,
 		OutSum:            amount,
 	})
 
-	resp, err := http.PostForm(url, values)
+	resp, err := http.PostForm(apiURL, values) //nolint:gosec // URL from trusted Robokassa config
 	if err != nil {
 		return false, err
 	}

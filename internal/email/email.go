@@ -120,6 +120,7 @@ func (s *Service) Send(msg Message) error {
 func (s *Service) sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 	tlsConfig := &tls.Config{
 		ServerName: s.cfg.Host,
+		MinVersion: tls.VersionTLS12,
 	}
 
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
@@ -173,6 +174,7 @@ func (s *Service) sendStartTLS(addr string, auth smtp.Auth, from, to string, msg
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		tlsConfig := &tls.Config{
 			ServerName: s.cfg.Host,
+			MinVersion: tls.VersionTLS12,
 		}
 		if err := client.StartTLS(tlsConfig); err != nil {
 			return fmt.Errorf("starttls: %w", err)
