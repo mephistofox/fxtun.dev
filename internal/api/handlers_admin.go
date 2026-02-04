@@ -612,6 +612,20 @@ func (s *Server) handleListPlans(w http.ResponseWriter, r *http.Request) {
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs, "total": len(planDTOs)})
 }
 
+// handleListPublicPlans returns plans visible on landing page (public, no auth required)
+func (s *Server) handleListPublicPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.db.Plans.ListPublic()
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to list plans")
+		return
+	}
+	planDTOs := make([]*dto.PlanDTO, len(plans))
+	for i, p := range plans {
+		planDTOs[i] = dto.PlanFromModel(p)
+	}
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs})
+}
+
 // handleCreatePlan creates a new plan
 func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreatePlanRequest
@@ -628,6 +642,7 @@ func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 		MaxTunnels: req.MaxTunnels, MaxDomains: req.MaxDomains,
 		MaxCustomDomains: req.MaxCustomDomains, MaxTokens: req.MaxTokens,
 		MaxTunnelsPerToken: req.MaxTunnelsPerToken, InspectorEnabled: req.InspectorEnabled,
+		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
 	}
 	if err := s.db.Plans.Create(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to create plan")
@@ -680,6 +695,12 @@ func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.InspectorEnabled != nil {
 		plan.InspectorEnabled = *req.InspectorEnabled
+	}
+	if req.IsPublic != nil {
+		plan.IsPublic = *req.IsPublic
+	}
+	if req.IsRecommended != nil {
+		plan.IsRecommended = *req.IsRecommended
 	}
 	if err := s.db.Plans.Update(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to update plan")

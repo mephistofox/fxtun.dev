@@ -21,6 +21,7 @@ coverage.out
 
 plan.txt
 docs/blog/
+data/tg/
 
 # Local binaries and configs
 /server

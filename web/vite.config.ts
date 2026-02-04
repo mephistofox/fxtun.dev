@@ -14,7 +14,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    allowedHosts: ["tun.mfdev.ru", "mfdev.ru", "unms.ru"],
+    allowedHosts: ["test.mfdev.ru", "mfdev.ru", "unms.ru"],
     proxy: {
       "/api": {
         target: "https://mfdev.ru",

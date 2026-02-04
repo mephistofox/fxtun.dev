@@ -22,7 +22,7 @@ const currentYear = new Date().getFullYear()
           </div>
           <div>
             <span class="font-display font-semibold text-lg">fxTunnel</span>
-            <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Self-hosted tunneling' }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Secure tunneling' }}</p>
           </div>
         </div>
 
