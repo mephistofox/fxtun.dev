@@ -9,6 +9,7 @@ import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
 import HowItWorksSection from '@/components/landing/HowItWorksSection.vue'
 import ProtocolsSection from '@/components/landing/ProtocolsSection.vue'
+import PricingSection from '@/components/landing/PricingSection.vue'
 import DownloadSection from '@/components/landing/DownloadSection.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 
@@ -80,6 +81,9 @@ onUnmounted(() => {
             </a>
             <a href="#protocols" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.protocols') }}
+            </a>
+            <a href="#pricing" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              {{ t('landing.nav.pricing') }}
             </a>
             <a href="#download" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.download') }}
@@ -203,6 +207,13 @@ onUnmounted(() => {
                 {{ t('landing.nav.protocols') }}
               </a>
               <a
+                href="#pricing"
+                @click="isMobileMenuOpen = false"
+                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                {{ t('landing.nav.pricing') }}
+              </a>
+              <a
                 href="#download"
                 @click="isMobileMenuOpen = false"
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
@@ -228,6 +239,7 @@ onUnmounted(() => {
       <AdvancedFeaturesSection />
       <HowItWorksSection />
       <ProtocolsSection />
+      <PricingSection />
       <DownloadSection />
     </main>
 

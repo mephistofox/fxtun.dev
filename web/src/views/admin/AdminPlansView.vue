@@ -27,6 +27,8 @@ const defaultForm = {
   max_tokens: -1,
   max_tunnels_per_token: -1,
   inspector_enabled: false,
+  is_public: false,
+  is_recommended: false,
 }
 
 const form = ref({ ...defaultForm })
@@ -118,6 +120,8 @@ function startEdit(plan: Plan) {
     max_tokens: plan.max_tokens,
     max_tunnels_per_token: plan.max_tunnels_per_token,
     inspector_enabled: plan.inspector_enabled,
+    is_public: plan.is_public,
+    is_recommended: plan.is_recommended,
   }
 }
 
@@ -216,7 +220,15 @@ onMounted(loadPlans)
             <!-- Header: name + slug + price -->
             <div class="flex items-start justify-between mb-4">
               <div class="min-w-0">
-                <h3 class="text-lg font-semibold text-foreground truncate">{{ plan.name }}</h3>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-lg font-semibold text-foreground truncate">{{ plan.name }}</h3>
+                  <span v-if="plan.is_public" class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    {{ t('admin.plans.public') }}
+                  </span>
+                  <span v-if="plan.is_recommended" class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                    {{ t('admin.plans.recommended') }}
+                  </span>
+                </div>
                 <p class="text-xs font-mono text-muted-foreground mt-0.5">{{ plan.slug }}</p>
               </div>
               <span
@@ -348,6 +360,18 @@ onMounted(loadPlans)
                 </div>
               </div>
 
+              <!-- Visibility settings -->
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 h-10 px-3 rounded-lg border border-input bg-background cursor-pointer">
+                  <input v-model="form.is_public" type="checkbox" class="rounded" />
+                  <span class="text-sm">{{ t('admin.plans.isPublic') }}</span>
+                </label>
+                <label class="flex items-center gap-2 h-10 px-3 rounded-lg border border-input bg-background cursor-pointer">
+                  <input v-model="form.is_recommended" type="checkbox" class="rounded" />
+                  <span class="text-sm">{{ t('admin.plans.isRecommended') }}</span>
+                </label>
+              </div>
+
               <p class="text-xs text-muted-foreground">{{ t('admin.plans.unlimitedHint') }}</p>
 
               <div class="flex gap-2 pt-2">
@@ -423,6 +447,18 @@ onMounted(loadPlans)
                       <span class="text-sm">{{ t('admin.plans.inspectorEnabled') }}</span>
                     </label>
                   </div>
+                </div>
+
+                <!-- Visibility settings -->
+                <div class="grid grid-cols-2 gap-3">
+                  <label class="flex items-center gap-2 h-10 px-3 rounded-lg border border-input bg-background cursor-pointer">
+                    <input v-model="form.is_public" type="checkbox" class="rounded" />
+                    <span class="text-sm">{{ t('admin.plans.isPublic') }}</span>
+                  </label>
+                  <label class="flex items-center gap-2 h-10 px-3 rounded-lg border border-input bg-background cursor-pointer">
+                    <input v-model="form.is_recommended" type="checkbox" class="rounded" />
+                    <span class="text-sm">{{ t('admin.plans.isRecommended') }}</span>
+                  </label>
                 </div>
 
                 <p class="text-xs text-muted-foreground">{{ t('admin.plans.unlimitedHint') }}</p>

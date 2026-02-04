@@ -82,6 +82,8 @@ type CreatePlanRequest struct {
 	MaxTokens          int     `json:"max_tokens"`
 	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
 	InspectorEnabled   bool    `json:"inspector_enabled"`
+	IsPublic           bool    `json:"is_public"`
+	IsRecommended      bool    `json:"is_recommended"`
 }
 
 // UpdatePlanRequest represents a plan update request
@@ -94,6 +96,8 @@ type UpdatePlanRequest struct {
 	MaxTokens          *int     `json:"max_tokens,omitempty"`
 	MaxTunnelsPerToken *int     `json:"max_tunnels_per_token,omitempty"`
 	InspectorEnabled   *bool    `json:"inspector_enabled,omitempty"`
+	IsPublic           *bool    `json:"is_public,omitempty"`
+	IsRecommended      *bool    `json:"is_recommended,omitempty"`
 }
 
 // MergeUsersRequest represents a request to merge two users

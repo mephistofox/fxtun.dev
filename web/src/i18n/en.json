@@ -4,16 +4,17 @@
       "features": "Features",
       "howItWorks": "How It Works",
       "protocols": "Protocols",
+      "pricing": "Pricing",
       "download": "Download",
       "advanced": "Superpowers",
       "backToHome": "Back to home"
     },
     "hero": {
-      "badge": "Self-hosted",
+      "badge": "Secure Tunneling",
       "titleLine1": "Expose your",
       "titleLine2": "project",
       "titleLine3": "to the world",
-      "subtitle": "Self-hosted reverse tunneling solution. Share your localhost with anyone, anywhere, using your own infrastructure.",
+      "subtitle": "Fast and secure tunneling service. Share your localhost with anyone, anywhere, in seconds.",
       "getStarted": "Get Started",
       "learnMore": "Learn More"
     },
@@ -23,9 +24,9 @@
       "subtitle": "A modern tunneling solution built for developers who value control, security, and simplicity.",
       "control": {
         "title": "Full Control",
-        "desc": "Run on your own infrastructure. No third-party dependencies, complete data ownership, and zero vendor lock-in.",
-        "highlight1": "Self-hosted on your servers",
-        "highlight2": "No data leaves your infrastructure",
+        "desc": "Secure and private by default. Complete data ownership, no third-party tracking.",
+        "highlight1": "Your data stays private",
+        "highlight2": "End-to-end encrypted connections",
         "highlight3": "Custom domain support"
       },
       "protocols": {
@@ -155,11 +156,27 @@
       "copied": "Copied!",
       "noBuilds": "No builds available yet",
       "note": "After registration, download the client and generate API tokens from your dashboard.",
-      "openSource": "Open source and self-hosted",
-      "secure": "Self-hosted & Secure"
+      "openSource": "Fast and reliable",
+      "secure": "Private & Secure"
+    },
+    "pricing": {
+      "label": "Pricing",
+      "title": "Choose Your Plan",
+      "subtitle": "Start free, scale as you grow.",
+      "popular": "Popular",
+      "free": "Free",
+      "perMonth": "/mo",
+      "selectPlan": "Get Started",
+      "tunnels": "tunnels",
+      "domains": "domains",
+      "customDomains": "custom domains",
+      "tokens": "API tokens",
+      "inspector": "HTTP Inspector",
+      "unlimited": "Unlimited",
+      "noPlans": "No plans available"
     },
     "footer": {
-      "tagline": "Self-hosted tunneling",
+      "tagline": "Secure tunneling",
       "releases": "Releases",
       "issues": "Issues",
       "rights": "All rights reserved."
@@ -536,7 +553,11 @@
       "confirmDelete": "Delete plan \"{name}\"? This will fail if users are assigned to it.",
       "yes": "Yes",
       "no": "No",
-      "unlimited": "unlimited"
+      "unlimited": "unlimited",
+      "public": "Public",
+      "recommended": "Recommended",
+      "isPublic": "Show on Landing",
+      "isRecommended": "Recommended"
     },
     "customDomains": {
       "title": "Custom Domains",

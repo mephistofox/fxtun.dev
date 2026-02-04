@@ -186,6 +186,10 @@ export const downloadsApi = {
   list: () => api.get<DownloadsResponse>('/downloads'),
 }
 
+export const plansApi = {
+  listPublic: () => api.get<{ plans: Plan[] }>('/plans/public'),
+}
+
 // Custom domains
 export interface CustomDomain {
   id: number
@@ -286,6 +290,8 @@ export interface Plan {
   max_tokens: number
   max_tunnels_per_token: number
   inspector_enabled: boolean
+  is_public: boolean
+  is_recommended: boolean
 }
 
 export const adminApi = {

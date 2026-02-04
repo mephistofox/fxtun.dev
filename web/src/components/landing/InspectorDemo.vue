@@ -112,9 +112,9 @@ onUnmounted(() => {
       <span class="text-foreground">my-app.tunnel.dev</span>
     </div>
 
-    <div class="flex">
+    <div class="flex overflow-hidden">
       <!-- Request list -->
-      <div class="border-r border-border" :class="selectedRequest ? 'w-full lg:w-1/2' : 'w-full'">
+      <div class="border-r border-border min-w-0" :class="selectedRequest ? 'w-full lg:w-1/2' : 'w-full'">
         <div class="flex-1 overflow-hidden relative">
           <TransitionGroup name="req" tag="div" class="relative">
             <div
@@ -125,12 +125,12 @@ onUnmounted(() => {
               @mousedown.prevent
               @click="selectRow(req.id)"
             >
-              <span class="w-11 font-semibold shrink-0" :class="methodColor(req.method)">{{ req.method }}</span>
-              <span class="text-foreground/80 truncate flex-1">{{ req.path }}</span>
-              <span class="w-8 text-right shrink-0" :class="statusColor(req.status)">{{ req.status }}</span>
-              <span class="w-11 text-right text-muted-foreground shrink-0">{{ req.duration }}</span>
+              <span class="w-9 sm:w-11 font-semibold shrink-0 text-[10px] sm:text-xs" :class="methodColor(req.method)">{{ req.method }}</span>
+              <span class="text-foreground/80 truncate flex-1 min-w-0">{{ req.path }}</span>
+              <span class="w-7 sm:w-8 text-right shrink-0" :class="statusColor(req.status)">{{ req.status }}</span>
+              <span class="hidden sm:inline w-11 text-right text-muted-foreground shrink-0">{{ req.duration }}</span>
               <button
-                class="shrink-0 px-2 py-1 rounded text-[10px] border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                class="shrink-0 px-1.5 sm:px-2 py-1 rounded text-[10px] border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
                 @click.stop="replay(req.id)"
               >
                 <svg

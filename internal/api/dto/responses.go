@@ -31,6 +31,8 @@ type PlanDTO struct {
 	MaxTokens          int     `json:"max_tokens"`
 	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
 	InspectorEnabled   bool    `json:"inspector_enabled"`
+	IsPublic           bool    `json:"is_public"`
+	IsRecommended      bool    `json:"is_recommended"`
 }
 
 // PlanFromModel converts a database Plan to PlanDTO
@@ -43,6 +45,7 @@ func PlanFromModel(p *database.Plan) *PlanDTO {
 		MaxTunnels: p.MaxTunnels, MaxDomains: p.MaxDomains,
 		MaxCustomDomains: p.MaxCustomDomains, MaxTokens: p.MaxTokens,
 		MaxTunnelsPerToken: p.MaxTunnelsPerToken, InspectorEnabled: p.InspectorEnabled,
+		IsPublic: p.IsPublic, IsRecommended: p.IsRecommended,
 	}
 }
 
