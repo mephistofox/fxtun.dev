@@ -4,6 +4,7 @@ configs/server.yaml
 configs/nginx-mfdev.conf
 node_modules/
 dist/
+.env
 
 # GUI
 gui/dist/
