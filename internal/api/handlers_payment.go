@@ -121,21 +121,6 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create payment record
-	pmt := &database.Payment{
-		UserID:         user.ID,
-		SubscriptionID: &sub.ID,
-		InvoiceID:      invoiceID,
-		Amount:         plan.Price,
-		Status:         database.PaymentStatusPending,
-		IsRecurring:    req.Recurring,
-	}
-	if err := s.db.Payments.Create(pmt); err != nil {
-		s.log.Error().Err(err).Msg("Failed to create payment")
-		s.respondError(w, http.StatusInternalServerError, "failed to create payment")
-		return
-	}
-
 	// Generate Robokassa URL
 	robokassa := payment.NewRobokassa(payment.RobokassaConfig{
 		MerchantLogin: s.cfg.Robokassa.MerchantLogin,
@@ -155,6 +140,21 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 
 	// Convert USD to RUB for Robokassa
 	priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+
+	// Create payment record with RUB amount (same as sent to Robokassa)
+	pmt := &database.Payment{
+		UserID:         user.ID,
+		SubscriptionID: &sub.ID,
+		InvoiceID:      invoiceID,
+		Amount:         priceRUB,
+		Status:         database.PaymentStatusPending,
+		IsRecurring:    req.Recurring,
+	}
+	if err := s.db.Payments.Create(pmt); err != nil {
+		s.log.Error().Err(err).Msg("Failed to create payment")
+		s.respondError(w, http.StatusInternalServerError, "failed to create payment")
+		return
+	}
 
 	paymentURL := robokassa.GeneratePaymentURL(payment.PaymentParams{
 		InvoiceID:   invoiceID,
