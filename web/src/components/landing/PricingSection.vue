@@ -106,7 +106,7 @@ onMounted(async () => {
         ]"
       >
         <div
-          v-for="(plan, index) in sortedPlans"
+          v-for="plan in sortedPlans"
           :key="plan.id"
           class="relative group"
           :class="{ 'md:scale-105 md:z-10': plan.is_recommended }"
