@@ -249,6 +249,7 @@
     "adminTunnels": "Tunnels",
     "adminCustomDomains": "Custom Domains",
     "adminPlans": "Plans",
+    "adminSubscriptions": "Subscriptions",
     "adminAudit": "Audit"
   },
   "auth": {
