@@ -469,7 +469,20 @@
     "googleLinked": "Google account linked",
     "googleNotLinked": "Link your Google account to enable OAuth sign-in.",
     "linkGoogle": "Link Google Account",
-    "googleLinkSuccess": "Google account linked successfully"
+    "googleLinkSuccess": "Google account linked successfully",
+    "subscriptionSection": "Subscription",
+    "subscriptionActive": "Active",
+    "subscriptionCancelled": "Cancelled",
+    "renewsOn": "Renews on",
+    "expiresOn": "Expires on",
+    "autoRenewal": "Auto-renewal",
+    "nextPlan": "Next plan",
+    "cancelSubscription": "Cancel subscription",
+    "changePlan": "Change plan",
+    "noSubscription": "You don't have an active subscription",
+    "upgradePlan": "Choose a plan",
+    "confirmCancelSubscription": "Are you sure you want to cancel auto-renewal? Your subscription will remain active until the end of the paid period.",
+    "failedToCancelSubscription": "Failed to cancel subscription"
   },
   "theme": {
     "light": "Light",
