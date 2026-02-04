@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.6.0](https://github.com/mephistofox/fxTunnel/compare/v2.5.0...v2.6.0) (2026-02-04)
+
+
+### Features
+
+* **admin:** add subscription and payment management ([067abeb](https://github.com/mephistofox/fxTunnel/commit/067abeb429c365b1f65f7cf473ccaf40fea99b7c))
+* **api:** add payment and subscription endpoints ([aad3d0c](https://github.com/mephistofox/fxTunnel/commit/aad3d0c6340c83ffbd2bb6486f02b756ab78de7c))
+* **db:** add subscription and payment models ([fb27fab](https://github.com/mephistofox/fxTunnel/commit/fb27fab9493b3b7aefd7e8ab577eae16a3724e59))
+* **email:** add email notification service ([f3b46cc](https://github.com/mephistofox/fxTunnel/commit/f3b46ccfcff692ed7b9b8e2ebb302866dc15d903))
+* **payment:** add Robokassa integration module ([8944821](https://github.com/mephistofox/fxTunnel/commit/89448212ffd1eec61cf1f171de5c829234c91438))
+* **scheduler:** add subscription lifecycle scheduler ([848aad2](https://github.com/mephistofox/fxTunnel/commit/848aad2742ab5cb35aa366ebe837c3a4d11f636a))
+* **web:** add checkout and payment result pages ([3a3b9e8](https://github.com/mephistofox/fxTunnel/commit/3a3b9e8cb3f6e44fec8be01fc20b9193d28cb324))
+* **web:** add public offer page for Robokassa compliance ([0585885](https://github.com/mephistofox/fxTunnel/commit/05858858feedb32768a4c84933d5f2093e10c5d2))
+* **web:** add subscription section to profile page ([e06a1cb](https://github.com/mephistofox/fxTunnel/commit/e06a1cb12729813fd5b2838601cd83670f59d825))
+
+
+### Bug Fixes
+
+* handle errcheck warnings in payment and scheduler ([3baa72c](https://github.com/mephistofox/fxTunnel/commit/3baa72c12e227c3c4a6fb5ca956885a9746347f5))
+* resolve golangci-lint warnings ([f90e639](https://github.com/mephistofox/fxTunnel/commit/f90e639fffc083ff8bc06a9247700310dca9ea4e))
+* **web:** show offer link only on fxtun.ru domain ([6b2e2d0](https://github.com/mephistofox/fxTunnel/commit/6b2e2d0b4a18725476ea2404ea5c307d28b93a48))
+
 ## [2.5.0](https://github.com/mephistofox/fxTunnel/compare/v2.4.1...v2.5.0) (2026-02-04)
 
 
