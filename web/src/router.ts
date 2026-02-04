@@ -37,13 +37,21 @@ const router = createRouter({
       path: '/payment/success',
       name: 'payment-success',
       component: () => import('./views/PaymentSuccessView.vue'),
-      meta: { requiresAuth: true },
+    },
+    {
+      path: '/payments/success',
+      name: 'payments-success',
+      component: () => import('./views/PaymentSuccessView.vue'),
     },
     {
       path: '/payment/fail',
       name: 'payment-fail',
       component: () => import('./views/PaymentFailView.vue'),
-      meta: { requiresAuth: true },
+    },
+    {
+      path: '/payments/fail',
+      name: 'payments-fail',
+      component: () => import('./views/PaymentFailView.vue'),
     },
     {
       path: '/auth/callback',
