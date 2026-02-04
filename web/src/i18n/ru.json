@@ -445,6 +445,13 @@
     "en": "English",
     "ru": "Русский"
   },
+  "legal": {
+    "offer": "Оферта",
+    "offerTitle": "Публичная оферта",
+    "offerAgreement": "Регистрируясь, вы соглашаетесь с условиями",
+    "downloadPdf": "Скачать PDF",
+    "lastUpdated": "Дата последнего обновления"
+  },
   "admin": {
     "failedToLoad": "Не удалось загрузить данные",
     "dashboard": {
