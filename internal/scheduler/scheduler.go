@@ -123,6 +123,9 @@ func (s *Scheduler) runChecks() {
 
 	// 4. Send expiration reminders
 	s.sendExpirationReminders()
+
+	// 5. Cleanup stale pending payments
+	s.cleanupStalePendingPayments()
 }
 
 // processExpiredSubscriptions deactivates expired non-recurring subscriptions
@@ -445,6 +448,19 @@ func (s *Scheduler) downgradeToFreePlan(userID int64) error {
 
 	user.PlanID = freePlan.ID
 	return s.db.Users.Update(user)
+}
+
+// cleanupStalePendingPayments deletes pending payments older than 24 hours
+func (s *Scheduler) cleanupStalePendingPayments() {
+	deleted, err := s.db.Payments.DeleteStalePending(24 * time.Hour)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to cleanup stale pending payments")
+		return
+	}
+
+	if deleted > 0 {
+		s.log.Info().Int64("count", deleted).Msg("Cleaned up stale pending payments")
+	}
 }
 
 // RunOnce runs all checks once (useful for testing)
