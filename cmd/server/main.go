@@ -15,6 +15,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/email"
 	"github.com/mephistofox/fxtunnel/internal/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
@@ -200,11 +201,24 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 		}()
 
+		// Initialize email service
+		var emailService *email.Service
+		var notifier *email.Notifier
+		if cfg.SMTP.Enabled {
+			emailService = email.New(&cfg.SMTP, log)
+			baseURL := fmt.Sprintf("https://%s", cfg.Domain.Base)
+			if cfg.Web.Port != 443 && cfg.Web.Port != 80 {
+				baseURL = fmt.Sprintf("http://%s:%d", cfg.Domain.Base, cfg.Web.Port)
+			}
+			notifier = email.NewNotifier(emailService, db, baseURL, cfg.SMTP.From, log)
+			log.Info().Msg("Email service initialized")
+		}
+
 		// Start subscription scheduler if payments are enabled
 		if cfg.Robokassa.Enabled {
 			subscriptionScheduler := scheduler.New(db, cfg, log)
 
-			// Register event handler for logging (email notifications can be added here later)
+			// Register event handler for logging
 			subscriptionScheduler.OnEvent(func(event scheduler.Event) {
 				switch event.Type {
 				case scheduler.EventSubscriptionExpiring:
@@ -232,6 +246,12 @@ func run(cmd *cobra.Command, args []string) error {
 						Msg("Plan changed")
 				}
 			})
+
+			// Register email notifier if available
+			if notifier != nil {
+				subscriptionScheduler.OnEvent(notifier.HandleSchedulerEvent)
+				log.Info().Msg("Email notifications enabled for scheduler")
+			}
 
 			go subscriptionScheduler.Start(ctx)
 			log.Info().Msg("Subscription scheduler started")
