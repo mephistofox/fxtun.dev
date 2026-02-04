@@ -445,6 +445,13 @@
     "en": "English",
     "ru": "Русский"
   },
+  "legal": {
+    "offer": "Terms of Service",
+    "offerTitle": "Public Offer Agreement",
+    "offerAgreement": "By signing up, you agree to the",
+    "downloadPdf": "Download PDF",
+    "lastUpdated": "Last updated"
+  },
   "admin": {
     "failedToLoad": "Failed to load data",
     "dashboard": {

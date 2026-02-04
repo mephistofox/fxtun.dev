@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 
@@ -6,8 +7,8 @@ const { t } = useI18n()
 
 const currentYear = new Date().getFullYear()
 
-const currentDomain = computed(() => {
-  return window.location.host
+const showOffer = computed(() => {
+  return window.location.hostname === 'fxtun.ru'
 })
 </script>
 
@@ -31,16 +32,18 @@ const currentDomain = computed(() => {
           </div>
         </div>
 
-        <!-- Links -->
-        <div class="flex items-center gap-6">
-          <span class="text-sm text-muted-foreground">
-            {{ currentDomain }}
-          </span>
-        </div>
+        <!-- Offer link (only on fxtun.ru) -->
+        <RouterLink
+          v-if="showOffer"
+          to="/offer"
+          class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {{ t('legal.offer') }}
+        </RouterLink>
 
         <!-- Copyright -->
         <p class="text-sm text-muted-foreground">
-          {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}
+          © {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}
         </p>
       </div>
     </div>
