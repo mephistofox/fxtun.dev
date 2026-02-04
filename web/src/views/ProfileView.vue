@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import { useAuthStore } from '@/stores/auth'
-import { profileApi, totpApi, type ProfileResponse } from '@/api/client'
+import { profileApi, totpApi, subscriptionApi, type ProfileResponse, type Subscription } from '@/api/client'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
 
 const profile = ref<ProfileResponse | null>(null)
+
+// Subscription
+const subscription = ref<Subscription | null>(null)
+const cancellingSubscription = ref(false)
+const subscriptionError = ref('')
 
 // GitHub linking
 const githubLinkSuccess = ref(false)
@@ -158,6 +164,39 @@ async function loadProfile() {
   }
 }
 
+async function loadSubscription() {
+  try {
+    const response = await subscriptionApi.get()
+    subscription.value = response.data.subscription
+  } catch {
+    // Ignore errors
+  }
+}
+
+async function cancelSubscription() {
+  if (!confirm(t('profile.confirmCancelSubscription'))) return
+
+  cancellingSubscription.value = true
+  subscriptionError.value = ''
+  try {
+    await subscriptionApi.cancel()
+    await loadSubscription()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    subscriptionError.value = err.response?.data?.error || t('profile.failedToCancelSubscription')
+  } finally {
+    cancellingSubscription.value = false
+  }
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+}
+
 function getGitHubLinkUrl() {
   const token = localStorage.getItem('accessToken')
   return `/api/auth/github?link=true&token=${token}`
@@ -170,6 +209,7 @@ function getGoogleLinkUrl() {
 
 onMounted(() => {
   loadProfile()
+  loadSubscription()
   if (route.query.github_linked === 'true') {
     githubLinkSuccess.value = true
     authStore.refreshProfile()
@@ -323,6 +363,68 @@ onMounted(() => {
                   <div class="text-sm font-semibold font-mono" :class="profile.plan.inspector_enabled ? 'text-green-400' : 'text-muted-foreground'">{{ profile.plan.inspector_enabled ? 'Enabled' : 'Disabled' }}</div>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          <!-- Subscription Card -->
+          <Card class="p-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">{{ t('profile.subscriptionSection') }}</h2>
+
+            <div v-if="subscriptionError" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm mb-4">
+              {{ subscriptionError }}
+            </div>
+
+            <!-- Active subscription -->
+            <div v-if="subscription && (subscription.status === 'active' || subscription.status === 'cancelled')">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span class="text-lg font-bold">{{ subscription.plan?.name || 'Plan' }}</span>
+                  <span
+                    class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full"
+                    :class="subscription.status === 'active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
+                  >
+                    {{ subscription.status === 'active' ? t('profile.subscriptionActive') : t('profile.subscriptionCancelled') }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-2 text-sm">
+                <div v-if="subscription.current_period_end" class="flex justify-between">
+                  <span class="text-muted-foreground">{{ subscription.status === 'active' ? t('profile.renewsOn') : t('profile.expiresOn') }}</span>
+                  <span class="font-medium">{{ formatDate(subscription.current_period_end) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-muted-foreground">{{ t('profile.autoRenewal') }}</span>
+                  <span class="font-medium" :class="subscription.recurring ? 'text-green-400' : 'text-muted-foreground'">
+                    {{ subscription.recurring ? t('common.yes') : t('common.no') }}
+                  </span>
+                </div>
+                <div v-if="subscription.next_plan" class="flex justify-between">
+                  <span class="text-muted-foreground">{{ t('profile.nextPlan') }}</span>
+                  <span class="font-medium text-primary">{{ subscription.next_plan.name }}</span>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-border flex flex-col sm:flex-row gap-2">
+                <Button
+                  v-if="subscription.status === 'active' && subscription.recurring"
+                  variant="destructive"
+                  size="sm"
+                  :loading="cancellingSubscription"
+                  @click="cancelSubscription"
+                >
+                  {{ t('profile.cancelSubscription') }}
+                </Button>
+                <Button size="sm" variant="outline" @click="router.push('/checkout')">
+                  {{ t('profile.changePlan') }}
+                </Button>
+              </div>
+            </div>
+
+            <!-- No subscription -->
+            <div v-else class="text-center py-4">
+              <p class="text-muted-foreground mb-4">{{ t('profile.noSubscription') }}</p>
+              <Button @click="router.push('/checkout')">{{ t('profile.upgradePlan') }}</Button>
             </div>
           </Card>
 
