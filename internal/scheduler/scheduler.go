@@ -158,7 +158,7 @@ func (s *Scheduler) processExpiredSubscriptions() {
 		}
 
 		// Log audit
-		s.db.Audit.Log(&sub.UserID, database.ActionSubscriptionExpired, map[string]interface{}{
+		_ = s.db.Audit.Log(&sub.UserID, database.ActionSubscriptionExpired, map[string]interface{}{
 			"subscription_id": sub.ID,
 			"plan_id":         sub.PlanID,
 		}, "scheduler")
@@ -255,7 +255,7 @@ func (s *Scheduler) processRecurringRenewals() {
 				Msg("Recurring payment API call failed")
 
 			pmt.Status = database.PaymentStatusFailed
-			s.db.Payments.Update(pmt)
+			_ = s.db.Payments.Update(pmt)
 
 			// Emit failure event
 			s.emit(Event{
@@ -356,7 +356,7 @@ func (s *Scheduler) applyPlanChanges() {
 		}
 
 		// Log audit
-		s.db.Audit.Log(&sub.UserID, database.ActionSubscriptionChanged, map[string]interface{}{
+		_ = s.db.Audit.Log(&sub.UserID, database.ActionSubscriptionChanged, map[string]interface{}{
 			"subscription_id": sub.ID,
 			"old_plan_id":     oldPlanID,
 			"new_plan_id":     sub.PlanID,
