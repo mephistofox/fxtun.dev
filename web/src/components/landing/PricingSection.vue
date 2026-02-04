@@ -151,31 +151,33 @@ onMounted(async () => {
             <div class="h-px bg-border mb-6" />
 
             <!-- Features list -->
-            <ul class="space-y-4 mb-8">
+            <ul class="space-y-3 mb-8">
               <!-- Tunnels -->
-              <li class="flex items-center gap-3">
-                <svg class="h-5 w-5 text-primary flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <li class="flex items-start gap-3">
+                <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <span>
-                  <strong>{{ displayLimit(plan.max_tunnels) }}</strong> {{ t('landing.pricing.tunnels') }}
-                </span>
+                <div>
+                  <span><strong>{{ displayLimit(plan.max_tunnels) }}</strong> {{ t('landing.pricing.tunnels') }}</span>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.tunnelsDesc') }}</p>
+                </div>
               </li>
 
               <!-- Domains -->
-              <li class="flex items-center gap-3">
-                <svg class="h-5 w-5 text-primary flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <li class="flex items-start gap-3">
+                <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <span>
-                  <strong>{{ displayLimit(plan.max_domains) }}</strong> {{ t('landing.pricing.domains') }}
-                </span>
+                <div>
+                  <span><strong>{{ displayLimit(plan.max_domains) }}</strong> {{ t('landing.pricing.domains') }}</span>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.domainsDesc') }}</p>
+                </div>
               </li>
 
               <!-- Custom Domains -->
-              <li class="flex items-center gap-3">
+              <li class="flex items-start gap-3">
                 <svg
-                  class="h-5 w-5 flex-shrink-0"
+                  class="h-5 w-5 flex-shrink-0 mt-0.5"
                   :class="plan.max_custom_domains > 0 ? 'text-primary' : 'text-muted-foreground/50'"
                   viewBox="0 0 20 20"
                   fill="currentColor"
@@ -183,25 +185,27 @@ onMounted(async () => {
                   <path v-if="plan.max_custom_domains > 0" fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                   <path v-else fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
                 </svg>
-                <span :class="{ 'text-muted-foreground': plan.max_custom_domains === 0 }">
-                  <strong>{{ displayLimit(plan.max_custom_domains) }}</strong> {{ t('landing.pricing.customDomains') }}
-                </span>
+                <div :class="{ 'text-muted-foreground': plan.max_custom_domains === 0 }">
+                  <span><strong>{{ displayLimit(plan.max_custom_domains) }}</strong> {{ t('landing.pricing.customDomains') }}</span>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.customDomainsDesc') }}</p>
+                </div>
               </li>
 
               <!-- Tokens -->
-              <li class="flex items-center gap-3">
-                <svg class="h-5 w-5 text-primary flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <li class="flex items-start gap-3">
+                <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <span>
-                  <strong>{{ displayLimit(plan.max_tokens) }}</strong> {{ t('landing.pricing.tokens') }}
-                </span>
+                <div>
+                  <span><strong>{{ displayLimit(plan.max_tokens) }}</strong> {{ t('landing.pricing.tokens') }}</span>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.tokensDesc') }}</p>
+                </div>
               </li>
 
               <!-- Inspector -->
-              <li class="flex items-center gap-3">
+              <li class="flex items-start gap-3">
                 <svg
-                  class="h-5 w-5 flex-shrink-0"
+                  class="h-5 w-5 flex-shrink-0 mt-0.5"
                   :class="plan.inspector_enabled ? 'text-primary' : 'text-muted-foreground/50'"
                   viewBox="0 0 20 20"
                   fill="currentColor"
@@ -209,9 +213,10 @@ onMounted(async () => {
                   <path v-if="plan.inspector_enabled" fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                   <path v-else fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
                 </svg>
-                <span :class="{ 'text-muted-foreground': !plan.inspector_enabled }">
-                  {{ t('landing.pricing.inspector') }}
-                </span>
+                <div :class="{ 'text-muted-foreground': !plan.inspector_enabled }">
+                  <span>{{ t('landing.pricing.inspector') }}</span>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.inspectorDesc') }}</p>
+                </div>
               </li>
             </ul>
 
