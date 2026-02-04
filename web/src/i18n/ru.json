@@ -94,11 +94,11 @@
       },
       "lowLatency": {
         "title": "Низкая задержка",
-        "desc": "Пул предоткрытых стримов и оптимизированные 256KB буферы. Задержка первого запроса практически устранена."
+        "desc": "Пул предоткрытых стримов и оптимизированные буферы. Задержка первого запроса практически устранена."
       },
-      "metrics": {
-        "title": "Prometheus-метрики",
-        "desc": "Встроенный /metrics endpoint для Grafana-дашбордов, алертов и мониторинга в продакшене."
+      "reconnect": {
+        "title": "Автореконнект",
+        "desc": "Автоматическое переподключение при обрыве связи. Ваши туннели всегда онлайн."
       }
     },
     "howItWorks": {
@@ -238,12 +238,12 @@
     "accountBlocked": "Ваш аккаунт заблокирован. Обратитесь к администратору.",
     "registrationFailed": "Ошибка регистрации",
     "or": "или",
-    "signInWithGitHub": "Войти через GitHub",
-    "signUpWithGitHub": "Регистрация через GitHub",
-    "signInWithGoogle": "Войти через Google",
-    "signUpWithGoogle": "Регистрация через Google",
-    "signInWithPhone": "Войти по номеру телефона",
-    "signUpWithPhone": "Регистрация по номеру"
+    "signInWithGitHub": "Продолжить с GitHub",
+    "signUpWithGitHub": "Продолжить с GitHub",
+    "signInWithGoogle": "Продолжить с Google",
+    "signUpWithGoogle": "Продолжить с Google",
+    "signInWithPhone": "Войти по телефону",
+    "signUpWithPhone": "Регистрация по телефону"
   },
   "dashboard": {
     "title": "Панель управления",

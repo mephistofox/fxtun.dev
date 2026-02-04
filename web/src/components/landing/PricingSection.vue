@@ -3,8 +3,10 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
+import { useCurrencyRate } from '@/composables/useCurrencyRate'
 
 const { t } = useI18n()
+const { isRuDomain, loadRate, formatPrice } = useCurrencyRate()
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
@@ -33,6 +35,11 @@ onMounted(async () => {
   )
   if (sectionRef.value) {
     observer.observe(sectionRef.value)
+  }
+
+  // Load currency rate for RU domains
+  if (isRuDomain.value) {
+    loadRate()
   }
 
   try {
@@ -97,12 +104,13 @@ onMounted(async () => {
       <!-- Pricing cards -->
       <div
         v-else
-        class="grid gap-8 reveal reveal-delay-3"
+        class="grid gap-6 reveal reveal-delay-3"
         :class="[
           { 'visible': isVisible },
           plans.length === 1 ? 'max-w-md mx-auto' : '',
           plans.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : '',
-          plans.length >= 3 ? 'md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto' : '',
+          plans.length === 3 ? 'md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto' : '',
+          plans.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto' : '',
         ]"
       >
         <div
@@ -127,102 +135,69 @@ onMounted(async () => {
           <!-- Card -->
           <div
             :class="[
-              'h-full rounded-2xl p-8 transition-all duration-300',
+              'h-full rounded-2xl p-6 transition-all duration-300 flex flex-col',
               plan.is_recommended
                 ? 'bg-surface border-2 border-primary shadow-xl shadow-primary/10 group-hover:shadow-2xl group-hover:shadow-primary/20'
                 : 'bg-surface/50 border border-border group-hover:border-primary/30 group-hover:shadow-lg',
             ]"
           >
             <!-- Plan name -->
-            <h3 class="text-xl font-display font-semibold mb-2">{{ plan.name }}</h3>
+            <h3 class="text-lg font-display font-semibold mb-2">{{ plan.name }}</h3>
 
             <!-- Price -->
-            <div class="mb-6">
-              <span v-if="plan.price === 0" class="text-4xl font-display font-bold">
+            <div class="mb-4">
+              <span v-if="plan.price === 0" class="text-3xl font-display font-bold">
                 {{ t('landing.pricing.free') }}
               </span>
               <template v-else>
-                <span class="text-4xl font-display font-bold">${{ plan.price }}</span>
-                <span class="text-muted-foreground">{{ t('landing.pricing.perMonth') }}</span>
+                <span class="text-3xl font-display font-bold">{{ formatPrice(plan.price) }}</span>
+                <span class="text-sm text-muted-foreground">{{ t('landing.pricing.perMonth') }}</span>
               </template>
             </div>
 
             <!-- Divider -->
-            <div class="h-px bg-border mb-6" />
+            <div class="h-px bg-border mb-4" />
 
             <!-- Features list -->
-            <ul class="space-y-3 mb-8">
+            <ul class="space-y-2 mb-6 text-sm">
               <!-- Tunnels -->
-              <li class="flex items-start gap-3">
-                <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <li class="flex items-start gap-2">
+                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <div>
-                  <span><strong>{{ displayLimit(plan.max_tunnels) }}</strong> {{ t('landing.pricing.tunnels') }}</span>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.tunnelsDesc') }}</p>
-                </div>
+                <span><strong>{{ displayLimit(plan.max_tunnels) }}</strong> {{ t('landing.pricing.tunnels') }}</span>
               </li>
 
-              <!-- Domains -->
-              <li class="flex items-start gap-3">
-                <svg
-                  class="h-5 w-5 flex-shrink-0 mt-0.5"
-                  :class="plan.max_domains > 0 || plan.max_domains < 0 ? 'text-primary' : 'text-muted-foreground/50'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path v-if="plan.max_domains > 0 || plan.max_domains < 0" fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                  <path v-else fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
+              <!-- Domains (hide when 0) -->
+              <li v-if="plan.max_domains !== 0" class="flex items-start gap-2">
+                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <div :class="{ 'text-muted-foreground': plan.max_domains === 0 }">
-                  <span><strong>{{ displayLimit(plan.max_domains) }}</strong> {{ t('landing.pricing.domains') }}</span>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.domainsDesc') }}</p>
-                </div>
+                <span><strong>{{ displayLimit(plan.max_domains) }}</strong> {{ t('landing.pricing.domains') }}</span>
               </li>
 
-              <!-- Custom Domains -->
-              <li class="flex items-start gap-3">
-                <svg
-                  class="h-5 w-5 flex-shrink-0 mt-0.5"
-                  :class="plan.max_custom_domains > 0 ? 'text-primary' : 'text-muted-foreground/50'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path v-if="plan.max_custom_domains > 0" fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                  <path v-else fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
+              <!-- Custom Domains (hide when 0) -->
+              <li v-if="plan.max_custom_domains !== 0" class="flex items-start gap-2">
+                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <div :class="{ 'text-muted-foreground': plan.max_custom_domains === 0 }">
-                  <span><strong>{{ displayLimit(plan.max_custom_domains) }}</strong> {{ t('landing.pricing.customDomains') }}</span>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.customDomainsDesc') }}</p>
-                </div>
+                <span><strong>{{ displayLimit(plan.max_custom_domains) }}</strong> {{ t('landing.pricing.customDomains') }}</span>
               </li>
 
               <!-- Tokens -->
-              <li class="flex items-start gap-3">
-                <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <li class="flex items-start gap-2">
+                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <div>
-                  <span><strong>{{ displayLimit(plan.max_tokens) }}</strong> {{ t('landing.pricing.tokens') }}</span>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.tokensDesc') }}</p>
-                </div>
+                <span><strong>{{ displayLimit(plan.max_tokens) }}</strong> {{ t('landing.pricing.tokens') }}</span>
               </li>
 
-              <!-- Inspector -->
-              <li class="flex items-start gap-3">
-                <svg
-                  class="h-5 w-5 flex-shrink-0 mt-0.5"
-                  :class="plan.inspector_enabled ? 'text-primary' : 'text-muted-foreground/50'"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path v-if="plan.inspector_enabled" fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                  <path v-else fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
+              <!-- Inspector (hide when disabled) -->
+              <li v-if="plan.inspector_enabled" class="flex items-start gap-2">
+                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                 </svg>
-                <div :class="{ 'text-muted-foreground': !plan.inspector_enabled }">
-                  <span>{{ t('landing.pricing.inspector') }}</span>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ t('landing.pricing.inspectorDesc') }}</p>
-                </div>
+                <span>{{ t('landing.pricing.inspector') }}</span>
               </li>
             </ul>
 
@@ -230,7 +205,7 @@ onMounted(async () => {
             <RouterLink
               to="/register"
               :class="[
-                'block w-full py-3 px-6 rounded-xl text-center font-medium transition-all duration-300',
+                'block w-full py-2.5 px-4 rounded-lg text-center text-sm font-medium transition-all duration-300 mt-auto',
                 plan.is_recommended
                   ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30'
                   : 'bg-surface border border-border hover:border-primary/50 hover:bg-primary/5',
