@@ -203,3 +203,28 @@ func (r *PlanRepository) ListPublic() ([]*Plan, error) {
 	}
 	return plans, nil
 }
+
+// ListAll returns all plans with pagination
+func (r *PlanRepository) ListAll(limit, offset int) ([]*Plan, int, error) {
+	var total int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM plans").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count plans: %w", err)
+	}
+
+	query := `SELECT ` + planColumns + ` FROM plans ORDER BY price ASC, id ASC LIMIT ? OFFSET ?`
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list all plans: %w", err)
+	}
+	defer rows.Close()
+
+	var plans []*Plan
+	for rows.Next() {
+		plan, err := r.scanPlan(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scan plan: %w", err)
+		}
+		plans = append(plans, plan)
+	}
+	return plans, total, nil
+}
