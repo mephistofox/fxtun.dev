@@ -2,7 +2,6 @@ package email
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -166,9 +165,4 @@ func (n *Notifier) SendExpirationReminder(sub *database.Subscription, plan *data
 
 	subject := fmt.Sprintf("Подписка истекает через %d дн.", daysLeft)
 	return n.email.SendTemplate(user.Email, subject, TemplateSubscriptionExpiring, data)
-}
-
-// formatDate formats time to Russian date format
-func formatDate(t time.Time) string {
-	return t.Format("02.01.2006")
 }

@@ -22,7 +22,10 @@ coverage.out
 
 plan.txt
 docs/blog/
+docs/plans/
 data/tg/
+build/windows/
+*.docx
 
 # Local binaries and configs
 /server
