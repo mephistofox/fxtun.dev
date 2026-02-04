@@ -209,6 +209,13 @@ func (s *Server) setupRoutes() {
 		// Exchange rate (public, cached)
 		r.Get("/exchange-rate", s.handleExchangeRate)
 
+		// Payment callbacks (public, from Robokassa)
+		r.Route("/payments", func(r chi.Router) {
+			r.Post("/result", s.handlePaymentResult) // ResultURL callback
+			r.Get("/success", s.handlePaymentSuccess) // SuccessURL redirect
+			r.Get("/fail", s.handlePaymentFail)       // FailURL redirect
+		})
+
 		// SSE inspect stream (separate auth to support ?token= for EventSource)
 		r.Route("/tunnels/{id}/inspect/stream", func(r chi.Router) {
 			r.Use(s.queryTokenAuthMiddleware)
@@ -280,6 +287,15 @@ func (s *Server) setupRoutes() {
 				r.Post("/history", s.handleAddHistory)
 				r.Delete("/history", s.handleClearHistory)
 				r.Get("/history/stats", s.handleGetHistoryStats)
+			})
+
+			// Subscription
+			r.Route("/subscription", func(r chi.Router) {
+				r.Get("/", s.handleGetSubscription)
+				r.Post("/checkout", s.handleCheckout)
+				r.Post("/cancel", s.handleCancelSubscription)
+				r.Post("/change", s.handleChangePlan)
+				r.Get("/payments", s.handleGetPayments)
 			})
 
 			// Admin routes
