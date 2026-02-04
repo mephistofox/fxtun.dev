@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/mephistofox/fxTunnel/compare/v2.7.0...v2.8.0) (2026-02-04)
+
+
+### Features
+
+* **payment:** centralize price calculation on backend ([84f4a3e](https://github.com/mephistofox/fxTunnel/commit/84f4a3e302b2db701f06ac5103d1afd17c459bb4))
+
 ## [2.7.0](https://github.com/mephistofox/fxTunnel/compare/v2.6.0...v2.7.0) (2026-02-04)
 
 
