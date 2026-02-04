@@ -54,14 +54,6 @@ func (r *Robokassa) getPassword1() string {
 	return r.config.Password1
 }
 
-// getPassword2 returns the appropriate password2 based on test mode
-func (r *Robokassa) getPassword2() string {
-	if r.config.TestMode {
-		return r.config.TestPassword2
-	}
-	return r.config.Password2
-}
-
 // GenerateSignature generates SHA512 signature for payment
 func (r *Robokassa) GenerateSignature(parts ...string) string {
 	data := strings.Join(parts, ":")
