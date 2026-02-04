@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.0](https://github.com/mephistofox/fxTunnel/compare/v2.4.1...v2.5.0) (2026-02-04)
+
+
+### Features
+
+* **web:** add animated tunnel visualization with color-shifting dots ([7a0da8c](https://github.com/mephistofox/fxTunnel/commit/7a0da8ca5e1fdc9d7d7af1824d70048da9508486))
+* **web:** improve landing and auth UX ([fba8848](https://github.com/mephistofox/fxTunnel/commit/fba8848e463588c3f6a48d55655aa76620a6728d))
+
 ## [2.4.1](https://github.com/mephistofox/fxTunnel/compare/v2.4.0...v2.4.1) (2026-02-04)
 
 
