@@ -11,18 +11,20 @@ import (
 
 // ServerConfig holds all server configuration
 type ServerConfig struct {
-	Server        ServerSettings        `mapstructure:"server"`
-	Domain        DomainSettings        `mapstructure:"domain"`
-	Auth          AuthSettings          `mapstructure:"auth"`
-	TLS           TLSSettings           `mapstructure:"tls"`
-	Logging       LoggingSettings       `mapstructure:"logging"`
-	Web           WebSettings           `mapstructure:"web"`
-	Database      DatabaseSettings      `mapstructure:"database"`
-	TOTP          TOTPSettings          `mapstructure:"totp"`
-	Downloads     DownloadsSettings     `mapstructure:"downloads"`
-	Inspect       InspectSettings       `mapstructure:"inspect"`
-	CustomDomains CustomDomainSettings  `mapstructure:"custom_domains"`
-	OAuth         OAuthSettings         `mapstructure:"oauth"`
+	Server        ServerSettings       `mapstructure:"server"`
+	Domain        DomainSettings       `mapstructure:"domain"`
+	Auth          AuthSettings         `mapstructure:"auth"`
+	TLS           TLSSettings          `mapstructure:"tls"`
+	Logging       LoggingSettings      `mapstructure:"logging"`
+	Web           WebSettings          `mapstructure:"web"`
+	Database      DatabaseSettings     `mapstructure:"database"`
+	TOTP          TOTPSettings         `mapstructure:"totp"`
+	Downloads     DownloadsSettings    `mapstructure:"downloads"`
+	Inspect       InspectSettings      `mapstructure:"inspect"`
+	CustomDomains CustomDomainSettings `mapstructure:"custom_domains"`
+	OAuth         OAuthSettings        `mapstructure:"oauth"`
+	Robokassa     RobokassaSettings    `mapstructure:"robokassa"`
+	SMTP          SMTPSettings         `mapstructure:"smtp"`
 }
 
 // ServerSettings contains network settings
@@ -171,6 +173,32 @@ type LoggingSettings struct {
 	Format string `mapstructure:"format"`
 }
 
+// RobokassaSettings contains Robokassa payment configuration
+type RobokassaSettings struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	MerchantLogin string `mapstructure:"merchant_login"`
+	Password1     string `mapstructure:"password1"`
+	Password2     string `mapstructure:"password2"`
+	TestPassword1 string `mapstructure:"test_password1"`
+	TestPassword2 string `mapstructure:"test_password2"`
+	TestMode      bool   `mapstructure:"test_mode"`
+	ResultURL     string `mapstructure:"result_url"`
+	SuccessURL    string `mapstructure:"success_url"`
+	FailURL       string `mapstructure:"fail_url"`
+}
+
+// SMTPSettings contains SMTP email configuration
+type SMTPSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	SSLPort  int    `mapstructure:"ssl_port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	FromName string `mapstructure:"from_name"`
+}
+
 // LoadServerConfig loads server configuration from file
 func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v := viper.New()
@@ -213,6 +241,12 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("inspect.enabled", true)
 	v.SetDefault("inspect.max_entries", 1000)
 	v.SetDefault("inspect.max_body_size", 262144)
+	v.SetDefault("robokassa.enabled", false)
+	v.SetDefault("robokassa.test_mode", true)
+	v.SetDefault("smtp.enabled", false)
+	v.SetDefault("smtp.port", 587)
+	v.SetDefault("smtp.ssl_port", 465)
+	v.SetDefault("smtp.from_name", "fxTunnel")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)
