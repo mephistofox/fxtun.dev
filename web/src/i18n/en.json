@@ -94,11 +94,11 @@
       },
       "lowLatency": {
         "title": "Low Latency",
-        "desc": "Pre-opened stream pool and optimized 256KB buffers minimize connection overhead. First-request latency nearly eliminated."
+        "desc": "Pre-opened stream pool and optimized buffers minimize connection overhead. First-request latency nearly eliminated."
       },
-      "metrics": {
-        "title": "Prometheus Metrics",
-        "desc": "Built-in /metrics endpoint for Grafana dashboards, alerting, and production monitoring out of the box."
+      "reconnect": {
+        "title": "Auto-Reconnect",
+        "desc": "Automatic reconnection on connection loss. Your tunnels stay online 24/7."
       }
     },
     "howItWorks": {
@@ -238,10 +238,10 @@
     "accountBlocked": "Your account has been blocked. Please contact the administrator.",
     "registrationFailed": "Registration failed",
     "or": "or",
-    "signInWithGitHub": "Sign in with GitHub",
-    "signUpWithGitHub": "Sign up with GitHub",
-    "signInWithGoogle": "Sign in with Google",
-    "signUpWithGoogle": "Sign up with Google",
+    "signInWithGitHub": "Continue with GitHub",
+    "signUpWithGitHub": "Continue with GitHub",
+    "signInWithGoogle": "Continue with Google",
+    "signUpWithGoogle": "Continue with Google",
     "signInWithPhone": "Sign in with phone",
     "signUpWithPhone": "Sign up with phone"
   },

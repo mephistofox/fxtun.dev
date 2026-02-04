@@ -206,6 +206,9 @@ func (s *Server) setupRoutes() {
 		// Plans (public)
 		r.Get("/plans/public", s.handleListPublicPlans)
 
+		// Exchange rate (public, cached)
+		r.Get("/exchange-rate", s.handleExchangeRate)
+
 		// SSE inspect stream (separate auth to support ?token= for EventSource)
 		r.Route("/tunnels/{id}/inspect/stream", func(r chi.Router) {
 			r.Use(s.queryTokenAuthMiddleware)
