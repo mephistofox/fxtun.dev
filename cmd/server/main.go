@@ -16,6 +16,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/email"
+	"github.com/mephistofox/fxtunnel/internal/exchange"
 	"github.com/mephistofox/fxtunnel/internal/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
@@ -200,6 +201,10 @@ func run(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}()
+
+		// Initialize exchange rate service
+		exchange.New(log)
+		log.Info().Msg("Exchange rate service initialized")
 
 		// Initialize email service
 		var emailService *email.Service

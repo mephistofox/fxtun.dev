@@ -224,6 +224,7 @@
     "oneTime": "One-time",
     "payNow": "Pay Now",
     "securePayment": "Secure payment via Robokassa",
+    "securePaymentVia": "Secure payment via",
     "failedToLoadPlans": "Failed to load plans",
     "paymentFailed": "Failed to create payment"
   },

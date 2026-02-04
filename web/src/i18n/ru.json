@@ -224,6 +224,7 @@
     "oneTime": "Разовый платёж",
     "payNow": "Оплатить",
     "securePayment": "Безопасная оплата через Robokassa",
+    "securePaymentVia": "Безопасная оплата через",
     "failedToLoadPlans": "Не удалось загрузить тарифы",
     "paymentFailed": "Ошибка при создании платежа"
   },
