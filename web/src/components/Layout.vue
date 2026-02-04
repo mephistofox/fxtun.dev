@@ -46,6 +46,7 @@ const adminNavigation = [
 
 const adminMenuOpen = ref(false)
 const adminMenuRef = ref<HTMLDivElement | null>(null)
+const mobileAdminSidebarOpen = ref(false)
 
 function toggleAdminMenu() {
   adminMenuOpen.value = !adminMenuOpen.value
@@ -53,6 +54,19 @@ function toggleAdminMenu() {
 
 function closeAdminMenu() {
   adminMenuOpen.value = false
+}
+
+function toggleMobileAdminSidebar() {
+  mobileAdminSidebarOpen.value = !mobileAdminSidebarOpen.value
+}
+
+function closeMobileAdminSidebar() {
+  mobileAdminSidebarOpen.value = false
+}
+
+function navigateAdminMobile(path: string) {
+  router.push(path)
+  closeMobileAdminSidebar()
 }
 
 function navigateAdmin(path: string) {
@@ -383,77 +397,94 @@ function cycleTheme() {
           {{ t(`nav.${item.key}`) }}
         </RouterLink>
 
-        <!-- Admin mobile links -->
+        <!-- Admin mobile button -->
         <template v-if="authStore.isAdmin">
           <div class="w-px h-8 bg-border mx-1 self-center"></div>
-          <RouterLink
-            v-for="item in adminNavigation"
-            :key="item.path"
-            :to="item.path"
+          <button
+            @click="toggleMobileAdminSidebar"
             :class="[
               'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all duration-200',
-              route.path === item.path
+              route.path.startsWith('/admin')
                 ? 'bg-purple-600 text-white shadow-md'
                 : 'text-purple-600/70 dark:text-purple-400/70 hover:bg-purple-100 dark:hover:bg-purple-900/30',
             ]"
           >
-            <!-- Shield icon -->
-            <svg v-if="item.icon === 'shield'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            <!-- Users icon -->
-            <svg v-else-if="item.icon === 'users'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            {{ t('nav.admin') }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9" />
             </svg>
-            <!-- Ticket icon -->
-            <svg v-else-if="item.icon === 'ticket'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
-              <path d="M13 5v2" />
-              <path d="M13 17v2" />
-              <path d="M13 11v2" />
-            </svg>
-            <!-- Network icon -->
-            <svg v-else-if="item.icon === 'network'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="16" y="16" width="6" height="6" rx="1" />
-              <rect x="2" y="16" width="6" height="6" rx="1" />
-              <rect x="9" y="2" width="6" height="6" rx="1" />
-              <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
-              <path d="M12 12V8" />
-            </svg>
-            <!-- Globe icon -->
-            <svg v-else-if="item.icon === 'globe'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
-            <!-- Credit-card icon -->
-            <svg v-else-if="item.icon === 'credit-card'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-              <line x1="1" y1="10" x2="23" y2="10" />
-            </svg>
-            <!-- Calendar icon -->
-            <svg v-else-if="item.icon === 'calendar'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <!-- File-text icon -->
-            <svg v-else-if="item.icon === 'file-text'" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
-            {{ t(`nav.${item.key}`) }}
-          </RouterLink>
+          </button>
         </template>
       </div>
     </nav>
+
+    <!-- Mobile Admin Sidebar -->
+    <Transition
+      enter-active-class="transition ease-out duration-200"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition ease-in duration-150"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="mobileAdminSidebarOpen"
+        class="md:hidden fixed inset-0 bg-black/50 z-50"
+        @click="closeMobileAdminSidebar"
+      >
+        <Transition
+          enter-active-class="transition ease-out duration-200"
+          enter-from-class="translate-x-full"
+          enter-to-class="translate-x-0"
+          leave-active-class="transition ease-in duration-150"
+          leave-from-class="translate-x-0"
+          leave-to-class="translate-x-full"
+        >
+          <div
+            v-if="mobileAdminSidebarOpen"
+            class="absolute right-0 top-0 h-full w-64 bg-background border-l shadow-xl"
+            @click.stop
+          >
+            <div class="p-4 border-b flex items-center justify-between">
+              <h2 class="font-bold text-purple-600 dark:text-purple-400">{{ t('nav.admin') }}</h2>
+              <button @click="closeMobileAdminSidebar" class="p-1 hover:bg-muted rounded">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <nav class="p-2 space-y-1">
+              <button
+                v-for="item in adminNavigation"
+                :key="item.path"
+                @click="navigateAdminMobile(item.path)"
+                :class="[
+                  'w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                  route.path === item.path
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                    : 'text-foreground hover:bg-muted',
+                ]"
+              >
+                <!-- Icons -->
+                <svg v-if="item.icon === 'shield'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                <svg v-else-if="item.icon === 'users'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                <svg v-else-if="item.icon === 'ticket'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" /></svg>
+                <svg v-else-if="item.icon === 'network'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="16" y="16" width="6" height="6" rx="1" /><rect x="2" y="16" width="6" height="6" rx="1" /><rect x="9" y="2" width="6" height="6" rx="1" /><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" /><path d="M12 12V8" /></svg>
+                <svg v-else-if="item.icon === 'globe'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                <svg v-else-if="item.icon === 'credit-card'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg>
+                <svg v-else-if="item.icon === 'calendar'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <svg v-else-if="item.icon === 'file-text'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+                {{ t(`nav.${item.key}`) }}
+              </button>
+            </nav>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
 
     <!-- Main content -->
     <main class="container mx-auto px-4 py-6 flex-1">
