@@ -227,7 +227,7 @@ onMounted(() => {
                 </Button>
               </div>
               <p class="text-xs text-muted-foreground">
-                {{ t('domains.willBeAvailable') }} {{ newSubdomain || 'xxx' }}.mfdev.ru
+                {{ t('domains.willBeAvailable') }} {{ newSubdomain || 'xxx' }}.{{ baseDomain || 'fxtun.dev' }}
               </p>
               <p v-if="isAvailable === true" class="text-sm text-green-600 dark:text-green-400">
                 {{ t('domains.available') }}
@@ -294,7 +294,7 @@ onMounted(() => {
                 </div>
                 <div class="space-y-1 min-w-0">
                   <h3 class="font-semibold text-foreground truncate">{{ domain.subdomain }}</h3>
-                  <p class="text-xs text-muted-foreground">.mfdev.ru</p>
+                  <p class="text-xs text-muted-foreground">.{{ baseDomain || 'fxtun.dev' }}</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" @click="releaseDomain(domain.id)" :title="t('domains.releaseDomain')" class="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -411,7 +411,7 @@ onMounted(() => {
                       <div class="flex items-center gap-2 font-mono text-sm">
                         <span class="text-foreground font-medium">{{ newDomain || 'app.example.com' }}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                        <span class="text-primary font-medium">{{ newTargetSubdomain || 'my-app' }}.{{ baseDomain || 'mfdev.ru' }}</span>
+                        <span class="text-primary font-medium">{{ newTargetSubdomain || 'my-app' }}.{{ baseDomain || 'fxtun.dev' }}</span>
                       </div>
                     </div>
                   </div>

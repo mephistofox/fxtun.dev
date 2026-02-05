@@ -9,7 +9,9 @@ import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
 import HowItWorksSection from '@/components/landing/HowItWorksSection.vue'
 import ProtocolsSection from '@/components/landing/ProtocolsSection.vue'
+import UseCasesSection from '@/components/landing/UseCasesSection.vue'
 import PricingSection from '@/components/landing/PricingSection.vue'
+import ComparisonSection from '@/components/landing/ComparisonSection.vue'
 import DownloadSection from '@/components/landing/DownloadSection.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 
@@ -239,7 +241,9 @@ onUnmounted(() => {
       <AdvancedFeaturesSection />
       <HowItWorksSection />
       <ProtocolsSection />
+      <UseCasesSection />
       <PricingSection />
+      <ComparisonSection />
       <DownloadSection />
     </main>
 
