@@ -41,12 +41,11 @@ func setupTestDB(t *testing.T) *database.Database {
 func TestScheduler_New(t *testing.T) {
 	db := setupTestDB(t)
 	cfg := &config.ServerConfig{
-		Robokassa: config.RobokassaSettings{
-			Enabled:       true,
-			MerchantLogin: "test",
-			Password1:     "pass1",
-			Password2:     "pass2",
-			TestMode:      true,
+		YooKassa: config.YooKassaSettings{
+			Enabled:   true,
+			ShopID:    "test",
+			SecretKey: "test_secret",
+			TestMode:  true,
 		},
 	}
 	log := zerolog.New(zerolog.NewTestWriter(t))
@@ -55,15 +54,15 @@ func TestScheduler_New(t *testing.T) {
 	if s == nil {
 		t.Fatal("Expected scheduler to be created")
 	}
-	if s.robokassa == nil {
-		t.Fatal("Expected robokassa client to be created")
+	if s.yookassa == nil {
+		t.Fatal("Expected yookassa client to be created")
 	}
 }
 
-func TestScheduler_NewWithoutRobokassa(t *testing.T) {
+func TestScheduler_NewWithoutYooKassa(t *testing.T) {
 	db := setupTestDB(t)
 	cfg := &config.ServerConfig{
-		Robokassa: config.RobokassaSettings{
+		YooKassa: config.YooKassaSettings{
 			Enabled: false,
 		},
 	}
@@ -73,8 +72,8 @@ func TestScheduler_NewWithoutRobokassa(t *testing.T) {
 	if s == nil {
 		t.Fatal("Expected scheduler to be created")
 	}
-	if s.robokassa != nil {
-		t.Fatal("Expected robokassa client to be nil when disabled")
+	if s.yookassa != nil {
+		t.Fatal("Expected yookassa client to be nil when disabled")
 	}
 }
 

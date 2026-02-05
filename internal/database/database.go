@@ -133,6 +133,7 @@ func (d *Database) migrate() error {
 		migrationAddPlanVisibility,
 		migrationCreateSubscriptions,
 		migrationCreatePayments,
+		migrationRenameToYooKassa,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -470,4 +471,14 @@ CREATE TABLE payments (
 CREATE INDEX idx_payments_user_id ON payments(user_id);
 CREATE INDEX idx_payments_invoice_id ON payments(invoice_id);
 CREATE INDEX idx_payments_status ON payments(status);
+`
+
+const migrationRenameToYooKassa = `
+-- Add new YooKassa columns to subscriptions
+ALTER TABLE subscriptions ADD COLUMN yookassa_payment_method_id TEXT;
+
+-- Add new YooKassa columns to payments (rename robokassa_data to yookassa_data)
+ALTER TABLE payments ADD COLUMN yookassa_data TEXT;
+-- Copy data from old column to new
+UPDATE payments SET yookassa_data = robokassa_data WHERE robokassa_data IS NOT NULL;
 `
