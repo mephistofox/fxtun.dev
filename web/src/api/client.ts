@@ -87,6 +87,7 @@ export interface ProfileResponse {
   reserved_domains: Domain[]
   max_domains: number
   token_count: number
+  tunnel_count: number
   plan?: Plan
 }
 

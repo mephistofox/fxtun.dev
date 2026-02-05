@@ -1,17 +1,41 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
-import { tunnelsApi, type Tunnel } from '@/api/client'
+import { tunnelsApi, profileApi, type Tunnel, type ProfileResponse } from '@/api/client'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const tunnels = ref<Tunnel[]>([])
 const loading = ref(true)
 const error = ref('')
 const serverHost = window.location.hostname
+const profile = ref<ProfileResponse | null>(null)
+
+async function loadProfile() {
+  try {
+    const response = await profileApi.get()
+    profile.value = response.data
+  } catch {
+    // Profile loading is non-critical, silently ignore
+  }
+}
+
+function usagePercent(used: number, max: number): number {
+  if (max <= 0) return 0
+  return Math.min(100, Math.round((used / max) * 100))
+}
+
+function barColor(percent: number): string {
+  if (percent >= 100) return 'bg-red-500'
+  if (percent >= 80) return 'bg-orange-500'
+  if (percent >= 50) return 'bg-yellow-500'
+  return 'bg-primary'
+}
 
 async function loadTunnels() {
   loading.value = true
@@ -58,7 +82,10 @@ function copyLine(event: MouseEvent) {
   setTimeout(() => { copiedCmd.value = '' }, 1500)
 }
 
-onMounted(loadTunnels)
+onMounted(() => {
+  loadTunnels()
+  loadProfile()
+})
 </script>
 
 <template>
@@ -70,6 +97,99 @@ onMounted(loadTunnels)
           <p class="text-muted-foreground">{{ t('dashboard.subtitle') }}</p>
         </div>
         <Button @click="loadTunnels" :loading="loading" variant="outline">{{ t('common.refresh') }}</Button>
+      </div>
+
+      <div v-if="profile?.plan" class="bg-card/80 backdrop-blur border border-border/50 rounded-xl p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+          <div class="flex items-center gap-3 min-w-0">
+            <span
+              :class="[
+                'px-3 py-1 text-xs font-semibold rounded-full whitespace-nowrap',
+                profile.plan.slug === 'free'
+                  ? 'bg-muted text-muted-foreground'
+                  : 'bg-primary/10 text-primary'
+              ]"
+            >
+              {{ profile.plan.name }}
+            </span>
+            <span class="text-sm text-muted-foreground truncate">
+              {{ profile.user.display_name || profile.user.phone }}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-4 sm:gap-6 flex-1">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">{{ t('dashboard.plan.tunnels') }}</span>
+              <div class="flex items-center gap-2">
+                <div class="h-1.5 w-24 bg-muted rounded-full overflow-hidden">
+                  <div
+                    :class="['h-full rounded-full transition-all', barColor(usagePercent(profile.tunnel_count, profile.plan.max_tunnels))]"
+                    :style="{ width: usagePercent(profile.tunnel_count, profile.plan.max_tunnels) + '%' }"
+                  />
+                </div>
+                <span class="text-xs text-muted-foreground">{{ profile.tunnel_count }}/{{ profile.plan.max_tunnels }}</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">{{ t('dashboard.plan.domains') }}</span>
+              <div class="flex items-center gap-2">
+                <template v-if="profile.plan.max_domains > 0">
+                  <div class="h-1.5 w-24 bg-muted rounded-full overflow-hidden">
+                    <div
+                      :class="['h-full rounded-full transition-all', barColor(usagePercent(profile.reserved_domains.length, profile.plan.max_domains))]"
+                      :style="{ width: usagePercent(profile.reserved_domains.length, profile.plan.max_domains) + '%' }"
+                    />
+                  </div>
+                  <span class="text-xs text-muted-foreground">{{ profile.reserved_domains.length }}/{{ profile.plan.max_domains }}</span>
+                </template>
+                <template v-else>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span class="text-xs text-muted-foreground">&mdash;</span>
+                </template>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">{{ t('dashboard.plan.tokens') }}</span>
+              <div class="flex items-center gap-2">
+                <div class="h-1.5 w-24 bg-muted rounded-full overflow-hidden">
+                  <div
+                    :class="['h-full rounded-full transition-all', barColor(usagePercent(profile.token_count, profile.plan.max_tokens))]"
+                    :style="{ width: usagePercent(profile.token_count, profile.plan.max_tokens) + '%' }"
+                  />
+                </div>
+                <span class="text-xs text-muted-foreground">{{ profile.token_count }}/{{ profile.plan.max_tokens }}</span>
+              </div>
+            </div>
+
+            <span
+              v-if="profile.plan.slug === 'free' && !profile.plan.inspector_enabled"
+              class="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              {{ t('dashboard.plan.inspector') }}
+            </span>
+          </div>
+
+          <div class="flex-shrink-0">
+            <Button
+              v-if="profile.plan.slug === 'free'"
+              size="sm"
+              @click="router.push('/checkout')"
+            >
+              {{ t('dashboard.plan.upgrade') }}
+            </Button>
+            <Button
+              v-else
+              variant="outline"
+              size="sm"
+              @click="router.push('/profile')"
+            >
+              {{ t('dashboard.plan.manage') }}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div v-if="error" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm">

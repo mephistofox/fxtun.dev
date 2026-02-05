@@ -109,6 +109,7 @@ type ProfileResponse struct {
 	ReservedDomains []*DomainDTO      `json:"reserved_domains"`
 	MaxDomains      int               `json:"max_domains"`
 	TokenCount      int               `json:"token_count"`
+	TunnelCount     int               `json:"tunnel_count"`
 	Plan            *PlanDTO          `json:"plan,omitempty"`
 }
 

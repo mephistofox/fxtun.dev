@@ -38,6 +38,13 @@ func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 	// Get token count
 	tokenCount, _ := s.db.Tokens.Count(user.ID)
 
+	// Get active tunnel count
+	tunnelCount := 0
+	if s.tunnelProvider != nil {
+		userTunnels := s.tunnelProvider.GetTunnelsByUserID(user.ID)
+		tunnelCount = len(userTunnels)
+	}
+
 	// Load plan
 	var planDTO *dto.PlanDTO
 	if dbUser.PlanID > 0 {
@@ -63,6 +70,7 @@ func (s *Server) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 		ReservedDomains: domainDTOs,
 		MaxDomains:      maxDomains,
 		TokenCount:      tokenCount,
+		TunnelCount:     tunnelCount,
 		Plan:            planDTO,
 	})
 }

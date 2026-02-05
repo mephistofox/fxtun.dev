@@ -1,37 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
-import { Button, Card, Input, Label, Tabs, Alert, AlertDescription } from '@/components/ui'
-import { Wifi, Eye, EyeOff, Server, Key, Lock, Shield, Zap, ArrowRight, Github, Loader2, Mail } from 'lucide-vue-next'
+import { Button, Card, Input, Label, Alert, AlertDescription } from '@/components/ui'
+import { Wifi, Server, Key, Zap, ArrowRight, Github, Loader2 } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 
-const authMethod = ref<'token' | 'password'>('token')
 const serverAddress = ref('')
 const token = ref('')
-const phone = ref('')
-const password = ref('')
-const totpCode = ref('')
 const remember = ref(true)
-const showPassword = ref(false)
 const showError = ref(false)
-
-const tabs = computed(() => [
-  { value: 'token', label: t('auth.loginWithToken') },
-  { value: 'password', label: t('auth.loginWithPassword') },
-])
-
-watch(authMethod, () => {
-  authStore.resetTotpRequired()
-  totpCode.value = ''
-  showError.value = false
-})
 
 watch(() => authStore.error, (error) => {
   if (error) {
@@ -58,24 +42,11 @@ async function handleOAuth(provider: string) {
 }
 
 async function handleSubmit() {
-  let success = false
-
-  if (authMethod.value === 'token') {
-    success = await authStore.loginWithToken(
-      serverAddress.value,
-      token.value,
-      remember.value
-    )
-  } else {
-    success = await authStore.loginWithPassword(
-      serverAddress.value,
-      phone.value,
-      password.value,
-      totpCode.value || undefined,
-      remember.value
-    )
-  }
-
+  const success = await authStore.loginWithToken(
+    serverAddress.value,
+    token.value,
+    remember.value
+  )
   if (success) {
     await settingsStore.saveServerAddress(serverAddress.value)
     router.push('/dashboard')
@@ -191,93 +162,26 @@ async function handleSubmit() {
                   <span class="w-full border-t border-border/50" />
                 </div>
                 <div class="relative flex justify-center text-xs uppercase">
-                  <span class="bg-card px-2 text-muted-foreground">{{ t('auth.or') }}</span>
+                  <span class="bg-card px-2 text-muted-foreground">{{ t('auth.orConnectWithToken') }}</span>
                 </div>
               </div>
             </div>
           </Transition>
-
-          <!-- Auth Method Tabs -->
-          <Tabs
-            v-model="authMethod"
-            :tabs="tabs"
-            class="w-full"
-          />
 
           <!-- Token Auth -->
-          <Transition name="fade" mode="out-in">
-            <div v-if="authMethod === 'token'" key="token" class="space-y-4">
-              <div class="space-y-2">
-                <Label for="token" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  <Key class="h-3.5 w-3.5" />
-                  {{ t('auth.token') }}
-                </Label>
-                <Input
-                  id="token"
-                  v-model="token"
-                  type="password"
-                  :placeholder="t('auth.tokenPlaceholder')"
-                  class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 font-mono text-sm"
-                />
-              </div>
-            </div>
-
-            <!-- Password Auth -->
-            <div v-else key="password" class="space-y-4">
-              <div class="space-y-2">
-                <Label for="phone" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  <Mail class="h-3.5 w-3.5" />
-                  {{ t('auth.phone') }}
-                </Label>
-                <Input
-                  id="phone"
-                  v-model="phone"
-                  :placeholder="t('auth.phonePlaceholder')"
-                  class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <Label for="password" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  <Lock class="h-3.5 w-3.5" />
-                  {{ t('auth.password') }}
-                </Label>
-                <div class="relative">
-                  <Input
-                    id="password"
-                    v-model="password"
-                    :type="showPassword ? 'text' : 'password'"
-                    class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 pr-10"
-                  />
-                  <button
-                    type="button"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                    @click="showPassword = !showPassword"
-                  >
-                    <component :is="showPassword ? EyeOff : Eye" class="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <Transition name="slide-up">
-                <div v-if="authStore.totpRequired" class="space-y-2">
-                  <Label for="totp" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                    <Shield class="h-3.5 w-3.5" />
-                    {{ t('auth.totpCode') }}
-                  </Label>
-                  <Input
-                    id="totp"
-                    v-model="totpCode"
-                    :placeholder="t('auth.totpPlaceholder')"
-                    maxlength="6"
-                    required
-                    class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 text-center font-mono text-xl tracking-[0.5em]"
-                  />
-                  <p class="text-xs text-muted-foreground text-center">{{ t('auth.totpHint') }}</p>
-                </div>
-              </Transition>
-            </div>
-          </Transition>
+          <div class="space-y-2">
+            <Label for="token" class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Key class="h-3.5 w-3.5" />
+              {{ t('auth.token') }}
+            </Label>
+            <Input
+              id="token"
+              v-model="token"
+              type="password"
+              :placeholder="t('auth.tokenPlaceholder')"
+              class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 font-mono text-sm"
+            />
+          </div>
 
           <!-- Remember Me -->
           <label class="flex items-center gap-3 cursor-pointer group">
