@@ -2,8 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/auth"
@@ -11,7 +17,6 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/exchange"
 	"github.com/mephistofox/fxtunnel/internal/payment"
 )
-
 
 // handleGetSubscription returns the current user's subscription
 func (s *Server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +59,36 @@ func (s *Server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
 	s.respondJSON(w, http.StatusOK, resp)
 }
 
-// handleCheckout creates a payment and returns Robokassa URL
+// extractDomainFromHost extracts domain from host (removes port)
+func extractDomainFromHost(host string) string {
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		return host[:idx]
+	}
+	return host
+}
+
+// isPaymentEnabledForDomain checks if payments are enabled for the given domain
+func (s *Server) isPaymentEnabledForDomain(host string) (bool, string) {
+	domain := extractDomainFromHost(host)
+
+	// Check per-domain settings
+	if s.cfg.Payments.Domains != nil {
+		if settings, ok := s.cfg.Payments.Domains[domain]; ok {
+			if !settings.Enabled {
+				msg := settings.Message
+				if msg == "" {
+					msg = "payments are not available for this domain"
+				}
+				return false, msg
+			}
+		}
+	}
+
+	// Default: enabled if YooKassa is enabled
+	return s.cfg.YooKassa.Enabled, "payments are not enabled"
+}
+
+// handleCheckout creates a payment and returns YooKassa payment URL
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
@@ -62,8 +96,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.cfg.Robokassa.Enabled {
-		s.respondError(w, http.StatusServiceUnavailable, "payments are not enabled")
+	// Check if payments are enabled for this domain
+	enabled, msg := s.isPaymentEnabledForDomain(r.Host)
+	if !enabled {
+		s.respondError(w, http.StatusServiceUnavailable, msg)
 		return
 	}
 
@@ -95,7 +131,6 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	// Check for existing active subscription
 	existingSub, _ := s.db.Subscriptions.GetByUserID(user.ID)
 	if existingSub != nil && existingSub.Status == database.SubscriptionStatusActive {
-		// If user already has active subscription, they should use change endpoint
 		s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
 		return
 	}
@@ -121,16 +156,6 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate Robokassa URL
-	robokassa := payment.NewRobokassa(payment.RobokassaConfig{
-		MerchantLogin: s.cfg.Robokassa.MerchantLogin,
-		Password1:     s.cfg.Robokassa.Password1,
-		Password2:     s.cfg.Robokassa.Password2,
-		TestPassword1: s.cfg.Robokassa.TestPassword1,
-		TestPassword2: s.cfg.Robokassa.TestPassword2,
-		TestMode:      s.cfg.Robokassa.TestMode,
-	})
-
 	// Get user email from database
 	dbUser, _ := s.db.Users.GetByID(user.ID)
 	email := ""
@@ -138,10 +163,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		email = dbUser.Email
 	}
 
-	// Convert USD to RUB for Robokassa
+	// Convert USD to RUB
 	priceRUB := exchange.ConvertUSDToRUB(plan.Price)
 
-	// Create payment record with RUB amount (same as sent to Robokassa)
+	// Create payment record
 	pmt := &database.Payment{
 		UserID:         user.ID,
 		SubscriptionID: &sub.ID,
@@ -156,20 +181,94 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	paymentURL := robokassa.GeneratePaymentURL(payment.PaymentParams{
-		InvoiceID:   invoiceID,
-		OutSum:      priceRUB,
-		Description: "fxTunnel " + plan.Name + " subscription",
-		Email:       email,
-		Recurring:   req.Recurring,
+	// Create YooKassa payment
+	yookassa := payment.NewYooKassa(payment.YooKassaConfig{
+		ShopID:    s.cfg.YooKassa.ShopID,
+		SecretKey: s.cfg.YooKassa.SecretKey,
+		TestMode:  s.cfg.YooKassa.TestMode,
+		ReturnURL: s.cfg.YooKassa.ReturnURL,
 	})
+
+	// Generate idempotency key
+	idempotencyKey := uuid.New().String()
+
+	// Build payment request
+	paymentReq := payment.CreatePaymentRequest{
+		Amount: payment.Amount{
+			Value:    payment.FormatAmount(priceRUB),
+			Currency: "RUB",
+		},
+		Description: fmt.Sprintf("fxTunnel %s subscription", plan.Name),
+		Capture:     true, // Immediate capture
+		Confirmation: &payment.Confirmation{
+			Type:      "redirect",
+			ReturnURL: yookassa.GetReturnURL(),
+		},
+		SavePaymentMethod: req.Recurring, // Save for recurring if requested
+		Metadata: map[string]string{
+			"invoice_id":      fmt.Sprintf("%d", invoiceID),
+			"user_id":         fmt.Sprintf("%d", user.ID),
+			"subscription_id": fmt.Sprintf("%d", sub.ID),
+			"plan_id":         fmt.Sprintf("%d", plan.ID),
+		},
+	}
+
+	// Add receipt for 54-FZ compliance (self-employed = no VAT)
+	if email != "" {
+		paymentReq.Receipt = &payment.Receipt{
+			Customer: &payment.Customer{
+				Email: email,
+			},
+			Items: []payment.ReceiptItem{
+				{
+					Description:    fmt.Sprintf("Подписка fxTunnel %s (1 месяц)", plan.Name),
+					Quantity:       "1",
+					Amount:         paymentReq.Amount,
+					VATCode:        1, // No VAT (self-employed)
+					PaymentSubject: "service",
+					PaymentMode:    "full_payment",
+				},
+			},
+		}
+	}
+
+	// Create payment via YooKassa API
+	yooPayment, err := yookassa.CreatePayment(paymentReq, idempotencyKey)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to create YooKassa payment")
+		s.respondError(w, http.StatusInternalServerError, "failed to create payment")
+		return
+	}
+
+	// Save YooKassa payment ID
+	yookassaData, _ := json.Marshal(map[string]interface{}{
+		"yookassa_payment_id": yooPayment.ID,
+		"idempotency_key":     idempotencyKey,
+	})
+	pmt.YooKassaData = string(yookassaData)
+	if err := s.db.Payments.Update(pmt); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update payment with YooKassa ID")
+	}
+
+	// Get confirmation URL
+	paymentURL := ""
+	if yooPayment.Confirmation != nil {
+		paymentURL = yooPayment.Confirmation.ConfirmationURL
+	}
+
+	if paymentURL == "" {
+		s.log.Error().Str("payment_id", yooPayment.ID).Msg("No confirmation URL in YooKassa response")
+		s.respondError(w, http.StatusInternalServerError, "failed to get payment URL")
+		return
+	}
 
 	// Log audit
 	_ = s.db.Audit.Log(&user.ID, "payment_initiated", map[string]interface{}{
-		"invoice_id": invoiceID,
-		"plan_id":    plan.ID,
-		"amount":     plan.Price,
-		"recurring":  req.Recurring,
+		"invoice_id":          invoiceID,
+		"yookassa_payment_id": yooPayment.ID,
+		"plan_id":             plan.ID,
+		"amount":              priceRUB,
+		"recurring":           req.Recurring,
 	}, auth.GetClientIP(r))
 
 	s.respondJSON(w, http.StatusOK, dto.CheckoutResponse{
@@ -178,114 +277,117 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handlePaymentResult handles Robokassa ResultURL callback (POST)
-func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
+// handlePaymentWebhook handles YooKassa webhook notifications (POST)
+func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	s.log.Info().
 		Str("remote_addr", r.RemoteAddr).
 		Str("method", r.Method).
-		Msg("Payment result callback received")
+		Msg("YooKassa webhook received")
 
-	if !s.cfg.Robokassa.Enabled {
+	if !s.cfg.YooKassa.Enabled {
 		http.Error(w, "payments disabled", http.StatusServiceUnavailable)
 		return
 	}
 
 	// Verify IP (skip in test mode)
-	robokassa := payment.NewRobokassa(payment.RobokassaConfig{
-		MerchantLogin: s.cfg.Robokassa.MerchantLogin,
-		Password1:     s.cfg.Robokassa.Password1,
-		Password2:     s.cfg.Robokassa.Password2,
-		TestPassword1: s.cfg.Robokassa.TestPassword1,
-		TestPassword2: s.cfg.Robokassa.TestPassword2,
-		TestMode:      s.cfg.Robokassa.TestMode,
-	})
-
-	if !robokassa.IsTestMode() {
-		if !payment.IsRobokassaIP(r.RemoteAddr) {
-			s.log.Warn().Str("ip", r.RemoteAddr).Msg("Payment result from unauthorized IP")
+	if !s.cfg.YooKassa.TestMode {
+		if !payment.IsYooKassaIP(r.RemoteAddr) {
+			s.log.Warn().Str("ip", r.RemoteAddr).Msg("Webhook from unauthorized IP")
 			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
 	}
 
-	// Parse form data
-	if err := r.ParseForm(); err != nil {
-		s.log.Error().Err(err).Msg("Failed to parse payment result form")
+	// Read body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to read webhook body")
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
-	params, err := payment.ParseResultParams(r.Form)
+	// Parse webhook event
+	event, err := payment.ParseWebhookEvent(body)
 	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to parse payment result params")
-		http.Error(w, "invalid params", http.StatusBadRequest)
+		s.log.Error().Err(err).Msg("Failed to parse webhook event")
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
 
 	s.log.Info().
-		Int64("invoice_id", params.InvID).
-		Float64("out_sum", params.OutSum).
-		Str("out_sum_raw", params.OutSumRaw).
-		Bool("is_test", params.IsTest).
-		Str("signature", params.SignatureValue[:16]+"...").
-		Msg("Payment result params parsed")
+		Str("type", event.Type).
+		Str("event", event.Event).
+		Str("payment_id", event.Object.ID).
+		Str("status", event.Object.Status).
+		Msg("Webhook event parsed")
 
-	// Reject test payments in production mode
-	if params.IsTest && !s.cfg.Robokassa.TestMode {
-		s.log.Warn().
-			Int64("invoice_id", params.InvID).
-			Msg("Test payment rejected in production mode")
-		http.Error(w, "test payments not allowed", http.StatusBadRequest)
+	// Handle different event types
+	switch event.Event {
+	case "payment.succeeded":
+		s.handlePaymentSucceeded(w, event.Object)
+	case "payment.canceled":
+		s.handlePaymentCanceled(w, event.Object)
+	case "payment.waiting_for_capture":
+		// We use immediate capture, so this shouldn't happen
+		s.log.Info().Str("payment_id", event.Object.ID).Msg("Payment waiting for capture (ignored)")
+		w.WriteHeader(http.StatusOK)
+	default:
+		s.log.Info().Str("event", event.Event).Msg("Unknown webhook event (ignored)")
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// handlePaymentSucceeded processes successful payment webhook
+func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payment.Payment) {
+	// Get invoice_id from metadata
+	invoiceIDStr, ok := yooPayment.Metadata["invoice_id"]
+	if !ok {
+		s.log.Error().Str("payment_id", yooPayment.ID).Msg("No invoice_id in payment metadata")
+		http.Error(w, "invalid payment metadata", http.StatusBadRequest)
 		return
 	}
 
-	// Verify signature
-	if !robokassa.VerifyResultSignature(params) {
-		expected := robokassa.GetExpectedSignature(params)
-		s.log.Warn().
-			Int64("invoice_id", params.InvID).
-			Str("out_sum_raw", params.OutSumRaw).
-			Bool("callback_is_test", params.IsTest).
-			Bool("server_test_mode", s.cfg.Robokassa.TestMode).
-			Str("received_sig", params.SignatureValue[:32]+"...").
-			Str("expected_sig", expected[:32]+"...").
-			Msg("Invalid payment signature - verify password2 in config matches Robokassa dashboard")
-		http.Error(w, "invalid signature", http.StatusBadRequest)
+	var invoiceID int64
+	if _, err := fmt.Sscanf(invoiceIDStr, "%d", &invoiceID); err != nil {
+		s.log.Error().Err(err).Str("invoice_id_str", invoiceIDStr).Msg("Invalid invoice_id format")
+		http.Error(w, "invalid invoice_id", http.StatusBadRequest)
 		return
 	}
 
 	// Get payment record
-	pmt, err := s.db.Payments.GetByInvoiceID(params.InvID)
+	pmt, err := s.db.Payments.GetByInvoiceID(invoiceID)
 	if err != nil || pmt == nil {
-		s.log.Error().Err(err).Int64("invoice_id", params.InvID).Msg("Payment not found")
+		s.log.Error().Err(err).Int64("invoice_id", invoiceID).Msg("Payment not found")
 		http.Error(w, "payment not found", http.StatusNotFound)
 		return
 	}
 
 	// Already processed
 	if pmt.Status == database.PaymentStatusSuccess {
-		_, _ = w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
-		return
-	}
-
-	// Verify amount
-	if pmt.Amount != params.OutSum {
-		s.log.Warn().
-			Int64("invoice_id", params.InvID).
-			Float64("expected", pmt.Amount).
-			Float64("received", params.OutSum).
-			Msg("Amount mismatch")
-		http.Error(w, "amount mismatch", http.StatusBadRequest)
+		s.log.Info().Int64("invoice_id", invoiceID).Msg("Payment already processed")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	// Update payment status
 	pmt.Status = database.PaymentStatusSuccess
-	robokassaData, _ := json.Marshal(map[string]interface{}{
-		"payment_method": params.PaymentMethod,
-		"email":          params.EMail,
-	})
-	pmt.RobokassaData = string(robokassaData)
+
+	// Save YooKassa data including payment_method_id for recurring
+	yookassaData := map[string]interface{}{
+		"yookassa_payment_id": yooPayment.ID,
+		"paid":                yooPayment.Paid,
+		"test":                yooPayment.Test,
+	}
+	if yooPayment.PaymentMethod != nil {
+		yookassaData["payment_method_type"] = yooPayment.PaymentMethod.Type
+		yookassaData["payment_method_title"] = yooPayment.PaymentMethod.Title
+		if yooPayment.PaymentMethod.Saved {
+			yookassaData["payment_method_id"] = yooPayment.PaymentMethod.ID
+		}
+	}
+	data, _ := json.Marshal(yookassaData)
+	pmt.YooKassaData = string(data)
+
 	if err := s.db.Payments.Update(pmt); err != nil {
 		s.log.Error().Err(err).Msg("Failed to update payment")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -301,7 +403,11 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 			sub.Status = database.SubscriptionStatusActive
 			sub.CurrentPeriodStart = &now
 			sub.CurrentPeriodEnd = &periodEnd
-			sub.RobokassaInvoiceID = &params.InvID
+
+			// Save payment_method_id for recurring payments
+			if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
+				sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+			}
 
 			if err := s.db.Subscriptions.Update(sub); err != nil {
 				s.log.Error().Err(err).Msg("Failed to activate subscription")
@@ -318,15 +424,16 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 			s.log.Info().
 				Int64("user_id", sub.UserID).
 				Int64("plan_id", sub.PlanID).
-				Int64("invoice_id", params.InvID).
+				Str("yookassa_payment_id", yooPayment.ID).
 				Msg("Subscription activated")
 
 			// Log audit
 			_ = s.db.Audit.Log(&sub.UserID, "subscription_activated", map[string]interface{}{
-				"invoice_id":      params.InvID,
-				"plan_id":         sub.PlanID,
-				"subscription_id": sub.ID,
-			}, r.RemoteAddr)
+				"invoice_id":          invoiceID,
+				"yookassa_payment_id": yooPayment.ID,
+				"plan_id":             sub.PlanID,
+				"subscription_id":     sub.ID,
+			}, "webhook")
 
 			// Send payment success email notification
 			if s.notifier != nil {
@@ -335,24 +442,76 @@ func (s *Server) handlePaymentResult(w http.ResponseWriter, r *http.Request) {
 				if plan != nil {
 					planName = plan.Name
 				}
-				if err := s.notifier.SendPaymentSuccessNotification(sub.UserID, planName, params.OutSum); err != nil {
+				amount, _ := strconv.ParseFloat(yooPayment.Amount.Value, 64)
+				if err := s.notifier.SendPaymentSuccessNotification(sub.UserID, planName, amount); err != nil {
 					s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to send payment success email")
 				}
 			}
 		}
 	}
 
-	// Respond with OK{InvoiceID}
-	_, _ = w.Write([]byte(payment.GenerateResultResponse(params.InvID)))
+	w.WriteHeader(http.StatusOK)
 }
 
-// handlePaymentSuccess handles Robokassa SuccessURL redirect (GET)
+// handlePaymentCanceled processes canceled payment webhook
+func (s *Server) handlePaymentCanceled(w http.ResponseWriter, yooPayment *payment.Payment) {
+	// Get invoice_id from metadata
+	invoiceIDStr, ok := yooPayment.Metadata["invoice_id"]
+	if !ok {
+		s.log.Warn().Str("payment_id", yooPayment.ID).Msg("No invoice_id in canceled payment metadata")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	var invoiceID int64
+	if _, err := fmt.Sscanf(invoiceIDStr, "%d", &invoiceID); err != nil {
+		s.log.Warn().Str("invoice_id_str", invoiceIDStr).Msg("Invalid invoice_id in canceled payment")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Get payment record
+	pmt, err := s.db.Payments.GetByInvoiceID(invoiceID)
+	if err != nil || pmt == nil {
+		s.log.Warn().Int64("invoice_id", invoiceID).Msg("Canceled payment not found")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Update payment status
+	pmt.Status = database.PaymentStatusFailed
+
+	// Save cancellation details
+	yookassaData := map[string]interface{}{
+		"yookassa_payment_id": yooPayment.ID,
+		"status":              "canceled",
+	}
+	if yooPayment.CancellationDetails != nil {
+		yookassaData["cancellation_party"] = yooPayment.CancellationDetails.Party
+		yookassaData["cancellation_reason"] = yooPayment.CancellationDetails.Reason
+	}
+	data, _ := json.Marshal(yookassaData)
+	pmt.YooKassaData = string(data)
+
+	if err := s.db.Payments.Update(pmt); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update canceled payment")
+	}
+
+	s.log.Info().
+		Int64("invoice_id", invoiceID).
+		Str("yookassa_payment_id", yooPayment.ID).
+		Msg("Payment canceled")
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handlePaymentSuccess handles redirect after successful payment (GET)
 func (s *Server) handlePaymentSuccess(w http.ResponseWriter, r *http.Request) {
 	// Redirect to frontend success page
 	http.Redirect(w, r, "/payment/success", http.StatusFound)
 }
 
-// handlePaymentFail handles Robokassa FailURL redirect (GET)
+// handlePaymentFail handles redirect after failed payment (GET)
 func (s *Server) handlePaymentFail(w http.ResponseWriter, r *http.Request) {
 	// Redirect to frontend fail page
 	http.Redirect(w, r, "/payment/fail", http.StatusFound)
@@ -386,6 +545,9 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	// Mark as cancelled (will expire at period end)
 	sub.Status = database.SubscriptionStatusCancelled
 	sub.Recurring = false
+	// Clear payment method to prevent autopayments
+	sub.YooKassaPaymentMethodID = nil
+
 	if err := s.db.Subscriptions.Update(sub); err != nil {
 		s.log.Error().Err(err).Msg("Failed to cancel subscription")
 		s.respondError(w, http.StatusInternalServerError, "failed to cancel subscription")
