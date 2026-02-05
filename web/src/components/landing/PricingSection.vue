@@ -61,7 +61,7 @@ function formatPrice(plan: Plan): string {
 }
 
 const sortedPlans = computed(() =>
-  [...plans.value].sort((a, b) => a.price - b.price)
+  [...plans.value].sort((a, b) => b.price - a.price)
 )
 
 const commonFeatures = [

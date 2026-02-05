@@ -72,17 +72,14 @@ onUnmounted(() => {
 
           <!-- Desktop Nav Links -->
           <div class="hidden lg:flex items-center gap-8">
-            <a href="#features" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              {{ t('landing.nav.features') }}
-            </a>
-            <a href="#advanced" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              {{ t('landing.nav.advanced') }}
-            </a>
             <a href="#how-it-works" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.howItWorks') }}
             </a>
             <a href="#protocols" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.protocols') }}
+            </a>
+            <a href="#features" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              {{ t('landing.nav.features') }}
             </a>
             <a href="#pricing" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.pricing') }}
@@ -181,20 +178,6 @@ onUnmounted(() => {
           <div v-if="isMobileMenuOpen" class="lg:hidden pb-6">
             <div class="flex flex-col gap-2 py-4">
               <a
-                href="#features"
-                @click="isMobileMenuOpen = false"
-                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-              >
-                {{ t('landing.nav.features') }}
-              </a>
-              <a
-                href="#advanced"
-                @click="isMobileMenuOpen = false"
-                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-              >
-                {{ t('landing.nav.advanced') }}
-              </a>
-              <a
                 href="#how-it-works"
                 @click="isMobileMenuOpen = false"
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
@@ -207,6 +190,13 @@ onUnmounted(() => {
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
               >
                 {{ t('landing.nav.protocols') }}
+              </a>
+              <a
+                href="#features"
+                @click="isMobileMenuOpen = false"
+                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                {{ t('landing.nav.features') }}
               </a>
               <a
                 href="#pricing"
@@ -237,13 +227,48 @@ onUnmounted(() => {
     <!-- Main Content -->
     <main>
       <HeroSection />
-      <FeaturesSection />
-      <AdvancedFeaturesSection />
       <HowItWorksSection />
+
+      <!-- Mid-page CTA: after How It Works -->
+      <div class="py-12 text-center">
+        <p class="text-lg text-muted-foreground mb-6 max-w-xl mx-auto px-4">{{ t('landing.midCta.afterHowItWorks') }}</p>
+        <RouterLink to="/register" class="btn-glow inline-flex items-center gap-2">
+          {{ t('landing.midCta.startFree') }}
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+        </RouterLink>
+      </div>
+
       <ProtocolsSection />
+      <FeaturesSection />
       <UseCasesSection />
-      <PricingSection />
+
+      <!-- Mid-page CTA: after Use Cases -->
+      <div class="py-12 text-center">
+        <p class="text-lg text-muted-foreground mb-6 max-w-xl mx-auto px-4">{{ t('landing.midCta.afterUseCases') }}</p>
+        <RouterLink to="/register" class="btn-glow inline-flex items-center gap-2">
+          {{ t('landing.midCta.startFree') }}
+          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+        </RouterLink>
+      </div>
+
+      <AdvancedFeaturesSection />
       <ComparisonSection />
+
+      <!-- Mid-page CTA: after Comparison -->
+      <div class="py-12 text-center">
+        <p class="text-lg text-muted-foreground mb-6 max-w-xl mx-auto px-4">{{ t('landing.midCta.afterComparison') }}</p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <RouterLink to="/register" class="btn-glow inline-flex items-center gap-2">
+            {{ t('landing.midCta.startFree') }}
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+          </RouterLink>
+          <a href="#pricing" class="btn-ghost inline-flex items-center gap-2">
+            {{ t('landing.midCta.seePricing') }}
+          </a>
+        </div>
+      </div>
+
+      <PricingSection />
       <DownloadSection />
     </main>
 

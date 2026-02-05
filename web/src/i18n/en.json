@@ -15,7 +15,9 @@
       "titleLine2": "live",
       "titleLine3": "in seconds",
       "subtitle": "One command to expose any local service to the internet. HTTP, TCP, UDP — with a desktop app, traffic inspector, and custom domains.",
-      "getStarted": "Start Free",
+      "getStarted": "Start Tunneling Free",
+      "trustBadge": "Free forever — no credit card required",
+      "terminalCaption": "This is what working with fxTunnel actually looks like",
       "learnMore": "See How It Works",
       "quickStart": "Get started in one command:",
       "copied": "Copied!",
@@ -247,6 +249,13 @@
         }
       }
     },
+    "midCta": {
+      "afterHowItWorks": "Ready to try? Set up your first tunnel in under a minute.",
+      "afterUseCases": "Whatever you build — fxTunnel gets it online instantly.",
+      "afterComparison": "See the difference? Start free and upgrade when you need more.",
+      "startFree": "Start Free",
+      "seePricing": "See Pricing"
+    },
     "download": {
       "badge": "Ready to start?",
       "title": "Ready to Start?",
@@ -269,7 +278,7 @@
       "popular": "Popular",
       "free": "Free",
       "perMonth": "/mo",
-      "selectPlan": "Get Started",
+      "selectPlan": "Choose Plan",
       "paymentsComingSoon": "Coming Soon",
       "tunnels": "active tunnel;;active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
@@ -430,6 +439,16 @@
       "customDomains": "Custom domains",
       "customDomainsDesc": "Bind your own domains via DNS",
       "hint": "Download the client from the Downloads page. Log in via fxtunnel login or create a token in the Tokens section."
+    },
+    "plan": {
+      "tunnels": "Tunnels",
+      "domains": "Subdomains",
+      "tokens": "Tokens",
+      "upgrade": "Upgrade",
+      "manage": "Manage",
+      "inspector": "Inspector",
+      "locked": "Locked",
+      "of": "of"
     }
   },
   "domains": {
