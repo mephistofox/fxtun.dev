@@ -480,7 +480,8 @@ onMounted(() => {
                 </a>
               </div>
 
-              <!-- 2FA row -->
+              <!-- 2FA row (temporarily hidden) -->
+              <template v-if="false">
               <div class="flex items-center justify-between pt-4">
                 <div class="flex items-center gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -498,13 +499,18 @@ onMounted(() => {
                 </div>
                 <Button v-else size="sm" @click="startTotpSetup">{{ t('profile.enable2FA') }}</Button>
               </div>
+              </template>
             </div>
 
+            <!-- TOTP error (temporarily hidden) -->
+            <template v-if="false">
             <div v-if="totpError" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm mt-4">
               {{ totpError }}
             </div>
+            </template>
 
-            <!-- TOTP Setup Dialog -->
+            <!-- TOTP Setup Dialog (temporarily hidden) -->
+            <template v-if="false">
             <div
               v-if="showTotpSetup"
               class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -546,8 +552,10 @@ onMounted(() => {
                 </template>
               </Card>
             </div>
+            </template>
 
-            <!-- Disable TOTP Dialog -->
+            <!-- Disable TOTP Dialog (temporarily hidden) -->
+            <template v-if="false">
             <div
               v-if="showDisableTotp"
               class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -564,6 +572,7 @@ onMounted(() => {
                 </div>
               </Card>
             </div>
+            </template>
           </Card>
 
         </div>

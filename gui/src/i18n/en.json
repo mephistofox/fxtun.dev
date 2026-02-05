@@ -53,6 +53,7 @@
     "signInWithGitHub": "Sign in with GitHub",
     "signInWithGoogle": "Sign in with Google",
     "or": "OR",
+    "orConnectWithToken": "or connect with token",
     "oauthWaiting": "Waiting for authorization in browser...",
     "oauthCancel": "Cancel",
     "remember": "Remember credentials",
@@ -328,6 +329,17 @@
     "failedToReserve": "Failed to reserve domain",
     "failedToRelease": "Failed to release domain",
     "copyUrl": "Copy URL"
+  },
+  "account": {
+    "plan": "Plan",
+    "upgrade": "Upgrade",
+    "manage": "Manage",
+    "tunnels": "Tunnels",
+    "domains": "Domains",
+    "tokens": "Tokens",
+    "inspector": "Inspector",
+    "locked": "Locked",
+    "free": "Free"
   },
   "customDomains": {
     "title": "Custom Domains",

@@ -7,6 +7,7 @@ import { useTunnelsStore } from '@/stores/tunnels'
 import { useSyncStore } from '@/stores/sync'
 import { Tooltip } from '@/components/ui'
 import StatusIndicator from '@/components/StatusIndicator.vue'
+import SidebarAccountBlock from '@/components/SidebarAccountBlock.vue'
 import {
   LayoutDashboard,
   Boxes,
@@ -194,6 +195,9 @@ async function logout() {
 
       <!-- Bottom section -->
       <div class="p-3 space-y-2 border-t border-border/50">
+        <!-- Account Block -->
+        <SidebarAccountBlock :collapsed="sidebarCollapsed" />
+
         <!-- Sync Status -->
         <div
           :class="[
