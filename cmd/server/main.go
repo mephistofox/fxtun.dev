@@ -211,9 +211,12 @@ func run(cmd *cobra.Command, args []string) error {
 		var notifier *email.Notifier
 		if cfg.SMTP.Enabled {
 			emailService = email.New(&cfg.SMTP, log)
-			baseURL := fmt.Sprintf("https://%s", cfg.Domain.Base)
-			if cfg.Web.Port != 443 && cfg.Web.Port != 80 {
-				baseURL = fmt.Sprintf("http://%s:%d", cfg.Domain.Base, cfg.Web.Port)
+			baseURL := cfg.SMTP.BaseURL
+			if baseURL == "" {
+				baseURL = fmt.Sprintf("https://%s", cfg.Domain.Base)
+				if cfg.Web.Port != 443 && cfg.Web.Port != 80 {
+					baseURL = fmt.Sprintf("http://%s:%d", cfg.Domain.Base, cfg.Web.Port)
+				}
 			}
 			notifier = email.NewNotifier(emailService, db, baseURL, cfg.SMTP.From, log)
 			apiServer.SetNotifier(notifier)
@@ -221,7 +224,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 
 		// Start subscription scheduler if payments are enabled
-		if cfg.Robokassa.Enabled {
+		if cfg.YooKassa.Enabled {
 			subscriptionScheduler := scheduler.New(db, cfg, log)
 
 			// Register event handler for logging

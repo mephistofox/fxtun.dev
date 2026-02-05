@@ -17,6 +17,12 @@ const loading = ref(false)
 const error = ref('')
 const submitting = ref(false)
 
+// Check if payments are disabled for this domain
+const isPaymentsDisabled = computed(() => {
+  const host = window.location.hostname
+  return host.endsWith('.dev') || host === 'fxtun.dev'
+})
+
 const selectedPlan = computed(() => {
   return plans.value.find(p => p.id === selectedPlanId.value) || null
 })
@@ -51,7 +57,7 @@ async function handleCheckout() {
   error.value = ''
   try {
     const response = await subscriptionApi.checkout(selectedPlanId.value, recurring.value)
-    // Redirect to Robokassa
+    // Redirect to YooKassa
     window.location.href = response.data.payment_url
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
@@ -82,12 +88,28 @@ onMounted(() => {
 <template>
   <Layout>
     <div class="max-w-4xl mx-auto space-y-6">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold">{{ t('checkout.title') }}</h1>
-        <p class="text-muted-foreground mt-2">{{ t('checkout.subtitle') }}</p>
+      <!-- Payments Disabled Message -->
+      <div v-if="isPaymentsDisabled" class="text-center py-16">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-3">{{ t('checkout.paymentsDisabledTitle') }}</h1>
+        <p class="text-muted-foreground max-w-md mx-auto">
+          {{ t('checkout.paymentsDisabledMessage') }}
+        </p>
       </div>
 
-      <!-- Subscription Warning -->
+      <!-- Normal Checkout Flow -->
+      <template v-else>
+        <div class="text-center mb-8">
+          <h1 class="text-2xl font-bold">{{ t('checkout.title') }}</h1>
+          <p class="text-muted-foreground mt-2">{{ t('checkout.subtitle') }}</p>
+        </div>
+
+        <!-- Subscription Warning -->
       <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
         <div class="flex items-start gap-3">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -212,9 +234,10 @@ onMounted(() => {
         </Button>
         <p class="text-xs text-muted-foreground text-center mt-4">
           {{ t('checkout.securePaymentVia') }}
-          <a href="https://robokassa.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Robokassa</a>
+          <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
         </p>
       </Card>
+      </template>
     </div>
   </Layout>
 </template>

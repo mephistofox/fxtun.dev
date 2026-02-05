@@ -2,10 +2,11 @@ package scheduler
 
 import (
 	"context"
-	"io"
-	"net/http"
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -18,11 +19,11 @@ import (
 type EventType string
 
 const (
-	EventSubscriptionExpiring   EventType = "subscription_expiring"
-	EventSubscriptionExpired    EventType = "subscription_expired"
-	EventSubscriptionRenewed    EventType = "subscription_renewed"
+	EventSubscriptionExpiring    EventType = "subscription_expiring"
+	EventSubscriptionExpired     EventType = "subscription_expired"
+	EventSubscriptionRenewed     EventType = "subscription_renewed"
 	EventSubscriptionRenewFailed EventType = "subscription_renew_failed"
-	EventPlanChanged            EventType = "plan_changed"
+	EventPlanChanged             EventType = "plan_changed"
 )
 
 // Event represents a scheduler event for notifications
@@ -40,11 +41,11 @@ type EventHandler func(event Event)
 
 // Scheduler handles subscription lifecycle tasks
 type Scheduler struct {
-	db        *database.Database
-	cfg       *config.ServerConfig
-	log       zerolog.Logger
-	robokassa *payment.Robokassa
-	handlers  []EventHandler
+	db       *database.Database
+	cfg      *config.ServerConfig
+	log      zerolog.Logger
+	yookassa *payment.YooKassa
+	handlers []EventHandler
 
 	// Check intervals
 	checkInterval time.Duration
@@ -52,15 +53,13 @@ type Scheduler struct {
 
 // New creates a new scheduler
 func New(db *database.Database, cfg *config.ServerConfig, log zerolog.Logger) *Scheduler {
-	var robokassa *payment.Robokassa
-	if cfg.Robokassa.Enabled {
-		robokassa = payment.NewRobokassa(payment.RobokassaConfig{
-			MerchantLogin: cfg.Robokassa.MerchantLogin,
-			Password1:     cfg.Robokassa.Password1,
-			Password2:     cfg.Robokassa.Password2,
-			TestPassword1: cfg.Robokassa.TestPassword1,
-			TestPassword2: cfg.Robokassa.TestPassword2,
-			TestMode:      cfg.Robokassa.TestMode,
+	var yookassa *payment.YooKassa
+	if cfg.YooKassa.Enabled {
+		yookassa = payment.NewYooKassa(payment.YooKassaConfig{
+			ShopID:    cfg.YooKassa.ShopID,
+			SecretKey: cfg.YooKassa.SecretKey,
+			TestMode:  cfg.YooKassa.TestMode,
+			ReturnURL: cfg.YooKassa.ReturnURL,
 		})
 	}
 
@@ -68,7 +67,7 @@ func New(db *database.Database, cfg *config.ServerConfig, log zerolog.Logger) *S
 		db:            db,
 		cfg:           cfg,
 		log:           log.With().Str("component", "scheduler").Logger(),
-		robokassa:     robokassa,
+		yookassa:      yookassa,
 		checkInterval: 1 * time.Hour,
 	}
 }
@@ -178,7 +177,7 @@ func (s *Scheduler) processExpiredSubscriptions() {
 
 // processRecurringRenewals handles automatic renewal of recurring subscriptions
 func (s *Scheduler) processRecurringRenewals() {
-	if s.robokassa == nil {
+	if s.yookassa == nil {
 		return
 	}
 
@@ -191,6 +190,12 @@ func (s *Scheduler) processRecurringRenewals() {
 
 	for _, sub := range subs {
 		if !sub.Recurring {
+			continue
+		}
+
+		// Check if subscription has saved payment method for autopayment
+		if sub.YooKassaPaymentMethodID == nil || *sub.YooKassaPaymentMethodID == "" {
+			s.log.Warn().Int64("subscription_id", sub.ID).Msg("Recurring subscription without payment method")
 			continue
 		}
 
@@ -217,12 +222,6 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Check if subscription has previous invoice for recurring
-		if sub.RobokassaInvoiceID == nil {
-			s.log.Warn().Int64("subscription_id", sub.ID).Msg("Recurring subscription without invoice ID")
-			continue
-		}
-
 		s.log.Info().
 			Int64("subscription_id", sub.ID).
 			Int64("user_id", sub.UserID).
@@ -236,10 +235,10 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Convert USD to RUB for Robokassa
+		// Convert USD to RUB
 		priceRUB := exchange.ConvertUSDToRUB(plan.Price)
 
-		// Create payment record with RUB amount (same as sent to Robokassa)
+		// Create payment record
 		pmt := &database.Payment{
 			UserID:         sub.UserID,
 			SubscriptionID: &sub.ID,
@@ -253,13 +252,13 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Call Robokassa recurring API
-		success, err := s.callRecurringAPI(invoiceID, *sub.RobokassaInvoiceID, priceRUB)
+		// Call YooKassa autopayment API
+		yooPayment, err := s.createAutopayment(sub, plan, invoiceID, priceRUB)
 		if err != nil {
 			s.log.Error().Err(err).
 				Int64("invoice_id", invoiceID).
-				Int64("prev_invoice_id", *sub.RobokassaInvoiceID).
-				Msg("Recurring payment API call failed")
+				Str("payment_method_id", *sub.YooKassaPaymentMethodID).
+				Msg("Autopayment creation failed")
 
 			pmt.Status = database.PaymentStatusFailed
 			_ = s.db.Payments.Update(pmt)
@@ -275,46 +274,102 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		if success {
-			// Payment initiated - Robokassa will send ResultURL callback
+		// Save YooKassa payment ID
+		yookassaData, _ := json.Marshal(map[string]interface{}{
+			"yookassa_payment_id": yooPayment.ID,
+			"autopayment":         true,
+		})
+		pmt.YooKassaData = string(yookassaData)
+		_ = s.db.Payments.Update(pmt)
+
+		// Check if payment succeeded immediately (autopayments may succeed without user confirmation)
+		if yooPayment.Status == "succeeded" {
+			s.handleAutopaymentSuccess(sub, pmt, yooPayment, plan)
+		} else {
 			s.log.Info().
 				Int64("subscription_id", sub.ID).
 				Int64("invoice_id", invoiceID).
-				Msg("Recurring payment initiated")
+				Str("yookassa_payment_id", yooPayment.ID).
+				Str("status", yooPayment.Status).
+				Msg("Autopayment created, waiting for confirmation")
 		}
 	}
 }
 
-// callRecurringAPI calls Robokassa recurring payment API
-func (s *Scheduler) callRecurringAPI(invoiceID, previousInvoiceID int64, amount float64) (bool, error) {
-	apiURL, values := s.robokassa.GenerateRecurringPaymentURL(payment.RecurringPaymentParams{
-		InvoiceID:         invoiceID,
-		PreviousInvoiceID: previousInvoiceID,
-		OutSum:            amount,
+// createAutopayment creates an autopayment using saved payment method
+func (s *Scheduler) createAutopayment(sub *database.Subscription, plan *database.Plan, invoiceID int64, amount float64) (*payment.Payment, error) {
+	idempotencyKey := uuid.New().String()
+
+	req := payment.CreatePaymentRequest{
+		Amount: payment.Amount{
+			Value:    payment.FormatAmount(amount),
+			Currency: "RUB",
+		},
+		Description:     fmt.Sprintf("fxTunnel %s subscription renewal", plan.Name),
+		Capture:         true,
+		PaymentMethodID: *sub.YooKassaPaymentMethodID,
+		Metadata: map[string]string{
+			"invoice_id":      fmt.Sprintf("%d", invoiceID),
+			"user_id":         fmt.Sprintf("%d", sub.UserID),
+			"subscription_id": fmt.Sprintf("%d", sub.ID),
+			"plan_id":         fmt.Sprintf("%d", plan.ID),
+			"autopayment":     "true",
+		},
+	}
+
+	return s.yookassa.CreatePayment(req, idempotencyKey)
+}
+
+// handleAutopaymentSuccess processes successful autopayment
+func (s *Scheduler) handleAutopaymentSuccess(sub *database.Subscription, pmt *database.Payment, yooPayment *payment.Payment, plan *database.Plan) {
+	// Update payment status
+	pmt.Status = database.PaymentStatusSuccess
+	yookassaData, _ := json.Marshal(map[string]interface{}{
+		"yookassa_payment_id": yooPayment.ID,
+		"autopayment":         true,
+		"paid":                yooPayment.Paid,
 	})
+	pmt.YooKassaData = string(yookassaData)
+	_ = s.db.Payments.Update(pmt)
 
-	resp, err := http.PostForm(apiURL, values) //nolint:gosec // URL from trusted Robokassa config
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
+	// Extend subscription period
+	now := time.Now()
+	periodEnd := now.AddDate(0, 1, 0) // +1 month
+	sub.CurrentPeriodStart = &now
+	sub.CurrentPeriodEnd = &periodEnd
+	sub.Status = database.SubscriptionStatusActive
 
-	body, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		s.log.Error().
-			Int("status", resp.StatusCode).
-			Str("body", string(body)).
-			Msg("Robokassa recurring API error")
-		return false, nil
+	// Update payment method if new one was saved
+	if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
+		sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
 	}
 
-	s.log.Debug().
-		Int64("invoice_id", invoiceID).
-		Str("response", string(body)).
-		Msg("Robokassa recurring API response")
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Int64("id", sub.ID).Msg("Failed to extend subscription")
+		return
+	}
 
-	return true, nil
+	s.log.Info().
+		Int64("subscription_id", sub.ID).
+		Int64("user_id", sub.UserID).
+		Str("yookassa_payment_id", yooPayment.ID).
+		Msg("Subscription renewed via autopayment")
+
+	// Log audit
+	_ = s.db.Audit.Log(&sub.UserID, "subscription_renewed", map[string]interface{}{
+		"subscription_id":     sub.ID,
+		"yookassa_payment_id": yooPayment.ID,
+		"plan_id":             sub.PlanID,
+		"amount":              pmt.Amount,
+	}, "scheduler")
+
+	// Emit success event
+	s.emit(Event{
+		Type:         EventSubscriptionRenewed,
+		UserID:       sub.UserID,
+		Subscription: sub,
+		Plan:         plan,
+	})
 }
 
 // applyPlanChanges applies scheduled plan changes

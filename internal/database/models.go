@@ -264,17 +264,17 @@ const (
 
 // Subscription represents a user's subscription to a plan
 type Subscription struct {
-	ID                  int64              `json:"id"`
-	UserID              int64              `json:"user_id"`
-	PlanID              int64              `json:"plan_id"`
-	NextPlanID          *int64             `json:"next_plan_id,omitempty"`
-	Status              SubscriptionStatus `json:"status"`
-	Recurring           bool               `json:"recurring"`
-	CurrentPeriodStart  *time.Time         `json:"current_period_start,omitempty"`
-	CurrentPeriodEnd    *time.Time         `json:"current_period_end,omitempty"`
-	RobokassaInvoiceID  *int64             `json:"robokassa_invoice_id,omitempty"`
-	CreatedAt           time.Time          `json:"created_at"`
-	UpdatedAt           time.Time          `json:"updated_at"`
+	ID                       int64              `json:"id"`
+	UserID                   int64              `json:"user_id"`
+	PlanID                   int64              `json:"plan_id"`
+	NextPlanID               *int64             `json:"next_plan_id,omitempty"`
+	Status                   SubscriptionStatus `json:"status"`
+	Recurring                bool               `json:"recurring"`
+	CurrentPeriodStart       *time.Time         `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd         *time.Time         `json:"current_period_end,omitempty"`
+	YooKassaPaymentMethodID  *string            `json:"yookassa_payment_method_id,omitempty"`
+	CreatedAt                time.Time          `json:"created_at"`
+	UpdatedAt                time.Time          `json:"updated_at"`
 }
 
 // IsActive returns true if the subscription is currently active
@@ -305,7 +305,7 @@ type Payment struct {
 	Amount         float64       `json:"amount"`
 	Status         PaymentStatus `json:"status"`
 	IsRecurring    bool          `json:"is_recurring"`
-	RobokassaData  string        `json:"robokassa_data,omitempty"`
+	YooKassaData   string        `json:"yookassa_data,omitempty"`
 	CreatedAt      time.Time     `json:"created_at"`
 }
 

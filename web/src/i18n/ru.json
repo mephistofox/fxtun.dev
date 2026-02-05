@@ -167,6 +167,7 @@
       "free": "Бесплатно",
       "perMonth": "/мес",
       "selectPlan": "Выбрать",
+      "paymentsComingSoon": "Скоро",
       "tunnels": "активных туннелей",
       "tunnelsDesc": "Одновременных подключений к вашим сервисам",
       "domains": "постоянных адресов",
@@ -225,10 +226,12 @@
     "subscription": "Подписка",
     "oneTime": "Разовый платёж",
     "payNow": "Оплатить",
-    "securePayment": "Безопасная оплата через Robokassa",
+    "securePayment": "Безопасная оплата через ЮKassa",
     "securePaymentVia": "Безопасная оплата через",
     "failedToLoadPlans": "Не удалось загрузить тарифы",
-    "paymentFailed": "Ошибка при создании платежа"
+    "paymentFailed": "Ошибка при создании платежа",
+    "paymentsDisabledTitle": "Оплата будет доступна позже",
+    "paymentsDisabledMessage": "Мы работаем над подключением платежей для этого домена. Пожалуйста, используйте fxtun.ru для оплаты."
   },
   "payment": {
     "successTitle": "Оплата прошла успешно!",
