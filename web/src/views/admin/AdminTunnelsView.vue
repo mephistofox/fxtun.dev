@@ -63,10 +63,10 @@ async function loadTunnels() {
 function getTunnelUrl(tunnel: AdminTunnel): string {
   if (tunnel.url) return tunnel.url
   if (tunnel.type === 'http' && tunnel.subdomain) {
-    return `https://${tunnel.subdomain}.mfdev.ru`
+    return `https://${tunnel.subdomain}.fxtun.dev`
   }
   if (tunnel.remote_port) {
-    return `${tunnel.type}://mfdev.ru:${tunnel.remote_port}`
+    return `${tunnel.type}://fxtun.dev:${tunnel.remote_port}`
   }
   return '-'
 }

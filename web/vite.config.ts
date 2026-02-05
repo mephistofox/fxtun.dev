@@ -15,17 +15,17 @@ export default defineConfig({
   },
   server: {
     allowedHosts: [
-      "mfdev.ru",
+      "fxtun.dev",
       "fxtun.ru",
       "fxtun.pro",
-      "fxtun.dev",
-      "test.mfdev.ru",
-      "test.fxtun.ru",
+      "mfdev.ru",
       "test.fxtun.dev",
+      "test.fxtun.ru",
+      "test.mfdev.ru",
     ],
     proxy: {
       "/api": {
-        target: "https://mfdev.ru",
+        target: "https://fxtun.dev",
         changeOrigin: true,
         secure: true,
       },
