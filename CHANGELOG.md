@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.12.0](https://github.com/mephistofox/fxTunnel/compare/v2.11.0...v2.12.0) (2026-02-05)
+
+
+### Features
+
+* **email:** redesign email templates to match project style ([4d7920e](https://github.com/mephistofox/fxTunnel/commit/4d7920e6edc438564e0252a661094c82b9b0babc))
+
+
+### Bug Fixes
+
+* **admin:** change user plan to Free when canceling subscription ([15c354f](https://github.com/mephistofox/fxTunnel/commit/15c354f337406afb462b18e38aa7e417d5836da2))
+* **email:** use LOGIN auth instead of PLAIN for SMTP ([7ea97ec](https://github.com/mephistofox/fxTunnel/commit/7ea97ec79384b40dcc486c0c4a687df345574dca))
+
 ## [2.11.0](https://github.com/mephistofox/fxTunnel/compare/v2.10.0...v2.11.0) (2026-02-04)
 
 
