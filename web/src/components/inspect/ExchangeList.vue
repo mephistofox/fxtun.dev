@@ -21,6 +21,7 @@
       </span>
       <span class="text-gray-500 text-xs w-16 text-right">{{ formatDuration(ex.duration_ns) }}</span>
       <span class="text-gray-600 text-xs w-16 text-right">{{ formatTime(ex.timestamp) }}</span>
+      <span v-if="ex.replay_ref" class="text-purple-400 text-xs" title="Replayed request">&#8635;</span>
     </div>
   </div>
 </template>

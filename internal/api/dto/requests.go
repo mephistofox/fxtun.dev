@@ -120,3 +120,11 @@ type ChangePlanRequest struct {
 type ExtendSubscriptionRequest struct {
 	Days int `json:"days" validate:"required,min=1"`
 }
+
+// ReplayExchangeRequest represents a request to replay an exchange with optional modifications
+type ReplayExchangeRequest struct {
+	Method  *string             `json:"method,omitempty"`
+	Path    *string             `json:"path,omitempty"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    *string             `json:"body,omitempty"` // base64-encoded
+}

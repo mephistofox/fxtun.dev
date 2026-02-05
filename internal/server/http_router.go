@@ -245,7 +245,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// --- Inspection: build and store exchange ---
 	if inspectBuf != nil {
 		ex := r.buildCapturedExchangeFromResponse(tunnel.ID, traceID, req, startTime, capturedReqBuf.Bytes(), remoteAddr, resp, capturedRespBuf.Bytes())
-		inspectBuf.Add(ex)
+		r.server.inspectMgr.AddAndPersist(tunnel.ID, ex)
 		r.log.Debug().
 			Str("tunnel_id", tunnel.ID).
 			Str("exchange_id", ex.ID).
@@ -503,9 +503,9 @@ func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string,
 	return ex
 }
 
-// ReplayRequest sends an HTTP request through a tunnel and returns the response.
+// ReplayRequest sends an HTTP request through a tunnel and returns the fully-read response.
 // Used by the inspect replay feature.
-func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*http.Response, error) {
+func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*inspect.ReplayResult, error) {
 	tunnel := r.GetTunnel(subdomain)
 	if tunnel == nil {
 		return nil, fmt.Errorf("tunnel not found for subdomain: %s", subdomain)
@@ -536,8 +536,15 @@ func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*http.R
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
+	defer resp.Body.Close()
 
-	return resp, nil
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, int64(inspect.MaxBodySize)))
+
+	return &inspect.ReplayResult{
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
+		Body:       body,
+	}, nil
 }
 
 // limitedWriter writes up to `remaining` bytes, then silently discards the rest.
