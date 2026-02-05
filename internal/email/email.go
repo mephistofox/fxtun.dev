@@ -268,6 +268,29 @@ type TemplateData struct {
 // templates holds email templates
 var templates = map[string]*template.Template{}
 
+// Dark theme email styles - Cyber-Industrial Noir
+const darkEmailStyles = `
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #f2f2f2; background: #0a0b0f; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
+        .header-warning { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
+        .header-error { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
+        .header h1, .header-warning h1, .header-error h1 { margin: 0; font-size: 24px; font-weight: 700; color: #80ff00; letter-spacing: -0.5px; }
+        .content { background: #121418; padding: 32px; border: 1px solid #1e2128; border-top: none; }
+        .content h2 { margin: 0 0 20px; color: #f2f2f2; font-size: 18px; font-weight: 600; }
+        .content p { margin: 0 0 12px; color: #7f8694; }
+        .content strong { color: #f2f2f2; }
+        .info-block { margin: 24px 0; background: #0a0b0f; border-radius: 8px; padding: 4px 16px; }
+        .info-row { padding: 12px 0; border-bottom: 1px solid #1e2128; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #7f8694; }
+        .info-value { color: #f2f2f2; font-weight: 600; float: right; }
+        .button { display: inline-block; background: #80ff00; color: #0a0b0f; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: 600; font-size: 14px; }
+        .error-box { background: #1a0a0a; border: 1px solid #3d1515; padding: 12px 16px; border-radius: 8px; margin: 16px 0; color: #ff6b6b; }
+        .footer { text-align: center; padding: 20px; color: #7f8694; font-size: 13px; border: 1px solid #1e2128; border-top: none; border-radius: 0 0 10px 10px; background: #121418; }
+        .footer a { color: #80ff00; text-decoration: none; }
+`
+
 func init() {
 	// Subscription expiring template
 	templates[TemplateSubscriptionExpiring] = template.Must(template.New("subscription_expiring").Parse(`
@@ -275,18 +298,11 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="header-warning">
             <h1>fxTunnel</h1>
         </div>
         <div class="content">
@@ -295,13 +311,12 @@ func init() {
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> истекает через <strong>{{.DaysLeft}}</strong> {{if eq .DaysLeft 1}}день{{else if le .DaysLeft 4}}дня{{else}}дней{{end}}.</p>
             <p>Дата окончания: <strong>{{.ExpiresAt}}</strong></p>
             {{if .CheckoutURL}}
-            <p>Чтобы продлить подписку, нажмите кнопку ниже:</p>
             <a href="{{.CheckoutURL}}" class="button">Продлить подписку</a>
             {{end}}
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>
@@ -314,18 +329,11 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #DC2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="header-error">
             <h1>fxTunnel</h1>
         </div>
         <div class="content">
@@ -334,13 +342,12 @@ func init() {
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> истекла.</p>
             <p>Ваш аккаунт переведён на бесплатный тариф с ограниченными возможностями.</p>
             {{if .CheckoutURL}}
-            <p>Чтобы восстановить доступ ко всем функциям, оформите новую подписку:</p>
             <a href="{{.CheckoutURL}}" class="button">Оформить подписку</a>
             {{end}}
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>
@@ -353,14 +360,7 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #059669; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
@@ -371,7 +371,7 @@ func init() {
             <h2>Подписка продлена</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> успешно продлена.</p>
-            <p>Сумма списания: <strong>{{.Amount}} ₽</strong></p>
+            <p>Сумма списания: <strong>{{printf "%.0f" .Amount}} ₽</strong></p>
             <p>Следующее продление: <strong>{{.RenewalDate}}</strong></p>
             {{if .DashboardURL}}
             <a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>
@@ -379,7 +379,7 @@ func init() {
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>
@@ -392,19 +392,11 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #DC2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-        .error { background: #FEE2E2; border: 1px solid #FECACA; padding: 12px; border-radius: 6px; margin: 16px 0; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="header-error">
             <h1>fxTunnel</h1>
         </div>
         <div class="content">
@@ -412,7 +404,7 @@ func init() {
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Не удалось автоматически продлить вашу подписку на тариф <strong>{{.PlanName}}</strong>.</p>
             {{if .ErrorMessage}}
-            <div class="error">
+            <div class="error-box">
                 <strong>Причина:</strong> {{.ErrorMessage}}
             </div>
             {{end}}
@@ -423,7 +415,7 @@ func init() {
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>
@@ -436,14 +428,7 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
@@ -461,7 +446,7 @@ func init() {
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>
@@ -474,14 +459,7 @@ func init() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #059669; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-    </style>
+    <style>` + darkEmailStyles + `</style>
 </head>
 <body>
     <div class="container">
@@ -492,15 +470,23 @@ func init() {
             <h2>Оплата прошла успешно</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Благодарим за оплату!</p>
-            <p>Тариф: <strong>{{.PlanName}}</strong></p>
-            <p>Сумма: <strong>{{.Amount}} ₽</strong></p>
+            <div class="info-block">
+                <div class="info-row">
+                    <span class="info-label">Тариф</span>
+                    <span class="info-value">{{.PlanName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Сумма</span>
+                    <span class="info-value">{{printf "%.0f" .Amount}} ₽</span>
+                </div>
+            </div>
             {{if .DashboardURL}}
             <a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>
             {{end}}
         </div>
         <div class="footer">
             <p>fxTunnel — Self-hosted reverse tunneling</p>
-            {{if .SupportEmail}}<p>Поддержка: {{.SupportEmail}}</p>{{end}}
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
 </body>

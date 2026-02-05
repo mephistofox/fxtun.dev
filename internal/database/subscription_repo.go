@@ -94,6 +94,15 @@ func (r *SubscriptionRepository) Update(sub *Subscription) error {
 	return nil
 }
 
+// Delete deletes a subscription by ID
+func (r *SubscriptionRepository) Delete(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM subscriptions WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
+	return nil
+}
+
 // GetExpiring retrieves subscriptions expiring within the given duration
 func (r *SubscriptionRepository) GetExpiring(within time.Duration) ([]*Subscription, error) {
 	threshold := time.Now().Add(within)

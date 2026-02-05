@@ -415,8 +415,12 @@ onMounted(() => {
                 >
                   {{ t('profile.cancelSubscription') }}
                 </Button>
-                <Button size="sm" variant="outline" @click="router.push('/checkout')">
-                  {{ t('profile.changePlan') }}
+                <Button
+                  size="sm"
+                  :variant="subscription.status === 'cancelled' ? 'default' : 'outline'"
+                  @click="router.push('/checkout')"
+                >
+                  {{ subscription.status === 'cancelled' ? t('profile.upgradePlan') : t('profile.changePlan') }}
                 </Button>
               </div>
             </div>
