@@ -398,6 +398,7 @@ export interface ExchangeSummary {
   request_body_size: number
   response_body_size: number
   remote_addr: string
+  replay_ref?: string
 }
 
 export interface CapturedExchange extends ExchangeSummary {
@@ -412,6 +413,20 @@ export interface ExchangeListResponse {
   total: number
 }
 
+export interface ReplayRequest {
+  method?: string
+  path?: string
+  headers?: Record<string, string[]>
+  body?: string // base64
+}
+
+export interface ReplayResponse {
+  status_code: number
+  response_headers: Record<string, string[]>
+  response_body: string | null
+  exchange_id: string
+}
+
 export const inspectApi = {
   list: (tunnelId: string, offset = 0, limit = 50) =>
     api.get<ExchangeListResponse>(`/tunnels/${tunnelId}/inspect`, { params: { offset, limit } }).then(r => r.data),
@@ -419,8 +434,8 @@ export const inspectApi = {
     api.get<CapturedExchange>(`/tunnels/${tunnelId}/inspect/${exchangeId}`).then(r => r.data),
   clear: (tunnelId: string) =>
     api.delete(`/tunnels/${tunnelId}/inspect`).then(r => r.data),
-  replay: (tunnelId: string, exchangeId: string) =>
-    api.post(`/tunnels/${tunnelId}/inspect/${exchangeId}/replay`).then(r => r.data),
+  replay: (tunnelId: string, exchangeId: string, mods?: ReplayRequest) =>
+    api.post<ReplayResponse>(`/tunnels/${tunnelId}/inspect/${exchangeId}/replay`, mods || {}).then(r => r.data),
 }
 
 // Subscription types

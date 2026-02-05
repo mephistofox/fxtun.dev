@@ -58,11 +58,14 @@ type TunnelProvider interface {
 type InspectProvider interface {
 	Get(tunnelID string) *inspect.RingBuffer
 	Enabled() bool
+	AddAndPersist(tunnelID string, ex *inspect.CapturedExchange)
+	ListPersisted(tunnelID string, offset, limit int) ([]*inspect.CapturedExchange, int, error)
+	GetPersisted(id string) (*inspect.CapturedExchange, error)
 }
 
 // ReplayProvider sends an HTTP request through a tunnel and returns the response.
 type ReplayProvider interface {
-	ReplayRequest(subdomain string, req *http.Request) (*http.Response, error)
+	ReplayRequest(subdomain string, req *http.Request) (*inspect.ReplayResult, error)
 }
 
 // CustomDomainManager provides custom domain cache and TLS cert management.

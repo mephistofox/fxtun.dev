@@ -7,13 +7,24 @@
         {{ exchange.status_code }}
       </span>
       <span class="text-gray-500 text-sm">{{ formatDuration(exchange.duration_ns) }}</span>
-      <button
-        @click="$emit('replay', exchange.id)"
-        :disabled="replaying"
-        class="ml-auto px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition text-white"
-      >
-        {{ replaying ? 'Replaying...' : 'Replay' }}
-      </button>
+      <span v-if="exchange.replay_ref" class="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded">
+        Replayed from {{ exchange.replay_ref }}
+      </span>
+      <div class="ml-auto flex gap-2">
+        <button
+          @click="$emit('replay', exchange.id)"
+          :disabled="replaying"
+          class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition text-white"
+        >
+          {{ replaying ? 'Replaying...' : 'Replay' }}
+        </button>
+        <button
+          @click="showEditor = true"
+          class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded transition text-gray-200"
+        >
+          Edit & Replay
+        </button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -68,25 +79,60 @@
         :body-size="exchange.response_body_size"
       />
     </div>
+
+    <!-- Replay Result -->
+    <div v-if="replayResult" class="mt-6 border-t border-gray-800 pt-4">
+      <h3 class="text-sm font-semibold text-gray-400 mb-3">Replay Result</h3>
+      <div class="mb-2">
+        <span :class="statusBadge(replayResult.status_code)" class="font-mono text-sm px-2 py-0.5 rounded">
+          {{ replayResult.status_code }}
+        </span>
+      </div>
+      <h4 class="text-xs font-semibold text-gray-500 mb-1">Response Headers</h4>
+      <HeadersTable :headers="replayResult.response_headers" />
+      <h4 class="text-xs font-semibold text-gray-500 mt-3 mb-1">Response Body</h4>
+      <BodyViewer
+        :body="replayResult.response_body"
+        :content-type="getReplayContentType(replayResult.response_headers)"
+        :body-size="replayResult.response_body ? replayResult.response_body.length : 0"
+      />
+    </div>
+
+    <!-- Replay Editor Modal -->
+    <ReplayEditor
+      v-if="showEditor"
+      :exchange="exchange"
+      @send="onEditorSend"
+      @close="showEditor = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { CapturedExchange } from '../../api/client'
+import type { CapturedExchange, ReplayRequest, ReplayResponse } from '../../api/client'
 import BodyViewer from './BodyViewer.vue'
 import HeadersTable from './HeadersTable.vue'
+import ReplayEditor from './ReplayEditor.vue'
 
 defineProps<{
   exchange: CapturedExchange
   replaying?: boolean
+  replayResult?: ReplayResponse | null
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   replay: [id: string]
+  editReplay: [mods: ReplayRequest]
 }>()
 
 const activeTab = ref('Request')
+const showEditor = ref(false)
+
+function onEditorSend(mods: ReplayRequest) {
+  showEditor.value = false
+  emit('editReplay', mods)
+}
 
 function methodClass(method: string): string {
   const colors: Record<string, string> = {
@@ -117,6 +163,12 @@ function formatSize(bytes: number): string {
 }
 
 function getContentType(headers: Record<string, string[]> | null): string {
+  if (!headers) return ''
+  const ct = headers['Content-Type'] || headers['content-type']
+  return ct?.[0] || ''
+}
+
+function getReplayContentType(headers: Record<string, string[]> | null): string {
   if (!headers) return ''
   const ct = headers['Content-Type'] || headers['content-type']
   return ct?.[0] || ''

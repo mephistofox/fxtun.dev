@@ -41,6 +41,7 @@ type ExchangeSummary struct {
 	RequestBodySize  int64  `json:"request_body_size"`
 	ResponseBodySize int64  `json:"response_body_size"`
 	RemoteAddr       string `json:"remote_addr"`
+	ReplayRef        string `json:"replay_ref,omitempty"`
 }
 
 // CapturedExchange represents a full exchange with bodies
@@ -50,6 +51,22 @@ type CapturedExchange struct {
 	RequestBody     interface{}         `json:"request_body"`
 	ResponseHeaders map[string][]string `json:"response_headers"`
 	ResponseBody    interface{}         `json:"response_body"`
+}
+
+// ReplayModifications represents optional modifications for a replay request
+type ReplayModifications struct {
+	Method  *string             `json:"method,omitempty"`
+	Path    *string             `json:"path,omitempty"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    *string             `json:"body,omitempty"`
+}
+
+// ReplayResponse represents the result of a replay operation
+type ReplayResponse struct {
+	StatusCode      int                 `json:"status_code"`
+	ResponseHeaders map[string][]string `json:"response_headers"`
+	ResponseBody    interface{}         `json:"response_body"`
+	ExchangeID      string              `json:"exchange_id"`
 }
 
 // ExchangeListResponse represents list response
@@ -129,14 +146,24 @@ func (s *InspectService) Clear(tunnelID string) error {
 	return nil
 }
 
-// Replay replays a captured exchange through the tunnel
-func (s *InspectService) Replay(tunnelID, exchangeID string) (map[string]interface{}, error) {
+// Replay replays a captured exchange through the tunnel with optional modifications
+func (s *InspectService) Replay(tunnelID, exchangeID string, mods *ReplayModifications) (*ReplayResponse, error) {
 	if s.app.authToken == "" {
 		return nil, fmt.Errorf("not authenticated")
 	}
 
 	url := s.app.api.BuildURL(fmt.Sprintf("/api/tunnels/%s/inspect/%s/replay", tunnelID, exchangeID))
-	body, statusCode, err := s.app.api.Post(url, nil)
+
+	var reqBody []byte
+	if mods != nil {
+		var err error
+		reqBody, err = json.Marshal(mods)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal modifications: %w", err)
+		}
+	}
+
+	body, statusCode, err := s.app.api.Post(url, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -149,11 +176,11 @@ func (s *InspectService) Replay(tunnelID, exchangeID string) (map[string]interfa
 		return nil, fmt.Errorf("%s", errResp.Error)
 	}
 
-	var result map[string]interface{}
+	var result ReplayResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &result, nil
 }
 
 // Subscribe starts SSE streaming for a tunnel and emits Wails events
