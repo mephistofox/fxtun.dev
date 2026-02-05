@@ -48,15 +48,6 @@ func GenerateRefreshToken() (string, error) {
 	return GenerateToken("rt_")
 }
 
-// GenerateInviteCode generates a random invite code
-func GenerateInviteCode() (string, error) {
-	bytes := make([]byte, 12)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("generate random bytes: %w", err)
-	}
-	return hex.EncodeToString(bytes), nil
-}
-
 // HashToken creates a SHA256 hash of a token for secure storage
 func HashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))

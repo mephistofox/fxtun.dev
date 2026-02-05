@@ -7,28 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestInviteCode_IsUsed(t *testing.T) {
-	inv := &InviteCode{}
-	assert.False(t, inv.IsUsed())
-
-	uid := int64(1)
-	inv.UsedByUserID = &uid
-	assert.True(t, inv.IsUsed())
-}
-
-func TestInviteCode_IsExpired(t *testing.T) {
-	inv := &InviteCode{}
-	assert.False(t, inv.IsExpired(), "nil ExpiresAt should not be expired")
-
-	future := time.Now().Add(1 * time.Hour)
-	inv.ExpiresAt = &future
-	assert.False(t, inv.IsExpired(), "future time should not be expired")
-
-	past := time.Now().Add(-1 * time.Hour)
-	inv.ExpiresAt = &past
-	assert.True(t, inv.IsExpired(), "past time should be expired")
-}
-
 func TestSession_IsExpired(t *testing.T) {
 	s := &Session{ExpiresAt: time.Now().Add(1 * time.Hour)}
 	assert.False(t, s.IsExpired())

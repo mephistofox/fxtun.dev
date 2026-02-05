@@ -88,7 +88,6 @@ func setupTestEnv(t *testing.T) *testEnv {
 			JWTSecret:       "test-jwt-secret-at-least-32-chars-long!!",
 			AccessTokenTTL:  "15m",
 			RefreshTokenTTL: "168h",
-			InviteOnly:      true,
 			MaxDomains:      3,
 		},
 		Web: config.WebSettings{
@@ -145,22 +144,12 @@ type testUser struct {
 	AccessToken string
 }
 
-// createTestUser creates an invite code, registers a user, and returns the
-// user along with a valid access token.
+// createTestUser registers a user and returns the user along with a valid access token.
 func (env *testEnv) createTestUser(t *testing.T, phone, password, displayName string) *testUser {
 	t.Helper()
 
-	// Create an invite code directly via the database
-	inviteCode := &database.InviteCode{
-		Code:      "test-invite-" + phone,
-		ExpiresAt: timePtr(time.Now().Add(1 * time.Hour)),
-	}
-	if err := env.DB.Invites.Create(inviteCode); err != nil {
-		t.Fatalf("failed to create invite code: %v", err)
-	}
-
 	// Register user through auth service
-	user, tokenPair, err := env.AuthService.Register(phone, password, inviteCode.Code, displayName, "127.0.0.1")
+	user, tokenPair, err := env.AuthService.Register(phone, password, displayName, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("failed to register test user: %v", err)
 	}
@@ -192,8 +181,4 @@ func (env *testEnv) createTestAdmin(t *testing.T, phone, password, displayName s
 	tu.AccessToken = tokenPair.AccessToken
 
 	return tu
-}
-
-func timePtr(t time.Time) *time.Time {
-	return &t
 }

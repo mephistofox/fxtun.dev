@@ -62,7 +62,6 @@ export interface LoginRequest {
 export interface RegisterRequest {
   phone: string
   password: string
-  invite_code: string
   display_name?: string
 }
 
@@ -246,15 +245,6 @@ export interface AdminUser {
   last_login_at?: string
 }
 
-export interface InviteCode {
-  id: number
-  code: string
-  used: boolean
-  used_at?: string
-  expires_at?: string
-  created_at: string
-}
-
 export interface AuditLog {
   id: number
   user_id?: number
@@ -350,15 +340,6 @@ export const adminApi = {
   updateUser: (id: number, data: { is_admin?: boolean; is_active?: boolean; plan_id?: number }) =>
     api.put<AdminUser>(`/admin/users/${id}`, data),
   deleteUser: (id: number) => api.delete(`/admin/users/${id}`),
-
-  // Invite codes
-  listInvites: (page = 1, limit = 20, unused?: boolean) =>
-    api.get<{ codes: InviteCode[]; total: number }>('/admin/invite-codes', {
-      params: { page, limit, unused: unused ? 'true' : undefined },
-    }),
-  createInvite: (expiresInDays?: number) =>
-    api.post<InviteCode>('/admin/invite-codes', { expires_in_days: expiresInDays }),
-  deleteInvite: (id: number) => api.delete(`/admin/invite-codes/${id}`),
 
   // Audit logs
   listAuditLogs: (page = 1, limit = 20, userId?: number) =>

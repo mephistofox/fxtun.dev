@@ -38,30 +38,6 @@ type Plan struct {
 	IsRecommended      bool    `json:"is_recommended"`
 }
 
-// InviteCode represents a one-time invitation code
-type InviteCode struct {
-	ID              int64      `json:"id"`
-	Code            string     `json:"code"`
-	CreatedByUserID *int64     `json:"created_by_user_id,omitempty"`
-	UsedByUserID    *int64     `json:"used_by_user_id,omitempty"`
-	UsedAt          *time.Time `json:"used_at,omitempty"`
-	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-}
-
-// IsUsed returns true if the invite code has been used
-func (i *InviteCode) IsUsed() bool {
-	return i.UsedByUserID != nil
-}
-
-// IsExpired returns true if the invite code has expired
-func (i *InviteCode) IsExpired() bool {
-	if i.ExpiresAt == nil {
-		return false
-	}
-	return time.Now().After(*i.ExpiresAt)
-}
-
 // ReservedDomain represents a subdomain reserved by a user
 type ReservedDomain struct {
 	ID        int64     `json:"id"`
@@ -185,8 +161,6 @@ const (
 	ActionTunnelClosed    = "tunnel_closed"
 	ActionTOTPEnabled     = "totp_enabled"
 	ActionTOTPDisabled    = "totp_disabled"
-	ActionInviteCreated   = "invite_created"
-	ActionInviteUsed      = "invite_used"
 	ActionUserUpdated     = "user_updated"
 	ActionUserDeleted     = "user_deleted"
 	ActionUsersMerged     = "users_merged"

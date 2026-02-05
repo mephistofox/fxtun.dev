@@ -58,7 +58,6 @@ type AuthSettings struct {
 	JWTSecret       string        `mapstructure:"jwt_secret"`
 	AccessTokenTTL  string        `mapstructure:"access_token_ttl"`
 	RefreshTokenTTL string        `mapstructure:"refresh_token_ttl"`
-	InviteOnly      bool          `mapstructure:"invite_only"`
 	MaxDomains      int           `mapstructure:"max_domains_per_user"`
 }
 
@@ -227,7 +226,6 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.jwt_secret", "")
 	v.SetDefault("auth.access_token_ttl", "15m")
 	v.SetDefault("auth.refresh_token_ttl", "168h")
-	v.SetDefault("auth.invite_only", true)
 	v.SetDefault("auth.max_domains_per_user", 3)
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("tls.https_port", 443)
