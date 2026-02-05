@@ -82,6 +82,7 @@ func main() {
 			app.SyncService,
 			app.InspectService,
 			app.UpdateService,
+			app.AccountService,
 		},
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{

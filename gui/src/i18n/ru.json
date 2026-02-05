@@ -53,6 +53,7 @@
     "signInWithGitHub": "Войти через GitHub",
     "signInWithGoogle": "Войти через Google",
     "or": "ИЛИ",
+    "orConnectWithToken": "или подключиться по токену",
     "oauthWaiting": "Ожидание авторизации в браузере...",
     "oauthCancel": "Отмена",
     "remember": "Запомнить учётные данные",
@@ -328,6 +329,17 @@
     "failedToReserve": "Не удалось зарезервировать домен",
     "failedToRelease": "Не удалось освободить домен",
     "copyUrl": "Копировать URL"
+  },
+  "account": {
+    "plan": "Тариф",
+    "upgrade": "Улучшить",
+    "manage": "Управление",
+    "tunnels": "Туннели",
+    "domains": "Домены",
+    "tokens": "Токены",
+    "inspector": "Инспектор",
+    "locked": "Заблокировано",
+    "free": "Бесплатно"
   },
   "customDomains": {
     "title": "Кастомные домены",
