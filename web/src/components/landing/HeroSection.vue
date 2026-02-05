@@ -126,10 +126,21 @@ onMounted(() => {
             </a>
           </div>
 
+          <!-- Trust badge -->
+          <p
+            class="text-sm text-muted-foreground flex items-center gap-2"
+            :style="isVisible ? 'animation: fade-in-up 0.8s ease-out 0.6s forwards; opacity: 0' : ''"
+          >
+            <svg class="h-4 w-4 text-type-http flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {{ t('landing.hero.trustBadge') }}
+          </p>
+
           <!-- Stats row -->
           <div
             class="flex flex-wrap gap-6 pt-2"
-            :style="isVisible ? 'animation: fade-in-up 0.8s ease-out 0.65s forwards; opacity: 0' : ''"
+            :style="isVisible ? 'animation: fade-in-up 0.8s ease-out 0.7s forwards; opacity: 0' : ''"
           >
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -181,8 +192,12 @@ onMounted(() => {
           <!-- Terminal wrapper with perspective -->
           <div class="relative transform lg:rotate-1 lg:hover:rotate-0 transition-transform duration-500">
             <AnimatedTerminal class="relative z-10 shadow-2xl" />
+          </div>
 
-                    </div>
+          <!-- Terminal caption -->
+          <p class="relative z-10 text-center text-xs text-muted-foreground/60 mt-4 italic">
+            {{ t('landing.hero.terminalCaption') }}
+          </p>
         </div>
       </div>
     </div>
