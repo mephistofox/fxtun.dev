@@ -7,10 +7,18 @@ import (
 
 const MaxBodySize = 256 * 1024
 
+// ReplayResult holds the fully-read response from a replayed request.
+type ReplayResult struct {
+	StatusCode int
+	Headers    http.Header
+	Body       []byte
+}
+
 type CapturedExchange struct {
 	ID        string        `json:"id"`
 	TunnelID  string        `json:"tunnel_id"`
 	TraceID   string        `json:"trace_id,omitempty"`
+	ReplayRef string        `json:"replay_ref,omitempty"`
 	Timestamp time.Time     `json:"timestamp"`
 	Duration  time.Duration `json:"duration_ns"`
 
@@ -32,6 +40,7 @@ type ExchangeSummary struct {
 	ID               string        `json:"id"`
 	TunnelID         string        `json:"tunnel_id"`
 	TraceID          string        `json:"trace_id,omitempty"`
+	ReplayRef        string        `json:"replay_ref,omitempty"`
 	Timestamp        time.Time     `json:"timestamp"`
 	Duration         time.Duration `json:"duration_ns"`
 	Method           string        `json:"method"`
@@ -45,7 +54,7 @@ type ExchangeSummary struct {
 
 func (e *CapturedExchange) Summary() ExchangeSummary {
 	return ExchangeSummary{
-		ID: e.ID, TunnelID: e.TunnelID, TraceID: e.TraceID, Timestamp: e.Timestamp, Duration: e.Duration,
+		ID: e.ID, TunnelID: e.TunnelID, TraceID: e.TraceID, ReplayRef: e.ReplayRef, Timestamp: e.Timestamp, Duration: e.Duration,
 		Method: e.Method, Path: e.Path, Host: e.Host, StatusCode: e.StatusCode,
 		RequestBodySize: e.RequestBodySize, ResponseBodySize: e.ResponseBodySize,
 		RemoteAddr: e.RemoteAddr,

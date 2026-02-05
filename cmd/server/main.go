@@ -166,6 +166,8 @@ func run(cmd *cobra.Command, args []string) error {
 		if cfg.CustomDomains.Enabled {
 			cdm = &customDomainAdapter{srv: srv}
 		}
+		srv.InspectManager().SetStore(db.Exchanges)
+
 		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log)
 		apiServer.SetVersion(Version)
 		apiServer.SetMinVersion(cfg.Server.MinVersion)
@@ -197,6 +199,12 @@ func run(cmd *cobra.Command, args []string) error {
 						log.Error().Err(err).Msg("Failed to cleanup expired sessions")
 					} else if deleted > 0 {
 						log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+					}
+					// Cleanup old inspect exchanges (24h TTL)
+					if deleted, err := db.Exchanges.DeleteOlderThan(time.Now().Add(-24 * time.Hour)); err != nil {
+						log.Error().Err(err).Msg("Failed to cleanup old inspect exchanges")
+					} else if deleted > 0 {
+						log.Info().Int64("deleted", deleted).Msg("Cleaned up old inspect exchanges")
 					}
 				}
 			}

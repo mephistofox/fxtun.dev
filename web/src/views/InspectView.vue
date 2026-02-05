@@ -45,7 +45,14 @@
 
       <!-- Right: Exchange Detail -->
       <div class="w-1/2 overflow-y-auto">
-        <ExchangeDetail v-if="selectedExchange" :exchange="selectedExchange" :replaying="replaying" @replay="replayExchange" />
+        <ExchangeDetail
+          v-if="selectedExchange"
+          :exchange="selectedExchange"
+          :replaying="replaying"
+          :replay-result="replayResponse"
+          @replay="replayExchange"
+          @edit-replay="editReplayExchange"
+        />
         <div v-else class="flex items-center justify-center h-full text-gray-500">
           Select a request to view details
         </div>
@@ -57,7 +64,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { inspectApi, type ExchangeSummary, type CapturedExchange } from '../api/client'
+import { inspectApi, type ExchangeSummary, type CapturedExchange, type ReplayRequest, type ReplayResponse } from '../api/client'
 import ExchangeList from '../components/inspect/ExchangeList.vue'
 import ExchangeDetail from '../components/inspect/ExchangeDetail.vue'
 
@@ -70,6 +77,7 @@ const selectedExchange = ref<CapturedExchange | null>(null)
 const filter = ref('')
 const connected = ref(false)
 const replaying = ref(false)
+const replayResponse = ref<ReplayResponse | null>(null)
 let eventSource: EventSource | null = null
 
 const filteredExchanges = computed(() => {
@@ -93,6 +101,7 @@ async function loadExchanges() {
 
 async function selectExchange(id: string) {
   selectedId.value = id
+  replayResponse.value = null
   try {
     selectedExchange.value = await inspectApi.get(tunnelId.value, id)
   } catch (e) {
@@ -106,20 +115,32 @@ async function clearExchanges() {
     exchanges.value = []
     selectedId.value = null
     selectedExchange.value = null
+    replayResponse.value = null
   } catch (e) {
     console.error('Failed to clear:', e)
   }
 }
 
-async function replayExchange(exchangeId: string) {
+async function replayExchange(exchangeId: string, mods?: ReplayRequest) {
   replaying.value = true
+  replayResponse.value = null
   try {
-    await inspectApi.replay(tunnelId.value, exchangeId)
+    const response = await inspectApi.replay(tunnelId.value, exchangeId, mods)
+    replayResponse.value = response
+    // Auto-select the newly created exchange
+    if (response.exchange_id) {
+      await selectExchange(response.exchange_id)
+    }
   } catch (e) {
     console.error('Replay failed:', e)
   } finally {
     replaying.value = false
   }
+}
+
+async function editReplayExchange(mods: ReplayRequest) {
+  if (!selectedId.value) return
+  await replayExchange(selectedId.value, mods)
 }
 
 function connectSSE() {

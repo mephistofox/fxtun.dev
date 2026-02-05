@@ -28,6 +28,7 @@ type Database struct {
 	Plans         *PlanRepository
 	Subscriptions *SubscriptionRepository
 	Payments      *PaymentRepository
+	Exchanges     *ExchangeRepository
 }
 
 // New creates a new database connection and initializes repositories
@@ -81,6 +82,7 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	database.Plans = NewPlanRepository(db)
 	database.Subscriptions = NewSubscriptionRepository(db)
 	database.Payments = NewPaymentRepository(db)
+	database.Exchanges = NewExchangeRepository(db)
 
 	log.Info().Str("path", dbPath).Msg("Database initialized")
 
@@ -132,6 +134,7 @@ func (d *Database) migrate() error {
 		migrationCreateSubscriptions,
 		migrationCreatePayments,
 		migrationRenameToYooKassa,
+		migrationCreateInspectExchanges,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -479,4 +482,30 @@ ALTER TABLE subscriptions ADD COLUMN yookassa_payment_method_id TEXT;
 ALTER TABLE payments ADD COLUMN yookassa_data TEXT;
 -- Copy data from old column to new
 UPDATE payments SET yookassa_data = robokassa_data WHERE robokassa_data IS NOT NULL;
+`
+
+const migrationCreateInspectExchanges = `
+CREATE TABLE IF NOT EXISTS inspect_exchanges (
+    id TEXT PRIMARY KEY,
+    tunnel_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    trace_id TEXT,
+    replay_ref TEXT,
+    timestamp DATETIME NOT NULL,
+    duration_ns INTEGER NOT NULL,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    host TEXT NOT NULL,
+    request_headers TEXT,
+    request_body BLOB,
+    request_body_size INTEGER NOT NULL DEFAULT 0,
+    response_headers TEXT,
+    response_body BLOB,
+    response_body_size INTEGER NOT NULL DEFAULT 0,
+    status_code INTEGER NOT NULL,
+    remote_addr TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_inspect_exch_tunnel ON inspect_exchanges(tunnel_id, timestamp DESC);
+CREATE INDEX idx_inspect_exch_created ON inspect_exchanges(created_at);
 `

@@ -764,7 +764,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		return
 	}
 
-	c.server.inspectMgr.GetOrCreate(tunnelID)
+	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
 
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel

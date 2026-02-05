@@ -433,3 +433,11 @@ type AdminPaymentsListResponse struct {
 	Page     int                `json:"page"`
 	Limit    int                `json:"limit"`
 }
+
+// ReplayResponse represents the result of a replay operation
+type ReplayResponse struct {
+	StatusCode      int                 `json:"status_code"`
+	ResponseHeaders map[string][]string `json:"response_headers"`
+	ResponseBody    []byte              `json:"response_body"`
+	ExchangeID      string              `json:"exchange_id"`
+}

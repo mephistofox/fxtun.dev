@@ -2,13 +2,17 @@ package api
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mephistofox/fxtunnel/internal/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/auth"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 )
@@ -37,30 +41,46 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf := s.getInspectBuffer(tunnelID)
-	if buf == nil {
-		s.respondJSON(w, http.StatusOK, map[string]interface{}{
-			"exchanges": []interface{}{},
-			"total":     0,
-		})
-		return
-	}
-
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 
-	exchanges := buf.List(offset, limit)
-	summaries := make([]inspect.ExchangeSummary, len(exchanges))
-	for i, ex := range exchanges {
-		summaries[i] = ex.Summary()
+	buf := s.getInspectBuffer(tunnelID)
+	if buf != nil {
+		// Tunnel is online — use in-memory buffer
+		exchanges := buf.List(offset, limit)
+		summaries := make([]inspect.ExchangeSummary, len(exchanges))
+		for i, ex := range exchanges {
+			summaries[i] = ex.Summary()
+		}
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"exchanges": summaries,
+			"total":     buf.Len(),
+		})
+		return
+	}
+
+	// Tunnel offline — fallback to persisted data
+	if s.inspectProvider != nil {
+		exchanges, total, err := s.inspectProvider.ListPersisted(tunnelID, offset, limit)
+		if err == nil && len(exchanges) > 0 {
+			summaries := make([]inspect.ExchangeSummary, len(exchanges))
+			for i, ex := range exchanges {
+				summaries[i] = ex.Summary()
+			}
+			s.respondJSON(w, http.StatusOK, map[string]interface{}{
+				"exchanges": summaries,
+				"total":     total,
+			})
+			return
+		}
 	}
 
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"exchanges": summaries,
-		"total":     buf.Len(),
+		"exchanges": []interface{}{},
+		"total":     0,
 	})
 }
 
@@ -81,19 +101,26 @@ func (s *Server) handleGetExchange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exchangeID := chi.URLParam(r, "exchangeId")
+
+	// Try in-memory buffer first
 	buf := s.getInspectBuffer(tunnelID)
-	if buf == nil {
-		s.respondError(w, http.StatusNotFound, "exchange not found")
-		return
+	if buf != nil {
+		if ex := buf.Get(exchangeID); ex != nil {
+			s.respondJSON(w, http.StatusOK, ex)
+			return
+		}
 	}
 
-	ex := buf.Get(exchangeID)
-	if ex == nil {
-		s.respondError(w, http.StatusNotFound, "exchange not found")
-		return
+	// Fallback to persisted data
+	if s.inspectProvider != nil {
+		ex, err := s.inspectProvider.GetPersisted(exchangeID)
+		if err == nil && ex != nil {
+			s.respondJSON(w, http.StatusOK, ex)
+			return
+		}
 	}
 
-	s.respondJSON(w, http.StatusOK, ex)
+	s.respondError(w, http.StatusNotFound, "exchange not found")
 }
 
 func (s *Server) handleClearExchanges(w http.ResponseWriter, r *http.Request) {
@@ -223,14 +250,22 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exchangeID := chi.URLParam(r, "exchangeId")
-	buf := s.getInspectBuffer(tunnelID)
-	if buf == nil {
-		s.respondError(w, http.StatusNotFound, "exchange not found")
-		return
+	// Parse optional modifications from request body
+	var mods dto.ReplayExchangeRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&mods)
 	}
 
-	ex := buf.Get(exchangeID)
+	exchangeID := chi.URLParam(r, "exchangeId")
+
+	// Find original exchange from buffer or DB
+	var ex *inspect.CapturedExchange
+	if buf := s.getInspectBuffer(tunnelID); buf != nil {
+		ex = buf.Get(exchangeID)
+	}
+	if ex == nil && s.inspectProvider != nil {
+		ex, _ = s.inspectProvider.GetPersisted(exchangeID)
+	}
 	if ex == nil {
 		s.respondError(w, http.StatusNotFound, "exchange not found")
 		return
@@ -260,43 +295,80 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reconstruct request
+	// Apply modifications or use original values
+	method := ex.Method
+	if mods.Method != nil {
+		method = *mods.Method
+	}
+	path := ex.Path
+	if mods.Path != nil {
+		path = *mods.Path
+	}
+	reqHeaders := ex.RequestHeaders.Clone()
+	if mods.Headers != nil {
+		reqHeaders = http.Header(mods.Headers)
+	}
 	reqBody := ex.RequestBody
-	var bodyReader *bytes.Reader
-	if reqBody != nil {
-		bodyReader = bytes.NewReader(reqBody)
-	} else {
-		bodyReader = bytes.NewReader(nil)
+	if mods.Body != nil {
+		decoded, err := base64.StdEncoding.DecodeString(*mods.Body)
+		if err == nil {
+			reqBody = decoded
+		}
 	}
 
-	replayReq, err := http.NewRequest(ex.Method, ex.Path, bodyReader)
+	// Build replay request
+	bodyReader := bytes.NewReader(reqBody)
+	replayReq, err := http.NewRequest(method, path, bodyReader)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to create replay request")
 		return
 	}
 	replayReq.Host = ex.Host
-	replayReq.Header = ex.RequestHeaders.Clone()
+	replayReq.Header = reqHeaders
 
-	resp, err := s.replayProvider.ReplayRequest(subdomain, replayReq)
+	startTime := time.Now()
+	result, err := s.replayProvider.ReplayRequest(subdomain, replayReq)
 	if err != nil {
 		s.respondError(w, http.StatusBadGateway, fmt.Sprintf("replay failed: %v", err))
 		return
 	}
-	defer resp.Body.Close()
 
-	// Read response body
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	// Build new CapturedExchange from replay
+	newEx := &inspect.CapturedExchange{
+		ID:               generateReplayID(),
+		TunnelID:         tunnelID,
+		ReplayRef:        exchangeID,
+		Timestamp:        startTime,
+		Duration:         time.Since(startTime),
+		Method:           method,
+		Path:             path,
+		Host:             ex.Host,
+		RequestHeaders:   reqHeaders,
+		RequestBody:      reqBody,
+		RequestBodySize:  int64(len(reqBody)),
+		RemoteAddr:       "replay",
+		StatusCode:       result.StatusCode,
+		ResponseHeaders:  result.Headers,
+		ResponseBody:     result.Body,
+		ResponseBodySize: int64(len(result.Body)),
+	}
 
-	// Build response
+	// Add to inspect buffer + persist
+	if s.inspectProvider != nil {
+		s.inspectProvider.AddAndPersist(tunnelID, newEx)
+	}
+
+	// Build response headers map
 	respHeaders := make(map[string][]string)
-	for k, v := range resp.Header {
+	for k, v := range result.Headers {
 		respHeaders[k] = v
 	}
 
-	s.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"status_code":      resp.StatusCode,
-		"response_headers": respHeaders,
-		"response_body":    respBody,
+	s.respondJSON(w, http.StatusOK, dto.ReplayResponse{
+		StatusCode:      result.StatusCode,
+		ResponseHeaders: respHeaders,
+		ResponseBody:    result.Body,
+		ExchangeID:      newEx.ID,
 	})
 }
 
@@ -321,4 +393,10 @@ func (s *Server) getInspectBuffer(tunnelID string) *inspect.RingBuffer {
 		return nil
 	}
 	return s.inspectProvider.Get(tunnelID)
+}
+
+func generateReplayID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return "r-" + hex.EncodeToString(b)
 }
