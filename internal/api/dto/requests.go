@@ -4,7 +4,6 @@ package dto
 type RegisterRequest struct {
 	Phone       string `json:"phone" validate:"required,min=10,max=20"`
 	Password    string `json:"password" validate:"required,min=8,max=128"`
-	InviteCode  string `json:"invite_code" validate:"required,min=16,max=32"`
 	DisplayName string `json:"display_name" validate:"max=100"`
 }
 
@@ -42,11 +41,6 @@ type CreateTokenRequest struct {
 // ReserveDomainRequest represents a domain reservation request
 type ReserveDomainRequest struct {
 	Subdomain string `json:"subdomain" validate:"required,min=3,max=32,alphanum"`
-}
-
-// CreateInviteCodeRequest represents an invite code creation request
-type CreateInviteCodeRequest struct {
-	ExpiresInDays int `json:"expires_in_days,omitempty"` // 0 = no expiry
 }
 
 // TOTPVerifyRequest represents a TOTP verification request

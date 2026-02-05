@@ -36,7 +36,6 @@ const navigation = [
 const adminNavigation = [
   { key: 'admin', path: '/admin', icon: 'shield' },
   { key: 'adminUsers', path: '/admin/users', icon: 'users' },
-  { key: 'adminInvites', path: '/admin/invites', icon: 'ticket' },
   { key: 'adminTunnels', path: '/admin/tunnels', icon: 'network' },
   { key: 'adminCustomDomains', path: '/admin/custom-domains', icon: 'globe' },
   { key: 'adminPlans', path: '/admin/plans', icon: 'credit-card' },

@@ -200,34 +200,6 @@ type TunnelsListResponse struct {
 	Total   int          `json:"total"`
 }
 
-// InviteCodeDTO represents an invite code in API responses
-type InviteCodeDTO struct {
-	ID        int64      `json:"id"`
-	Code      string     `json:"code"`
-	Used      bool       `json:"used"`
-	UsedAt    *time.Time `json:"used_at,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-}
-
-// InviteCodeFromModel converts a database InviteCode to InviteCodeDTO
-func InviteCodeFromModel(i *database.InviteCode) *InviteCodeDTO {
-	return &InviteCodeDTO{
-		ID:        i.ID,
-		Code:      i.Code,
-		Used:      i.IsUsed(),
-		UsedAt:    i.UsedAt,
-		ExpiresAt: i.ExpiresAt,
-		CreatedAt: i.CreatedAt,
-	}
-}
-
-// InviteCodesListResponse represents a list of invite codes
-type InviteCodesListResponse struct {
-	Codes []*InviteCodeDTO `json:"codes"`
-	Total int              `json:"total"`
-}
-
 // TOTPEnableResponse represents a TOTP enable response
 type TOTPEnableResponse struct {
 	Secret      string   `json:"secret"`

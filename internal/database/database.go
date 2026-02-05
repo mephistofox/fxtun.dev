@@ -20,7 +20,6 @@ type Database struct {
 	Sessions      *SessionRepository
 	Tokens        *APITokenRepository
 	Domains       *DomainRepository
-	Invites       *InviteRepository
 	TOTP          *TOTPRepository
 	Audit         *AuditRepository
 	UserBundles   *UserBundleRepository
@@ -74,7 +73,6 @@ func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	database.Sessions = NewSessionRepository(db)
 	database.Tokens = NewAPITokenRepository(db)
 	database.Domains = NewDomainRepository(db)
-	database.Invites = NewInviteRepository(db)
 	database.TOTP = NewTOTPRepository(db)
 	database.Audit = NewAuditRepository(db)
 	database.UserBundles = NewUserBundleRepository(db)

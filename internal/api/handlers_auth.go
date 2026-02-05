@@ -17,8 +17,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if req.Phone == "" || req.Password == "" || req.InviteCode == "" {
-		s.respondError(w, http.StatusBadRequest, "phone, password, and invite_code are required")
+	if req.Phone == "" || req.Password == "" {
+		s.respondError(w, http.StatusBadRequest, "phone and password are required")
 		return
 	}
 
@@ -36,15 +36,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	user, tokenPair, err := s.authService.Register(
 		req.Phone,
 		req.Password,
-		req.InviteCode,
 		req.DisplayName,
 		ipAddress,
 	)
 	if err != nil {
-		if errors.Is(err, auth.ErrInvalidInviteCode) {
-			s.respondErrorWithCode(w, http.StatusBadRequest, "INVALID_INVITE", "invalid or expired invite code")
-			return
-		}
 		if errors.Is(err, auth.ErrPhoneAlreadyExists) {
 			s.respondErrorWithCode(w, http.StatusConflict, "PHONE_EXISTS", "phone number already registered")
 			return

@@ -13,7 +13,6 @@ import (
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserNotActive      = errors.New("user account is not active")
-	ErrInvalidInviteCode  = errors.New("invalid invite code")
 	ErrPhoneAlreadyExists = errors.New("phone number already registered")
 	ErrTOTPRequired       = errors.New("TOTP code required")
 )
@@ -39,34 +38,18 @@ func NewService(db *database.Database, jwtSecret string, accessTTL, refreshTTL t
 }
 
 // Register creates a new user account
-func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress string) (*database.User, *TokenPair, error) {
-	// Validate invite code
-	valid, err := s.db.Invites.IsValid(inviteCode)
-	if err != nil {
-		return nil, nil, fmt.Errorf("validate invite code: %w", err)
-	}
-	if !valid {
-		return nil, nil, ErrInvalidInviteCode
-	}
-
+func (s *Service) Register(phone, password, displayName, ipAddress string) (*database.User, *TokenPair, error) {
 	// Hash password
 	passwordHash, err := HashPassword(password)
 	if err != nil {
 		return nil, nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	// Assign default plan (must be before Begin() to avoid deadlock with MaxOpenConns=1)
+	// Assign default plan
 	var defaultPlanID int64
 	if defaultPlan, err := s.db.Plans.GetDefault(); err == nil {
 		defaultPlanID = defaultPlan.ID
 	}
-
-	// Begin transaction for user creation + invite use
-	tx, err := s.db.DB().Begin()
-	if err != nil {
-		return nil, nil, fmt.Errorf("begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
 
 	// Create user
 	user := &database.User{
@@ -78,20 +61,11 @@ func (s *Service) Register(phone, password, inviteCode, displayName, ipAddress s
 		PlanID:       defaultPlanID,
 	}
 
-	if err := s.db.Users.CreateTx(tx, user); err != nil {
+	if err := s.db.Users.Create(user); err != nil {
 		if errors.Is(err, database.ErrUserAlreadyExists) {
 			return nil, nil, ErrPhoneAlreadyExists
 		}
 		return nil, nil, fmt.Errorf("create user: %w", err)
-	}
-
-	// Mark invite code as used
-	if err := s.db.Invites.UseTx(tx, inviteCode, user.ID); err != nil {
-		return nil, nil, fmt.Errorf("use invite code: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
 	// Generate tokens

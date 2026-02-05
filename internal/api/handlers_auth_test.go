@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/database"
 )
 
 func TestHealth_Returns200(t *testing.T) {
@@ -47,25 +45,12 @@ func postJSON(t *testing.T, url string, payload interface{}) *http.Response {
 	return resp
 }
 
-func createInviteCode(t *testing.T, env *testEnv, code string) {
-	t.Helper()
-	ic := &database.InviteCode{
-		Code:      code,
-		ExpiresAt: timePtr(time.Now().Add(1 * time.Hour)),
-	}
-	if err := env.DB.Invites.Create(ic); err != nil {
-		t.Fatalf("failed to create invite code: %v", err)
-	}
-}
-
 func TestRegister_Success(t *testing.T) {
 	env := setupTestEnv(t)
-	createInviteCode(t, env, "invite-reg-success")
 
 	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
 		Phone:       "+1234567890",
 		Password:    "securepass123",
-		InviteCode:  "invite-reg-success",
 		DisplayName: "Test User",
 	})
 	defer resp.Body.Close()
@@ -93,30 +78,12 @@ func TestRegister_Success(t *testing.T) {
 	}
 }
 
-func TestRegister_InvalidInvite(t *testing.T) {
-	env := setupTestEnv(t)
-
-	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+1234567890",
-		Password:   "securepass123",
-		InviteCode: "bad-invite-code",
-	})
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", resp.StatusCode)
-	}
-}
-
 func TestRegister_DuplicatePhone(t *testing.T) {
 	env := setupTestEnv(t)
-	createInviteCode(t, env, "invite-dup-1")
-	createInviteCode(t, env, "invite-dup-2")
 
 	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+9999999999",
-		Password:   "securepass123",
-		InviteCode: "invite-dup-1",
+		Phone:    "+9999999999",
+		Password: "securepass123",
 	})
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
@@ -124,9 +91,8 @@ func TestRegister_DuplicatePhone(t *testing.T) {
 	}
 
 	resp2 := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+9999999999",
-		Password:   "securepass123",
-		InviteCode: "invite-dup-2",
+		Phone:    "+9999999999",
+		Password: "securepass123",
 	})
 	defer resp2.Body.Close()
 
@@ -142,9 +108,8 @@ func TestRegister_MissingFields(t *testing.T) {
 		name string
 		req  dto.RegisterRequest
 	}{
-		{"empty phone", dto.RegisterRequest{Phone: "", Password: "securepass123", InviteCode: "code"}},
-		{"empty password", dto.RegisterRequest{Phone: "+1234567890", Password: "", InviteCode: "code"}},
-		{"empty invite", dto.RegisterRequest{Phone: "+1234567890", Password: "securepass123", InviteCode: ""}},
+		{"empty phone", dto.RegisterRequest{Phone: "", Password: "securepass123"}},
+		{"empty password", dto.RegisterRequest{Phone: "+1234567890", Password: ""}},
 	}
 
 	for _, tc := range tests {
@@ -161,13 +126,11 @@ func TestRegister_MissingFields(t *testing.T) {
 
 func TestLogin_Success(t *testing.T) {
 	env := setupTestEnv(t)
-	createInviteCode(t, env, "invite-login")
 
 	// Register first
 	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+1112223333",
-		Password:   "securepass123",
-		InviteCode: "invite-login",
+		Phone:    "+1112223333",
+		Password: "securepass123",
 	})
 	resp.Body.Close()
 
@@ -197,12 +160,10 @@ func TestLogin_Success(t *testing.T) {
 
 func TestLogin_WrongPassword(t *testing.T) {
 	env := setupTestEnv(t)
-	createInviteCode(t, env, "invite-wrongpw")
 
 	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+5556667777",
-		Password:   "securepass123",
-		InviteCode: "invite-wrongpw",
+		Phone:    "+5556667777",
+		Password: "securepass123",
 	})
 	resp.Body.Close()
 
@@ -219,13 +180,11 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 func TestRefresh_Success(t *testing.T) {
 	env := setupTestEnv(t)
-	createInviteCode(t, env, "invite-refresh")
 
 	// Register
 	resp := postJSON(t, env.Server.URL+"/api/auth/register", dto.RegisterRequest{
-		Phone:      "+8889990000",
-		Password:   "securepass123",
-		InviteCode: "invite-refresh",
+		Phone:    "+8889990000",
+		Password: "securepass123",
 	})
 	defer resp.Body.Close()
 
