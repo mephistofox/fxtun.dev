@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/smtp"
@@ -12,6 +13,33 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 )
+
+// loginAuth implements smtp.Auth for LOGIN mechanism (required by some providers like Beget)
+type loginAuth struct {
+	username, password string
+}
+
+func newLoginAuth(username, password string) smtp.Auth {
+	return &loginAuth{username, password}
+}
+
+func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", []byte{}, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if more {
+		switch string(fromServer) {
+		case "Username:":
+			return []byte(a.username), nil
+		case "Password:":
+			return []byte(a.password), nil
+		default:
+			return nil, errors.New("unknown server response")
+		}
+	}
+	return nil, nil
+}
 
 // Service handles email sending
 type Service struct {
@@ -89,7 +117,8 @@ func (s *Service) Send(msg Message) error {
 	// Send email
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
 
-	auth := smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, s.cfg.Host)
+	// Use LOGIN auth (works with more providers including Beget)
+	auth := newLoginAuth(s.cfg.Username, s.cfg.Password)
 
 	var err error
 	if s.cfg.Port == s.cfg.SSLPort || s.cfg.Port == 465 {
