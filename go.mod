@@ -7,6 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/cors v1.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/yamux v0.1.2
 	github.com/klauspost/compress v1.18.3
 	github.com/mattn/go-sqlite3 v1.14.22
@@ -35,7 +36,6 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

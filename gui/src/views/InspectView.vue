@@ -272,7 +272,7 @@ async function replayExchange(exchangeId: string) {
   replaying.value = true
   replayResult.value = null
   try {
-    const result = await Replay(tunnelId.value, exchangeId, null) as ReplayResponseData
+    const result = await Replay(tunnelId.value, exchangeId, {} as any) as ReplayResponseData
     replayResult.value = result
     // Auto-select the new exchange if it appeared in the list
     if (result.exchange_id) {

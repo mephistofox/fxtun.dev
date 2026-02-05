@@ -8,7 +8,7 @@ export function Get(arg1:string,arg2:string):Promise<gui.CapturedExchange>;
 
 export function List(arg1:string,arg2:number,arg3:number):Promise<gui.ExchangeListResponse>;
 
-export function Replay(arg1:string,arg2:string):Promise<Record<string, any>>;
+export function Replay(arg1:string,arg2:string,arg3:gui.ReplayModifications):Promise<gui.ReplayResponse>;
 
 export function Subscribe(arg1:string):Promise<void>;
 

@@ -14,8 +14,8 @@ export function List(arg1, arg2, arg3) {
   return window['go']['gui']['InspectService']['List'](arg1, arg2, arg3);
 }
 
-export function Replay(arg1, arg2) {
-  return window['go']['gui']['InspectService']['Replay'](arg1, arg2);
+export function Replay(arg1, arg2, arg3) {
+  return window['go']['gui']['InspectService']['Replay'](arg1, arg2, arg3);
 }
 
 export function Subscribe(arg1) {
