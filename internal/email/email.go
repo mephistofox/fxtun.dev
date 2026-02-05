@@ -315,7 +315,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
@@ -346,7 +346,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
@@ -378,7 +378,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
@@ -414,7 +414,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
@@ -445,7 +445,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
@@ -485,7 +485,7 @@ func init() {
             {{end}}
         </div>
         <div class="footer">
-            <p>fxTunnel — Self-hosted reverse tunneling</p>
+            <p>fxTunnel — Reverse tunneling service</p>
             {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
         </div>
     </div>
