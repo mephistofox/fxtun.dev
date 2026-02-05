@@ -10,54 +10,64 @@
       "backToHome": "Back to home"
     },
     "hero": {
-      "badge": "Secure Tunneling",
-      "titleLine1": "Expose your",
-      "titleLine2": "project",
-      "titleLine3": "to the world",
-      "subtitle": "Fast and secure tunneling service. Share your localhost with anyone, anywhere, in seconds.",
-      "getStarted": "Get Started",
-      "learnMore": "Learn More"
+      "badge": "HTTP · TCP · UDP",
+      "titleLine1": "Your localhost,",
+      "titleLine2": "live",
+      "titleLine3": "in seconds",
+      "subtitle": "One command to expose any local service to the internet. HTTP, TCP, UDP — with a desktop app, traffic inspector, and custom domains.",
+      "getStarted": "Start Free",
+      "learnMore": "See How It Works",
+      "quickStart": "Get started in one command:",
+      "copied": "Copied!",
+      "stats": {
+        "protocols": "3 protocols",
+        "protocolsDesc": "HTTP, TCP, UDP",
+        "platforms": "All platforms",
+        "platformsDesc": "CLI + Desktop app",
+        "encryption": "End-to-end",
+        "encryptionDesc": "TLS encryption"
+      }
     },
     "features": {
       "label": "Why fxTunnel",
-      "title": "Why fxTunnel?",
-      "subtitle": "A modern tunneling solution built for developers who value control, security, and simplicity.",
-      "control": {
-        "title": "Full Control",
-        "desc": "Secure and private by default. Complete data ownership, no third-party tracking.",
-        "highlight1": "Your data stays private",
-        "highlight2": "End-to-end encrypted connections",
-        "highlight3": "Custom domain support"
+      "title": "Everything you need to go live",
+      "subtitle": "Not just tunnels. A complete toolkit for exposing, debugging, and managing local services.",
+      "inspector": {
+        "title": "Traffic Inspector",
+        "desc": "Real-time HTTP request/response viewer with filtering and one-click replay. Debug webhooks without leaving the browser.",
+        "highlight1": "Live request & response capture",
+        "highlight2": "Search and filter by method, path, status",
+        "highlight3": "Replay requests instantly"
       },
       "protocols": {
-        "title": "Multi-Protocol",
-        "desc": "Support for HTTP, TCP, and UDP tunnels. Expose any service you need, from web apps to game servers.",
+        "title": "HTTP, TCP & UDP",
+        "desc": "Three protocols in one service. Web apps, SSH, databases, game servers, DNS — expose anything.",
         "highlight1": "HTTP with custom subdomains",
         "highlight2": "TCP for SSH, databases, APIs",
         "highlight3": "UDP for gaming and real-time"
       },
-      "security": {
-        "title": "Secure by Design",
-        "desc": "Enterprise-grade security with TLS encryption, token-based authentication, and two-factor authentication.",
-        "highlight1": "TLS encryption everywhere",
-        "highlight2": "Token-based authentication",
-        "highlight3": "Two-factor authentication"
+      "desktopApp": {
+        "title": "Desktop App",
+        "desc": "The only tunneling service with a native desktop client. Manage tunnels visually, no terminal needed.",
+        "highlight1": "Visual tunnel management",
+        "highlight2": "System tray — always running",
+        "highlight3": "Auto-reconnect on disconnect"
       },
       "fast": {
         "title": "Lightning Fast",
-        "short": "Go + yamux"
+        "short": "Built in Go"
       },
-      "multiUser": {
-        "title": "Multi-User",
-        "short": "Admin panel"
+      "security": {
+        "title": "Secure",
+        "short": "TLS + 2FA"
       },
       "subdomains": {
-        "title": "Custom Subdomains",
-        "short": "Reserve yours"
+        "title": "Custom Domains",
+        "short": "Your own domain"
       },
-      "gui": {
-        "title": "GUI & CLI",
-        "short": "Your choice"
+      "selfHosted": {
+        "title": "Self-Hostable",
+        "short": "Run your own"
       }
     },
     "advanced": {
@@ -103,8 +113,8 @@
     },
     "howItWorks": {
       "label": "Quick Start",
-      "title": "Get Started in Minutes",
-      "subtitle": "Three simple steps to expose your local services to the world.",
+      "title": "Up and Running in Minutes",
+      "subtitle": "Three steps from sign-up to a live public URL.",
       "step1": {
         "title": "Download the Client",
         "desc": "Get the CLI or GUI client for your platform."
@@ -144,6 +154,99 @@
         "feature3": "DNS tunneling"
       }
     },
+    "useCases": {
+      "label": "Use Cases",
+      "title": "Built for Developers",
+      "subtitle": "From local development to production debugging — one tool for every scenario.",
+      "webhooks": {
+        "title": "Webhooks",
+        "desc": "Receive Stripe, GitHub, or Twilio webhooks on localhost. No more deploying to test payment flows.",
+        "command": "fxtunnel http 3000 --domain stripe-hooks"
+      },
+      "demos": {
+        "title": "Client Demos",
+        "desc": "Share work in progress with clients or teammates — just send a link. No deployment needed.",
+        "command": "fxtunnel http 5173 --domain demo-v2"
+      },
+      "ssh": {
+        "title": "Remote SSH",
+        "desc": "Access your home server or Raspberry Pi from anywhere through a TCP tunnel.",
+        "command": "fxtunnel tcp 22"
+      },
+      "gameServers": {
+        "title": "Game Servers",
+        "desc": "Host a Minecraft, Terraria, or any game server and share it with friends via UDP or TCP.",
+        "command": "fxtunnel udp 25565"
+      },
+      "api": {
+        "title": "API Development",
+        "desc": "Test mobile apps against your local backend. Share API endpoints with your team instantly.",
+        "command": "fxtunnel http 8080 --domain api-dev"
+      },
+      "iot": {
+        "title": "IoT & Smart Home",
+        "desc": "Expose Home Assistant, camera feeds, or IoT dashboards securely from your local network.",
+        "command": "fxtunnel http 8123 --domain my-home"
+      }
+    },
+    "comparison": {
+      "label": "Why fxTunnel",
+      "title": "Compare and Choose",
+      "subtitle": "See how fxTunnel stacks up against alternatives.",
+      "feature": "Feature",
+      "fxtunnel": "fxTunnel",
+      "price": "Price (starter)",
+      "freeSubdomain": "Custom subdomain on free",
+      "requestLimits": "Request limits",
+      "sessionTimeout": "Session timeout",
+      "protocols": "Protocols",
+      "guiClient": "Desktop GUI",
+      "inspector": "Traffic Inspector",
+      "selfHosted": "Self-hostable",
+      "customDomains": "Custom domains",
+      "yes": "Yes",
+      "no": "No",
+      "none": "None",
+      "unlimited": "Unlimited",
+      "free": "Free",
+      "partial": "Partial",
+      "cfEcosystem": "CF ecosystem only",
+      "values": {
+        "fxtunnel": {
+          "price": "Free / $5/mo",
+          "freeSubdomain": "Any you choose",
+          "requestLimits": "Unlimited",
+          "sessionTimeout": "Unlimited",
+          "protocols": "HTTP + TCP + UDP",
+          "guiClient": "Yes",
+          "inspector": "From $5/mo",
+          "selfHosted": "Yes",
+          "customDomains": "From $5/mo"
+        },
+        "ngrok": {
+          "price": "Free / $8/mo",
+          "freeSubdomain": "Random only",
+          "requestLimits": "20k/mo on free",
+          "sessionTimeout": "Unlimited",
+          "protocols": "HTTP + TCP",
+          "guiClient": "No",
+          "inspector": "$8/mo, 72h retention",
+          "selfHosted": "No",
+          "customDomains": "$0.01/hr"
+        },
+        "localhostrun": {
+          "price": "Free / $9/mo",
+          "freeSubdomain": "Random only",
+          "requestLimits": "Unlimited",
+          "sessionTimeout": "Unlimited",
+          "protocols": "HTTP only",
+          "guiClient": "No",
+          "inspector": "No",
+          "selfHosted": "No",
+          "customDomains": "$9/mo"
+        }
+      }
+    },
     "download": {
       "badge": "Ready to start?",
       "title": "Ready to Start?",
@@ -156,30 +259,42 @@
       "copied": "Copied!",
       "noBuilds": "No builds available yet",
       "note": "After registration, download the client and generate API tokens from your dashboard.",
-      "openSource": "Fast and reliable",
-      "secure": "Private & Secure"
+      "openSource": "Fast & reliable",
+      "secure": "Private & secure"
     },
     "pricing": {
       "label": "Pricing",
       "title": "Choose Your Plan",
-      "subtitle": "Start free, scale as you grow.",
+      "subtitle": "Start free, scale as you grow. No request limits on any plan.",
       "popular": "Popular",
       "free": "Free",
       "perMonth": "/mo",
       "selectPlan": "Get Started",
       "paymentsComingSoon": "Coming Soon",
-      "tunnels": "active tunnels",
+      "tunnels": "active tunnel;;active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
-      "domains": "reserved addresses",
-      "domainsDesc": "Your permanent URLs like myapp.tunnel.dev",
-      "customDomains": "custom domains",
+      "anySubdomain": "Any subdomain",
+      "anySubdomainDesc": "Pick myapp.fxtun.dev — no random URLs",
+      "domains": "reserved subdomain;;reserved subdomains",
+      "domainsDesc": "Your permanent subdomains, even when offline",
+      "customDomains": "custom domain;;custom domains",
       "customDomainsDesc": "Use your own domain like app.example.com",
-      "tokens": "access keys",
+      "tokens": "access key;;access keys",
       "tokensDesc": "For connecting different devices or projects",
       "inspector": "HTTP Inspector",
+      "inspectorUnlimited": "HTTP Inspector — unlimited",
       "inspectorDesc": "View and replay requests in real-time",
       "unlimited": "Unlimited",
-      "noPlans": "No plans available"
+      "noPlans": "No plans available",
+      "common": {
+        "title": "All plans include",
+        "noLimits": "No request or bandwidth limits",
+        "noTimeout": "No session timeout",
+        "protocols": "HTTP, TCP & UDP tunnels",
+        "guiCli": "Desktop app & CLI",
+        "subdomains": "Custom subdomains for free",
+        "tls": "TLS encryption"
+      }
     },
     "footer": {
       "tagline": "Secure tunneling",

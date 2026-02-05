@@ -7,13 +7,13 @@ const { t } = useI18n()
 // Core value propositions - 3 main features
 const coreFeatures = [
   {
-    icon: 'control',
-    titleKey: 'landing.features.control.title',
-    descKey: 'landing.features.control.desc',
+    icon: 'inspector',
+    titleKey: 'landing.features.inspector.title',
+    descKey: 'landing.features.inspector.desc',
     highlights: [
-      'landing.features.control.highlight1',
-      'landing.features.control.highlight2',
-      'landing.features.control.highlight3',
+      'landing.features.inspector.highlight1',
+      'landing.features.inspector.highlight2',
+      'landing.features.inspector.highlight3',
     ],
   },
   {
@@ -27,13 +27,13 @@ const coreFeatures = [
     ],
   },
   {
-    icon: 'security',
-    titleKey: 'landing.features.security.title',
-    descKey: 'landing.features.security.desc',
+    icon: 'desktopApp',
+    titleKey: 'landing.features.desktopApp.title',
+    descKey: 'landing.features.desktopApp.desc',
     highlights: [
-      'landing.features.security.highlight1',
-      'landing.features.security.highlight2',
-      'landing.features.security.highlight3',
+      'landing.features.desktopApp.highlight1',
+      'landing.features.desktopApp.highlight2',
+      'landing.features.desktopApp.highlight3',
     ],
   },
 ]
@@ -74,7 +74,7 @@ onMounted(() => {
           class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/5 mb-6 reveal"
           :class="{ 'visible': isVisible }"
         >
-          <span class="text-sm font-medium text-primary">{{ t('landing.features.label') || 'Why fxTunnel' }}</span>
+          <span class="text-sm font-medium text-primary">{{ t('landing.features.label') }}</span>
         </div>
 
         <h2
@@ -105,28 +105,28 @@ onMounted(() => {
         >
           <!-- Icon -->
           <div class="feature-icon">
-            <!-- Control icon -->
-            <svg v-if="feature.icon === 'control'" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            <!-- Inspector icon -->
+            <svg v-if="feature.icon === 'inspector'" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
             </svg>
             <!-- Protocols icon -->
             <svg v-else-if="feature.icon === 'protocols'" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
             </svg>
-            <!-- Security icon -->
-            <svg v-else-if="feature.icon === 'security'" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            <!-- Desktop App icon -->
+            <svg v-else-if="feature.icon === 'desktopApp'" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
           </div>
 
           <!-- Title -->
           <h3 class="text-xl font-display font-semibold mb-3">
-            {{ t(feature.titleKey) || feature.titleKey }}
+            {{ t(feature.titleKey) }}
           </h3>
 
           <!-- Description -->
           <p class="text-muted-foreground mb-6 leading-relaxed">
-            {{ t(feature.descKey) || feature.descKey }}
+            {{ t(feature.descKey) }}
           </p>
 
           <!-- Highlights list -->
@@ -139,7 +139,7 @@ onMounted(() => {
               <svg class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
               </svg>
-              <span class="text-foreground/80">{{ t(highlight) || highlight }}</span>
+              <span class="text-foreground/80">{{ t(highlight) }}</span>
             </li>
           </ul>
         </div>
@@ -157,20 +157,20 @@ onMounted(() => {
             </svg>
           </div>
           <div>
-            <p class="font-medium text-sm">{{ t('landing.features.fast.title') || 'Lightning Fast' }}</p>
-            <p class="text-xs text-muted-foreground">{{ t('landing.features.fast.short') || 'Go + yamux' }}</p>
+            <p class="font-medium text-sm">{{ t('landing.features.fast.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.features.fast.short') }}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-4 p-4 rounded-xl bg-surface/50 border border-border">
           <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
             </svg>
           </div>
           <div>
-            <p class="font-medium text-sm">{{ t('landing.features.multiUser.title') || 'Multi-User' }}</p>
-            <p class="text-xs text-muted-foreground">{{ t('landing.features.multiUser.short') || 'Admin panel' }}</p>
+            <p class="font-medium text-sm">{{ t('landing.features.security.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.features.security.short') }}</p>
           </div>
         </div>
 
@@ -181,20 +181,20 @@ onMounted(() => {
             </svg>
           </div>
           <div>
-            <p class="font-medium text-sm">{{ t('landing.features.subdomains.title') || 'Custom Subdomains' }}</p>
-            <p class="text-xs text-muted-foreground">{{ t('landing.features.subdomains.short') || 'Reserve yours' }}</p>
+            <p class="font-medium text-sm">{{ t('landing.features.subdomains.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.features.subdomains.short') }}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-4 p-4 rounded-xl bg-surface/50 border border-border">
           <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
             </svg>
           </div>
           <div>
-            <p class="font-medium text-sm">{{ t('landing.features.gui.title') || 'GUI & CLI' }}</p>
-            <p class="text-xs text-muted-foreground">{{ t('landing.features.gui.short') || 'Your choice' }}</p>
+            <p class="font-medium text-sm">{{ t('landing.features.selfHosted.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.features.selfHosted.short') }}</p>
           </div>
         </div>
       </div>

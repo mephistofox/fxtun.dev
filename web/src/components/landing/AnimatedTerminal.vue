@@ -2,20 +2,21 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 interface TerminalLine {
-  type: 'command' | 'output' | 'success' | 'info'
+  type: 'command' | 'output' | 'success' | 'info' | 'url'
   text: string
   delay?: number
 }
 
 const lines: TerminalLine[] = [
   { type: 'command', text: 'fxtunnel http 3000 --domain myapp', delay: 50 },
-  { type: 'info', text: 'Connecting to fxtunnel server...', delay: 800 },
-  { type: 'success', text: 'Tunnel established!', delay: 600 },
+  { type: 'info', text: 'Connecting...', delay: 600 },
+  { type: 'success', text: 'Tunnel established!', delay: 400 },
   { type: 'output', text: '', delay: 100 },
-  { type: 'output', text: 'HTTP: https://myapp.mfdev.ru', delay: 200 },
-  { type: 'output', text: 'Forwarding to localhost:3000', delay: 150 },
-  { type: 'output', text: '', delay: 100 },
-  { type: 'info', text: 'Ready to receive connections', delay: 300 },
+  { type: 'url', text: 'https://myapp.fxtun.ru → localhost:3000', delay: 200 },
+  { type: 'output', text: '', delay: 400 },
+  { type: 'info', text: 'GET  /api/health          200  12ms', delay: 800 },
+  { type: 'info', text: 'POST /api/webhooks/stripe  200  45ms', delay: 600 },
+  { type: 'info', text: 'GET  /dashboard            200   8ms', delay: 500 },
 ]
 
 const displayedLines = ref<{ type: string; text: string; typing: boolean }[]>([])
@@ -34,7 +35,7 @@ function typeNextChar() {
       currentCharIndex.value = 0
       isTyping.value = true
       typeNextChar()
-    }, 4000)
+    }, 5000)
     return
   }
 
@@ -53,7 +54,7 @@ function typeNextChar() {
   if (currentCharIndex.value < currentLine.text.length) {
     displayedLines.value[lineIndex].text = currentLine.text.slice(0, currentCharIndex.value + 1)
     currentCharIndex.value++
-    const speed = currentLine.type === 'command' ? 40 : 15
+    const speed = currentLine.type === 'command' ? 40 : 12
     animationTimer = setTimeout(typeNextChar, speed)
   } else {
     displayedLines.value[lineIndex].typing = false
@@ -79,6 +80,8 @@ function getLineClass(type: string) {
       return 'text-foreground'
     case 'success':
       return 'text-type-http'
+    case 'url':
+      return 'text-primary font-semibold'
     case 'info':
       return 'text-muted-foreground'
     default:
@@ -95,7 +98,7 @@ function getLineClass(type: string) {
       <div class="terminal-dot bg-green-500"></div>
       <span class="ml-3 text-xs text-muted-foreground font-mono">fxTunnel</span>
     </div>
-    <div class="terminal-body min-h-[200px]">
+    <div class="terminal-body min-h-[220px]">
       <div v-for="(line, index) in displayedLines" :key="index" class="flex items-start">
         <span v-if="line.type === 'command'" class="terminal-prompt mr-2">$</span>
         <span v-else class="mr-2 w-2"></span>
