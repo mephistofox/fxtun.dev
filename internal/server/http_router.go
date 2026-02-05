@@ -344,24 +344,24 @@ func (r *HTTPRouter) extractSubdomain(host string) string {
 		host = host[:idx]
 	}
 
-	baseDomain := r.server.cfg.Domain.Base
+	// Try without www
+	host = strings.TrimPrefix(host, "www.")
 
-	// Check if host ends with base domain
-	if !strings.HasSuffix(host, "."+baseDomain) && host != baseDomain {
-		// Try without www
-		host = strings.TrimPrefix(host, "www.")
-		if !strings.HasSuffix(host, "."+baseDomain) {
-			return ""
+	// Build list of all domains to check (base + aliases)
+	domains := []string{r.server.cfg.Domain.Base}
+	domains = append(domains, r.server.cfg.Domain.Aliases...)
+
+	// Check each domain
+	for _, baseDomain := range domains {
+		if strings.HasSuffix(host, "."+baseDomain) {
+			subdomain := strings.TrimSuffix(host, "."+baseDomain)
+			if subdomain != "" && subdomain != "www" {
+				return strings.ToLower(subdomain)
+			}
 		}
 	}
 
-	// Extract subdomain
-	subdomain := strings.TrimSuffix(host, "."+baseDomain)
-	if subdomain == host || subdomain == "" || subdomain == "www" {
-		return ""
-	}
-
-	return strings.ToLower(subdomain)
+	return ""
 }
 
 // mayNeedInterstitial determines if an interstitial warning page might be needed.
