@@ -33,12 +33,6 @@ func TestGenerateRefreshToken(t *testing.T) {
 	assert.Len(t, token, 3+48)
 }
 
-func TestGenerateInviteCode(t *testing.T) {
-	code, err := GenerateInviteCode()
-	require.NoError(t, err)
-	assert.Len(t, code, 24)
-}
-
 func TestHashTokenDeterministicAndLength(t *testing.T) {
 	h1 := HashToken("test")
 	h2 := HashToken("test")

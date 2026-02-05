@@ -514,16 +514,6 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 		}
 	}
 
-	// Transfer invite_codes references
-	_, err = tx.Exec(`UPDATE invite_codes SET created_by_user_id = ? WHERE created_by_user_id = ?`, primaryID, secondaryID)
-	if err != nil {
-		return fmt.Errorf("transfer invite_codes created_by: %w", err)
-	}
-	_, err = tx.Exec(`UPDATE invite_codes SET used_by_user_id = ? WHERE used_by_user_id = ?`, primaryID, secondaryID)
-	if err != nil {
-		return fmt.Errorf("transfer invite_codes used_by: %w", err)
-	}
-
 	// Transfer user_bundles (has UNIQUE(user_id, name) constraint)
 	_, err = tx.Exec(`UPDATE OR IGNORE user_bundles SET user_id = ? WHERE user_id = ?`, primaryID, secondaryID)
 	if err != nil {

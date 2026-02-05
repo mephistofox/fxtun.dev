@@ -328,12 +328,6 @@ func (s *Server) setupRoutes() {
 				r.Put("/plans/{id}", s.handleUpdatePlan)
 				r.Delete("/plans/{id}", s.handleDeletePlan)
 
-				r.Route("/invite-codes", func(r chi.Router) {
-					r.Get("/", s.handleListInviteCodes)
-					r.Post("/", s.handleCreateInviteCode)
-					r.Delete("/{id}", s.handleDeleteInviteCode)
-				})
-
 				r.Get("/subscriptions", s.handleAdminListSubscriptions)
 				r.Post("/subscriptions/{id}/cancel", s.handleAdminCancelSubscription)
 				r.Post("/subscriptions/{id}/extend", s.handleAdminExtendSubscription)
