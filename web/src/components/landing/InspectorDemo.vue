@@ -201,10 +201,6 @@ function statusBadgeClass(status: number): string {
   return 'bg-muted/50 text-muted-foreground border-border'
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
 function formatDuration(ms: number): string {
   if (ms < 1) return '<1ms'
   if (ms < 1000) return `${ms}ms`
