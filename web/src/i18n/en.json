@@ -80,13 +80,17 @@
         "title": "Custom Domains",
         "desc": "Bring your own domain with automatic HTTPS. CNAME for subdomains, A record for apex domains — Let's Encrypt certificates provisioned automatically.",
         "demo": {
+          "title": "Custom Domain Setup",
+          "yourDomain": "Your domain",
           "step1": "Configure DNS",
-          "step2": "Verifying...",
-          "step3": "Certificate issued",
-          "domain": "app.example.com",
-          "cname": "CNAME → tunnel.example.net",
+          "step2": "Verifying DNS...",
+          "step3": "Issue SSL certificate",
+          "type": "Type",
+          "name": "Name",
+          "value": "Value",
           "verified": "DNS Verified",
-          "https": "HTTPS Active"
+          "https": "HTTPS Active",
+          "liveAt": "Live at"
         }
       },
       "inspector": {
@@ -94,10 +98,11 @@
         "desc": "Real-time request/response inspection with search, filtering, and one-click replay. Debug webhooks and APIs without leaving your browser.",
         "demo": {
           "replay": "Replay",
-          "method": "Method",
-          "path": "Path",
-          "status": "Status",
-          "duration": "Duration"
+          "editReplay": "Edit & Replay",
+          "cancel": "Cancel",
+          "send": "Send",
+          "selectRequest": "Select a request to inspect",
+          "requests": "requests"
         }
       },
       "websocket": {
