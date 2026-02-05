@@ -892,6 +892,17 @@ func (s *Server) handleAdminCancelSubscription(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Update user's plan to Free immediately
+	freePlan, err := s.db.Plans.GetDefault()
+	if err == nil && freePlan != nil {
+		if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+			user.PlanID = freePlan.ID
+			if err := s.db.Users.Update(user); err != nil {
+				s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update user plan to free")
+			}
+		}
+	}
+
 	// Log audit
 	_ = s.db.Audit.Log(&currentUser.ID, "admin_subscription_cancelled", map[string]interface{}{
 		"subscription_id": sub.ID,
