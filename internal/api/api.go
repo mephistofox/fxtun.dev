@@ -216,11 +216,11 @@ func (s *Server) setupRoutes() {
 		// Exchange rate (public, cached)
 		r.Get("/exchange-rate", s.handleExchangeRate)
 
-		// Payment callbacks (public, from Robokassa)
+		// Payment callbacks (public, from YooKassa)
 		r.Route("/payments", func(r chi.Router) {
-			r.Post("/result", s.handlePaymentResult) // ResultURL callback
-			r.Get("/success", s.handlePaymentSuccess) // SuccessURL redirect
-			r.Get("/fail", s.handlePaymentFail)       // FailURL redirect
+			r.Post("/webhook", s.handlePaymentWebhook) // YooKassa webhook
+			r.Get("/success", s.handlePaymentSuccess)  // Return URL redirect
+			r.Get("/fail", s.handlePaymentFail)        // Fail redirect
 		})
 
 		// SSE inspect stream (separate auth to support ?token= for EventSource)

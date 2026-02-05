@@ -167,6 +167,7 @@
       "free": "Free",
       "perMonth": "/mo",
       "selectPlan": "Get Started",
+      "paymentsComingSoon": "Coming Soon",
       "tunnels": "active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
       "domains": "reserved addresses",
@@ -225,10 +226,12 @@
     "subscription": "Subscription",
     "oneTime": "One-time",
     "payNow": "Pay Now",
-    "securePayment": "Secure payment via Robokassa",
+    "securePayment": "Secure payment via YooKassa",
     "securePaymentVia": "Secure payment via",
     "failedToLoadPlans": "Failed to load plans",
-    "paymentFailed": "Failed to create payment"
+    "paymentFailed": "Failed to create payment",
+    "paymentsDisabledTitle": "Payments Coming Soon",
+    "paymentsDisabledMessage": "We're working on enabling payments for this domain. Please use fxtun.ru to make payments."
   },
   "payment": {
     "successTitle": "Payment Successful!",

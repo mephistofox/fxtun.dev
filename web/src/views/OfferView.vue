@@ -160,7 +160,7 @@ const lastUpdated = '04.02.2026'
             <a href="https://fxtun.ru/#pricing">https://fxtun.ru/#pricing</a>
           </p>
           <p>
-            Все расчеты по Договору производятся в безналичном порядке через платёжную систему Robokassa.
+            Все расчеты по Договору производятся в безналичном порядке через платёжную систему ЮKassa.
             Подписка оплачивается ежемесячно путём автоматического списания (рекуррентные платежи).
           </p>
 
@@ -213,7 +213,7 @@ const lastUpdated = '04.02.2026'
           <h3>7.4. Передача данных третьим лицам:</h3>
           <p>Мы не передаём персональные данные третьим лицам, за исключением:</p>
           <ul>
-            <li>Обработка платежей (Robokassa);</li>
+            <li>Обработка платежей (ЮKassa);</li>
             <li>Требования законодательства РФ.</li>
           </ul>
           <h3>7.5. Права пользователя:</h3>
@@ -333,7 +333,7 @@ const lastUpdated = '04.02.2026'
           <h3>7.3. Third-Party Data Sharing:</h3>
           <p>We do not share personal data except for:</p>
           <ul>
-            <li>Payment processing (Robokassa);</li>
+            <li>Payment processing (YooKassa);</li>
             <li>Legal requirements of the Russian Federation.</li>
           </ul>
 

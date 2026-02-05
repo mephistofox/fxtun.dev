@@ -23,7 +23,8 @@ type ServerConfig struct {
 	Inspect       InspectSettings      `mapstructure:"inspect"`
 	CustomDomains CustomDomainSettings `mapstructure:"custom_domains"`
 	OAuth         OAuthSettings        `mapstructure:"oauth"`
-	Robokassa     RobokassaSettings    `mapstructure:"robokassa"`
+	YooKassa      YooKassaSettings     `mapstructure:"yookassa"`
+	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 }
 
@@ -45,8 +46,9 @@ type PortRange struct {
 
 // DomainSettings contains domain configuration
 type DomainSettings struct {
-	Base     string `mapstructure:"base"`
-	Wildcard bool   `mapstructure:"wildcard"`
+	Base     string   `mapstructure:"base"`
+	Aliases  []string `mapstructure:"aliases"`
+	Wildcard bool     `mapstructure:"wildcard"`
 }
 
 // AuthSettings contains authentication configuration
@@ -173,18 +175,25 @@ type LoggingSettings struct {
 	Format string `mapstructure:"format"`
 }
 
-// RobokassaSettings contains Robokassa payment configuration
-type RobokassaSettings struct {
-	Enabled       bool   `mapstructure:"enabled"`
-	MerchantLogin string `mapstructure:"merchant_login"`
-	Password1     string `mapstructure:"password1"`
-	Password2     string `mapstructure:"password2"`
-	TestPassword1 string `mapstructure:"test_password1"`
-	TestPassword2 string `mapstructure:"test_password2"`
-	TestMode      bool   `mapstructure:"test_mode"`
-	ResultURL     string `mapstructure:"result_url"`
-	SuccessURL    string `mapstructure:"success_url"`
-	FailURL       string `mapstructure:"fail_url"`
+// YooKassaSettings contains YooKassa payment configuration
+type YooKassaSettings struct {
+	Enabled   bool   `mapstructure:"enabled"`
+	ShopID    string `mapstructure:"shop_id"`
+	SecretKey string `mapstructure:"secret_key"`
+	TestMode  bool   `mapstructure:"test_mode"`
+	ReturnURL string `mapstructure:"return_url"`
+}
+
+// PaymentDomainSettings contains per-domain payment settings
+type PaymentDomainSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Provider string `mapstructure:"provider"` // "yookassa"
+	Message  string `mapstructure:"message"`  // Message when disabled
+}
+
+// PaymentsSettings contains payment configuration
+type PaymentsSettings struct {
+	Domains map[string]PaymentDomainSettings `mapstructure:"domains"`
 }
 
 // SMTPSettings contains SMTP email configuration
@@ -197,6 +206,7 @@ type SMTPSettings struct {
 	Password string `mapstructure:"password"`
 	From     string `mapstructure:"from"`
 	FromName string `mapstructure:"from_name"`
+	BaseURL  string `mapstructure:"base_url"` // Base URL for email links (e.g. https://fxtun.ru)
 }
 
 // LoadServerConfig loads server configuration from file
@@ -241,8 +251,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("inspect.enabled", true)
 	v.SetDefault("inspect.max_entries", 1000)
 	v.SetDefault("inspect.max_body_size", 262144)
-	v.SetDefault("robokassa.enabled", false)
-	v.SetDefault("robokassa.test_mode", true)
+	v.SetDefault("yookassa.enabled", false)
+	v.SetDefault("yookassa.test_mode", true)
 	v.SetDefault("smtp.enabled", false)
 	v.SetDefault("smtp.port", 587)
 	v.SetDefault("smtp.ssl_port", 465)
