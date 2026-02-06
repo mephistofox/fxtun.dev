@@ -92,6 +92,10 @@ func (s *mockStore) ListByTunnelID(tunnelID string, offset, limit int) ([]*Captu
 	return result, total, nil
 }
 
+func (s *mockStore) ListByHostAndUser(host string, userID int64, offset, limit int) ([]*CapturedExchange, int, error) {
+	return nil, 0, nil
+}
+
 func (s *mockStore) GetByID(id string) (*CapturedExchange, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

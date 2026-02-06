@@ -168,6 +168,71 @@ func (r *ExchangeRepository) ListByTunnelID(tunnelID string, offset, limit int) 
 	return exchanges, total, nil
 }
 
+// ListByHostAndUser returns exchanges for a host+user, newest first, with pagination.
+// This is stable across server restarts unlike tunnel_id.
+func (r *ExchangeRepository) ListByHostAndUser(host string, userID int64, offset, limit int) ([]*inspect.CapturedExchange, int, error) {
+	var total int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM inspect_exchanges WHERE host = ? AND user_id = ?", host, userID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count inspect exchanges by host: %w", err)
+	}
+
+	query := `
+		SELECT id, tunnel_id, trace_id, replay_ref, timestamp, duration_ns,
+			method, path, host, request_headers, request_body, request_body_size,
+			response_headers, response_body, response_body_size, status_code, remote_addr
+		FROM inspect_exchanges WHERE host = ? AND user_id = ?
+		ORDER BY timestamp DESC LIMIT ? OFFSET ?
+	`
+
+	rows, err := r.db.Query(query, host, userID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list inspect exchanges by host: %w", err)
+	}
+	defer rows.Close()
+
+	var exchanges []*inspect.CapturedExchange
+	for rows.Next() {
+		ex := &inspect.CapturedExchange{}
+		var traceID, replayRef, remoteAddr sql.NullString
+		var reqHeadersJSON, respHeadersJSON string
+		var durationNs int64
+
+		if err := rows.Scan(
+			&ex.ID, &ex.TunnelID, &traceID, &replayRef,
+			&ex.Timestamp, &durationNs,
+			&ex.Method, &ex.Path, &ex.Host,
+			&reqHeadersJSON, &ex.RequestBody, &ex.RequestBodySize,
+			&respHeadersJSON, &ex.ResponseBody, &ex.ResponseBodySize,
+			&ex.StatusCode, &remoteAddr,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan inspect exchange: %w", err)
+		}
+
+		ex.Duration = time.Duration(durationNs)
+		if traceID.Valid {
+			ex.TraceID = traceID.String
+		}
+		if replayRef.Valid {
+			ex.ReplayRef = replayRef.String
+		}
+		if remoteAddr.Valid {
+			ex.RemoteAddr = remoteAddr.String
+		}
+
+		if err := json.Unmarshal([]byte(reqHeadersJSON), &ex.RequestHeaders); err != nil {
+			ex.RequestHeaders = make(http.Header)
+		}
+		if err := json.Unmarshal([]byte(respHeadersJSON), &ex.ResponseHeaders); err != nil {
+			ex.ResponseHeaders = make(http.Header)
+		}
+
+		exchanges = append(exchanges, ex)
+	}
+
+	return exchanges, total, nil
+}
+
 // DeleteOlderThan removes exchanges older than the given time
 func (r *ExchangeRepository) DeleteOlderThan(before time.Time) (int64, error) {
 	result, err := r.db.Exec("DELETE FROM inspect_exchanges WHERE created_at < ?", before)

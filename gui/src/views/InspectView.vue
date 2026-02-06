@@ -236,11 +236,18 @@ function formatDuration(ns: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
 function formatBody(body: any, headers: Record<string, string[]> | null): string {
   if (!body) return '(empty)'
   const str = typeof body === 'string' ? body : JSON.stringify(body)
   try {
-    const decoded = atob(str)
+    const decoded = new TextDecoder('utf-8').decode(base64ToBytes(str))
     const ct = headers?.['Content-Type']?.[0] || headers?.['content-type']?.[0] || ''
     if (ct.includes('json')) {
       try { return JSON.stringify(JSON.parse(decoded), null, 2) } catch { return decoded }
@@ -317,7 +324,7 @@ async function sendEditReplay() {
       } catch { /* ignore parse errors, send without header mods */ }
     }
     if (editMods.value.body) {
-      mods.body = btoa(editMods.value.body)
+      mods.body = btoa(String.fromCharCode(...new TextEncoder().encode(editMods.value.body)))
     }
 
     const result = await Replay(tunnelId.value, selectedExchange.value.id, mods) as ReplayResponseData

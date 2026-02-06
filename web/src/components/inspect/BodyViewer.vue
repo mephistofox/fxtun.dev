@@ -3,7 +3,7 @@
     <div v-if="!body" class="px-4 py-3 text-gray-600 text-sm">No body</div>
     <div v-else>
       <div v-if="truncated" class="px-3 py-1 bg-amber-900/30 text-amber-400 text-xs">
-        Body truncated (showing {{ formatSize(body.length) }} of {{ formatSize(bodySize) }})
+        Body truncated (showing {{ formatSize(rawBytes.length) }} of {{ formatSize(bodySize) }})
       </div>
       <!-- JSON -->
       <pre v-if="isJson" class="p-3 text-sm font-mono text-gray-200 overflow-x-auto max-h-96 whitespace-pre-wrap">{{ formattedJson }}</pre>
@@ -27,7 +27,22 @@ const props = defineProps<{
   bodySize: number
 }>()
 
-const truncated = computed(() => props.body && props.bodySize > props.body.length)
+// Decode base64 to Uint8Array once
+const rawBytes = computed(() => {
+  if (!props.body) return new Uint8Array(0)
+  try {
+    const bin = atob(props.body)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) {
+      bytes[i] = bin.charCodeAt(i)
+    }
+    return bytes
+  } catch {
+    return new Uint8Array(0)
+  }
+})
+
+const truncated = computed(() => props.body && props.bodySize > rawBytes.value.length)
 
 const isJson = computed(() => {
   if (!props.contentType) return false
@@ -39,13 +54,10 @@ const isText = computed(() => {
   return props.contentType.includes('text') || props.contentType.includes('xml') || props.contentType.includes('html') || props.contentType.includes('form-urlencoded')
 })
 
+// Decode bytes as UTF-8 text
 const decodedBody = computed(() => {
-  if (!props.body) return ''
-  try {
-    return atob(props.body)
-  } catch {
-    return props.body
-  }
+  if (rawBytes.value.length === 0) return ''
+  return new TextDecoder('utf-8').decode(rawBytes.value)
 })
 
 const formattedJson = computed(() => {
@@ -57,25 +69,22 @@ const formattedJson = computed(() => {
 })
 
 const hexDump = computed(() => {
-  if (!props.body) return ''
-  try {
-    const raw = atob(props.body)
-    const lines: string[] = []
-    const limit = Math.min(raw.length, 256)
-    for (let i = 0; i < limit; i += 16) {
-      const hex = Array.from(raw.slice(i, i + 16))
-        .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
-        .join(' ')
-      const ascii = Array.from(raw.slice(i, i + 16))
-        .map(c => { const code = c.charCodeAt(0); return code >= 32 && code < 127 ? c : '.' })
-        .join('')
-      lines.push(`${i.toString(16).padStart(8, '0')}  ${hex.padEnd(48)}  ${ascii}`)
-    }
-    if (raw.length > limit) lines.push('...')
-    return lines.join('\n')
-  } catch {
-    return 'Unable to decode'
+  const bytes = rawBytes.value
+  if (bytes.length === 0) return ''
+  const lines: string[] = []
+  const limit = Math.min(bytes.length, 256)
+  for (let i = 0; i < limit; i += 16) {
+    const chunk = bytes.slice(i, i + 16)
+    const hex = Array.from(chunk)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join(' ')
+    const ascii = Array.from(chunk)
+      .map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : '.')
+      .join('')
+    lines.push(`${i.toString(16).padStart(8, '0')}  ${hex.padEnd(48)}  ${ascii}`)
   }
+  if (bytes.length > limit) lines.push('...')
+  return lines.join('\n')
 })
 
 function formatSize(bytes: number): string {

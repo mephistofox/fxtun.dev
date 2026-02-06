@@ -135,6 +135,7 @@ func (d *Database) migrate() error {
 		migrationCreatePayments,
 		migrationRenameToYooKassa,
 		migrationCreateInspectExchanges,
+		migrationAddInspectHostUserIndex,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -508,4 +509,8 @@ CREATE TABLE IF NOT EXISTS inspect_exchanges (
 );
 CREATE INDEX idx_inspect_exch_tunnel ON inspect_exchanges(tunnel_id, timestamp DESC);
 CREATE INDEX idx_inspect_exch_created ON inspect_exchanges(created_at);
+`
+
+const migrationAddInspectHostUserIndex = `
+CREATE INDEX IF NOT EXISTS idx_inspect_exch_host_user ON inspect_exchanges(host, user_id, timestamp DESC);
 `
