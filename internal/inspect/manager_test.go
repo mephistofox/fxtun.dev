@@ -3,7 +3,6 @@ package inspect
 import (
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -141,11 +140,7 @@ func TestManager_AddAndPersist(t *testing.T) {
 	ex := &CapturedExchange{ID: "ex-1", TunnelID: "tunnel-1", Method: "GET", Path: "/test"}
 	m.AddAndPersist("tunnel-1", ex)
 
-	// Wait for async persist goroutine to drain
-	assert.Eventually(t, func() bool {
-		return len(store.getSaved()) == 1
-	}, time.Second, 10*time.Millisecond)
-
+	// Persist is synchronous, data should be available immediately
 	saved := store.getSaved()
 	assert.Len(t, saved, 1)
 	assert.Equal(t, "ex-1", saved[0].ID)
@@ -162,10 +157,6 @@ func TestManager_AddAndPersist_NoUserID(t *testing.T) {
 
 	ex := &CapturedExchange{ID: "ex-1", TunnelID: "tunnel-1"}
 	m.AddAndPersist("tunnel-1", ex)
-
-	// Give goroutine time to process (it shouldn't persist)
-	time.Sleep(50 * time.Millisecond)
-	m.Close()
 
 	assert.Len(t, store.getSaved(), 0, "should not persist without user ID")
 }
