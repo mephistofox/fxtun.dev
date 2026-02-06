@@ -3,7 +3,9 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io"
@@ -479,10 +481,17 @@ func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message s
 }
 
 
+// generateExchangeID returns a globally unique ID for inspect exchanges, safe across server restarts.
+func generateExchangeID() string {
+	b := make([]byte, 12)
+	_, _ = rand.Read(b)
+	return "ex-" + hex.EncodeToString(b)
+}
+
 // buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
 func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
 	ex := &inspect.CapturedExchange{
-		ID:              generateID(),
+		ID:              generateExchangeID(),
 		TunnelID:        tunnelID,
 		TraceID:         traceID,
 		Timestamp:       startTime,
