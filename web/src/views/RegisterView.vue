@@ -3,10 +3,13 @@ import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
+import { useSeo } from '@/composables/useSeo'
 import Card from '@/components/ui/Card.vue'
 
 const themeStore = useThemeStore()
 const { t } = useI18n()
+
+useSeo({ titleKey: 'seo.register.title', descriptionKey: 'seo.register.description', path: '/register' })
 
 function toggleLocale() {
   const current = getLocale()

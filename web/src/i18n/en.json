@@ -644,6 +644,25 @@
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
   },
+  "seo": {
+    "defaultDescription": "Secure localhost tunneling service. Expose local HTTP, TCP, UDP services to the internet with free custom subdomains and a desktop GUI client.",
+    "landing": {
+      "title": "fxTunnel — Secure Localhost Tunneling Service",
+      "description": "Expose local servers to the internet via HTTP, TCP, UDP tunnels. Free custom subdomains, desktop GUI client, traffic inspector. The best ngrok alternative."
+    },
+    "login": {
+      "title": "Sign In — fxTunnel",
+      "description": "Sign in to your fxTunnel account to manage tunnels, domains, and tokens."
+    },
+    "register": {
+      "title": "Sign Up — fxTunnel",
+      "description": "Create a free fxTunnel account. Get 3 tunnels with custom subdomains, no bandwidth limits, no session timeout."
+    },
+    "offer": {
+      "title": "Public Offer — fxTunnel",
+      "description": "fxTunnel public offer agreement and terms of service."
+    }
+  },
   "admin": {
     "failedToLoad": "Failed to load data",
     "dashboard": {
