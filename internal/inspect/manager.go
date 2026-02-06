@@ -6,6 +6,7 @@ import "sync"
 type Store interface {
 	Save(ex *CapturedExchange, userID int64) error
 	ListByTunnelID(tunnelID string, offset, limit int) ([]*CapturedExchange, int, error)
+	ListByHostAndUser(host string, userID int64, offset, limit int) ([]*CapturedExchange, int, error)
 	GetByID(id string) (*CapturedExchange, error)
 	DeleteByTunnelID(tunnelID string) (int64, error)
 }
@@ -133,6 +134,14 @@ func (m *Manager) ListPersisted(tunnelID string, offset, limit int) ([]*Captured
 		return nil, 0, nil
 	}
 	return m.store.ListByTunnelID(tunnelID, offset, limit)
+}
+
+// ListPersistedByHostAndUser delegates to the store for host+user-based DB listing.
+func (m *Manager) ListPersistedByHostAndUser(host string, userID int64, offset, limit int) ([]*CapturedExchange, int, error) {
+	if m.store == nil {
+		return nil, 0, nil
+	}
+	return m.store.ListByHostAndUser(host, userID, offset, limit)
 }
 
 // GetPersisted delegates to the store for DB-backed retrieval.
