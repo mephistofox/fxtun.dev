@@ -3,13 +3,11 @@ import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const currentYear = new Date().getFullYear()
 
-const showOffer = computed(() => {
-  return window.location.hostname === 'fxtun.ru'
-})
+const showOffer = computed(() => locale.value === 'ru')
 </script>
 
 <template>
