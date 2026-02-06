@@ -148,7 +148,6 @@ func (s *Server) setupRoutes() {
 	r.Use(s.loggingMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
-	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Use(securityHeadersMiddleware)
 
@@ -226,14 +225,15 @@ func (s *Server) setupRoutes() {
 			r.Get("/fail", s.handlePaymentFail)        // Fail redirect
 		})
 
-		// SSE inspect stream (separate auth to support ?token= for EventSource)
-		r.Route("/tunnels/{id}/inspect/stream", func(r chi.Router) {
-			r.Use(s.queryTokenAuthMiddleware)
-			r.Get("/", s.handleInspectStream)
+		// SSE inspect stream (no timeout, long-lived connection)
+		r.Group(func(r chi.Router) {
+			r.Use(auth.MiddlewareWithDB(s.authService, s.db))
+			r.Get("/tunnels/{id}/inspect/stream", s.handleInspectStream)
 		})
 
-		// Protected routes
+		// Protected routes (with timeout)
 		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(30 * time.Second))
 			r.Use(auth.MiddlewareWithDB(s.authService, s.db))
 
 			// Auth
@@ -346,18 +346,6 @@ func (s *Server) setupRoutes() {
 	s.router = r
 }
 
-func (s *Server) queryTokenAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") == "" {
-			if token := r.URL.Query().Get("token"); token != "" {
-				r.Header.Set("Authorization", "Bearer "+token)
-			}
-		}
-		// Use the same auth middleware
-		auth.MiddlewareWithDB(s.authService, s.db)(next).ServeHTTP(w, r)
-	})
-}
-
 // serveWebUI returns a handler that serves the embedded web UI with SPA support
 func (s *Server) serveWebUI() http.HandlerFunc {
 	webFS := web.GetFileSystem()
@@ -394,7 +382,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 0, // Disabled for SSE long-lived connections
 		IdleTimeout:  60 * time.Second,
 	}
 

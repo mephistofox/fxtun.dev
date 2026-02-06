@@ -263,7 +263,11 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // isUpgradeRequest returns true if the request is a WebSocket or other HTTP upgrade.
+// Requires both Connection: Upgrade AND a non-empty Upgrade header (e.g. "websocket").
 func isUpgradeRequest(req *http.Request) bool {
+	if req.Header.Get("Upgrade") == "" {
+		return false
+	}
 	return strings.EqualFold(req.Header.Get("Connection"), "Upgrade") ||
 		strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade")
 }

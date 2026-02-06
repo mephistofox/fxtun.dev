@@ -83,8 +83,8 @@ function copyLine(event: MouseEvent) {
 }
 
 onMounted(() => {
-  loadTunnels()
   loadProfile()
+  loadTunnels()
 })
 </script>
 

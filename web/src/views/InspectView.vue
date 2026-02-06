@@ -78,7 +78,6 @@ const filter = ref('')
 const connected = ref(false)
 const replaying = ref(false)
 const replayResponse = ref<ReplayResponse | null>(null)
-let eventSource: EventSource | null = null
 
 const filteredExchanges = computed(() => {
   if (!filter.value) return exchanges.value
@@ -143,18 +142,58 @@ async function editReplayExchange(mods: ReplayRequest) {
   await replayExchange(selectedId.value, mods)
 }
 
+let sseAbort: AbortController | null = null
+
 function connectSSE() {
   const token = localStorage.getItem('accessToken')
-  const url = `/api/tunnels/${tunnelId.value}/inspect/stream${token ? `?token=${token}` : ''}`
-  eventSource = new EventSource(url)
+  const url = `/api/tunnels/${tunnelId.value}/inspect/stream`
 
-  eventSource.onopen = () => { connected.value = true }
-  eventSource.onerror = () => { connected.value = false }
+  sseAbort = new AbortController()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
 
-  eventSource.addEventListener('exchange', (event: MessageEvent) => {
-    const ex: ExchangeSummary = JSON.parse(event.data)
-    exchanges.value.unshift(ex)
-  })
+  fetch(url, { headers, signal: sseAbort.signal })
+    .then(response => {
+      if (!response.ok || !response.body) {
+        connected.value = false
+        return
+      }
+      connected.value = true
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      function read(): Promise<void> {
+        return reader.read().then(({ done, value }) => {
+          if (done) {
+            connected.value = false
+            return
+          }
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          let eventType = ''
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim()
+            } else if (line.startsWith('data: ') && eventType === 'exchange') {
+              try {
+                const ex: ExchangeSummary = JSON.parse(line.slice(6))
+                exchanges.value.unshift(ex)
+              } catch { /* skip malformed */ }
+              eventType = ''
+            } else if (line === '') {
+              eventType = ''
+            }
+          }
+          return read()
+        })
+      }
+      return read()
+    })
+    .catch(() => {
+      connected.value = false
+    })
 }
 
 onMounted(() => {
@@ -163,9 +202,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
+  if (sseAbort) {
+    sseAbort.abort()
+    sseAbort = null
   }
 })
 </script>
