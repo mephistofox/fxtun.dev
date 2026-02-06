@@ -114,7 +114,10 @@ function buildHeaders(raw: Record<string, string[]> | null): HeaderRow[] {
 function decodeBody(b: string | null): string {
   if (!b) return ''
   try {
-    return atob(b)
+    const bin = atob(b)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    return new TextDecoder('utf-8').decode(bytes)
   } catch {
     return b
   }
@@ -140,7 +143,7 @@ function send() {
     method: method.value,
     path: path.value,
     headers: hdrs,
-    body: body.value ? btoa(body.value) : undefined,
+    body: body.value ? btoa(String.fromCharCode(...new TextEncoder().encode(body.value))) : undefined,
   }
 
   emit('send', mods)

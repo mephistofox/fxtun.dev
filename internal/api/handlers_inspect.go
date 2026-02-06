@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -35,7 +36,7 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -47,25 +48,31 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 
-	buf := s.getInspectBuffer(tunnelID)
-	if buf != nil {
-		// Tunnel is online — use in-memory buffer
-		exchanges := buf.List(offset, limit)
-		summaries := make([]inspect.ExchangeSummary, len(exchanges))
-		for i, ex := range exchanges {
-			summaries[i] = ex.Summary()
-		}
-		s.respondJSON(w, http.StatusOK, map[string]interface{}{
-			"exchanges": summaries,
-			"total":     buf.Len(),
-		})
-		return
-	}
-
-	// Tunnel offline — fallback to persisted data
+	// Always use persisted data (DB) as source of truth for listing.
+	// DB contains full history; in-memory buffer is only for live SSE streaming.
 	if s.inspectProvider != nil {
+		host := s.tunnelSubdomain(tunnelID)
+		if host != "" {
+			host = host + "." + s.baseDomain
+		}
+		if host != "" {
+			exchanges, total, err := s.inspectProvider.ListPersistedByHostAndUser(host, user.ID, offset, limit)
+			if err == nil && total > 0 {
+				summaries := make([]inspect.ExchangeSummary, len(exchanges))
+				for i, ex := range exchanges {
+					summaries[i] = ex.Summary()
+				}
+				s.respondJSON(w, http.StatusOK, map[string]interface{}{
+					"exchanges": summaries,
+					"total":     total,
+				})
+				return
+			}
+		}
+
+		// Try by tunnel_id as last resort (current session data)
 		exchanges, total, err := s.inspectProvider.ListPersisted(tunnelID, offset, limit)
-		if err == nil && len(exchanges) > 0 {
+		if err == nil && total > 0 {
 			summaries := make([]inspect.ExchangeSummary, len(exchanges))
 			for i, ex := range exchanges {
 				summaries[i] = ex.Summary()
@@ -94,7 +101,7 @@ func (s *Server) handleGetExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -133,7 +140,7 @@ func (s *Server) handleClearExchanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -157,7 +164,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -211,7 +218,7 @@ func (s *Server) handleInspectStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -244,7 +251,7 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tunnelID := chi.URLParam(r, "id")
+	tunnelID := s.resolveActiveTunnelID(chi.URLParam(r, "id"))
 	if err := s.checkTunnelAccess(tunnelID, user); err != nil {
 		s.respondError(w, http.StatusForbidden, err.Error())
 		return
@@ -393,6 +400,51 @@ func (s *Server) getInspectBuffer(tunnelID string) *inspect.RingBuffer {
 		return nil
 	}
 	return s.inspectProvider.Get(tunnelID)
+}
+
+// resolveActiveTunnelID maps a potentially stale tunnel ID to the current active one.
+// Tunnel IDs reset on server restart, but subdomain stays the same.
+func (s *Server) resolveActiveTunnelID(tunnelID string) string {
+	// Already has a live buffer — ID is current
+	if s.getInspectBuffer(tunnelID) != nil {
+		return tunnelID
+	}
+	if s.tunnelProvider == nil || s.inspectProvider == nil {
+		return tunnelID
+	}
+	// Look up host from persisted exchanges
+	exchanges, _, err := s.inspectProvider.ListPersisted(tunnelID, 0, 1)
+	if err != nil || len(exchanges) == 0 {
+		return tunnelID
+	}
+	host := exchanges[0].Host
+	if host == "" {
+		return tunnelID
+	}
+	// Extract subdomain from host (e.g. "poster.mfdev.ru" → "poster")
+	subdomain := strings.TrimSuffix(host, "."+s.baseDomain)
+	if subdomain == host {
+		return tunnelID // host doesn't match base domain
+	}
+	// Find current active tunnel with that subdomain
+	for _, t := range s.tunnelProvider.GetAllTunnels() {
+		if t.Subdomain == subdomain {
+			return t.ID
+		}
+	}
+	return tunnelID
+}
+
+func (s *Server) tunnelSubdomain(tunnelID string) string {
+	if s.tunnelProvider == nil {
+		return ""
+	}
+	for _, t := range s.tunnelProvider.GetAllTunnels() {
+		if t.ID == tunnelID {
+			return t.Subdomain
+		}
+	}
+	return ""
 }
 
 func generateReplayID() string {
