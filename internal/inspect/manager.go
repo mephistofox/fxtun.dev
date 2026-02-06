@@ -1,6 +1,9 @@
 package inspect
 
-import "sync"
+import (
+	"log"
+	"sync"
+)
 
 // Store is an interface for persistent exchange storage.
 type Store interface {
@@ -11,11 +14,6 @@ type Store interface {
 	DeleteByTunnelID(tunnelID string) (int64, error)
 }
 
-type persistJob struct {
-	exchange *CapturedExchange
-	userID   int64
-}
-
 // Manager manages per-tunnel RingBuffers.
 type Manager struct {
 	mu          sync.RWMutex
@@ -24,7 +22,6 @@ type Manager struct {
 	capacity    int
 	maxBodySize int
 	store       Store
-	persistCh   chan persistJob
 }
 
 // NewManager creates a new Manager. If capacity is 0, inspection is disabled.
@@ -37,17 +34,9 @@ func NewManager(capacity, maxBodySize int) *Manager {
 	}
 }
 
-// SetStore sets the persistent store and starts the background persist goroutine.
+// SetStore sets the persistent store for exchange data.
 func (m *Manager) SetStore(store Store) {
 	m.store = store
-	m.persistCh = make(chan persistJob, 256)
-	go m.persistLoop()
-}
-
-func (m *Manager) persistLoop() {
-	for job := range m.persistCh {
-		_ = m.store.Save(job.exchange, job.userID)
-	}
 }
 
 // Enabled returns true if inspection is enabled (capacity > 0).
@@ -104,14 +93,14 @@ func (m *Manager) Get(tunnelID string) *RingBuffer {
 	return m.buffers[tunnelID]
 }
 
-// AddAndPersist adds the exchange to the in-memory buffer and enqueues async DB write.
+// AddAndPersist adds the exchange to the in-memory buffer and persists to DB synchronously.
 func (m *Manager) AddAndPersist(tunnelID string, ex *CapturedExchange) {
 	buf := m.Get(tunnelID)
 	if buf != nil {
 		buf.Add(ex)
 	}
 
-	if m.store == nil || m.persistCh == nil {
+	if m.store == nil {
 		return
 	}
 	m.mu.RLock()
@@ -121,10 +110,8 @@ func (m *Manager) AddAndPersist(tunnelID string, ex *CapturedExchange) {
 		return
 	}
 
-	select {
-	case m.persistCh <- persistJob{exchange: ex, userID: userID}:
-	default:
-		// Channel full, drop persistence for this exchange
+	if err := m.store.Save(ex, userID); err != nil {
+		log.Printf("[inspect] failed to persist exchange %s: %v", ex.ID, err)
 	}
 }
 
@@ -175,8 +162,5 @@ func (m *Manager) Close() {
 	m.mu.Unlock()
 	for _, buf := range buffers {
 		buf.Close()
-	}
-	if m.persistCh != nil {
-		close(m.persistCh)
 	}
 }
