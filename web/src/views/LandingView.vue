@@ -4,6 +4,7 @@ import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import { useSeo } from '@/composables/useSeo'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
@@ -17,6 +18,8 @@ import LandingFooter from '@/components/landing/LandingFooter.vue'
 
 const themeStore = useThemeStore()
 const { t } = useI18n()
+
+useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description', path: '/' })
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
