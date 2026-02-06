@@ -8,13 +8,11 @@ import { useSeo } from '@/composables/useSeo'
 import Card from '@/components/ui/Card.vue'
 
 const themeStore = useThemeStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description', path: '/login' })
 
-const showOffer = computed(() => {
-  return window.location.hostname === 'fxtun.ru'
-})
+const showOffer = computed(() => locale.value === 'ru')
 
 function toggleLocale() {
   const current = getLocale()

@@ -1,12 +1,12 @@
 import { ref, computed } from 'vue'
+import { getLocale } from '@/i18n'
 
 const FALLBACK_RATE = 75 // Fallback rate if API fails
 
 const usdToRubRate = ref<number | null>(null)
 const isLoading = ref(false)
-const isRuDomain = computed(() => {
-  const host = window.location.hostname
-  return host.endsWith('.ru') || host === 'localhost'
+const isRuLocale = computed(() => {
+  return getLocale() === 'ru'
 })
 
 async function fetchRate(): Promise<number> {
@@ -51,7 +51,7 @@ export function useCurrencyRate() {
       return ''
     }
 
-    if (isRuDomain.value) {
+    if (isRuLocale.value) {
       const rubPrice = convertToRub(usdPrice)
       return `${rubPrice} ₽`
     }
@@ -60,7 +60,7 @@ export function useCurrencyRate() {
   }
 
   return {
-    isRuDomain,
+    isRuLocale,
     usdToRubRate,
     isLoading,
     loadRate,

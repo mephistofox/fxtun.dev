@@ -17,11 +17,8 @@ const loading = ref(false)
 const error = ref('')
 const submitting = ref(false)
 
-// Check if payments are disabled for this domain
-const isPaymentsDisabled = computed(() => {
-  const host = window.location.hostname
-  return host.endsWith('.dev') || host === 'fxtun.dev'
-})
+// Payments disabled for non-Russian users until Paddle integration
+const isPaymentsDisabled = computed(() => locale.value !== 'ru')
 
 const selectedPlan = computed(() => {
   return plans.value.find(p => p.id === selectedPlanId.value) || null

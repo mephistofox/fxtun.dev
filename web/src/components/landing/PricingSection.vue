@@ -28,17 +28,10 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-// Check if we're on a RU domain
-const isRuDomain = computed(() => {
-  const host = window.location.hostname
-  return host.endsWith('.ru') || host === 'localhost'
-})
+const isRuLocale = computed(() => locale.value === 'ru')
 
-// Check if payments are disabled for this domain
-const isPaymentsDisabled = computed(() => {
-  const host = window.location.hostname
-  return host.endsWith('.dev') || host === 'fxtun.dev'
-})
+// Payments disabled for non-Russian users (no Paddle yet)
+const isPaymentsDisabled = computed(() => locale.value !== 'ru')
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {
@@ -53,7 +46,7 @@ function displayLimit(val: number): string {
 // Format price using backend-calculated values
 function formatPrice(plan: Plan): string {
   if (plan.price === 0) return ''
-  if (isRuDomain.value) {
+  if (isRuLocale.value) {
     const priceRub = plan.price_rub ?? plan.price * 75
     return `${Math.round(priceRub)} ₽`
   }
