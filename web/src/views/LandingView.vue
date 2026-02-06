@@ -5,6 +5,7 @@ import { setLocale, getLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
+import { useOrganizationSchema, useSoftwareApplicationSchema } from '@/composables/useStructuredData'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
@@ -20,6 +21,8 @@ const themeStore = useThemeStore()
 const { t } = useI18n()
 
 useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description', path: '/' })
+useOrganizationSchema()
+useSoftwareApplicationSchema()
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
