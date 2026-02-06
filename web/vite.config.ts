@@ -1,9 +1,18 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import Sitemap from "vite-plugin-sitemap";
 import path from "path";
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    Sitemap({
+      hostname: "https://fxtun.dev",
+      dynamicRoutes: ["/login", "/register", "/offer"],
+      exclude: ["/docs/offer"],
+      generateRobotsTxt: false,
+    }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
