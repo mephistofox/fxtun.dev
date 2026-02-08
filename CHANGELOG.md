@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.2.0](https://github.com/mephistofox/fxTunnel/compare/v3.1.0...v3.2.0) (2026-02-08)
+
+
+### Features
+
+* **web:** add OG meta tags, canonical/hreflang, 404 page, WebSite schema and font preloads ([5094661](https://github.com/mephistofox/fxTunnel/commit/5094661d9c41dade401d3b793c76153e38d6a74e))
+* **web:** replace grid overlay with animated topographic contours ([89c3e14](https://github.com/mephistofox/fxTunnel/commit/89c3e145e9ff98db72dcbf54184b64a89d3464b9))
+
+
+### Bug Fixes
+
+* **web:** add light theme support for code blocks and fix SSG theme flash ([d225c7a](https://github.com/mephistofox/fxTunnel/commit/d225c7aedc7de52a611325aaf4175dc5c3db3d7c))
+
 ## [3.1.0](https://github.com/mephistofox/fxTunnel/compare/v3.0.0...v3.1.0) (2026-02-08)
 
 
