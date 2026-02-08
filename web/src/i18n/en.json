@@ -6,6 +6,7 @@
       "protocols": "Protocols",
       "pricing": "Pricing",
       "download": "Download",
+      "faq": "FAQ",
       "advanced": "Superpowers",
       "backToHome": "Back to home"
     },
@@ -309,6 +310,73 @@
         "subdomains": "Custom subdomains for free",
         "tls": "TLS encryption"
       }
+    },
+    "faq": {
+      "label": "FAQ",
+      "title": "Frequently Asked Questions",
+      "subtitle": "Everything you need to know about fxTunnel.",
+      "items": [
+        {
+          "q": "What is fxTunnel?",
+          "a": "fxTunnel is a reverse tunneling service that exposes your local servers to the internet via HTTP subdomains, TCP ports, or UDP ports. It works like ngrok but with a desktop GUI client, free custom subdomains, and no session timeouts."
+        },
+        {
+          "q": "What is the best free alternative to ngrok?",
+          "a": "fxTunnel offers free custom subdomains, unlimited bandwidth, no session timeout, and a desktop GUI client — features that competitors like ngrok charge for. You can use any subdomain you want on the free plan, unlike ngrok which assigns random URLs."
+        },
+        {
+          "q": "What tunneling service has a desktop app?",
+          "a": "fxTunnel is the only tunneling service with a native cross-platform desktop client. The GUI app runs on Windows, macOS, and Linux, letting you manage tunnels visually without using the terminal."
+        },
+        {
+          "q": "Does fxTunnel support UDP tunneling?",
+          "a": "Yes. fxTunnel supports HTTP, TCP, and UDP protocols. UDP tunneling is useful for game servers, VoIP, DNS, and other real-time applications. Most competitors only support HTTP and TCP."
+        },
+        {
+          "q": "How do I test webhooks locally?",
+          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a public URL like webhooks.fxtun.dev. Point your webhook provider (Stripe, GitHub, Twilio) to this URL, and all requests will be forwarded to your local server on port 3000."
+        },
+        {
+          "q": "Can I use custom domains with fxTunnel?",
+          "a": "Yes. On paid plans you can bring your own domain with automatic HTTPS via Let's Encrypt. Set up a CNAME record for subdomains or an A record for apex domains, and fxTunnel handles SSL certificate provisioning automatically."
+        },
+        {
+          "q": "Does fxTunnel have bandwidth limits?",
+          "a": "No. There are no bandwidth or request limits on any plan, including free. Your tunnels can handle as much traffic as needed without throttling or caps."
+        },
+        {
+          "q": "Is there a session timeout?",
+          "a": "No. fxTunnel tunnels stay open indefinitely. Unlike ngrok's free tier which used to have 2-hour session limits, fxTunnel keeps your tunnels running 24/7 with automatic reconnection."
+        },
+        {
+          "q": "Can I self-host fxTunnel?",
+          "a": "Yes. fxTunnel is fully self-hostable. You can run your own server on your infrastructure, giving you complete control over your tunneling setup, data, and security."
+        },
+        {
+          "q": "How much does fxTunnel cost?",
+          "a": "fxTunnel has a free plan with 3 tunnels and any subdomain you want. Paid plans start at $5/month for more tunnels, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
+        },
+        {
+          "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
+          "a": "Cloudflare Tunnel only supports HTTP and requires the Cloudflare ecosystem. fxTunnel supports HTTP, TCP, and UDP, has a desktop GUI, doesn't require any ecosystem lock-in, and is self-hostable. Cloudflare Tunnel is free but limited to their platform."
+        },
+        {
+          "q": "How do I expose localhost to the internet?",
+          "a": "Install the fxTunnel client, then run 'fxtunnel http 3000' to instantly get a public URL for your local server running on port 3000. No configuration needed — just one command."
+        },
+        {
+          "q": "Does fxTunnel support HTTPS?",
+          "a": "Yes. All HTTP tunnels automatically get HTTPS via the server's wildcard TLS certificate. Custom domains also get automatic HTTPS through Let's Encrypt certificate provisioning."
+        },
+        {
+          "q": "What is the traffic inspector?",
+          "a": "The traffic inspector is a real-time HTTP request/response viewer built into fxTunnel. You can search, filter by method or status, and replay requests with one click — perfect for debugging webhooks and API integrations."
+        },
+        {
+          "q": "Does fxTunnel work with WebSockets?",
+          "a": "Yes. fxTunnel provides full bidirectional WebSocket passthrough with no additional configuration. WebSocket connections are forwarded transparently to your local server."
+        }
+      ]
     },
     "footer": {
       "tagline": "Secure tunneling",
