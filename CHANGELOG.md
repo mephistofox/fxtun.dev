@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0](https://github.com/mephistofox/fxTunnel/compare/v3.0.0...v3.1.0) (2026-02-08)
+
+
+### Features
+
+* **seo:** add favicon suite, OG image, and webmanifest ([d80f35f](https://github.com/mephistofox/fxTunnel/commit/d80f35f88c87b7911b12d5ea355ecd34ffac4187))
+* **web:** integrate vite-ssg for static site generation ([9e7d52a](https://github.com/mephistofox/fxTunnel/commit/9e7d52ad6aa52a106f4a5024b7f48c4746b235d5))
+
+
+### Bug Fixes
+
+* **api:** derive install script domain from request Host header ([2064410](https://github.com/mephistofox/fxTunnel/commit/20644109eeb088b0e5c239f5d1edc44a395ce21e))
+
 ## [3.0.0](https://github.com/mephistofox/fxTunnel/compare/v2.12.0...v3.0.0) (2026-02-08)
 
 
