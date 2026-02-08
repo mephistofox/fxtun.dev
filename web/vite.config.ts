@@ -22,6 +22,16 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
+  ssgOptions: {
+    script: "async",
+    formatting: "minify",
+    beastiesOptions: false,
+    includedRoutes(paths) {
+      return paths.filter((p) =>
+        ["/", "/login", "/register", "/offer"].includes(p)
+      );
+    },
+  },
   server: {
     allowedHosts: [
       "fxtun.dev",

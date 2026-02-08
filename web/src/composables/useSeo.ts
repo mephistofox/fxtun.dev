@@ -1,5 +1,5 @@
 import { useHead, useSeoMeta } from '@unhead/vue'
-import { computed, watchEffect } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 interface SeoOptions {
@@ -14,10 +14,6 @@ interface SeoOptions {
 
 export function useSeo(options: SeoOptions = {}) {
   const { t, locale } = useI18n()
-
-  watchEffect(() => {
-    document.documentElement.lang = locale.value
-  })
 
   const title = computed(() => options.title || (options.titleKey ? t(options.titleKey) : 'fxTunnel'))
   const description = computed(() => options.description || (options.descriptionKey ? t(options.descriptionKey) : t('seo.defaultDescription')))

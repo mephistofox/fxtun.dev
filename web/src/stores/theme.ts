@@ -4,10 +4,12 @@ import { ref, watch } from 'vue'
 export type ThemeMode = 'light' | 'dark' | 'system'
 
 function getSystemTheme(): 'light' | 'dark' {
+  if (import.meta.env.SSR) return 'dark'
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function applyTheme(theme: 'light' | 'dark') {
+  if (import.meta.env.SSR) return
   if (theme === 'dark') {
     document.documentElement.classList.add('dark')
   } else {
@@ -16,7 +18,8 @@ function applyTheme(theme: 'light' | 'dark') {
 }
 
 export const useThemeStore = defineStore('theme', () => {
-  const mode = ref<ThemeMode>((localStorage.getItem('theme') as ThemeMode) || 'system')
+  const saved = import.meta.env.SSR ? null : localStorage.getItem('theme')
+  const mode = ref<ThemeMode>((saved as ThemeMode) || 'system')
 
   function setMode(newMode: ThemeMode) {
     mode.value = newMode
