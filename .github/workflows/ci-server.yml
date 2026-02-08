@@ -1,16 +1,51 @@
-name: CI
+name: CI Server
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'web/**'
+      - 'internal/api/**'
+      - 'internal/auth/**'
+      - 'internal/config/**'
+      - 'internal/database/**'
+      - 'internal/email/**'
+      - 'internal/exchange/**'
+      - 'internal/inspect/**'
+      - 'internal/payment/**'
+      - 'internal/protocol/**'
+      - 'internal/scheduler/**'
+      - 'internal/server/**'
+      - 'internal/tls/**'
+      - 'internal/web/**'
+      - 'cmd/server/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/ci-server.yml'
   pull_request:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'web/**'
+      - 'internal/api/**'
+      - 'internal/auth/**'
+      - 'internal/config/**'
+      - 'internal/database/**'
+      - 'internal/email/**'
+      - 'internal/exchange/**'
+      - 'internal/inspect/**'
+      - 'internal/payment/**'
+      - 'internal/protocol/**'
+      - 'internal/scheduler/**'
+      - 'internal/server/**'
+      - 'internal/tls/**'
+      - 'internal/web/**'
+      - 'cmd/server/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/ci-server.yml'
 
 jobs:
-  # Build web frontend (needed for Go embed in server)
-  build-frontends:
+  build-web:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,7 +64,6 @@ jobs:
           mkdir -p ../internal/web/dist
           cp -r dist/* ../internal/web/dist/
 
-      # Create placeholder for GUI dist (actual GUI built by Wails in release)
       - name: Create GUI dist placeholder
         run: |
           mkdir -p gui/dist
@@ -45,7 +79,7 @@ jobs:
           retention-days: 1
 
   test:
-    needs: build-frontends
+    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -74,7 +108,7 @@ jobs:
           retention-days: 7
 
   lint:
-    needs: build-frontends
+    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -99,7 +133,7 @@ jobs:
           args: --timeout=5m ./cmd/... ./internal/...
 
   build-check:
-    needs: build-frontends
+    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -119,6 +153,3 @@ jobs:
 
       - name: Build server
         run: go build -o /dev/null ./cmd/server
-
-      - name: Build client
-        run: go build -o /dev/null ./cmd/client
