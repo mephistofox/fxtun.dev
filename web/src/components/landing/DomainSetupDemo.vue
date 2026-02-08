@@ -82,9 +82,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-[hsl(220,20%,4%)] overflow-hidden font-mono text-xs select-none h-[360px] flex flex-col shadow-2xl">
+  <div class="rounded-xl border border-border bg-code overflow-hidden font-mono text-xs select-none h-[360px] flex flex-col shadow-2xl">
     <!-- Toolbar -->
-    <div class="flex items-center gap-2.5 px-3 py-2 border-b border-border/70 bg-[hsl(220,20%,7%)]">
+    <div class="flex items-center gap-2.5 px-3 py-2 border-b border-border/70 bg-code-header">
       <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" />
         <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -99,7 +99,7 @@ onUnmounted(() => {
         <label class="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-semibold mb-1.5 block">
           {{ t('landing.advanced.customDomains.demo.yourDomain') }}
         </label>
-        <div class="flex items-center rounded-lg bg-white/[0.03] border border-border/50 px-3 py-2">
+        <div class="flex items-center rounded-lg bg-foreground/[0.03] border border-border/50 px-3 py-2">
           <span class="text-foreground/80 text-[12px]">{{ typedDomain }}</span>
           <span
             v-if="phase === 'typing'"
@@ -128,11 +128,11 @@ onUnmounted(() => {
         </div>
 
         <!-- DNS record table -->
-        <div class="rounded-lg bg-white/[0.02] border border-border/30 overflow-hidden ml-7">
+        <div class="rounded-lg bg-foreground/[0.02] border border-border/30 overflow-hidden ml-7">
           <div class="grid grid-cols-[48px_1fr_1fr] gap-px text-[9px]">
-            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-white/[0.02]">{{ t('landing.advanced.customDomains.demo.type') }}</div>
-            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-white/[0.02]">{{ t('landing.advanced.customDomains.demo.name') }}</div>
-            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-white/[0.02]">{{ t('landing.advanced.customDomains.demo.value') }}</div>
+            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-foreground/[0.02]">{{ t('landing.advanced.customDomains.demo.type') }}</div>
+            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-foreground/[0.02]">{{ t('landing.advanced.customDomains.demo.name') }}</div>
+            <div class="px-2 py-1 text-muted-foreground/50 uppercase bg-foreground/[0.02]">{{ t('landing.advanced.customDomains.demo.value') }}</div>
             <div v-for="rec in dnsRecords" :key="rec.type" class="contents">
               <div class="px-2 py-1.5 text-primary/80 font-semibold text-[10px]">{{ rec.type }}</div>
               <div class="px-2 py-1.5 text-foreground/60 truncate text-[10px]">{{ rec.name }}</div>
@@ -176,7 +176,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Progress bar -->
-        <div v-if="phase === 'verifying'" class="ml-7 h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+        <div v-if="phase === 'verifying'" class="ml-7 h-1.5 rounded-full bg-foreground/[0.05] overflow-hidden">
           <div
             class="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-100"
             :style="{ width: `${verifyProgress}%` }"
@@ -227,7 +227,7 @@ onUnmounted(() => {
               </svg>
               <span class="text-[10px] text-emerald-400 font-medium">{{ t('landing.advanced.customDomains.demo.https') }}</span>
             </div>
-            <div class="rounded-lg bg-white/[0.02] border border-emerald-500/20 px-3 py-2">
+            <div class="rounded-lg bg-foreground/[0.02] border border-emerald-500/20 px-3 py-2">
               <span class="text-[10px] text-muted-foreground/60">{{ t('landing.advanced.customDomains.demo.liveAt') }}</span>
               <span class="text-[11px] text-emerald-400 font-medium ml-1">https://{{ typedDomain }}</span>
               <span class="text-[10px] text-muted-foreground/40 ml-2">→ localhost:3000</span>

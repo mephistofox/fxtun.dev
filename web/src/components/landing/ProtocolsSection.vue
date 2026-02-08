@@ -200,7 +200,7 @@ onMounted(() => {
             <div>
               <p class="text-xs text-muted-foreground mb-2 uppercase tracking-wider">Command</p>
               <div class="relative group">
-                <div class="bg-[hsl(220,20%,6%)] rounded-lg p-4 font-mono text-xs sm:text-sm border border-border overflow-x-auto">
+                <div class="bg-code rounded-lg p-4 font-mono text-xs sm:text-sm border border-border overflow-x-auto">
                   <span class="text-primary">$</span>
                   <span class="text-foreground/90 ml-2">{{ currentProtocol.command }}</span>
                 </div>
