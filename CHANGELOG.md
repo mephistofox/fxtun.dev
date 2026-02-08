@@ -1,5 +1,46 @@
 # Changelog
 
+## [3.0.0](https://github.com/mephistofox/fxTunnel/compare/v2.12.0...v3.0.0) (2026-02-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **payment:** Robokassa integration removed, YooKassa config required
+
+### Features
+
+* add plan usage display and simplify GUI auth flow ([24ed6ce](https://github.com/mephistofox/fxTunnel/commit/24ed6ce673f60d00b0e79264c80e6fa4a5c37882))
+* **inspect:** add persistent exchange storage and enhanced replay ([d1c34ea](https://github.com/mephistofox/fxTunnel/commit/d1c34eac111ceed70b2f8ec98844923642963625))
+* **payment:** migrate from Robokassa to YooKassa ([5b9c66d](https://github.com/mephistofox/fxTunnel/commit/5b9c66d97f4bc23effe6425887a1fcc3e2a08b0b))
+* remove invite code system ([b979943](https://github.com/mephistofox/fxTunnel/commit/b97994397dcf02bf8a45e3ff97cf88147a5fe85d))
+* **seo:** add @unhead/vue with dynamic meta tags and OG/Twitter cards ([acd5de4](https://github.com/mephistofox/fxTunnel/commit/acd5de43282841f18a59b23f2030cb1c9a0f3484))
+* **seo:** add FAQ section with 15 questions and FAQPage JSON-LD ([9cfaacf](https://github.com/mephistofox/fxTunnel/commit/9cfaacf90ebb2263a52a59b44dd731e7d61b88e2))
+* **seo:** add JSON-LD structured data (Organization, SoftwareApplication) ([42abbaf](https://github.com/mephistofox/fxTunnel/commit/42abbaf2438e132a0f0eb1d90f3c8fec4f545951))
+* **seo:** add robots.txt and llms.txt ([8327760](https://github.com/mephistofox/fxTunnel/commit/83277604c89501caa3133853452c3c7713fa560a))
+* **seo:** add sitemap.xml generation via vite-plugin-sitemap ([1075527](https://github.com/mephistofox/fxTunnel/commit/107552765799989a9258e2a7f9ce1c9a27802c8b))
+* **server:** support domain aliases for subdomain extraction ([feb9e9c](https://github.com/mephistofox/fxTunnel/commit/feb9e9c500d1d581808d6376495ee3f3b543cb36))
+* **web:** add logout button to mobile navigation ([a636f7e](https://github.com/mephistofox/fxTunnel/commit/a636f7e1c55320d1f35b5a390d7ce8c758f18dd9))
+* **web:** optimize landing page structure for conversion ([fc2856d](https://github.com/mephistofox/fxTunnel/commit/fc2856db661134f247666f65927ee6d8d350d784))
+* **web:** redesign inspector and domain setup landing demos ([da1ef9d](https://github.com/mephistofox/fxTunnel/commit/da1ef9de3d7085205ea92fd54a01d19184caf34a))
+* **web:** redesign landing page for SaaS positioning ([0cd5498](https://github.com/mephistofox/fxTunnel/commit/0cd5498f7a017557a3d8eed5f746b26428531661))
+
+
+### Bug Fixes
+
+* **email:** remove self-hosted branding from email templates ([6d918f9](https://github.com/mephistofox/fxTunnel/commit/6d918f974d2d1c3ab69c2b09f726acf63de3b2b7))
+* **gui:** update wails bindings and fix build errors ([902a94f](https://github.com/mephistofox/fxTunnel/commit/902a94f1385787a5848e967e0c2acbebd15f688f))
+* **inspect:** fix SSE auth security and upgrade request detection ([91d9b37](https://github.com/mephistofox/fxTunnel/commit/91d9b37da2e97a3d1e12deeb356f74260173f3c7))
+* **inspect:** make exchange persistence synchronous ([90b8654](https://github.com/mephistofox/fxTunnel/commit/90b8654a40b96bc30d4f34335e5906042f67438c))
+* **inspect:** stable cross-restart data with UTF-8 body decoding ([015a322](https://github.com/mephistofox/fxTunnel/commit/015a3225934f2fade0a707523fa07a3ccbcdab67))
+* **inspect:** use crypto/rand for exchange IDs to prevent collisions ([934d1ee](https://github.com/mephistofox/fxTunnel/commit/934d1ee8a229fcd022e8d1a2f14a69edbf5b051e))
+* **payment:** correct amount parsing in success email notification ([d630bfb](https://github.com/mephistofox/fxTunnel/commit/d630bfbffea5c16e10915751a8e0f71628603c01))
+* **server:** simplify isUpgradeRequest to check Connection header only ([4d6f8b0](https://github.com/mephistofox/fxTunnel/commit/4d6f8b0b529956cafe18f7c2eb4fad5bf508a97b))
+
+
+### Performance Improvements
+
+* **web:** self-host fonts, remove Google Fonts CDN ([22e1cfd](https://github.com/mephistofox/fxTunnel/commit/22e1cfdca7f79d7eaf2675192ed7e5c7411c0162))
+
 ## [2.12.0](https://github.com/mephistofox/fxTunnel/compare/v2.11.0...v2.12.0) (2026-02-05)
 
 
