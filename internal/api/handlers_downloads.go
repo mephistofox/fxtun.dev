@@ -149,9 +149,15 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 }
 
-// handleInstallScript serves a shell install script with the configured base domain
+// handleInstallScript serves a shell install script with the domain derived from the request Host
 func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
-	domain := s.baseDomain
+	domain := r.Host
+	if i := strings.IndexByte(domain, ':'); i != -1 {
+		domain = domain[:i]
+	}
+	if domain == "" || domain == "localhost" || domain == "127.0.0.1" {
+		domain = s.baseDomain
+	}
 	if domain == "" {
 		domain = "mfdev.ru"
 	}
