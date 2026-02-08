@@ -5,7 +5,7 @@ import { setLocale, getLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
-import { useOrganizationSchema, useSoftwareApplicationSchema } from '@/composables/useStructuredData'
+import { useOrganizationSchema, useSoftwareApplicationSchema, useFaqSchema } from '@/composables/useStructuredData'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
@@ -15,14 +15,18 @@ import UseCasesSection from '@/components/landing/UseCasesSection.vue'
 import PricingSection from '@/components/landing/PricingSection.vue'
 import ComparisonSection from '@/components/landing/ComparisonSection.vue'
 import DownloadSection from '@/components/landing/DownloadSection.vue'
+import FaqSection from '@/components/landing/FaqSection.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 
 const themeStore = useThemeStore()
-const { t } = useI18n()
+const { t, tm } = useI18n()
 
 useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description', path: '/' })
 useOrganizationSchema()
 useSoftwareApplicationSchema()
+
+const faqItems = tm('landing.faq.items') as Array<{ q: string; a: string }>
+useFaqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
@@ -92,6 +96,9 @@ onUnmounted(() => {
             </a>
             <a href="#download" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.download') }}
+            </a>
+            <a href="#faq" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              {{ t('landing.nav.faq') }}
             </a>
           </div>
 
@@ -218,6 +225,13 @@ onUnmounted(() => {
               >
                 {{ t('landing.nav.download') }}
               </a>
+              <a
+                href="#faq"
+                @click="isMobileMenuOpen = false"
+                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                {{ t('landing.nav.faq') }}
+              </a>
               <RouterLink
                 to="/login"
                 class="mt-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-center font-medium"
@@ -276,6 +290,7 @@ onUnmounted(() => {
 
       <PricingSection />
       <DownloadSection />
+      <FaqSection />
     </main>
 
     <LandingFooter />
