@@ -126,7 +126,7 @@ onMounted(() => {
 
             <!-- Command -->
             <div class="relative group/cmd">
-              <div class="bg-[hsl(220,20%,6%)] rounded-lg p-3 font-mono text-xs overflow-x-auto border border-border">
+              <div class="bg-code rounded-lg p-3 font-mono text-xs overflow-x-auto border border-border">
                 <span class="text-muted-foreground select-none">$ </span>
                 <code class="text-primary">{{ t(`landing.useCases.${uc.key}.command`) }}</code>
               </div>

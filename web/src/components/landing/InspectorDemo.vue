@@ -221,9 +221,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-[hsl(220,20%,4%)] overflow-hidden font-mono text-xs h-[360px] flex flex-col shadow-2xl">
+  <div class="rounded-xl border border-border bg-code overflow-hidden font-mono text-xs h-[360px] flex flex-col shadow-2xl">
     <!-- Toolbar -->
-    <div class="flex items-center gap-3 px-3 py-2 border-b border-border/70 bg-[hsl(220,20%,7%)]">
+    <div class="flex items-center gap-3 px-3 py-2 border-b border-border/70 bg-code-header">
       <div class="flex items-center gap-2">
         <span class="relative flex h-2 w-2">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -248,7 +248,7 @@ onUnmounted(() => {
               v-for="ex in exchanges"
               :key="ex.id"
               class="req-row flex items-center gap-1.5 px-2.5 py-[7px] border-b border-border/30 transition-colors cursor-pointer"
-              :class="selectedId === ex.id ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent hover:bg-white/[0.03]'"
+              :class="selectedId === ex.id ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent hover:bg-foreground/[0.03]'"
               @click="selectRow(ex.id)"
             >
               <!-- Method -->
@@ -277,7 +277,7 @@ onUnmounted(() => {
       <div class="hidden lg:flex lg:w-[55%] flex-col overflow-hidden">
         <template v-if="selectedExchange">
           <!-- Detail header -->
-          <div class="flex items-center gap-2 px-3 py-2 border-b border-border/40 bg-[hsl(220,20%,6%)]">
+          <div class="flex items-center gap-2 px-3 py-2 border-b border-border/40 bg-code-header">
             <span class="font-bold text-[11px]" :class="methodColor(selectedExchange.method)">{{ selectedExchange.method }}</span>
             <span class="text-foreground/70 text-[11px] truncate flex-1">{{ selectedExchange.path }}</span>
             <span
@@ -312,7 +312,7 @@ onUnmounted(() => {
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Method</p>
               <select
                 v-model="editMethod"
-                class="w-full text-[10px] bg-white/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40"
+                class="w-full text-[10px] bg-foreground/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40"
               >
                 <option v-for="m in ['GET','POST','PUT','PATCH','DELETE']" :key="m" :value="m">{{ m }}</option>
               </select>
@@ -320,21 +320,21 @@ onUnmounted(() => {
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold pt-1">Path</p>
               <input
                 v-model="editPath"
-                class="w-full text-[10px] bg-white/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40"
+                class="w-full text-[10px] bg-foreground/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40"
               />
 
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold pt-1">Body</p>
               <textarea
                 v-model="editBody"
                 rows="4"
-                class="w-full text-[10px] bg-white/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40 resize-none leading-relaxed"
+                class="w-full text-[10px] bg-foreground/[0.03] border border-border/40 rounded-md px-2 py-1.5 text-foreground/80 focus:outline-none focus:border-primary/40 resize-none leading-relaxed"
               />
             </template>
 
             <!-- Request tab -->
             <template v-else-if="activeTab === 'request'">
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Headers</p>
-              <div class="rounded-md bg-white/[0.02] border border-border/30 overflow-hidden">
+              <div class="rounded-md bg-foreground/[0.02] border border-border/30 overflow-hidden">
                 <div
                   v-for="(value, key) in selectedExchange.reqHeaders"
                   :key="key"
@@ -347,14 +347,14 @@ onUnmounted(() => {
 
               <template v-if="selectedExchange.reqBody">
                 <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold pt-1">Body</p>
-                <pre class="text-[10px] text-foreground/60 bg-white/[0.02] border border-border/30 rounded-md p-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{{ selectedExchange.reqBody }}</pre>
+                <pre class="text-[10px] text-foreground/60 bg-foreground/[0.02] border border-border/30 rounded-md p-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{{ selectedExchange.reqBody }}</pre>
               </template>
             </template>
 
             <!-- Response tab -->
             <template v-else>
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold">Headers</p>
-              <div class="rounded-md bg-white/[0.02] border border-border/30 overflow-hidden">
+              <div class="rounded-md bg-foreground/[0.02] border border-border/30 overflow-hidden">
                 <div
                   v-for="(value, key) in selectedExchange.resHeaders"
                   :key="key"
@@ -366,13 +366,13 @@ onUnmounted(() => {
               </div>
 
               <p class="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold pt-1">Body</p>
-              <pre class="text-[10px] text-foreground/60 bg-white/[0.02] border border-border/30 rounded-md p-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{{ selectedExchange.resBody }}</pre>
+              <pre class="text-[10px] text-foreground/60 bg-foreground/[0.02] border border-border/30 rounded-md p-2 whitespace-pre-wrap overflow-x-auto leading-relaxed">{{ selectedExchange.resBody }}</pre>
             </template>
           </div>
 
           <!-- Bottom: Replay buttons + result -->
-          <div class="border-t border-border/40 px-2.5 py-2 bg-[hsl(220,20%,6%)]">
-            <div v-if="showReplayResult && replayResult" class="mb-2 px-2 py-1.5 rounded-md bg-white/[0.02] border border-border/30">
+          <div class="border-t border-border/40 px-2.5 py-2 bg-code-header">
+            <div v-if="showReplayResult && replayResult" class="mb-2 px-2 py-1.5 rounded-md bg-foreground/[0.02] border border-border/30">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-[9px] text-purple-400 font-semibold uppercase tracking-wider">Replay Result</span>
                 <span class="text-[10px] font-medium px-1.5 py-0.5 rounded border" :class="statusBadgeClass(replayResult.status)">{{ replayResult.status }}</span>
@@ -384,7 +384,7 @@ onUnmounted(() => {
               <template v-if="editMode">
                 <button
                   @click="editMode = false"
-                  class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-white/[0.04] text-foreground/60 border border-border/40 hover:bg-white/[0.08] transition-colors"
+                  class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-foreground/[0.04] text-foreground/60 border border-border/40 hover:bg-foreground/[0.08] transition-colors"
                 >
                   {{ t('landing.advanced.inspector.demo.cancel') }}
                 </button>
@@ -422,7 +422,7 @@ onUnmounted(() => {
                 </button>
                 <button
                   @click="openEditor"
-                  class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-white/[0.04] text-foreground/60 border border-border/40 hover:bg-white/[0.08] transition-colors flex items-center justify-center gap-1.5"
+                  class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-foreground/[0.04] text-foreground/60 border border-border/40 hover:bg-foreground/[0.08] transition-colors flex items-center justify-center gap-1.5"
                 >
                   <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />

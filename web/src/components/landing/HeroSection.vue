@@ -91,7 +91,7 @@ onMounted(() => {
           >
             <p class="text-sm text-muted-foreground mb-2">{{ t('landing.hero.quickStart') }}</p>
             <div
-              class="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-[hsl(220_20%_6%)] border border-border font-mono text-sm cursor-pointer group hover:border-primary/40 transition-colors"
+              class="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-code border border-border font-mono text-sm cursor-pointer group hover:border-primary/40 transition-colors"
               @click="copyCommand"
             >
               <span class="text-muted-foreground select-none">$</span>
