@@ -108,23 +108,23 @@
 
 @layer base {
   :root {
-    /* Cyber-Industrial Noir - Light Theme (softer, less harsh) */
-    --background: 220 20% 95%;
-    --foreground: 220 25% 12%;
-    --card: 220 20% 98%;
-    --card-foreground: 220 25% 12%;
-    --popover: 220 20% 98%;
-    --popover-foreground: 220 25% 12%;
+    /* Cyber-Industrial Noir - Light Theme */
+    --background: 220 20% 94%;
+    --foreground: 220 25% 10%;
+    --card: 220 20% 97%;
+    --card-foreground: 220 25% 10%;
+    --popover: 220 20% 97%;
+    --popover-foreground: 220 25% 10%;
 
     /* Primary - Electric Lime */
     --primary: 75 85% 40%;
     --primary-foreground: 220 20% 5%;
     --primary-dim: 75 70% 32%;
 
-    --secondary: 220 18% 92%;
-    --secondary-foreground: 220 25% 12%;
-    --muted: 220 18% 92%;
-    --muted-foreground: 220 15% 40%;
+    --secondary: 220 18% 90%;
+    --secondary-foreground: 220 25% 10%;
+    --muted: 220 18% 90%;
+    --muted-foreground: 220 15% 36%;
 
     /* Accent - Vivid Purple */
     --accent: 280 80% 55%;
@@ -132,14 +132,14 @@
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 18% 85%;
-    --input: 220 18% 88%;
+    --border: 220 18% 82%;
+    --input: 220 18% 86%;
     --ring: 75 85% 40%;
     --radius: 0.625rem;
 
     /* Surface colors */
-    --surface: 220 18% 92%;
-    --surface-elevated: 220 20% 98%;
+    --surface: 220 18% 90%;
+    --surface-elevated: 220 20% 97%;
 
     /* Status colors */
     --success: 160 72% 36%;
@@ -159,13 +159,13 @@
     --glow-accent: 280 80% 55%;
 
     /* Glass effect */
-    --glass-bg: 220 20% 98% / 0.85;
-    --glass-border: 220 18% 80% / 0.6;
+    --glass-bg: 220 20% 97% / 0.85;
+    --glass-border: 220 18% 76% / 0.6;
 
     /* Terminal / code block colors */
-    --code-bg: 220 18% 95%;
-    --code-header-bg: 220 18% 91%;
-    --code-text: 220 20% 25%;
+    --code-bg: 220 18% 92%;
+    --code-header-bg: 220 18% 88%;
+    --code-text: 220 20% 22%;
   }
 
   .dark {
@@ -314,16 +314,6 @@
       radial-gradient(ellipse 80% 60% at 50% -20%, hsl(var(--primary) / 0.15) 0%, transparent 50%),
       radial-gradient(ellipse 50% 50% at 80% 50%, hsl(var(--accent) / 0.1) 0%, transparent 50%),
       hsl(var(--background));
-  }
-
-  /* Grid background overlay */
-  .grid-overlay {
-    @apply absolute inset-0 pointer-events-none;
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
-    background-size: 60px 60px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 20%, transparent 70%);
   }
 
   /* Gradient text with shimmer */
