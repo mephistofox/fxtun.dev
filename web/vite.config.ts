@@ -25,12 +25,7 @@ export default defineConfig({
   server: {
     allowedHosts: [
       "fxtun.dev",
-      "fxtun.ru",
-      "fxtun.pro",
-      "mfdev.ru",
       "test.fxtun.dev",
-      "test.fxtun.ru",
-      "test.mfdev.ru",
     ],
     proxy: {
       "/api": {
