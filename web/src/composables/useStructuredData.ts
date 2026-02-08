@@ -71,6 +71,24 @@ export function useSoftwareApplicationSchema() {
   })
 }
 
+export function useWebSiteSchema() {
+  useHead({
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'fxTunnel',
+          url: 'https://fxtun.dev',
+          description:
+            'Secure localhost tunneling service supporting HTTP, TCP, and UDP protocols with desktop GUI client',
+        }),
+      },
+    ],
+  })
+}
+
 export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) {
   useHead({
     script: [
