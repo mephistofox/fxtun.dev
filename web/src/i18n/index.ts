@@ -5,6 +5,8 @@ import ru from './ru.json'
 type MessageSchema = typeof en
 
 function getDefaultLocale(): 'en' | 'ru' {
+  if (import.meta.env.SSR) return 'en'
+
   const saved = localStorage.getItem('locale')
   if (saved === 'en' || saved === 'ru') {
     return saved
