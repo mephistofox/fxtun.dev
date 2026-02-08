@@ -30,14 +30,22 @@ const showOffer = computed(() => locale.value === 'ru')
           </div>
         </div>
 
-        <!-- Offer link (only on fxtun.ru) -->
-        <RouterLink
-          v-if="showOffer"
-          to="/offer"
-          class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {{ t('legal.offer') }}
-        </RouterLink>
+        <!-- Links -->
+        <div class="flex items-center gap-6">
+          <RouterLink
+            v-if="showOffer"
+            to="/offer"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.offer') }}
+          </RouterLink>
+          <a
+            href="/blog"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('landing.nav.blog') }}
+          </a>
+        </div>
 
         <!-- Copyright -->
         <p class="text-sm text-muted-foreground">
