@@ -133,7 +133,7 @@ onMounted(async () => {
           >
             <p class="text-sm font-medium text-muted-foreground mb-3">{{ t('landing.download.installCommand') }}</p>
             <div class="relative group">
-              <div class="bg-[hsl(220,20%,6%)] rounded-xl p-4 font-mono text-sm border border-border flex items-center justify-between gap-3 overflow-hidden">
+              <div class="bg-code rounded-xl p-4 font-mono text-sm border border-border flex items-center justify-between gap-3 overflow-hidden">
                 <code class="text-primary truncate select-all">{{ installCommand }}</code>
                 <button
                   @click="copyInstallCommand"

@@ -182,7 +182,7 @@ onUnmounted(() => {
 
               <!-- Code block — pushed to bottom -->
               <div class="relative group mt-auto">
-                <div class="bg-[hsl(220,20%,6%)] rounded-lg p-3 font-mono text-sm overflow-x-auto border border-border">
+                <div class="bg-code rounded-lg p-3 font-mono text-sm overflow-x-auto border border-border">
                   <code class="text-primary">{{ step.code }}</code>
                 </div>
                 <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

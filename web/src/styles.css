@@ -161,6 +161,11 @@
     /* Glass effect */
     --glass-bg: 220 20% 98% / 0.85;
     --glass-border: 220 18% 80% / 0.6;
+
+    /* Terminal / code block colors */
+    --code-bg: 220 18% 95%;
+    --code-header-bg: 220 18% 91%;
+    --code-text: 220 20% 25%;
   }
 
   .dark {
@@ -208,6 +213,11 @@
     /* Glass effect */
     --glass-bg: 220 15% 8% / 0.8;
     --glass-border: 0 0% 95% / 0.1;
+
+    /* Terminal / code block colors */
+    --code-bg: 220 20% 6%;
+    --code-header-bg: 220 20% 8%;
+    --code-text: 210 20% 85%;
   }
 }
 
@@ -386,8 +396,12 @@
   /* Terminal styles - enhanced */
   .terminal {
     @apply rounded-2xl overflow-hidden;
-    background: hsl(220 20% 6%);
+    background: hsl(var(--code-bg));
     border: 1px solid hsl(var(--border));
+    box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.1);
+  }
+
+  .dark .terminal {
     box-shadow:
       0 25px 50px -12px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(0 0% 100% / 0.05);
@@ -395,7 +409,7 @@
 
   .terminal-header {
     @apply flex items-center gap-2 px-4 py-3;
-    background: hsl(220 20% 8%);
+    background: hsl(var(--code-header-bg));
     border-bottom: 1px solid hsl(var(--border));
   }
 
@@ -405,7 +419,7 @@
 
   .terminal-body {
     @apply p-5 font-mono text-sm leading-relaxed;
-    color: hsl(210 20% 85%);
+    color: hsl(var(--code-text));
   }
 
   .terminal-prompt {
@@ -629,6 +643,18 @@
    ============================================ */
 
 @layer utilities {
+  .bg-code {
+    background-color: hsl(var(--code-bg));
+  }
+
+  .bg-code-header {
+    background-color: hsl(var(--code-header-bg));
+  }
+
+  .text-code {
+    color: hsl(var(--code-text));
+  }
+
   .status-dot {
     @apply relative inline-flex h-2.5 w-2.5 rounded-full;
   }
