@@ -101,6 +101,9 @@ onUnmounted(() => {
             <a href="#faq" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.faq') }}
             </a>
+            <a href="/blog" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              {{ t('landing.nav.blog') }}
+            </a>
           </div>
 
           <!-- Right Controls -->
@@ -232,6 +235,13 @@ onUnmounted(() => {
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
               >
                 {{ t('landing.nav.faq') }}
+              </a>
+              <a
+                href="/blog"
+                @click="isMobileMenuOpen = false"
+                class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+              >
+                {{ t('landing.nav.blog') }}
               </a>
               <RouterLink
                 to="/login"
