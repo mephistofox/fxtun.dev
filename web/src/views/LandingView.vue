@@ -5,7 +5,7 @@ import { setLocale, getLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
-import { useOrganizationSchema, useSoftwareApplicationSchema, useFaqSchema } from '@/composables/useStructuredData'
+import { useOrganizationSchema, useSoftwareApplicationSchema, useWebSiteSchema, useFaqSchema } from '@/composables/useStructuredData'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
@@ -24,6 +24,7 @@ const { t, tm } = useI18n()
 useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description', path: '/' })
 useOrganizationSchema()
 useSoftwareApplicationSchema()
+useWebSiteSchema()
 
 const faqItems = tm('landing.faq.items') as Array<{ q: string; a: string }>
 useFaqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))
