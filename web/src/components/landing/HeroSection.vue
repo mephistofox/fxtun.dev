@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import AnimatedTerminal from './AnimatedTerminal.vue'
+import TopoBackground from './TopoBackground.vue'
 
 const { t } = useI18n()
 
@@ -26,8 +27,8 @@ onMounted(() => {
 
 <template>
   <section class="hero-section">
-    <!-- Grid overlay -->
-    <div class="grid-overlay" />
+    <!-- Animated topography contour overlay -->
+    <TopoBackground />
 
     <!-- Animated gradient orbs -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
