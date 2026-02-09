@@ -8,6 +8,7 @@ const { t, locale } = useI18n()
 const currentYear = new Date().getFullYear()
 
 const showOffer = computed(() => locale.value === 'ru')
+const blogUrl = computed(() => `${window.location.protocol}//${window.location.hostname}/blog`)
 </script>
 
 <template>
@@ -40,7 +41,7 @@ const showOffer = computed(() => locale.value === 'ru')
             {{ t('legal.offer') }}
           </RouterLink>
           <a
-            href="/blog"
+            :href="blogUrl"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {{ t('landing.nav.blog') }}

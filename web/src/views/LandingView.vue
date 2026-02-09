@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
 import { useI18n } from 'vue-i18n'
@@ -43,6 +43,8 @@ function cycleTheme() {
   const nextIndex = (currentIndex + 1) % modes.length
   themeStore.setMode(modes[nextIndex])
 }
+
+const blogUrl = computed(() => `${window.location.protocol}//${window.location.hostname}/blog`)
 
 function handleScroll() {
   isScrolled.value = window.scrollY > 20
@@ -101,7 +103,7 @@ onUnmounted(() => {
             <a href="#faq" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.faq') }}
             </a>
-            <a href="/blog" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <a :href="blogUrl" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.blog') }}
             </a>
           </div>
@@ -237,7 +239,7 @@ onUnmounted(() => {
                 {{ t('landing.nav.faq') }}
               </a>
               <a
-                href="/blog"
+                :href="blogUrl"
                 @click="isMobileMenuOpen = false"
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
               >
