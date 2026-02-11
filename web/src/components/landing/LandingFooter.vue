@@ -2,16 +2,14 @@
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { computed } from 'vue'
+import { getBlogUrl } from '@/i18n'
 
 const { t, locale } = useI18n()
 
 const currentYear = new Date().getFullYear()
 
 const showOffer = computed(() => locale.value === 'ru')
-const blogUrl = computed(() => {
-  if (typeof window === 'undefined') return '/blog'
-  return `${window.location.protocol}//${window.location.hostname}/blog`
-})
+const blogUrl = computed(() => getBlogUrl())
 </script>
 
 <template>

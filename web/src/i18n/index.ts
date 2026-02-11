@@ -8,6 +8,8 @@ export function getDomainLocale(): 'en' | 'ru' | null {
   if (import.meta.env.SSR) return null
   const host = window.location.hostname
   if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
+  if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
+  if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en'
   return null
 }
 
@@ -27,6 +29,19 @@ export const i18n = createI18n<[MessageSchema], 'en' | 'ru'>({
     ru,
   },
 })
+
+if (!import.meta.env.SSR) {
+  const locale = getDefaultLocale()
+  localStorage.setItem('locale', locale)
+  document.documentElement.lang = locale
+}
+
+export function getBlogUrl(): string {
+  if (import.meta.env.SSR) return '/blog'
+  const locale = getLocale()
+  const domain = locale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
+  return `${window.location.protocol}//${domain}/blog`
+}
 
 export function setLocale(locale: 'en' | 'ru') {
   // @ts-expect-error vue-i18n composition api
