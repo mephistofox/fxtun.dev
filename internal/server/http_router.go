@@ -88,6 +88,18 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.server.activeConns.Add(1)
 	defer r.server.activeConns.Done()
 
+	// Check IP ban
+	if r.server.ipBan != nil {
+		clientIP := req.RemoteAddr
+		if host, _, err := net.SplitHostPort(clientIP); err == nil {
+			clientIP = host
+		}
+		if r.server.ipBan.IsBanned(clientIP) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	// ACME challenge intercept
 	if r.server.certManager != nil && strings.HasPrefix(req.URL.Path, "/.well-known/acme-challenge/") {
 		r.server.certManager.HandleACMEChallenge(w, req)
@@ -123,6 +135,23 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.log.Warn().Str("client_id", tunnel.ClientID).Msg("Client not found for tunnel")
 		r.serveErrorPage(w, http.StatusBadGateway, "Tunnel unavailable")
 		return
+	}
+
+	// Per-tunnel concurrency limit
+	if tunnel.reqSem != nil {
+		select {
+		case tunnel.reqSem <- struct{}{}:
+			defer func() { <-tunnel.reqSem }()
+		default:
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+	}
+
+	// Request body size limit (skip for upgrade/WebSocket requests)
+	maxBody := r.server.cfg.Server.MaxTunnelRequestBody
+	if maxBody > 0 && req.Body != nil && !isUpgradeRequest(req) {
+		req.Body = http.MaxBytesReader(w, req.Body, maxBody)
 	}
 
 	// Determine if interstitial might be needed (will check response Content-Type later)
@@ -182,16 +211,24 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req.Body = io.NopCloser(io.TeeReader(req.Body, &limitedWriter{w: &capturedReqBuf, remaining: maxBody}))
 	}
 
-	// Write the HTTP request to the stream
-	if err := req.Write(stream); err != nil {
+	// Apply bandwidth throttling if configured
+	var streamReader io.Reader = stream
+	var streamWriter io.Writer = stream
+	if client.bwLimiter != nil {
+		streamReader = client.bwLimiter.Reader(stream)
+		streamWriter = client.bwLimiter.Writer(stream)
+	}
+
+	// Write the HTTP request to the stream (via throttled writer)
+	if err := req.Write(streamWriter); err != nil {
 		r.log.Error().Err(err).Msg("Failed to write request to stream")
 		r.serveErrorPage(w, http.StatusBadGateway, "Failed to proxy request")
 		return
 	}
 
-	// Read response from stream
-	streamReader := bufio.NewReader(stream)
-	resp, err := http.ReadResponse(streamReader, req)
+	// Read response from stream (via throttled reader)
+	bufferedReader := bufio.NewReader(streamReader)
+	resp, err := http.ReadResponse(bufferedReader, req)
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to read response from tunnel")
 		r.serveErrorPage(w, http.StatusBadGateway, "Failed to read tunnel response")

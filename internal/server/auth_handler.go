@@ -225,6 +225,7 @@ func (s *Server) createClientFromDBToken(conn net.Conn, session *yamux.Session, 
 		}
 	}
 
+	s.initClientBandwidth(client)
 	s.clientMgr.addClient(clientID, client)
 
 	return client
@@ -265,6 +266,7 @@ func (s *Server) createClientFromJWT(conn net.Conn, session *yamux.Session, cont
 		}
 	}
 
+	s.initClientBandwidth(client)
 	s.clientMgr.addClient(clientID, client)
 
 	return client
@@ -291,9 +293,28 @@ func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStre
 	}
 	client.lastPing.Store(time.Now().UnixNano())
 
+	s.initClientBandwidth(client)
 	s.clientMgr.addClient(clientID, client)
 
 	return client
+}
+
+// initClientBandwidth initializes the bandwidth limiter for a client based on plan or default config.
+func (s *Server) initClientBandwidth(client *Client) {
+	mbps := s.cfg.Server.BandwidthLimitMbps
+
+	// Plan-based override
+	if client.Plan != nil && client.Plan.BandwidthMbps > 0 {
+		mbps = client.Plan.BandwidthMbps
+	}
+
+	// Unlimited for admins or if explicitly set to 0
+	if mbps <= 0 || client.IsAdmin {
+		return
+	}
+
+	bytesPerSec := mbps * 1024 * 1024 / 8
+	client.bwLimiter = NewBandwidthLimiter(bytesPerSec)
 }
 
 // generateSessionSecret creates a random secret for session pooling.
