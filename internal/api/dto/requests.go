@@ -75,6 +75,7 @@ type CreatePlanRequest struct {
 	MaxCustomDomains   int     `json:"max_custom_domains"`
 	MaxTokens          int     `json:"max_tokens"`
 	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
+	BandwidthMbps      int     `json:"bandwidth_mbps"`
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
@@ -89,6 +90,7 @@ type UpdatePlanRequest struct {
 	MaxCustomDomains   *int     `json:"max_custom_domains,omitempty"`
 	MaxTokens          *int     `json:"max_tokens,omitempty"`
 	MaxTunnelsPerToken *int     `json:"max_tunnels_per_token,omitempty"`
+	BandwidthMbps      *int     `json:"bandwidth_mbps,omitempty"`
 	InspectorEnabled   *bool    `json:"inspector_enabled,omitempty"`
 	IsPublic           *bool    `json:"is_public,omitempty"`
 	IsRecommended      *bool    `json:"is_recommended,omitempty"`

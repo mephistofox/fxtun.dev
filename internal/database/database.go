@@ -136,6 +136,7 @@ func (d *Database) migrate() error {
 		migrationRenameToYooKassa,
 		migrationCreateInspectExchanges,
 		migrationAddInspectHostUserIndex,
+		migrationAddPlanBandwidth,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -521,4 +522,12 @@ CREATE INDEX idx_inspect_exch_created ON inspect_exchanges(created_at);
 
 const migrationAddInspectHostUserIndex = `
 CREATE INDEX IF NOT EXISTS idx_inspect_exch_host_user ON inspect_exchanges(host, user_id, timestamp DESC);
+`
+
+const migrationAddPlanBandwidth = `
+ALTER TABLE plans ADD COLUMN bandwidth_mbps INTEGER NOT NULL DEFAULT 0;
+UPDATE plans SET bandwidth_mbps = 10 WHERE slug = 'free';
+UPDATE plans SET bandwidth_mbps = 50 WHERE slug = 'base';
+UPDATE plans SET bandwidth_mbps = 100 WHERE slug = 'pro';
+UPDATE plans SET bandwidth_mbps = 0 WHERE slug = 'admin';
 `

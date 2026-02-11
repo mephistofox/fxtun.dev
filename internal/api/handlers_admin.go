@@ -525,7 +525,8 @@ func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 		Slug: req.Slug, Name: req.Name, Price: req.Price,
 		MaxTunnels: req.MaxTunnels, MaxDomains: req.MaxDomains,
 		MaxCustomDomains: req.MaxCustomDomains, MaxTokens: req.MaxTokens,
-		MaxTunnelsPerToken: req.MaxTunnelsPerToken, InspectorEnabled: req.InspectorEnabled,
+		MaxTunnelsPerToken: req.MaxTunnelsPerToken, BandwidthMbps: req.BandwidthMbps,
+		InspectorEnabled: req.InspectorEnabled,
 		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
 	}
 	if err := s.db.Plans.Create(plan); err != nil {
@@ -576,6 +577,9 @@ func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MaxTunnelsPerToken != nil {
 		plan.MaxTunnelsPerToken = *req.MaxTunnelsPerToken
+	}
+	if req.BandwidthMbps != nil {
+		plan.BandwidthMbps = *req.BandwidthMbps
 	}
 	if req.InspectorEnabled != nil {
 		plan.InspectorEnabled = *req.InspectorEnabled

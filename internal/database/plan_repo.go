@@ -27,6 +27,7 @@ func (r *PlanRepository) scanPlan(row interface{ Scan(dest ...any) error }) (*Pl
 		&plan.MaxCustomDomains,
 		&plan.MaxTokens,
 		&plan.MaxTunnelsPerToken,
+		&plan.BandwidthMbps,
 		&plan.InspectorEnabled,
 		&plan.IsPublic,
 		&plan.IsRecommended,
@@ -34,7 +35,7 @@ func (r *PlanRepository) scanPlan(row interface{ Scan(dest ...any) error }) (*Pl
 	return plan, err
 }
 
-const planColumns = `id, slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, inspector_enabled, is_public, is_recommended`
+const planColumns = `id, slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended`
 
 // GetByID retrieves a plan by ID
 func (r *PlanRepository) GetByID(id int64) (*Plan, error) {
@@ -79,8 +80,8 @@ func (r *PlanRepository) List() ([]*Plan, error) {
 // Create creates a new plan
 func (r *PlanRepository) Create(plan *Plan) error {
 	query := `
-		INSERT INTO plans (slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, inspector_enabled, is_public, is_recommended)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO plans (slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.Exec(query,
 		plan.Slug,
@@ -91,6 +92,7 @@ func (r *PlanRepository) Create(plan *Plan) error {
 		plan.MaxCustomDomains,
 		plan.MaxTokens,
 		plan.MaxTunnelsPerToken,
+		plan.BandwidthMbps,
 		plan.InspectorEnabled,
 		plan.IsPublic,
 		plan.IsRecommended,
@@ -111,8 +113,8 @@ func (r *PlanRepository) Create(plan *Plan) error {
 func (r *PlanRepository) Update(plan *Plan) error {
 	query := `
 		UPDATE plans SET slug = ?, name = ?, price = ?, max_tunnels = ?, max_domains = ?,
-		max_custom_domains = ?, max_tokens = ?, max_tunnels_per_token = ?, inspector_enabled = ?,
-		is_public = ?, is_recommended = ?
+		max_custom_domains = ?, max_tokens = ?, max_tunnels_per_token = ?, bandwidth_mbps = ?,
+		inspector_enabled = ?, is_public = ?, is_recommended = ?
 		WHERE id = ?
 	`
 	result, err := r.db.Exec(query,
@@ -124,6 +126,7 @@ func (r *PlanRepository) Update(plan *Plan) error {
 		plan.MaxCustomDomains,
 		plan.MaxTokens,
 		plan.MaxTunnelsPerToken,
+		plan.BandwidthMbps,
 		plan.InspectorEnabled,
 		plan.IsPublic,
 		plan.IsRecommended,
