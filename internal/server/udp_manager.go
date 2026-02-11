@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net"
 	"sync"
@@ -14,8 +15,21 @@ import (
 )
 
 const (
+	// udpRateLimitPerSec is the maximum number of UDP packets per second per source IP.
+	udpRateLimitPerSec = 1000
+	// udpRateBurst is the maximum burst of packets allowed per source IP.
+	udpRateBurst = 1000
+)
+
+// udpRateEntry tracks per-source-IP rate limiting state using a token bucket.
+type udpRateEntry struct {
+	tokens   float64
+	lastTime time.Time
+}
+
+const (
 	maxUDPPacketSize = 65507
-	udpHeaderSize    = 6 // 2 bytes length + 4 bytes addr hash
+	udpHeaderSize    = 10 // 2 bytes length + 8 bytes addr hash (fnv64a)
 )
 
 var udpFramePool = sync.Pool{
@@ -90,9 +104,13 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 
 	// Track client addresses for responses (keyed by addr.String() to avoid hash collisions)
 	clientAddrs := make(map[string]*net.UDPAddr)
-	hashToKey := make(map[uint32]string)
+	hashToKey := make(map[uint64]string)
 	clientLastSeen := make(map[string]time.Time)
 	var addrMu sync.RWMutex
+
+	// Per-source-IP rate limiting
+	rateLimits := make(map[string]*udpRateEntry)
+	var rateMu sync.Mutex
 
 	// Cleanup goroutine to evict stale entries
 	go func() {
@@ -137,6 +155,28 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 				return
 			}
 
+			// Per-source-IP rate limiting
+			srcIP := addr.IP.String()
+			now := time.Now()
+			rateMu.Lock()
+			entry, exists := rateLimits[srcIP]
+			if !exists {
+				entry = &udpRateEntry{tokens: udpRateBurst, lastTime: now}
+				rateLimits[srcIP] = entry
+			}
+			elapsed := now.Sub(entry.lastTime).Seconds()
+			entry.tokens += elapsed * udpRateLimitPerSec
+			if entry.tokens > udpRateBurst {
+				entry.tokens = udpRateBurst
+			}
+			entry.lastTime = now
+			if entry.tokens < 1 {
+				rateMu.Unlock()
+				continue // drop packet: rate limit exceeded
+			}
+			entry.tokens--
+			rateMu.Unlock()
+
 			// Use string key to avoid hash collisions
 			addrKey := addr.String()
 			addrHash := hashAddr(addr)
@@ -148,12 +188,12 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			clientLastSeen[addrKey] = time.Now()
 			addrMu.Unlock()
 
-			// Frame: [2 bytes length][4 bytes addr hash][payload]
+			// Frame: [2 bytes length][8 bytes addr hash][payload]
 			fp := udpFramePool.Get().(*[]byte)
 			frame := *fp
 			frameLen := udpHeaderSize + n
 			binary.BigEndian.PutUint16(frame[0:2], uint16(n)) //nolint:gosec // n is bounded by UDP read buffer size
-			binary.BigEndian.PutUint32(frame[2:6], addrHash)
+			binary.BigEndian.PutUint64(frame[2:10], addrHash)
 			copy(frame[udpHeaderSize:], buf[:n])
 
 			_, werr := stream.Write(frame[:frameLen])
@@ -181,7 +221,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		}
 
 		length := binary.BigEndian.Uint16(header[0:2])
-		addrHash := binary.BigEndian.Uint32(header[2:6])
+		addrHash := binary.BigEndian.Uint64(header[2:10])
 
 		// Read payload into pooled buffer
 		fp := udpFramePool.Get().(*[]byte)
@@ -205,15 +245,12 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 	}
 }
 
-// hashAddr creates a hash of a UDP address for tracking
-func hashAddr(addr *net.UDPAddr) uint32 {
-	// Simple hash combining IP and port
-	var hash uint32
-	for _, b := range addr.IP {
-		hash = hash*31 + uint32(b)
-	}
-	hash = hash*31 + uint32(addr.Port) //nolint:gosec // port is 0-65535, safe
-	return hash
+// hashAddr creates a hash of a UDP address for tracking using FNV-64a.
+func hashAddr(addr *net.UDPAddr) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write(addr.IP)
+	_ = binary.Write(h, binary.BigEndian, uint16(addr.Port)) //nolint:gosec // port is 0-65535, safe
+	return h.Sum64()
 }
 
 // Stop stops the UDP manager

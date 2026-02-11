@@ -75,10 +75,15 @@ func TestAuditRepo_DeleteOlderThan(t *testing.T) {
 	db := newTestDB(t)
 	require.NoError(t, db.Audit.Log(nil, ActionLogin, nil, "127.0.0.1"))
 
-	// Delete logs older than 0 duration (i.e., all existing logs)
+	// Minimum retention is 90 days, so duration < 90d is clamped
 	count, err := db.Audit.DeleteOlderThan(0)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), count)
+	assert.Equal(t, int64(0), count) // nothing deleted because of 90-day minimum retention
+
+	// With a duration larger than 90 days, records older than that are deleted
+	count, err = db.Audit.DeleteOlderThan(91 * 24 * time.Hour)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), count) // freshly created log is not older than 91 days
 }
 
 func TestAuditRepo_GetLatestByUserAndAction(t *testing.T) {

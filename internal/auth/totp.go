@@ -33,9 +33,15 @@ type TOTPManager struct {
 
 // NewTOTPManager creates a new TOTP manager
 func NewTOTPManager(issuer string, encryptionKey []byte) *TOTPManager {
+	// Ensure 32-byte key for AES-256
+	key := encryptionKey
+	if len(key) != 32 {
+		h := sha256.Sum256(encryptionKey)
+		key = h[:]
+	}
 	return &TOTPManager{
 		issuer:        issuer,
-		encryptionKey: encryptionKey,
+		encryptionKey: key,
 	}
 }
 

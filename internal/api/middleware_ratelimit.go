@@ -73,10 +73,8 @@ func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration)
 func rateLimitMiddleware(rl *ipRateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Use r.RemoteAddr which is already set by Chi's middleware.RealIP
 			ip := r.RemoteAddr
-			if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-				ip = realIP
-			}
 
 			limiter := rl.getLimiter(ip)
 			if !limiter.Allow() {

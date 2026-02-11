@@ -4,6 +4,7 @@ package gui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -301,15 +302,26 @@ func (a *App) ExportData() (string, error) {
 	return string(jsonData), nil
 }
 
+const maxImportBundles = 100
+
 // ImportData imports user data from JSON
 func (a *App) ImportData(jsonData string) error {
+	// Limit raw JSON size
+	if len(jsonData) > 10*1024*1024 { // 10MB
+		return fmt.Errorf("import data too large")
+	}
+
 	var data struct {
-		Bundles []storage.Bundle  `json:"bundles"`
-		Version string            `json:"version"`
+		Bundles []storage.Bundle `json:"bundles"`
+		Version string           `json:"version"`
 	}
 
 	if err := json.Unmarshal([]byte(jsonData), &data); err != nil {
 		return err
+	}
+
+	if len(data.Bundles) > maxImportBundles {
+		return fmt.Errorf("too many bundles: %d (max %d)", len(data.Bundles), maxImportBundles)
 	}
 
 	// Import bundles

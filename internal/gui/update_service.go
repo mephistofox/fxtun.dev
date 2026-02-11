@@ -1,6 +1,10 @@
 package gui
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/mephistofox/fxtunnel/internal/client"
 )
 
@@ -49,6 +53,26 @@ func (s *UpdateService) CheckUpdate() (*UpdateInfo, error) {
 
 // DownloadUpdate downloads and installs the update.
 func (s *UpdateService) DownloadUpdate(downloadURL string) error {
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return fmt.Errorf("invalid download URL: %w", err)
+	}
+	// Only allow HTTPS downloads from trusted domains
+	if u.Scheme != "https" {
+		return fmt.Errorf("download URL must use HTTPS")
+	}
+	// Validate domain - must be from GitHub releases or project domain
+	allowedHosts := []string{"github.com", "api.github.com", "objects.githubusercontent.com"}
+	hostAllowed := false
+	for _, h := range allowedHosts {
+		if u.Host == h || strings.HasSuffix(u.Host, "."+h) {
+			hostAllowed = true
+			break
+		}
+	}
+	if !hostAllowed {
+		return fmt.Errorf("download URL host not allowed: %s", u.Host)
+	}
 	return client.SelfUpdate(downloadURL)
 }
 
