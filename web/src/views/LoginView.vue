@@ -12,7 +12,7 @@ const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const { t, locale } = useI18n()
 
-useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description', path: '/login' })
+useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description' })
 
 const showOffer = computed(() => locale.value === 'ru')
 

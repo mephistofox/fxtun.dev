@@ -9,7 +9,7 @@ export default defineConfig({
     Sitemap({
       hostname: "https://fxtun.dev",
       dynamicRoutes: ["/login", "/register", "/offer"],
-      exclude: ["/docs/offer"],
+      exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*"],
       generateRobotsTxt: false,
     }),
   ],
@@ -26,10 +26,11 @@ export default defineConfig({
     script: "async",
     formatting: "minify",
     beastiesOptions: false,
-    includedRoutes(paths) {
-      return paths.filter((p) =>
-        ["/", "/login", "/register", "/offer"].includes(p)
-      );
+    includedRoutes() {
+      const pages = ["/", "/login", "/register", "/offer"];
+      const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
+      const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
+      return [...pages, ...ruPages, ...enPages];
     },
   },
   server: {
