@@ -364,7 +364,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/fxtunnel:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/fxtunnel:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
