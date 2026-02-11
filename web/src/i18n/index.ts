@@ -4,20 +4,18 @@ import ru from './ru.json'
 
 type MessageSchema = typeof en
 
+export function getDomainLocale(): 'en' | 'ru' | null {
+  if (import.meta.env.SSR) return null
+  const host = window.location.hostname
+  if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
+  return null
+}
+
 function getDefaultLocale(): 'en' | 'ru' {
   if (import.meta.env.SSR) return 'en'
-
-  const saved = localStorage.getItem('locale')
-  if (saved === 'en' || saved === 'ru') {
-    return saved
-  }
-
-  const browserLang = navigator.language.split('-')[0]
-  if (['ru', 'uk', 'be'].includes(browserLang)) {
-    return 'ru'
-  }
-
-  return 'en'
+  return getDomainLocale()
+    ?? (localStorage.getItem('locale') as 'en' | 'ru' | null)
+    ?? (['ru', 'uk', 'be'].includes(navigator.language.split('-')[0]) ? 'ru' : 'en')
 }
 
 export const i18n = createI18n<[MessageSchema], 'en' | 'ru'>({

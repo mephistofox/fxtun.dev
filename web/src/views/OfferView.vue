@@ -8,7 +8,7 @@ import { useSeo } from '@/composables/useSeo'
 const themeStore = useThemeStore()
 const { t, locale } = useI18n()
 
-useSeo({ titleKey: 'seo.offer.title', descriptionKey: 'seo.offer.description', path: '/offer' })
+useSeo({ titleKey: 'seo.offer.title', descriptionKey: 'seo.offer.description' })
 
 function toggleLocale() {
   const current = getLocale()
