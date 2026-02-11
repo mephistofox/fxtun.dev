@@ -890,7 +890,8 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	}
 
 	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, err.Error())
+		c.log.Warn().Err(err).Str("subdomain", subdomain).Msg("Failed to register HTTP tunnel")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain already in use")
 		return
 	}
 
@@ -919,7 +920,8 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	port, listener, err := c.server.tcpManager.AllocatePort(req.RemotePort)
 	if err != nil {
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
+		c.log.Warn().Err(err).Int("requested_port", req.RemotePort).Msg("Failed to allocate TCP port")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, "resource allocation failed")
 		return
 	}
 
@@ -961,7 +963,8 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	port, udpConn, err := c.server.udpManager.AllocatePort(req.RemotePort)
 	if err != nil {
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
+		c.log.Warn().Err(err).Int("requested_port", req.RemotePort).Msg("Failed to allocate UDP port")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, "resource allocation failed")
 		return
 	}
 

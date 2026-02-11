@@ -52,13 +52,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.CreateTokenRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		s.respondError(w, http.StatusBadRequest, "name is required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 

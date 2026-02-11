@@ -64,7 +64,7 @@ func TestUDPProxyFraming(t *testing.T) {
 	payload := []byte("hello udp")
 	frame := make([]byte, udpHeaderSize+len(payload))
 	binary.BigEndian.PutUint16(frame[0:2], uint16(len(payload))) //nolint:gosec // G115: test uses fixed short payload
-	binary.BigEndian.PutUint32(frame[2:6], 0xDEADBEEF)
+	binary.BigEndian.PutUint64(frame[2:10], 0xDEADBEEF)
 	copy(frame[udpHeaderSize:], payload)
 
 	if _, err := streamClient.Write(frame); err != nil {
@@ -79,7 +79,7 @@ func TestUDPProxyFraming(t *testing.T) {
 	}
 
 	respLen := binary.BigEndian.Uint16(respHeader[0:2])
-	respHash := binary.BigEndian.Uint32(respHeader[2:6])
+	respHash := binary.BigEndian.Uint64(respHeader[2:10])
 
 	if int(respLen) != len(payload) {
 		t.Fatalf("expected response length %d, got %d", len(payload), respLen)

@@ -166,14 +166,22 @@ func (d *Database) migrate() error {
 			continue
 		}
 
-		// Apply migration
-		if _, err := d.db.Exec(migration); err != nil {
+		// Apply migration inside a transaction
+		tx, err := d.db.Begin()
+		if err != nil {
+			return fmt.Errorf("begin migration tx: %w", err)
+		}
+		if _, err := tx.Exec(migration); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("migration %d failed: %w", version, err)
 		}
-
-		// Record version
-		if _, err := d.db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
+		// Record version inside same transaction
+		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", version, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit migration %d: %w", version, err)
 		}
 	}
 

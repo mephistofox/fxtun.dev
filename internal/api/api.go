@@ -168,7 +168,7 @@ func (s *Server) setupRoutes() {
 	corsOrigins := s.cfg.Web.CORSOrigins
 	allowCredentials := len(corsOrigins) > 0
 	if len(corsOrigins) == 0 {
-		corsOrigins = []string{}
+		corsOrigins = []string{"https://" + s.cfg.Domain.Base}
 	}
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsOrigins,
