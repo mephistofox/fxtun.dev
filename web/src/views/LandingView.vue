@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale, getBlogUrl } from '@/i18n'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
 import { useOrganizationSchema, useSoftwareApplicationSchema, useWebSiteSchema, useFaqSchema } from '@/composables/useStructuredData'
 import HeroSection from '@/components/landing/HeroSection.vue'
@@ -22,12 +22,18 @@ const themeStore = useThemeStore()
 const { t, tm } = useI18n()
 
 useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description' })
-useOrganizationSchema()
-useSoftwareApplicationSchema()
-useWebSiteSchema()
 
-const faqItems = tm('landing.faq.items') as Array<{ q: string; a: string }>
-useFaqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))
+// Only emit structured data on the canonical `/` route, not on lang-prefixed `/ru` `/en`
+// to avoid Google "duplicate FAQPage" warnings
+const route = useRoute()
+const isCanonicalRoute = route.path === '/'
+if (isCanonicalRoute) {
+  useOrganizationSchema()
+  useSoftwareApplicationSchema()
+  useWebSiteSchema()
+  const faqItems = tm('landing.faq.items') as Array<{ q: string; a: string }>
+  useFaqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))
+}
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
