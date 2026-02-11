@@ -32,14 +32,6 @@ const savingProfile = ref(false)
 const profileError = ref('')
 const profileSuccess = ref('')
 
-// Password form
-const currentPassword = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
-const savingPassword = ref(false)
-const passwordError = ref('')
-const passwordSuccess = ref('')
-
 // TOTP
 const totpEnabled = ref(false)
 const showTotpSetup = ref(false)
@@ -66,36 +58,6 @@ async function saveProfile() {
     profileError.value = err.response?.data?.error || t('profile.failedToUpdate')
   } finally {
     savingProfile.value = false
-  }
-}
-
-async function changePassword() {
-  if (newPassword.value !== confirmPassword.value) {
-    passwordError.value = t('auth.passwordsDoNotMatch')
-    return
-  }
-  if (newPassword.value.length < 8) {
-    passwordError.value = t('auth.passwordTooShort')
-    return
-  }
-
-  savingPassword.value = true
-  passwordError.value = ''
-  passwordSuccess.value = ''
-  try {
-    await profileApi.changePassword({
-      current_password: currentPassword.value,
-      new_password: newPassword.value,
-    })
-    currentPassword.value = ''
-    newPassword.value = ''
-    confirmPassword.value = ''
-    passwordSuccess.value = t('profile.passwordChanged')
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    passwordError.value = err.response?.data?.error || t('profile.failedToChangePassword')
-  } finally {
-    savingPassword.value = false
   }
 }
 
@@ -274,36 +236,6 @@ onMounted(() => {
               </div>
 
               <Button type="submit" :loading="savingProfile">{{ t('profile.saveChanges') }}</Button>
-            </form>
-          </Card>
-
-          <!-- Password Card -->
-          <Card class="p-6">
-            <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">{{ t('profile.passwordSection') }}</h2>
-            <form @submit.prevent="changePassword" class="space-y-4">
-              <div v-if="passwordError" class="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
-                {{ passwordError }}
-              </div>
-              <div v-if="passwordSuccess" class="bg-green-900/30 text-green-300 p-3 rounded-md text-sm">
-                {{ passwordSuccess }}
-              </div>
-
-              <div class="space-y-2">
-                <label class="text-sm font-medium">{{ t('profile.currentPassword') }}</label>
-                <Input v-model="currentPassword" type="password" required />
-              </div>
-
-              <div class="space-y-2">
-                <label class="text-sm font-medium">{{ t('profile.newPassword') }}</label>
-                <Input v-model="newPassword" type="password" :placeholder="t('profile.minChars')" required />
-              </div>
-
-              <div class="space-y-2">
-                <label class="text-sm font-medium">{{ t('profile.confirmNewPassword') }}</label>
-                <Input v-model="confirmPassword" type="password" required />
-              </div>
-
-              <Button type="submit" :loading="savingPassword">{{ t('profile.changePassword') }}</Button>
             </form>
           </Card>
 
