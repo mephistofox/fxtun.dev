@@ -8,7 +8,10 @@ const { t, locale } = useI18n()
 const currentYear = new Date().getFullYear()
 
 const showOffer = computed(() => locale.value === 'ru')
-const blogUrl = computed(() => `${window.location.protocol}//${window.location.hostname}/blog`)
+const blogUrl = computed(() => {
+  if (typeof window === 'undefined') return '/blog'
+  return `${window.location.protocol}//${window.location.hostname}/blog`
+})
 </script>
 
 <template>
