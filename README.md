@@ -77,6 +77,10 @@ curl -fsSL https://fxtun.dev/install.sh | sh
 
 Or download from [Releases](https://github.com/mephistofox/fxtun.dev/releases).
 
+> **Windows users:** Windows may show a SmartScreen warning ("Windows protected your PC") when running the `.exe` for the first time. This is expected — the binaries are not code-signed yet. All release binaries are automatically scanned with [VirusTotal](https://www.virustotal.com/) during CI — check the scan results linked in each [release](https://github.com/mephistofox/fxtun.dev/releases).
+>
+> To bypass SmartScreen: click **"More info"** → **"Run anyway"**.
+
 ### Client Usage
 
 Expose a local HTTP server:
