@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,7 +53,35 @@ const (
 
 	// defaultInspectMaxEntries is the default capacity for the inspect buffer.
 	defaultInspectMaxEntries = 1000
+
+	// defaultMaxControlConns is the default global limit on concurrent control connections.
+	defaultMaxControlConns = 1000
+
+	// defaultMaxConnsPerIP is the default per-IP connection limit.
+	defaultMaxConnsPerIP = 50
+
+	// maxDataSessionsPerClient is the maximum number of data sessions per client.
+	maxDataSessionsPerClient = 32
 )
+
+// subdomainRegex validates subdomain format: alphanumeric, may contain hyphens, 1-32 chars.
+var subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
+
+// reservedSubdomains is a blocklist of subdomains that cannot be used for tunnels.
+var reservedSubdomains = map[string]struct{}{
+	"www":  {},
+	"api":  {},
+	"admin": {},
+	"mail": {},
+	"ftp":  {},
+	"smtp": {},
+	"imap": {},
+	"pop":  {},
+	"ns1":  {},
+	"ns2":  {},
+	"mx":   {},
+	"app":  {},
+}
 
 // Server is the main tunnel server
 type Server struct {
@@ -86,6 +115,10 @@ type Server struct {
 
 	// Active connections tracking for graceful drain
 	activeConns sync.WaitGroup
+
+	// Connection limits
+	connSem    chan struct{} // semaphore for global max connections
+	ipConnCount sync.Map     // map[string]*int32 — per-IP connection count
 
 	// Shutdown
 	ctx    context.Context
@@ -152,11 +185,17 @@ type Tunnel struct {
 func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	maxConns := cfg.Server.MaxControlConns
+	if maxConns <= 0 {
+		maxConns = defaultMaxControlConns
+	}
+
 	s := &Server{
 		cfg:           cfg,
 		log:           log.With().Str("component", "server").Logger(),
 		clientMgr:     NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains: make(map[string]*database.CustomDomain),
+		connSem:       make(chan struct{}, maxConns),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -445,6 +484,12 @@ func (s *Server) Stop() error {
 func (s *Server) acceptControlConnections() {
 	defer s.wg.Done()
 
+	maxPerIPCfg := s.cfg.Server.MaxConnsPerIP
+	if maxPerIPCfg <= 0 {
+		maxPerIPCfg = defaultMaxConnsPerIP
+	}
+	maxPerIP := int32(maxPerIPCfg) //nolint:gosec // config values are small positive ints, overflow impossible
+
 	for {
 		conn, err := s.controlListener.Accept()
 		if err != nil {
@@ -457,8 +502,67 @@ func (s *Server) acceptControlConnections() {
 			}
 		}
 
+		// Global connection limit (non-blocking check)
+		select {
+		case s.connSem <- struct{}{}:
+			// acquired
+		default:
+			s.log.Warn().Str("remote", conn.RemoteAddr().String()).Msg("Global connection limit reached, rejecting")
+			conn.Close()
+			continue
+		}
+
+		// Per-IP connection limit
+		ip := connIP(conn)
+		if !s.ipConnAcquire(ip, maxPerIP) {
+			s.log.Warn().Str("ip", ip).Msg("Per-IP connection limit reached, rejecting")
+			<-s.connSem // release global slot
+			conn.Close()
+			continue
+		}
+
 		s.wg.Add(1)
-		go s.handleControlConnection(conn)
+		go func() {
+			defer func() {
+				s.ipConnRelease(ip)
+				<-s.connSem
+			}()
+			s.handleControlConnection(conn)
+		}()
+	}
+}
+
+// connIP extracts the IP address (without port) from a connection.
+func connIP(conn net.Conn) string {
+	addr := conn.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
+}
+
+// ipConnAcquire increments the per-IP counter and returns false if the limit is reached.
+func (s *Server) ipConnAcquire(ip string, max int32) bool {
+	val, _ := s.ipConnCount.LoadOrStore(ip, new(int32))
+	counter := val.(*int32)
+	n := atomic.AddInt32(counter, 1)
+	if n > max {
+		atomic.AddInt32(counter, -1)
+		return false
+	}
+	return true
+}
+
+// ipConnRelease decrements the per-IP counter.
+func (s *Server) ipConnRelease(ip string) {
+	val, ok := s.ipConnCount.Load(ip)
+	if !ok {
+		return
+	}
+	counter := val.(*int32)
+	if atomic.AddInt32(counter, -1) <= 0 {
+		s.ipConnCount.Delete(ip)
 	}
 }
 
@@ -579,8 +683,22 @@ func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, contro
 		return
 	}
 
-	// Add data session to client
+	// Enforce data session limit
 	client.DataMu.Lock()
+	if len(client.DataSessions) >= maxDataSessionsPerClient {
+		client.DataMu.Unlock()
+		log.Warn().Str("client_id", joinMsg.ClientID).Int("count", len(client.DataSessions)).Msg("Data session limit reached")
+		result := &protocol.JoinSessionResult{
+			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+			Success: false,
+			Error:   "data session limit reached",
+		}
+		_ = codec.Encode(result)
+		session.Close()
+		return
+	}
+
+	// Add data session to client
 	client.DataSessions = append(client.DataSessions, session)
 	client.DataConns = append(client.DataConns, conn)
 	client.DataMu.Unlock()
@@ -739,6 +857,18 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	subdomain = strings.ToLower(subdomain)
 	if subdomain == "" {
 		subdomain = generateShortID()
+	}
+
+	// Validate subdomain format
+	if !subdomainRegex.MatchString(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "invalid subdomain format")
+		return
+	}
+
+	// Check against reserved subdomain blocklist
+	if _, reserved := reservedSubdomains[subdomain]; reserved {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "subdomain is reserved")
+		return
 	}
 
 	// Check subdomain permission

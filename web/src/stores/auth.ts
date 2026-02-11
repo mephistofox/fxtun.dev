@@ -39,7 +39,8 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('refreshToken', response.data.refresh_token)
       user.value = response.data.user
       const redirect = router.currentRoute.value.query.redirect as string | undefined
-      router.push(redirect || { name: 'dashboard' })
+      const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : undefined
+      router.push(safeRedirect || { name: 'dashboard' })
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string } } }
       error.value = err.response?.data?.error || 'Login failed'

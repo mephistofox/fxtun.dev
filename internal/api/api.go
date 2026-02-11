@@ -94,6 +94,7 @@ type Server struct {
 	version        string
 	minVersion     string
 	deviceStore    *deviceStore
+	oauthStore     *oauthStore
 	shutdownCh     chan struct{}
 }
 
@@ -110,10 +111,12 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
 		deviceStore:    newDeviceStore(),
+		oauthStore:     newOAuthStore(),
 		shutdownCh:     make(chan struct{}),
 	}
 
 	go s.deviceStore.Cleanup(s.shutdownCh)
+	go s.oauthStore.Cleanup(s.shutdownCh)
 
 	s.setupRoutes()
 	return s
@@ -205,6 +208,7 @@ func (s *Server) setupRoutes() {
 			r.Get("/github/callback", s.handleGitHubCallback)
 			r.Get("/google", s.handleGoogleAuth)
 			r.Get("/google/callback", s.handleGoogleCallback)
+			r.Post("/exchange", s.handleOAuthExchange)
 		})
 
 		// Downloads (public)
@@ -240,6 +244,8 @@ func (s *Server) setupRoutes() {
 			// Auth
 			r.Post("/auth/logout", s.handleLogout)
 			r.Post("/auth/device/authorize", s.handleDeviceAuthorize)
+			r.Post("/auth/github/link", s.handleGitHubLink)
+			r.Post("/auth/google/link", s.handleGoogleLink)
 
 			// TOTP
 			r.Route("/auth/totp", func(r chi.Router) {

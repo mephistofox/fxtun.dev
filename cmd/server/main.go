@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/signal"
@@ -111,6 +112,12 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 
 		totpKey := []byte(cfg.TOTP.EncryptionKey)
+
+		// Derive TLS encryption key from TOTP key for encrypting TLS private keys at rest
+		if len(totpKey) >= 32 {
+			tlsEncKey := deriveTLSEncryptionKey(totpKey)
+			db.TLSCerts.SetEncryptionKey(tlsEncKey)
+		}
 
 		// Create auth service
 		authService = auth.NewService(
@@ -397,4 +404,13 @@ func (a *customDomainAdapter) RemoveCustomDomain(domain string) {
 
 func (a *customDomainAdapter) CertManager() *fxtls.CertManager {
 	return a.srv.CertManager()
+}
+
+// deriveTLSEncryptionKey derives a separate AES-256 key for TLS private key encryption
+// from the TOTP encryption key using SHA-256 with a domain separation prefix.
+func deriveTLSEncryptionKey(totpKey []byte) []byte {
+	h := sha256.New()
+	h.Write([]byte("fxtunnel-tls-key-encryption:"))
+	h.Write(totpKey)
+	return h.Sum(nil) // 32 bytes
 }
