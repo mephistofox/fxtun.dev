@@ -21,7 +21,7 @@ import LandingFooter from '@/components/landing/LandingFooter.vue'
 const themeStore = useThemeStore()
 const { t, tm } = useI18n()
 
-useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description', path: '/' })
+useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description' })
 useOrganizationSchema()
 useSoftwareApplicationSchema()
 useWebSiteSchema()
@@ -54,7 +54,7 @@ function handleScroll() {
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
+  window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
 })
 
@@ -184,6 +184,8 @@ onUnmounted(() => {
             <button
               @click="isMobileMenuOpen = !isMobileMenuOpen"
               class="lg:hidden p-2.5 rounded-xl hover:bg-surface transition-colors"
+              :aria-label="isMobileMenuOpen ? t('common.close') : t('common.menu')"
+              :aria-expanded="isMobileMenuOpen"
             >
               <svg v-if="!isMobileMenuOpen" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />

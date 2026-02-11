@@ -383,18 +383,23 @@
     color: hsl(var(--primary));
   }
 
-  /* Terminal styles - enhanced */
+  /* Terminal styles - always dark for contrast and authenticity */
   .terminal {
     @apply rounded-2xl overflow-hidden;
-    background: hsl(var(--code-bg));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.1);
-  }
-
-  .dark .terminal {
+    background: hsl(220 20% 6%);
+    border: 1px solid hsl(220 15% 15%);
     box-shadow:
       0 25px 50px -12px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(0 0% 100% / 0.05);
+
+    /* Override theme variables so child Tailwind classes use dark colors */
+    --foreground: 0 0% 95%;
+    --muted-foreground: 220 10% 55%;
+    --primary: 75 100% 50%;
+    --type-http: 160 84% 45%;
+    --border: 220 15% 15%;
+    --code-bg: 220 20% 6%;
+    --code-header-bg: 220 20% 8%;
   }
 
   .terminal-header {
