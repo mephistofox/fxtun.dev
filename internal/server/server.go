@@ -27,9 +27,6 @@ import (
 )
 
 const (
-	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
-	yamuxMaxStreamWindowSize = 16 * 1024 * 1024 // 16MB
-
 	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
 	yamuxKeepAliveInterval = 10 * time.Second
 
@@ -120,6 +117,10 @@ type Server struct {
 	connSem    chan struct{} // semaphore for global max connections
 	ipConnCount sync.Map     // map[string]*int32 — per-IP connection count
 
+	// DDoS protection
+	ipBan        *IPBanManager
+	acceptLimiter *acceptRateLimiter
+
 	// Shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -163,6 +164,9 @@ type Client struct {
 
 	// Stream pool: pre-opened yamux streams for low-latency connection handling
 	streamPool chan net.Conn
+
+	// Bandwidth limiter (per-client, based on plan)
+	bwLimiter *BandwidthLimiter
 }
 
 // Tunnel represents an active tunnel
@@ -179,6 +183,9 @@ type Tunnel struct {
 	// For TCP/UDP
 	listener net.Listener
 	udpConn  *net.UDPConn
+
+	// Per-tunnel HTTP request concurrency limiter
+	reqSem chan struct{}
 }
 
 // New creates a new server
@@ -199,6 +206,20 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 		ctx:           ctx,
 		cancel:        cancel,
 	}
+
+	// Apply configurable buffer sizes
+	initProxyBufSize(cfg.Server.ProxyBufferSize)
+	if cfg.Server.TCPBufferSize > 0 {
+		tcpBufSize = cfg.Server.TCPBufferSize
+	}
+
+	// Initialize IP ban manager
+	if cfg.Server.IPBan.Enabled {
+		s.ipBan = NewIPBanManager(cfg.Server.IPBan, log)
+	}
+
+	// Initialize accept rate limiter
+	s.acceptLimiter = newAcceptRateLimiter(cfg.Server.AcceptRateGlobal, cfg.Server.AcceptRatePerIP)
 
 	s.httpRouter = NewHTTPRouter(s, log)
 	s.tcpManager = NewTCPManager(s, log)
@@ -359,6 +380,9 @@ func (s *Server) Start() error {
 			s.httpsServer = &http.Server{
 				Handler:           s.httpRouter,
 				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       s.httpReadTimeout(),
+				WriteTimeout:      s.httpWriteTimeout(),
+				IdleTimeout:       s.httpIdleTimeout(),
 			}
 			s.wg.Add(1)
 			go func() {
@@ -375,10 +399,29 @@ func (s *Server) Start() error {
 	s.wg.Add(1)
 	go s.acceptControlConnections()
 
+	// Periodic cleanup of accept rate limiter per-IP entries
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-ticker.C:
+				s.acceptLimiter.Cleanup()
+			}
+		}
+	}()
+
 	// Start HTTP server with keep-alive support
 	s.httpServer = &http.Server{
 		Handler:           s.httpRouter,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       s.httpReadTimeout(),
+		WriteTimeout:      s.httpWriteTimeout(),
+		IdleTimeout:       s.httpIdleTimeout(),
 	}
 	s.wg.Add(1)
 	go func() {
@@ -476,6 +519,10 @@ func (s *Server) Stop() error {
 		s.certManager.Stop()
 	}
 
+	if s.ipBan != nil {
+		s.ipBan.Stop()
+	}
+
 	s.wg.Wait()
 	s.log.Info().Msg("Server stopped")
 	return nil
@@ -502,6 +549,25 @@ func (s *Server) acceptControlConnections() {
 			}
 		}
 
+		ip := connIP(conn)
+
+		// Check IP ban
+		if s.ipBan != nil && s.ipBan.IsBanned(ip) {
+			s.log.Debug().Str("ip", ip).Msg("Rejected banned IP")
+			conn.Close()
+			continue
+		}
+
+		// Accept rate limiting
+		if !s.acceptLimiter.Allow(ip) {
+			s.log.Warn().Str("ip", ip).Msg("Accept rate limit exceeded, rejecting")
+			if s.ipBan != nil {
+				s.ipBan.RecordViolation(ip, ViolationFlood)
+			}
+			conn.Close()
+			continue
+		}
+
 		// Global connection limit (non-blocking check)
 		select {
 		case s.connSem <- struct{}{}:
@@ -513,7 +579,6 @@ func (s *Server) acceptControlConnections() {
 		}
 
 		// Per-IP connection limit
-		ip := connIP(conn)
 		if !s.ipConnAcquire(ip, maxPerIP) {
 			s.log.Warn().Str("ip", ip).Msg("Per-IP connection limit reached, rejecting")
 			<-s.connSem // release global slot
@@ -591,7 +656,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
-	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.MaxStreamWindowSize = s.yamuxWindowSize()
 	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
 	session, err := yamux.Server(rwc, yamuxCfg)
 	if err != nil {
@@ -644,6 +709,9 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
 		if err != nil {
 			log.Warn().Err(err).Msg("Authentication failed")
+			if s.ipBan != nil {
+				s.ipBan.RecordViolation(connIP(conn), ViolationAuth)
+			}
 			session.Close()
 			return
 		}
@@ -879,6 +947,10 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 	// Register with HTTP router
 	tunnelID := generateID()
+	maxConcurrent := c.server.cfg.Server.MaxConcurrentRequestsPerTunnel
+	if maxConcurrent <= 0 {
+		maxConcurrent = 100
+	}
 	tunnel := &Tunnel{
 		ID:        tunnelID,
 		ClientID:  c.ID,
@@ -887,6 +959,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		Subdomain: subdomain,
 		LocalPort: req.LocalPort,
 		Created:   time.Now(),
+		reqSem:    make(chan struct{}, maxConcurrent),
 	}
 
 	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
@@ -1212,5 +1285,42 @@ func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
 // GetStats returns server statistics
 func (s *Server) GetStats() Stats {
 	return s.clientMgr.GetStats()
+}
+
+// httpReadTimeout returns the configured HTTP read timeout or a default.
+func (s *Server) httpReadTimeout() time.Duration {
+	if s.cfg.Server.HTTPReadTimeout > 0 {
+		return s.cfg.Server.HTTPReadTimeout
+	}
+	return 30 * time.Second
+}
+
+// httpWriteTimeout returns the configured HTTP write timeout or a default.
+func (s *Server) httpWriteTimeout() time.Duration {
+	if s.cfg.Server.HTTPWriteTimeout > 0 {
+		return s.cfg.Server.HTTPWriteTimeout
+	}
+	return 120 * time.Second
+}
+
+// httpIdleTimeout returns the configured HTTP idle timeout or a default.
+func (s *Server) httpIdleTimeout() time.Duration {
+	if s.cfg.Server.HTTPIdleTimeout > 0 {
+		return s.cfg.Server.HTTPIdleTimeout
+	}
+	return 120 * time.Second
+}
+
+// yamuxWindowSize returns the configured yamux window size or a default.
+func (s *Server) yamuxWindowSize() uint32 {
+	if s.cfg.Server.YamuxWindowSize > 0 {
+		return uint32(s.cfg.Server.YamuxWindowSize) //nolint:gosec // config value validated
+	}
+	return 4 * 1024 * 1024 // 4MB default
+}
+
+// IPBanManager returns the server's IP ban manager (may be nil).
+func (s *Server) IPBanManager() *IPBanManager {
+	return s.ipBan
 }
 

@@ -32,6 +32,7 @@ type PlanDTO struct {
 	MaxCustomDomains   int     `json:"max_custom_domains"`
 	MaxTokens          int     `json:"max_tokens"`
 	MaxTunnelsPerToken int     `json:"max_tunnels_per_token"`
+	BandwidthMbps      int     `json:"bandwidth_mbps"`
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
@@ -53,6 +54,7 @@ func PlanFromModel(p *database.Plan) *PlanDTO {
 		MaxCustomDomains:   p.MaxCustomDomains,
 		MaxTokens:          p.MaxTokens,
 		MaxTunnelsPerToken: p.MaxTunnelsPerToken,
+		BandwidthMbps:      p.BandwidthMbps,
 		InspectorEnabled:   p.InspectorEnabled,
 		IsPublic:           p.IsPublic,
 		IsRecommended:      p.IsRecommended,

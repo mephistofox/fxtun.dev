@@ -111,19 +111,27 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 		return
 	}
 
+	// Apply bandwidth throttling if configured
+	var streamReader io.Reader = stream
+	var streamWriter io.Writer = stream
+	if client.bwLimiter != nil {
+		streamReader = client.bwLimiter.Reader(stream)
+		streamWriter = client.bwLimiter.Writer(stream)
+	}
+
 	// Bidirectional copy with large buffers
 	done := make(chan struct{}, 2)
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		_, _ = io.CopyBuffer(stream, conn, *bp)
+		_, _ = io.CopyBuffer(streamWriter, conn, *bp)
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
 
 	go func() {
 		bp := proxyBufPool.Get().(*[]byte)
-		_, _ = io.CopyBuffer(conn, stream, *bp)
+		_, _ = io.CopyBuffer(conn, streamReader, *bp)
 		proxyBufPool.Put(bp)
 		done <- struct{}{}
 	}()
