@@ -44,7 +44,10 @@ function cycleTheme() {
   themeStore.setMode(modes[nextIndex])
 }
 
-const blogUrl = computed(() => `${window.location.protocol}//${window.location.hostname}/blog`)
+const blogUrl = computed(() => {
+  if (typeof window === 'undefined') return '/blog'
+  return `${window.location.protocol}//${window.location.hostname}/blog`
+})
 
 function handleScroll() {
   isScrolled.value = window.scrollY > 20
