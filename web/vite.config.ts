@@ -11,6 +11,10 @@ export default defineConfig({
       dynamicRoutes: ["/login", "/register", "/offer"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*"],
       generateRobotsTxt: false,
+      changefreq: "weekly",
+      priority: 0.7,
+      robots: [{ userAgent: "*", allow: "/" }],
+      readable: true,
     }),
   ],
   resolve: {
