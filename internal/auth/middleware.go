@@ -213,7 +213,7 @@ func AdminMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if !user.IsAdmin && !(user.Plan != nil && user.Plan.Slug == "admin") {
+		if !user.IsAdmin {
 			http.Error(w, `{"error": "admin access required"}`, http.StatusForbidden)
 			return
 		}

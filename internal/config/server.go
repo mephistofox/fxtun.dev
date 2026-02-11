@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,6 +37,8 @@ type ServerSettings struct {
 	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
 	CompressionEnabled bool      `mapstructure:"compression_enabled"`
 	MinVersion         string    `mapstructure:"min_version"`
+	MaxControlConns    int       `mapstructure:"max_control_conns"`
+	MaxConnsPerIP      int       `mapstructure:"max_conns_per_ip"`
 }
 
 // PortRange defines a range of ports
@@ -345,7 +348,7 @@ func (c *ServerConfig) Validate() error {
 // FindToken finds a token configuration by token string
 func (c *ServerConfig) FindToken(token string) *TokenConfig {
 	for i := range c.Auth.Tokens {
-		if c.Auth.Tokens[i].Token == token {
+		if subtle.ConstantTimeCompare([]byte(c.Auth.Tokens[i].Token), []byte(token)) == 1 {
 			return &c.Auth.Tokens[i]
 		}
 	}

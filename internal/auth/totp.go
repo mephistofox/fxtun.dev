@@ -5,12 +5,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base32"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image/png"
 	"io"
+	"strings"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -135,17 +139,51 @@ func (m *TOTPManager) GenerateBackupCodes(count int) ([]string, error) {
 	return codes, nil
 }
 
-// ValidateBackupCode validates a backup code
+// HashBackupCode returns a SHA-256 hex hash of a backup code with a "sha256:" prefix.
+func HashBackupCode(code string) string {
+	h := sha256.Sum256([]byte(strings.ToUpper(strings.TrimSpace(code))))
+	return "sha256:" + hex.EncodeToString(h[:])
+}
+
+// HashBackupCodes hashes all backup codes for secure storage.
+func HashBackupCodes(codes []string) []string {
+	hashed := make([]string, len(codes))
+	for i, c := range codes {
+		hashed[i] = HashBackupCode(c)
+	}
+	return hashed
+}
+
+// ValidateBackupCode validates a backup code against stored codes using constant-time comparison.
+// Supports both hashed (sha256:...) and legacy plaintext codes.
 func (m *TOTPManager) ValidateBackupCode(code string, validCodes []string) (remaining []string, valid bool) {
-	for i, c := range validCodes {
-		if c == code {
-			remaining = make([]string, 0, len(validCodes)-1)
-			remaining = append(remaining, validCodes[:i]...)
-			remaining = append(remaining, validCodes[i+1:]...)
-			return remaining, true
+	codeHash := HashBackupCode(code)
+	codeUpper := strings.ToUpper(strings.TrimSpace(code))
+
+	matchIdx := -1
+	for i, stored := range validCodes {
+		if strings.HasPrefix(stored, "sha256:") {
+			// Hashed code — constant-time comparison
+			if subtle.ConstantTimeCompare([]byte(stored), []byte(codeHash)) == 1 {
+				matchIdx = i
+			}
+		} else {
+			// Legacy plaintext code — constant-time comparison
+			storedUpper := strings.ToUpper(strings.TrimSpace(stored))
+			if subtle.ConstantTimeCompare([]byte(storedUpper), []byte(codeUpper)) == 1 {
+				matchIdx = i
+			}
 		}
 	}
-	return validCodes, false
+
+	if matchIdx == -1 {
+		return validCodes, false
+	}
+
+	remaining = make([]string, 0, len(validCodes)-1)
+	remaining = append(remaining, validCodes[:matchIdx]...)
+	remaining = append(remaining, validCodes[matchIdx+1:]...)
+	return remaining, true
 }
 
 // GetQRCodeDataURL returns the QR code as a data URL for embedding in HTML

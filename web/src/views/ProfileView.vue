@@ -7,7 +7,7 @@ import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import { useAuthStore } from '@/stores/auth'
-import { profileApi, totpApi, subscriptionApi, type ProfileResponse, type Subscription } from '@/api/client'
+import { profileApi, totpApi, subscriptionApi, authApi, type ProfileResponse, type Subscription } from '@/api/client'
 
 const route = useRoute()
 const router = useRouter()
@@ -197,14 +197,16 @@ function formatDate(dateStr: string) {
   })
 }
 
-function getGitHubLinkUrl() {
-  const token = localStorage.getItem('accessToken')
-  return `/api/auth/github?link=true&token=${token}`
-}
+const oauthLinkLoading = ref(false)
 
-function getGoogleLinkUrl() {
-  const token = localStorage.getItem('accessToken')
-  return `/api/auth/google?link=true&token=${token}`
+async function linkOAuthAccount(provider: string) {
+  oauthLinkLoading.value = true
+  try {
+    const response = await authApi.initOAuthLink(provider)
+    window.location.href = response.data.url
+  } catch {
+    oauthLinkLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -452,9 +454,9 @@ onMounted(() => {
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
                   {{ t('profile.githubLinked') }}
                 </div>
-                <a v-else :href="getGitHubLinkUrl()" class="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                <button v-else :disabled="oauthLinkLoading" @click="linkOAuthAccount('github')" class="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50">
                   {{ t('profile.linkGitHub') }}
-                </a>
+                </button>
               </div>
 
               <!-- Google row -->
@@ -475,9 +477,9 @@ onMounted(() => {
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
                   {{ t('profile.googleLinked') }}
                 </div>
-                <a v-else :href="getGoogleLinkUrl()" class="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                <button v-else :disabled="oauthLinkLoading" @click="linkOAuthAccount('google')" class="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50">
                   {{ t('profile.linkGoogle') }}
-                </a>
+                </button>
               </div>
 
               <!-- 2FA row (temporarily hidden) -->

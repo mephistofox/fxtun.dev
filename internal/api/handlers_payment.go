@@ -298,6 +298,9 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Limit request body to 1MB to prevent abuse
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	// Read body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

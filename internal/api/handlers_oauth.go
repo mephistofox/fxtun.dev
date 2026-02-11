@@ -32,57 +32,90 @@ type githubUser struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
-// handleGitHubAuth initiates the GitHub OAuth flow.
+// handleGitHubAuth initiates the GitHub OAuth login flow.
 func (s *Server) handleGitHubAuth(w http.ResponseWriter, r *http.Request) {
 	creds := s.cfg.OAuth.GitHub.GetCredentials(r.Host)
 	if creds == nil {
 		s.respondError(w, http.StatusNotImplemented, "GitHub OAuth is not configured for this domain")
 		return
 	}
-	clientID := creds.ClientID
 
-	state := "login"
-	if r.URL.Query().Get("link") == "true" {
-		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if token == "" {
-			token = r.URL.Query().Get("token")
-		}
-		if token == "" {
-			s.respondError(w, http.StatusUnauthorized, "authorization token required for account linking")
-			return
-		}
-		state = "link:" + token
-	} else if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
+	entry := &oauthStateEntry{Purpose: oauthPurposeLogin}
+	if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
 		if isLocalhostURI(desktopRedirect) {
-			state = "login:" + desktopRedirect
+			entry.DesktopRedirect = desktopRedirect
 		}
 	}
 
-	redirectURI := s.buildRedirectURI(r)
+	state, err := s.oauthStore.CreateState(entry)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
 
 	params := url.Values{}
-	params.Set("client_id", clientID)
-	params.Set("redirect_uri", redirectURI)
+	params.Set("client_id", creds.ClientID)
+	params.Set("redirect_uri", s.buildRedirectURI(r))
 	params.Set("scope", "read:user,user:email")
 	params.Set("state", state)
 
 	http.Redirect(w, r, githubAuthorizeURL+"?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
+// handleGitHubLink initiates the GitHub OAuth account linking flow (authenticated).
+func (s *Server) handleGitHubLink(w http.ResponseWriter, r *http.Request) {
+	creds := s.cfg.OAuth.GitHub.GetCredentials(r.Host)
+	if creds == nil {
+		s.respondError(w, http.StatusNotImplemented, "GitHub OAuth is not configured for this domain")
+		return
+	}
+
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	state, err := s.oauthStore.CreateState(&oauthStateEntry{
+		Purpose: oauthPurposeLink,
+		UserID:  user.ID,
+	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
+
+	params := url.Values{}
+	params.Set("client_id", creds.ClientID)
+	params.Set("redirect_uri", s.buildRedirectURI(r))
+	params.Set("scope", "read:user,user:email")
+	params.Set("state", state)
+
+	oauthURL := githubAuthorizeURL + "?" + params.Encode()
+	s.respondJSON(w, http.StatusOK, map[string]string{"url": oauthURL})
+}
+
 // handleGitHubCallback handles the GitHub OAuth callback.
 func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
+	stateParam := r.URL.Query().Get("state")
 
 	if code == "" {
-		s.redirectWithError(w, r, "missing authorization code")
+		s.redirectWithError(w, r, "missing authorization code", "")
+		return
+	}
+
+	// Validate CSRF state
+	stateEntry := s.oauthStore.ConsumeState(stateParam)
+	if stateEntry == nil {
+		s.redirectWithError(w, r, "invalid or expired OAuth state", "")
 		return
 	}
 
 	// Get credentials for this domain
 	creds := s.cfg.OAuth.GitHub.GetCredentials(r.Host)
 	if creds == nil {
-		s.redirectWithError(w, r, "GitHub OAuth is not configured for this domain")
+		s.redirectWithError(w, r, "GitHub OAuth is not configured for this domain", stateEntry.DesktopRedirect)
 		return
 	}
 
@@ -90,7 +123,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	ghToken, err := s.exchangeGitHubCode(code, s.buildRedirectURI(r), creds)
 	if err != nil {
 		s.log.Error().Err(err).Msg("GitHub code exchange failed")
-		s.redirectWithError(w, r, "failed to exchange authorization code")
+		s.redirectWithError(w, r, "failed to exchange authorization code", stateEntry.DesktopRedirect)
 		return
 	}
 
@@ -98,34 +131,13 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	ghUser, err := s.getGitHubUser(ghToken)
 	if err != nil {
 		s.log.Error().Err(err).Msg("GitHub user info request failed")
-		s.redirectWithError(w, r, "failed to get GitHub user info")
+		s.redirectWithError(w, r, "failed to get GitHub user info", stateEntry.DesktopRedirect)
 		return
 	}
 
 	// Account linking flow
-	if strings.HasPrefix(state, "link:") {
-		jwtToken := strings.TrimPrefix(state, "link:")
-		claims, err := s.authService.ValidateAccessToken(jwtToken)
-		if err != nil {
-			s.redirectWithError(w, r, "invalid or expired token")
-			return
-		}
-
-		// Check if another user already has this GitHub ID — if so, merge
-		existingUser, mergeErr := s.db.Users.GetByGitHubID(ghUser.ID)
-		if mergeErr == nil && existingUser.ID != claims.UserID {
-			if err := s.db.Users.MergeUsers(claims.UserID, existingUser.ID); err != nil {
-				s.log.Error().Err(err).Int64("primary", claims.UserID).Int64("secondary", existingUser.ID).Msg("GitHub account merge failed")
-				s.redirectWithError(w, r, "failed to merge accounts")
-				return
-			}
-		} else if err := s.authService.LinkGitHub(claims.UserID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
-			s.log.Error().Err(err).Int64("user_id", claims.UserID).Msg("GitHub account linking failed")
-			s.redirectWithError(w, r, "failed to link GitHub account")
-			return
-		}
-
-		http.Redirect(w, r, "/profile?github_linked=true", http.StatusTemporaryRedirect)
+	if stateEntry.Purpose == oauthPurposeLink {
+		s.handleGitHubLinkCallback(w, r, stateEntry.UserID, ghUser)
 		return
 	}
 
@@ -148,21 +160,30 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	_, tokenPair, err := s.authService.RegisterOrLoginOAuth(info, userAgent, ipAddress)
 	if err != nil {
 		s.log.Error().Err(err).Msg("OAuth register/login failed")
-		s.redirectWithError(w, r, "authentication failed")
+		s.redirectWithError(w, r, "authentication failed", stateEntry.DesktopRedirect)
 		return
 	}
 
-	params := url.Values{}
-	params.Set("access_token", tokenPair.AccessToken)
-	params.Set("refresh_token", tokenPair.RefreshToken)
-	params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
+	s.redirectWithTokens(w, r, tokenPair, stateEntry.DesktopRedirect)
+}
 
-	redirectTarget := "/auth/callback"
-	if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
-		redirectTarget = desktopRedirect
+// handleGitHubLinkCallback processes the GitHub account linking after OAuth callback.
+func (s *Server) handleGitHubLinkCallback(w http.ResponseWriter, r *http.Request, userID int64, ghUser *githubUser) {
+	// Check if another user already has this GitHub ID — if so, merge
+	existingUser, mergeErr := s.db.Users.GetByGitHubID(ghUser.ID)
+	if mergeErr == nil && existingUser.ID != userID {
+		if err := s.db.Users.MergeUsers(userID, existingUser.ID); err != nil {
+			s.log.Error().Err(err).Int64("primary", userID).Int64("secondary", existingUser.ID).Msg("GitHub account merge failed")
+			s.redirectWithError(w, r, "failed to merge accounts", "")
+			return
+		}
+	} else if err := s.authService.LinkGitHub(userID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
+		s.log.Error().Err(err).Int64("user_id", userID).Msg("GitHub account linking failed")
+		s.redirectWithError(w, r, "failed to link GitHub account", "")
+		return
 	}
 
-	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/profile?github_linked=true", http.StatusTemporaryRedirect)
 }
 
 // exchangeGitHubCode exchanges an authorization code for an access token.
@@ -248,7 +269,7 @@ type googleUser struct {
 	Picture string `json:"picture"`
 }
 
-// handleGoogleAuth initiates the Google OAuth flow.
+// handleGoogleAuth initiates the Google OAuth login flow.
 func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	clientID := s.cfg.OAuth.Google.ClientID
 	if clientID == "" {
@@ -256,28 +277,22 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state := "login"
-	if r.URL.Query().Get("link") == "true" {
-		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if token == "" {
-			token = r.URL.Query().Get("token")
-		}
-		if token == "" {
-			s.respondError(w, http.StatusUnauthorized, "authorization token required for account linking")
-			return
-		}
-		state = "link:" + token
-	} else if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
+	entry := &oauthStateEntry{Purpose: oauthPurposeLogin}
+	if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
 		if isLocalhostURI(desktopRedirect) {
-			state = "login:" + desktopRedirect
+			entry.DesktopRedirect = desktopRedirect
 		}
 	}
 
-	redirectURI := s.buildGoogleRedirectURI(r)
+	state, err := s.oauthStore.CreateState(entry)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
 
 	params := url.Values{}
 	params.Set("client_id", clientID)
-	params.Set("redirect_uri", redirectURI)
+	params.Set("redirect_uri", s.buildGoogleRedirectURI(r))
 	params.Set("response_type", "code")
 	params.Set("scope", "openid email profile")
 	params.Set("state", state)
@@ -285,13 +300,54 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, googleAuthorizeURL+"?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
+// handleGoogleLink initiates the Google OAuth account linking flow (authenticated).
+func (s *Server) handleGoogleLink(w http.ResponseWriter, r *http.Request) {
+	clientID := s.cfg.OAuth.Google.ClientID
+	if clientID == "" {
+		s.respondError(w, http.StatusNotImplemented, "Google OAuth is not configured")
+		return
+	}
+
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	state, err := s.oauthStore.CreateState(&oauthStateEntry{
+		Purpose: oauthPurposeLink,
+		UserID:  user.ID,
+	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
+
+	params := url.Values{}
+	params.Set("client_id", clientID)
+	params.Set("redirect_uri", s.buildGoogleRedirectURI(r))
+	params.Set("response_type", "code")
+	params.Set("scope", "openid email profile")
+	params.Set("state", state)
+
+	oauthURL := googleAuthorizeURL + "?" + params.Encode()
+	s.respondJSON(w, http.StatusOK, map[string]string{"url": oauthURL})
+}
+
 // handleGoogleCallback handles the Google OAuth callback.
 func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
+	stateParam := r.URL.Query().Get("state")
 
 	if code == "" {
-		s.redirectWithError(w, r, "missing authorization code")
+		s.redirectWithError(w, r, "missing authorization code", "")
+		return
+	}
+
+	// Validate CSRF state
+	stateEntry := s.oauthStore.ConsumeState(stateParam)
+	if stateEntry == nil {
+		s.redirectWithError(w, r, "invalid or expired OAuth state", "")
 		return
 	}
 
@@ -299,7 +355,7 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	gToken, err := s.exchangeGoogleCode(code, s.buildGoogleRedirectURI(r))
 	if err != nil {
 		s.log.Error().Err(err).Msg("Google code exchange failed")
-		s.redirectWithError(w, r, "failed to exchange authorization code")
+		s.redirectWithError(w, r, "failed to exchange authorization code", stateEntry.DesktopRedirect)
 		return
 	}
 
@@ -307,34 +363,13 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	gUser, err := s.getGoogleUser(gToken)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Google user info request failed")
-		s.redirectWithError(w, r, "failed to get Google user info")
+		s.redirectWithError(w, r, "failed to get Google user info", stateEntry.DesktopRedirect)
 		return
 	}
 
 	// Account linking flow
-	if strings.HasPrefix(state, "link:") {
-		jwtToken := strings.TrimPrefix(state, "link:")
-		claims, err := s.authService.ValidateAccessToken(jwtToken)
-		if err != nil {
-			s.redirectWithError(w, r, "invalid or expired token")
-			return
-		}
-
-		// Check if another user already has this Google ID — if so, merge
-		existingUser, mergeErr := s.db.Users.GetByGoogleID(gUser.ID)
-		if mergeErr == nil && existingUser.ID != claims.UserID {
-			if err := s.db.Users.MergeUsers(claims.UserID, existingUser.ID); err != nil {
-				s.log.Error().Err(err).Int64("primary", claims.UserID).Int64("secondary", existingUser.ID).Msg("Google account merge failed")
-				s.redirectWithError(w, r, "failed to merge accounts")
-				return
-			}
-		} else if err := s.authService.LinkGoogle(claims.UserID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
-			s.log.Error().Err(err).Int64("user_id", claims.UserID).Msg("Google account linking failed")
-			s.redirectWithError(w, r, "failed to link Google account")
-			return
-		}
-
-		http.Redirect(w, r, "/profile?google_linked=true", http.StatusTemporaryRedirect)
+	if stateEntry.Purpose == oauthPurposeLink {
+		s.handleGoogleLinkCallback(w, r, stateEntry.UserID, gUser)
 		return
 	}
 
@@ -352,21 +387,82 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	_, tokenPair, err := s.authService.RegisterOrLoginGoogleOAuth(info, userAgent, ipAddress)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Google OAuth register/login failed")
-		s.redirectWithError(w, r, "authentication failed")
+		s.redirectWithError(w, r, "authentication failed", stateEntry.DesktopRedirect)
+		return
+	}
+
+	s.redirectWithTokens(w, r, tokenPair, stateEntry.DesktopRedirect)
+}
+
+// handleGoogleLinkCallback processes the Google account linking after OAuth callback.
+func (s *Server) handleGoogleLinkCallback(w http.ResponseWriter, r *http.Request, userID int64, gUser *googleUser) {
+	// Check if another user already has this Google ID — if so, merge
+	existingUser, mergeErr := s.db.Users.GetByGoogleID(gUser.ID)
+	if mergeErr == nil && existingUser.ID != userID {
+		if err := s.db.Users.MergeUsers(userID, existingUser.ID); err != nil {
+			s.log.Error().Err(err).Int64("primary", userID).Int64("secondary", existingUser.ID).Msg("Google account merge failed")
+			s.redirectWithError(w, r, "failed to merge accounts", "")
+			return
+		}
+	} else if err := s.authService.LinkGoogle(userID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
+		s.log.Error().Err(err).Int64("user_id", userID).Msg("Google account linking failed")
+		s.redirectWithError(w, r, "failed to link Google account", "")
+		return
+	}
+
+	http.Redirect(w, r, "/profile?google_linked=true", http.StatusTemporaryRedirect)
+}
+
+// handleOAuthExchange exchanges a one-time authorization code for tokens.
+func (s *Server) handleOAuthExchange(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Code == "" {
+		s.respondError(w, http.StatusBadRequest, "code is required")
+		return
+	}
+
+	entry := s.oauthStore.ExchangeCode(req.Code)
+	if entry == nil {
+		s.respondError(w, http.StatusBadRequest, "invalid or expired code")
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"access_token":  entry.AccessToken,
+		"refresh_token": entry.RefreshToken,
+		"expires_in":    entry.ExpiresIn,
+	})
+}
+
+// redirectWithTokens redirects with tokens: desktop gets tokens in URL, web gets a one-time code.
+func (s *Server) redirectWithTokens(w http.ResponseWriter, r *http.Request, tokenPair *auth.TokenPair, desktopRedirect string) {
+	// Desktop flow: send tokens directly to localhost (acceptable risk for localhost)
+	if desktopRedirect != "" && isLocalhostURI(desktopRedirect) {
+		params := url.Values{}
+		params.Set("access_token", tokenPair.AccessToken)
+		params.Set("refresh_token", tokenPair.RefreshToken)
+		params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
+		http.Redirect(w, r, desktopRedirect+"?"+params.Encode(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Web flow: issue a one-time code to avoid tokens in URL
+	code, err := s.oauthStore.CreateCode(tokenPair.AccessToken, tokenPair.RefreshToken, tokenPair.ExpiresIn)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to create OAuth exchange code")
+		s.redirectWithError(w, r, "internal error", "")
 		return
 	}
 
 	params := url.Values{}
-	params.Set("access_token", tokenPair.AccessToken)
-	params.Set("refresh_token", tokenPair.RefreshToken)
-	params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
-
-	redirectTarget := "/auth/callback"
-	if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
-		redirectTarget = desktopRedirect
-	}
-
-	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
+	params.Set("code", code)
+	http.Redirect(w, r, "/auth/callback?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
 // exchangeGoogleCode exchanges an authorization code for an access token.
@@ -462,15 +558,13 @@ func (s *Server) buildRedirectURI(r *http.Request) string {
 }
 
 // redirectWithError redirects to the frontend auth callback with an error message.
-func (s *Server) redirectWithError(w http.ResponseWriter, r *http.Request, message string) {
+func (s *Server) redirectWithError(w http.ResponseWriter, r *http.Request, message string, desktopRedirect string) {
 	params := url.Values{}
 	params.Set("error", message)
 
 	redirectTarget := "/auth/callback"
-	if state := r.URL.Query().Get("state"); state != "" {
-		if desktopRedirect, ok := parseDesktopRedirectFromState(state); ok {
-			redirectTarget = desktopRedirect
-		}
+	if desktopRedirect != "" && isLocalhostURI(desktopRedirect) {
+		redirectTarget = desktopRedirect
 	}
 
 	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
@@ -479,16 +573,4 @@ func (s *Server) redirectWithError(w http.ResponseWriter, r *http.Request, messa
 // isLocalhostURI checks if a URI starts with http://localhost: or http://127.0.0.1:
 func isLocalhostURI(uri string) bool {
 	return strings.HasPrefix(uri, "http://localhost:") || strings.HasPrefix(uri, "http://127.0.0.1:")
-}
-
-// parseDesktopRedirectFromState extracts desktop redirect URI from state like "login:http://localhost:12345/callback".
-func parseDesktopRedirectFromState(state string) (string, bool) {
-	if !strings.HasPrefix(state, "login:") {
-		return "", false
-	}
-	redirect := strings.TrimPrefix(state, "login:")
-	if redirect == "" || !isLocalhostURI(redirect) {
-		return "", false
-	}
-	return redirect, true
 }

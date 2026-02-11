@@ -150,7 +150,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, tokenPair, err := s.authService.RefreshTokens(req.RefreshToken)
+	user, tokenPair, err := s.authService.RefreshTokens(req.RefreshToken, r.UserAgent(), r.RemoteAddr)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrTokenExpired) {
 			s.respondErrorWithCode(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired refresh token")
