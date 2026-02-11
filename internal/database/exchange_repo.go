@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 )
 
 // ExchangeRepository handles inspect exchange persistence

@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/mephistofox/fxtunnel/internal/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
-	"github.com/mephistofox/fxtunnel/internal/payment"
+	"github.com/mephistofox/fxtun.dev/internal/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/payment"
 )
 
 // handleGetSubscription returns the current user's subscription

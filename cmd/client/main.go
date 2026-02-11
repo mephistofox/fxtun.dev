@@ -16,9 +16,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
+	"github.com/mephistofox/fxtun.dev/internal/client"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/keyring"
 )
 
 const defaultControlPort = "4443"
@@ -146,7 +146,7 @@ Use -t to provide token directly, or enter it interactively.`,
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
-			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
 			fmt.Println("Website: https://mfdev.ru")
 		},
 	}

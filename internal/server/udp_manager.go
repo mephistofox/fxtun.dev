@@ -11,7 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 )
 
 const (

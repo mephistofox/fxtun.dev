@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/tls"
 )
 
 func (s *Server) handleListCustomDomains(w http.ResponseWriter, r *http.Request) {

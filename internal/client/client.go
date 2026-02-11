@@ -18,8 +18,8 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 )
 
 const (

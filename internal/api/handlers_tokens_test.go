@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/api/dto"
 	"github.com/stretchr/testify/require"
 )
 

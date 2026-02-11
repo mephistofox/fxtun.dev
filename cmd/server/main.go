@@ -12,15 +12,15 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/mephistofox/fxtunnel/internal/api"
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/email"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
-	"github.com/mephistofox/fxtunnel/internal/scheduler"
-	"github.com/mephistofox/fxtunnel/internal/server"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	"github.com/mephistofox/fxtun.dev/internal/api"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/email"
+	"github.com/mephistofox/fxtun.dev/internal/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/scheduler"
+	"github.com/mephistofox/fxtun.dev/internal/server"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/tls"
 )
 
 var (
@@ -42,7 +42,7 @@ func main() {
 It allows clients to expose local services through HTTP subdomains,
 TCP ports, or UDP ports.
 
-GitHub: https://github.com/mephistofox/fxtunnel
+GitHub: https://github.com/mephistofox/fxtun.dev
 Website: https://mfdev.ru`,
 		RunE: run,
 	}
@@ -56,7 +56,7 @@ Website: https://mfdev.ru`,
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Server %s (built %s)\n", Version, BuildTime)
-			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
 			fmt.Println("Website: https://mfdev.ru")
 		},
 	}

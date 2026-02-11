@@ -12,7 +12,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 )
 
 // benchEnv sets up a full tunnel environment for benchmarking:

@@ -3,8 +3,8 @@ package dto
 import (
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/exchange"
 )
 
 // ErrorResponse represents an error response

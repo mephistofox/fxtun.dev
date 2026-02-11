@@ -13,14 +13,14 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/email"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
-	"github.com/mephistofox/fxtunnel/internal/web"
+	"github.com/mephistofox/fxtun.dev/internal/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/email"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/tls"
+	"github.com/mephistofox/fxtun.dev/internal/web"
 )
 
 // TunnelInfo represents tunnel information from the server

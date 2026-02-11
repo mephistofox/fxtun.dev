@@ -13,10 +13,10 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 )
 
 func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {

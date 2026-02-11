@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/database"
 )
 
 // SyncRequest represents a sync request from client

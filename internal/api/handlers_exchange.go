@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/mephistofox/fxtunnel/internal/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/exchange"
 )
 
 type exchangeRateResponse struct {

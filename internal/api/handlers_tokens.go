@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mephistofox/fxtunnel/internal/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/database"
 )
 
 // handleListTokens returns the user's API tokens

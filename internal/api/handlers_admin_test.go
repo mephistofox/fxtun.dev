@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/api/dto"
 )
 
 func TestAdminStats_Success(t *testing.T) {

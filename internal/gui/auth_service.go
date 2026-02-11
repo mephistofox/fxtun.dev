@@ -18,9 +18,9 @@ import (
 	"github.com/rs/zerolog"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
+	"github.com/mephistofox/fxtun.dev/internal/client"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/keyring"
 )
 
 // ErrTOTPRequired is returned when TOTP code is required

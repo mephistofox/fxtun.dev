@@ -6,7 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/storage"
+	"github.com/mephistofox/fxtun.dev/internal/storage"
 )
 
 // HistoryService handles connection history operations

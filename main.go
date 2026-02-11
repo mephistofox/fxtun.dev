@@ -16,7 +16,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/mephistofox/fxtunnel/internal/gui"
+	"github.com/mephistofox/fxtun.dev/internal/gui"
 )
 
 //go:embed all:gui/dist
