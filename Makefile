@@ -1,4 +1,4 @@
-.PHONY: all build server client clean install test fmt lint web build-clients build-all gui gui-dev gui-all wails-install
+.PHONY: all build server client clean install test fmt lint web build-clients build-all gui gui-dev gui-all wails-install sync-public
 
 BINARY_SERVER=fxtunnel-server
 BINARY_CLIENT=fxtunnel
@@ -101,6 +101,10 @@ gui-all: gui-frontend
 	$(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 	mv build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
 	@echo "GUI builds complete in downloads/ (macOS builds require building on macOS)"
+
+# Sync cleaned copy to public GitHub repo
+sync-public:
+	@bash scripts/sync-public.sh
 
 # Full build: server, CLI clients, GUI clients
 build-complete: web server build-clients gui-all
