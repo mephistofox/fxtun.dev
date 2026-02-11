@@ -26,7 +26,8 @@ gh repo view "$PUBLIC_REPO" &>/dev/null || \
   gh repo create "$PUBLIC_REPO" --public --description "$DESCRIPTION"
 
 git remote add origin "git@github.com:${PUBLIC_REPO}.git"
-git push --force --tags origin master
+git push --force origin master
+git push --force --tags origin 2>&1 | grep -v 'remote rejected' || true
 
 rm -rf "$WORK_DIR"
 echo "Done! https://github.com/${PUBLIC_REPO}"
