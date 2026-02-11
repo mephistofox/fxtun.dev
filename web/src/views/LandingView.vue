@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
-import { setLocale, getLocale } from '@/i18n'
+import { setLocale, getLocale, getBlogUrl } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
@@ -44,10 +44,7 @@ function cycleTheme() {
   themeStore.setMode(modes[nextIndex])
 }
 
-const blogUrl = computed(() => {
-  if (typeof window === 'undefined') return '/blog'
-  return `${window.location.protocol}//${window.location.hostname}/blog`
-})
+const blogUrl = computed(() => getBlogUrl())
 
 function handleScroll() {
   isScrolled.value = window.scrollY > 20
