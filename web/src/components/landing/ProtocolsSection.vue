@@ -204,7 +204,7 @@ onMounted(() => {
                   <span class="text-primary">$</span>
                   <span class="text-foreground/90 ml-2">{{ currentProtocol.command }}</span>
                 </div>
-                <button class="absolute top-3 right-3 p-2 rounded-md bg-surface/50 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="absolute top-3 right-3 p-2 rounded-md bg-surface/50 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" :aria-label="t('common.copy')">
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                   </svg>
@@ -218,19 +218,17 @@ onMounted(() => {
                 <span>Local</span>
                 <span>Public</span>
               </div>
-              <div class="mt-2 relative h-1.5">
+              <div class="mt-2 relative h-1.5 dot-container">
                 <!-- Line with gradient transparency -->
                 <div class="absolute inset-0 rounded-full tunnel-line-bg" />
-                <!-- Moving dots -->
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-1"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-2"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-out dot-3"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-4"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-5"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-in dot-6"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue dot-7"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue dot-8"></div>
-                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full dot-blue-in dot-9"></div>
+                <!-- Moving dots — outgoing -->
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-out" style="--dot-color: var(--primary); --dur: 2.2s; --del: 0s;"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-out" style="--dot-color: var(--type-tcp); --dur: 2.4s; --del: 0.3s;"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-out" style="--dot-color: var(--type-tcp); --dur: 2s; --del: 0.6s;"></div>
+                <!-- Moving dots — incoming -->
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-in" style="--dot-color: var(--type-udp); --dur: 2.3s; --del: 0.15s;"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-in" style="--dot-color: var(--type-udp); --dur: 2.1s; --del: 0.45s;"></div>
+                <div class="absolute top-1/2 w-1.5 h-1.5 rounded-full flow-dot flow-dot-in" style="--dot-color: var(--primary); --dur: 2.5s; --del: 0.7s;"></div>
               </div>
               <div class="flex items-center justify-between mt-2 text-sm">
                 <span class="font-mono text-foreground/70">localhost:3000</span>
@@ -254,361 +252,68 @@ onMounted(() => {
   );
 }
 
-.dot-out {
-  animation: move-out-green var(--duration) ease-in-out infinite;
-  animation-delay: var(--delay);
+.dot-container {
+  contain: layout style;
+  container-type: inline-size;
 }
 
-.dot-in {
-  animation: move-in-violet var(--duration) ease-in-out infinite;
-  animation-delay: var(--delay);
+.flow-dot {
+  background-color: hsl(var(--dot-color));
+  box-shadow: 0 0 4px 1px hsl(var(--dot-color));
+  will-change: transform, opacity;
 }
 
-.dot-blue {
-  animation: move-out-blue var(--duration) ease-in-out infinite;
-  animation-delay: var(--delay);
+.flow-dot-out {
+  left: 0;
+  animation: dot-move-out var(--dur) ease-in-out var(--del) infinite;
 }
 
-.dot-blue-in {
-  animation: move-in-cyan var(--duration) ease-in-out infinite;
-  animation-delay: var(--delay);
+.flow-dot-in {
+  left: calc(100% - 6px);
+  animation: dot-move-in var(--dur) ease-in-out var(--del) infinite;
 }
 
-/* Color shifting variants */
-.dot-1 { animation-name: move-out-green-violet-blue; }
-.dot-3 { animation-name: move-out-green-to-cyan; }
-.dot-5 { animation-name: move-in-violet-blue-green; }
-.dot-6 { animation-name: move-in-pink-to-violet; }
-.dot-7 { animation-name: move-out-blue-green-violet; }
-.dot-9 { animation-name: move-in-cyan-to-pink; }
-
-.dot-1 { --duration: 2.2s; --delay: 0s; }
-.dot-2 { --duration: 2.4s; --delay: 0.25s; }
-.dot-3 { --duration: 2s; --delay: 0.5s; }
-.dot-4 { --duration: 2.3s; --delay: 0.15s; }
-.dot-5 { --duration: 2.1s; --delay: 0.4s; }
-.dot-6 { --duration: 2.5s; --delay: 0.65s; }
-.dot-7 { --duration: 2.2s; --delay: 0.1s; }
-.dot-8 { --duration: 2.3s; --delay: 0.35s; }
-.dot-9 { --duration: 2s; --delay: 0.55s; }
-
-/* Green outgoing */
-@keyframes move-out-green {
+@keyframes dot-move-out {
   0% {
-    left: 0;
     opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
+    transform: translateX(0) translateY(-50%) scaleX(1);
   }
   10% {
     opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
+    transform: translateX(0) translateY(-50%) scaleX(1.5);
   }
   50% {
-    transform: translateY(-50%) scaleX(2.5);
+    transform: translateX(calc(50cqw - 3px)) translateY(-50%) scaleX(2.5);
   }
   70% {
     opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
+    transform: translateX(calc(70cqw - 3px)) translateY(-50%) scaleX(1.5);
   }
   100% {
-    left: calc(100% - 4px);
     opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
+    transform: translateX(calc(100cqw - 6px)) translateY(-50%) scaleX(1);
   }
 }
 
-/* Green -> Violet -> Blue (rainbow out) */
-@keyframes move-out-green-violet-blue {
+@keyframes dot-move-in {
   0% {
-    left: 0;
     opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
+    transform: translateX(0) translateY(-50%) scaleX(1);
   }
   10% {
     opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  35% {
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
+    transform: translateX(0) translateY(-50%) scaleX(1.5);
   }
   50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  65% {
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
+    transform: translateX(calc(-50cqw + 3px)) translateY(-50%) scaleX(2.5);
   }
   70% {
     opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
+    transform: translateX(calc(-70cqw + 3px)) translateY(-50%) scaleX(1.5);
   }
   100% {
-    left: calc(100% - 4px);
     opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-}
-
-/* Green to Cyan */
-@keyframes move-out-green-to-cyan {
-  0% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-}
-
-/* Violet incoming */
-@keyframes move-in-violet {
-  0% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
-  }
-}
-
-/* Violet -> Blue -> Green (rainbow in) */
-@keyframes move-in-violet-blue-green {
-  0% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  35% {
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  65% {
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
-  }
-}
-
-/* Pink to Violet */
-@keyframes move-in-pink-to-violet {
-  0% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(330 70% 60%);
-    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(260 70% 60%);
-    box-shadow: 0 0 4px 1px hsl(260 70% 60%);
-  }
-}
-
-/* Blue outgoing */
-@keyframes move-out-blue {
-  0% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
-  }
-}
-
-/* Blue -> Green -> Violet */
-@keyframes move-out-blue-green-violet {
-  0% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  35% {
-    background-color: hsl(var(--primary));
-    box-shadow: 0 0 4px 1px hsl(var(--primary));
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  65% {
-    background-color: hsl(280 70% 65%);
-    box-shadow: 0 0 4px 1px hsl(280 70% 65%);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(330 70% 60%);
-    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
-  }
-}
-
-/* Cyan incoming */
-@keyframes move-in-cyan {
-  0% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-}
-
-/* Cyan to Pink */
-@keyframes move-in-cyan-to-pink {
-  0% {
-    left: calc(100% - 4px);
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(180 70% 50%);
-    box-shadow: 0 0 4px 1px hsl(180 70% 50%);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  50% {
-    transform: translateY(-50%) scaleX(2.5);
-    background-color: hsl(210 80% 60%);
-    box-shadow: 0 0 4px 1px hsl(210 80% 60%);
-  }
-  70% {
-    opacity: 1;
-    transform: translateY(-50%) scaleX(1.5);
-  }
-  100% {
-    left: 0;
-    opacity: 0;
-    transform: translateY(-50%) scaleX(1);
-    background-color: hsl(330 70% 60%);
-    box-shadow: 0 0 4px 1px hsl(330 70% 60%);
+    transform: translateX(calc(-100cqw + 6px)) translateY(-50%) scaleX(1);
   }
 }
 </style>
