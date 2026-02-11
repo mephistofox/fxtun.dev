@@ -77,6 +77,10 @@ curl -fsSL https://fxtun.dev/install.sh | sh
 
 Или скачайте из [Releases](https://github.com/mephistofox/fxtun.dev/releases).
 
+> **Пользователям Windows:** Windows может показать предупреждение SmartScreen («Windows защитила ваш компьютер») при первом запуске `.exe`. Это нормально — бинарники пока не подписаны сертификатом. Все релизные файлы автоматически проверяются через [VirusTotal](https://www.virustotal.com/) при сборке — результаты сканирования доступны в каждом [релизе](https://github.com/mephistofox/fxtun.dev/releases).
+>
+> Чтобы обойти SmartScreen: нажмите **«Подробнее»** → **«Выполнить в любом случае»**.
+
 ### Использование клиента
 
 Открыть локальный HTTP-сервер:

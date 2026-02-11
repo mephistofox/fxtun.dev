@@ -298,6 +298,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Scan release assets with VirusTotal
+  virustotal:
+    needs: [create-release]
+    if: needs.create-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: fxtunnel-*
+
+      - name: Collect binaries
+        run: |
+          mkdir -p scan
+          for dir in artifacts/*/; do
+            cp "$dir"* scan/ 2>/dev/null || true
+          done
+          ls -la scan/
+
+      - name: VirusTotal Scan
+        uses: crazy-max/ghaction-virustotal@v4
+        with:
+          vt_api_key: ${{ secrets.VT_API_KEY }}
+          files: |
+            scan/*
+
   # Build and push Docker image
   docker:
     needs: [release-please]
