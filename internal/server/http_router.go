@@ -171,6 +171,19 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer stream.Close()
 
+	// Close stream when client disconnects or write timeout fires.
+	// This unblocks any pending tunnel-side reads/writes and ensures
+	// the concurrency semaphore slot is released promptly.
+	streamClosed := make(chan struct{})
+	go func() {
+		select {
+		case <-req.Context().Done():
+			stream.Close()
+		case <-streamClosed:
+		}
+	}()
+	defer close(streamClosed)
+
 	// Send binary stream header
 	remoteAddr := req.RemoteAddr
 	if err := protocol.WriteStreamHeader(stream, tunnel.ID, remoteAddr); err != nil {
@@ -215,8 +228,8 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var streamReader io.Reader = stream
 	var streamWriter io.Writer = stream
 	if client.bwLimiter != nil {
-		streamReader = client.bwLimiter.Reader(stream)
-		streamWriter = client.bwLimiter.Writer(stream)
+		streamReader = client.bwLimiter.Reader(req.Context(), stream)
+		streamWriter = client.bwLimiter.Writer(req.Context(), stream)
 	}
 
 	// Write the HTTP request to the stream (via throttled writer)

@@ -719,6 +719,9 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		log = log.With().Str("client_id", client.ID).Logger()
 		log.Info().Msg("Client authenticated")
 
+		// Trust this IP so data sessions bypass per-IP rate limiting
+		s.acceptLimiter.Trust(connIP(conn))
+
 		// Handle client messages
 		client.handle()
 
@@ -1217,6 +1220,11 @@ func (c *Client) Close() {
 
 		// Unlink user from client
 		c.server.clientMgr.unlinkUserClient(c.UserID, c.ID)
+
+		// Untrust IP when client disconnects
+		if c.conn != nil {
+			c.server.acceptLimiter.Untrust(connIP(c.conn))
+		}
 
 		c.server.removeClient(c.ID)
 		c.log.Info().Msg("Client disconnected")
