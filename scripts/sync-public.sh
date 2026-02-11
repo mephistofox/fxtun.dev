@@ -21,11 +21,12 @@ git filter-repo \
   --path-glob 'web/public/*.txt' \
   --force
 
-# Rewrite Go module path for public repo
+# Rewrite Go module path and Docker image for public repo
 OLD_MODULE="github.com/mephistofox/fxtunnel"
 NEW_MODULE="github.com/mephistofox/fxtun.dev"
 find . -name '*.go' -o -name 'go.mod' | xargs sed -i "s|${OLD_MODULE}|${NEW_MODULE}|g"
-git add -A && git commit -m "chore: rewrite module path to ${NEW_MODULE}" --allow-empty
+sed -i 's|ghcr.io/mephistofox/fxtunnel|ghcr.io/mephistofox/fxtun.dev|g' README.md README_RU.md
+git add -A && git commit -m "chore: rewrite module path and docker image for public repo" --allow-empty
 
 # Create repo if it doesn't exist
 gh repo view "$PUBLIC_REPO" &>/dev/null || \
