@@ -9,16 +9,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mephistofox/fxtunnel/releases/latest"><img src="https://img.shields.io/github/v/release/mephistofox/fxtunnel?style=flat-square&color=brightgreen" alt="Релиз"></a>
-  <a href="https://github.com/mephistofox/fxtunnel/actions"><img src="https://img.shields.io/github/actions/workflow/status/mephistofox/fxtunnel/release.yml?style=flat-square" alt="Сборка"></a>
-  <a href="https://goreportcard.com/report/github.com/mephistofox/fxtunnel"><img src="https://goreportcard.com/badge/github.com/mephistofox/fxtunnel?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://github.com/mephistofox/fxtunnel/releases"><img src="https://img.shields.io/github/downloads/mephistofox/fxtunnel/total?style=flat-square&logo=github" alt="Загрузки"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/releases/latest"><img src="https://img.shields.io/github/v/release/mephistofox/fxtun.dev?style=flat-square&color=brightgreen" alt="Релиз"></a>
+  <a href="https://goreportcard.com/report/github.com/mephistofox/fxtun.dev"><img src="https://goreportcard.com/badge/github.com/mephistofox/fxtun.dev?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/releases"><img src="https://img.shields.io/github/downloads/mephistofox/fxtun.dev/total?style=flat-square&logo=github" alt="Загрузки"></a>
+  <img src="https://img.shields.io/badge/go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   <a href="https://ghcr.io/mephistofox/fxtunnel"><img src="https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker" alt="Docker"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20with%20Attribution-yellow?style=flat-square" alt="Лицензия"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/stargazers"><img src="https://img.shields.io/github/stars/mephistofox/fxtun.dev?style=flat-square&logo=github" alt="Stars"></a>
 </p>
 
 <p align="center">
-  <a href="README.md">English</a>
+  <a href="https://fxtun.ru">Сайт</a> &bull;
+  <a href="README.md">English</a> &bull;
+  <a href="https://github.com/mephistofox/fxtun.dev/discussions">Обсуждения</a>
 </p>
 
 ---
@@ -29,17 +32,24 @@
 
 Разверните сервер на любом VPS, настройте wildcard DNS-запись, и ваша команда мгновенно получит защищённые публичные URL для локальных серверов разработки, тестирования вебхуков, IoT-устройств, SSH-доступа и многого другого.
 
-### Почему fxTunnel?
+## Сравнение
 
-| | fxTunnel | Облачные туннельные сервисы |
-|---|---|---|
-| **Владение данными** | Ваш сервер, ваш трафик | Трафик проходит через стороннюю инфраструктуру |
-| **Стоимость** | Бесплатно и с открытым кодом | Бесплатные тарифы ограничены; платные быстро растут в цене |
-| **Свои домены** | Полный контроль wildcard-поддоменов | Часто ограничено или платно |
-| **Поддержка протоколов** | HTTP, TCP, UDP | Обычно только HTTP |
-| **Лимиты подключений** | Нет (вы задаёте свои) | Ограничены или лимитированы |
-| **Управление пользователями** | Встроенная веб-панель, инвайт-коды, 2FA | Зависит от сервиса |
-| **GUI-клиент** | Кросс-платформенное десктопное приложение | Почти не встречается |
+| Функция | fxTunnel | ngrok | Cloudflare Tunnel | frp |
+|---|:---:|:---:|:---:|:---:|
+| **Self-hosted** | Да | Нет | Частично | Да |
+| **Открытый код** | Да | Нет | Только клиент | Да |
+| **HTTP-туннели** | Да | Да | Да | Да |
+| **TCP-туннели** | Да | Да | Да | Да |
+| **UDP-туннели** | Да | Платно | Нет | Да |
+| **Свои поддомены** | Безлимитно | 1 бесплатно | Через DNS | Вручную |
+| **Wildcard-домены** | Да | Платно | Нет | Нет |
+| **Веб-панель** | Встроенная | Облачная | Облачная | Плагин |
+| **GUI десктоп-клиент** | Да | Нет | Нет | Нет |
+| **Пользователи и 2FA** | Встроено | Облачное | Cloudflare Access | Нет |
+| **Лимит подключений** | Нет | 1 туннель бесплатно | Нет лимита | Нет |
+| **Лимит трафика** | Нет | 1 ГБ/мес бесплатно | Нет лимита | Нет |
+| **Цена** | **Бесплатно** | От $8/мес | Бесплатно (нужен CF) | **Бесплатно** |
+| **Мультиплексирование** | yamux | QUIC | QUIC | Своё |
 
 ## Основные возможности
 
@@ -57,39 +67,15 @@
 
 ## Быстрый старт
 
-### Установка
+### Установка клиента
 
-Скачайте последнюю версию из [Releases](https://github.com/mephistofox/fxtunnel/releases) или используйте Docker:
-
-```bash
-docker pull ghcr.io/mephistofox/fxtunnel:latest
-```
-
-Или соберите из исходников:
+Установка одной командой (Linux/macOS):
 
 ```bash
-git clone https://github.com/mephistofox/fxtunnel.git
-cd fxtunnel
-make build
+curl -fsSL https://fxtun.dev/install.sh | sh
 ```
 
-### Настройка сервера
-
-1. Создайте конфигурационный файл:
-```bash
-cp configs/server.example.yaml configs/server.yaml
-# Отредактируйте configs/server.yaml — укажите ваш домен и секреты
-```
-
-2. Запустите сервер:
-```bash
-./bin/fxtunnel-server --config configs/server.yaml
-```
-
-3. Настройте wildcard DNS-запись:
-```
-*.tunnel.example.com  →  A  →  IP_ВАШЕГО_СЕРВЕРА
-```
+Или скачайте из [Releases](https://github.com/mephistofox/fxtun.dev/releases).
 
 ### Использование клиента
 
@@ -117,7 +103,37 @@ fxtunnel udp 53 --server tunnel.example.com:4443 --token sk_your_token
 
 Использование конфиг-файла:
 ```bash
-fxtunnel --config configs/client.yaml
+fxtunnel --config client.yaml
+```
+
+### Настройка сервера
+
+Установка через Docker:
+
+```bash
+docker run -d \
+  --name fxtunnel \
+  -p 4443:4443 \
+  -p 8080:8080 \
+  -p 3000:3000 \
+  -p 10000-20000:10000-20000 \
+  -v ./data:/app/data \
+  -v ./configs/server.yaml:/app/configs/server.yaml \
+  ghcr.io/mephistofox/fxtunnel:latest
+```
+
+Или сборка из исходников:
+
+```bash
+git clone https://github.com/mephistofox/fxtun.dev.git
+cd fxtun.dev
+make build
+./bin/fxtunnel-server --config configs/server.yaml
+```
+
+Настройте wildcard DNS-запись:
+```
+*.tunnel.example.com  →  A  →  IP_ВАШЕГО_СЕРВЕРА
 ```
 
 ## Архитектура
@@ -250,20 +266,6 @@ certbot certonly --dns-cloudflare \
   -d *.tunnel.example.com
 ```
 
-## Docker
-
-```bash
-docker run -d \
-  --name fxtunnel \
-  -p 4443:4443 \
-  -p 8080:8080 \
-  -p 3000:3000 \
-  -p 10000-20000:10000-20000 \
-  -v ./data:/app/data \
-  -v ./configs/server.yaml:/app/configs/server.yaml \
-  ghcr.io/mephistofox/fxtunnel:latest
-```
-
 ## Сборка из исходников
 
 ```bash
@@ -298,5 +300,5 @@ fxTunnel использует собственный протокол с JSON-с
 MIT с требованием атрибуции — см. [LICENSE](LICENSE).
 
 При любом использовании, развёртывании или распространении необходимо указать:
-- **GitHub:** [github.com/mephistofox/fxtunnel](https://github.com/mephistofox/fxtunnel)
-- **Сайт:** [mfdev.ru](https://mfdev.ru)
+- **GitHub:** [github.com/mephistofox/fxtun.dev](https://github.com/mephistofox/fxtun.dev)
+- **Сайт:** [fxtun.dev](https://fxtun.dev)

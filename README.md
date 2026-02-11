@@ -9,16 +9,19 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mephistofox/fxtunnel/releases/latest"><img src="https://img.shields.io/github/v/release/mephistofox/fxtunnel?style=flat-square&color=brightgreen" alt="Release"></a>
-  <a href="https://github.com/mephistofox/fxtunnel/actions"><img src="https://img.shields.io/github/actions/workflow/status/mephistofox/fxtunnel/release.yml?style=flat-square" alt="Build"></a>
-  <a href="https://goreportcard.com/report/github.com/mephistofox/fxtunnel"><img src="https://goreportcard.com/badge/github.com/mephistofox/fxtunnel?style=flat-square" alt="Go Report Card"></a>
-  <a href="https://github.com/mephistofox/fxtunnel/releases"><img src="https://img.shields.io/github/downloads/mephistofox/fxtunnel/total?style=flat-square&logo=github" alt="Downloads"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/releases/latest"><img src="https://img.shields.io/github/v/release/mephistofox/fxtun.dev?style=flat-square&color=brightgreen" alt="Release"></a>
+  <a href="https://goreportcard.com/report/github.com/mephistofox/fxtun.dev"><img src="https://goreportcard.com/badge/github.com/mephistofox/fxtun.dev?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/releases"><img src="https://img.shields.io/github/downloads/mephistofox/fxtun.dev/total?style=flat-square&logo=github" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
   <a href="https://ghcr.io/mephistofox/fxtunnel"><img src="https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker" alt="Docker"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20with%20Attribution-yellow?style=flat-square" alt="License"></a>
+  <a href="https://github.com/mephistofox/fxtun.dev/stargazers"><img src="https://img.shields.io/github/stars/mephistofox/fxtun.dev?style=flat-square&logo=github" alt="Stars"></a>
 </p>
 
 <p align="center">
-  <a href="README_RU.md">Русский</a>
+  <a href="https://fxtun.dev">Website</a> &bull;
+  <a href="README_RU.md">Русский</a> &bull;
+  <a href="https://github.com/mephistofox/fxtun.dev/discussions">Discussions</a>
 </p>
 
 ---
@@ -29,17 +32,24 @@
 
 Deploy the server on any VPS, point a wildcard DNS record at it, and your team instantly gets secure public URLs for local development servers, webhook testing, IoT devices, SSH access, and more.
 
-### Why fxTunnel?
+## Comparison
 
-| | fxTunnel | Hosted tunneling services |
-|---|---|---|
-| **Data ownership** | Your server, your traffic | Traffic goes through third-party infrastructure |
-| **Cost** | Free & open source | Free tiers are limited; paid plans scale fast |
-| **Custom domains** | Full wildcard subdomain control | Often restricted or paid add-on |
-| **Protocol support** | HTTP, TCP, UDP | Typically HTTP only |
-| **Connection limits** | None (you set your own) | Rate-limited or capped |
-| **User management** | Built-in web UI, invite codes, 2FA | Varies |
-| **GUI client** | Cross-platform desktop app | Rarely available |
+| Feature | fxTunnel | ngrok | Cloudflare Tunnel | frp |
+|---|:---:|:---:|:---:|:---:|
+| **Self-hosted** | Yes | No | Partial | Yes |
+| **Open source** | Yes | No | Client only | Yes |
+| **HTTP tunnels** | Yes | Yes | Yes | Yes |
+| **TCP tunnels** | Yes | Yes | Yes | Yes |
+| **UDP tunnels** | Yes | Paid | No | Yes |
+| **Custom subdomains** | Unlimited | 1 free | Via DNS | Manual |
+| **Wildcard domains** | Yes | Paid | No | No |
+| **Web admin panel** | Built-in | Cloud dashboard | Cloud dashboard | Dashboard plugin |
+| **GUI desktop client** | Yes | No | No | No |
+| **User management & 2FA** | Built-in | Cloud-based | Cloudflare Access | No |
+| **Connection limits** | None | 1 tunnel free | No limit | None |
+| **Bandwidth limits** | None | 1 GB/mo free | No limit | None |
+| **Price** | **Free** | From $8/mo | Free (requires CF) | **Free** |
+| **Multiplexing** | yamux | QUIC | QUIC | Custom |
 
 ## Key Features
 
@@ -57,39 +67,15 @@ Deploy the server on any VPS, point a wildcard DNS record at it, and your team i
 
 ## Quick Start
 
-### Install
+### Install Client
 
-Download the latest binary from [Releases](https://github.com/mephistofox/fxtunnel/releases), or use Docker:
-
-```bash
-docker pull ghcr.io/mephistofox/fxtunnel:latest
-```
-
-Or build from source:
+One-liner install (Linux/macOS):
 
 ```bash
-git clone https://github.com/mephistofox/fxtunnel.git
-cd fxtunnel
-make build
+curl -fsSL https://fxtun.dev/install.sh | sh
 ```
 
-### Server Setup
-
-1. Create a config file:
-```bash
-cp configs/server.example.yaml configs/server.yaml
-# Edit configs/server.yaml with your domain and secrets
-```
-
-2. Run the server:
-```bash
-./bin/fxtunnel-server --config configs/server.yaml
-```
-
-3. Point a wildcard DNS record to your server:
-```
-*.tunnel.example.com  →  A  →  YOUR_SERVER_IP
-```
+Or download from [Releases](https://github.com/mephistofox/fxtun.dev/releases).
 
 ### Client Usage
 
@@ -117,7 +103,37 @@ fxtunnel udp 53 --server tunnel.example.com:4443 --token sk_your_token
 
 Use a config file for persistent tunnels:
 ```bash
-fxtunnel --config configs/client.yaml
+fxtunnel --config client.yaml
+```
+
+### Server Setup
+
+Install the server via Docker:
+
+```bash
+docker run -d \
+  --name fxtunnel \
+  -p 4443:4443 \
+  -p 8080:8080 \
+  -p 3000:3000 \
+  -p 10000-20000:10000-20000 \
+  -v ./data:/app/data \
+  -v ./configs/server.yaml:/app/configs/server.yaml \
+  ghcr.io/mephistofox/fxtunnel:latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/mephistofox/fxtun.dev.git
+cd fxtun.dev
+make build
+./bin/fxtunnel-server --config configs/server.yaml
+```
+
+Point a wildcard DNS record to your server:
+```
+*.tunnel.example.com  →  A  →  YOUR_SERVER_IP
 ```
 
 ## Architecture
@@ -250,20 +266,6 @@ certbot certonly --dns-cloudflare \
   -d *.tunnel.example.com
 ```
 
-## Docker
-
-```bash
-docker run -d \
-  --name fxtunnel \
-  -p 4443:4443 \
-  -p 8080:8080 \
-  -p 3000:3000 \
-  -p 10000-20000:10000-20000 \
-  -v ./data:/app/data \
-  -v ./configs/server.yaml:/app/configs/server.yaml \
-  ghcr.io/mephistofox/fxtunnel:latest
-```
-
 ## Building from Source
 
 ```bash
@@ -298,5 +300,5 @@ Contributions are welcome! Please open an issue first to discuss what you would 
 MIT with Attribution Requirement — see [LICENSE](LICENSE).
 
 Any use, deployment, or distribution must include visible attribution:
-- **GitHub:** [github.com/mephistofox/fxtunnel](https://github.com/mephistofox/fxtunnel)
-- **Website:** [mfdev.ru](https://mfdev.ru)
+- **GitHub:** [github.com/mephistofox/fxtun.dev](https://github.com/mephistofox/fxtun.dev)
+- **Website:** [fxtun.dev](https://fxtun.dev)
