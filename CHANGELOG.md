@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.3.0](https://github.com/mephistofox/fxtun.dev/compare/v3.2.0...v3.3.0) (2026-02-11)
+
+
+### Features
+
+* **ci:** add VirusTotal scanning and SmartScreen notice in README ([f9025ed](https://github.com/mephistofox/fxtun.dev/commit/f9025ede1c2f2e1dae4ad90a173d3a6a2b28ff2e))
+* **security:** add comprehensive DDoS protection ([1528c76](https://github.com/mephistofox/fxtun.dev/commit/1528c76a22a2dabefba6dc9793c94904ee8bee2a))
+* **web:** add blog link to landing navigation and footer ([2de695d](https://github.com/mephistofox/fxtun.dev/commit/2de695d59644ab79aaba91a70d5031120e488067))
+* **web:** add domain-based locale detection and lang-prefixed SSG routes ([51c491e](https://github.com/mephistofox/fxtun.dev/commit/51c491ed23e8ef94eba9502df98c050717c1a9d4))
+* **web:** add email+password login form and fix SSG window errors ([61c2b98](https://github.com/mephistofox/fxtun.dev/commit/61c2b98f7d7a6dde424d8db3fe255838cc256826))
+* **web:** i18n sync, SEO/GEO improvements, IndexNow key for fxtun.dev ([3a2f544](https://github.com/mephistofox/fxtun.dev/commit/3a2f5448a81515ac68b247aa744f2bd5005c3c77))
+
+
+### Bug Fixes
+
+* make sync-public tolerant of immutable tag errors ([0742752](https://github.com/mephistofox/fxtun.dev/commit/074275213271a1383f88f9d3c9f70e2dd9eac8f8))
+* **nginx,csp:** use absolute URLs in blog rewrites, add unsafe-eval to CSP ([d213f5e](https://github.com/mephistofox/fxtun.dev/commit/d213f5eaf0b594f5f0b94a99fc80020cce0bb9fd))
+* **security:** apply medium-priority security hardening ([aaf5f9f](https://github.com/mephistofox/fxtun.dev/commit/aaf5f9f259ea5ae7198d1aab5774e933d0e48bbd))
+* **security:** comprehensive security hardening across server, API and frontend ([44dcea3](https://github.com/mephistofox/fxtun.dev/commit/44dcea3b2af5af1134b480ffe8d1335643c26312))
+* **web:** improve accessibility and landing page performance ([c3af514](https://github.com/mephistofox/fxtun.dev/commit/c3af514d5fc31775d2873256b8a0d63e89512d4d))
+* **web:** use absolute URL for blog link to avoid inheriting port ([2f2aac6](https://github.com/mephistofox/fxtun.dev/commit/2f2aac6e29d59f1d6044b41c147d44ffb0341dc0))
+
 ## [3.3.0](https://github.com/mephistofox/fxTunnel/compare/v3.2.0...v3.3.0) (2026-02-11)
 
 
