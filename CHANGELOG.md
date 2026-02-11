@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.3.0](https://github.com/mephistofox/fxTunnel/compare/v3.2.0...v3.3.0) (2026-02-11)
+
+
+### Features
+
+* **security:** add comprehensive DDoS protection ([5e94b67](https://github.com/mephistofox/fxTunnel/commit/5e94b6751755aec908409cb33f8e79b63d8658e0))
+* **seo:** update robots.txt and llms.txt for AI crawlers ([4c6788f](https://github.com/mephistofox/fxTunnel/commit/4c6788fe11795913e5981806ebf3137fa590d8fb))
+* **web:** add blog link to landing navigation and footer ([f53554a](https://github.com/mephistofox/fxTunnel/commit/f53554a416996bb563ed7cd36528074007a75ce0))
+* **web:** add domain-based locale detection and lang-prefixed SSG routes ([572c86f](https://github.com/mephistofox/fxTunnel/commit/572c86fb680e9197473b7918b7c0431ff648f936))
+* **web:** add email+password login form and fix SSG window errors ([0a2933b](https://github.com/mephistofox/fxTunnel/commit/0a2933b77cbca41445a9fecc58209eb0fd8626da))
+* **web:** i18n sync, SEO/GEO improvements, IndexNow key for fxtun.dev ([ead92ba](https://github.com/mephistofox/fxTunnel/commit/ead92ba560ffebfe933184f0dfd5f364b476a491))
+
+
+### Bug Fixes
+
+* make sync-public tolerant of immutable tag errors ([99e2a50](https://github.com/mephistofox/fxTunnel/commit/99e2a50b7fe13972229b70974ba54e609c1bb00c))
+* **nginx,csp:** use absolute URLs in blog rewrites, add unsafe-eval to CSP ([907b1a5](https://github.com/mephistofox/fxTunnel/commit/907b1a571e79f8765afb2fbc2d3ed363fb46b8fa))
+* **security:** apply medium-priority security hardening ([580cba8](https://github.com/mephistofox/fxTunnel/commit/580cba89d542d70032516e3f27a9731e517a8326))
+* **security:** comprehensive security hardening across server, API and frontend ([7f5e857](https://github.com/mephistofox/fxTunnel/commit/7f5e85714de9cd1045311708f89c08d09975a4e4))
+* **web:** improve accessibility and landing page performance ([1fd0148](https://github.com/mephistofox/fxTunnel/commit/1fd01485586642fcbedc24b83084e02b56c3343a))
+* **web:** use absolute URL for blog link to avoid inheriting port ([e0865b7](https://github.com/mephistofox/fxTunnel/commit/e0865b7fa16443b0e6a5f7b402dccd3647a00153))
+
 ## [3.2.0](https://github.com/mephistofox/fxtun.dev/compare/v3.1.0...v3.2.0) (2026-02-08)
 
 
