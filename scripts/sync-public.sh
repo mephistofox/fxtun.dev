@@ -17,7 +17,7 @@ git filter-repo \
   --path data/ \
   --path docs/plans/ \
   --path configs/nginx-fxtun-ru.conf \
-  --path .github/workflows/ \
+  --path .github/workflows/deploy.yml \
   --path-glob 'web/public/*.txt' \
   --force
 
