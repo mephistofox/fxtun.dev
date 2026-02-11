@@ -117,7 +117,7 @@ onMounted(() => {
   const FREQ = 0.012
   const OCTAVES = 2
   const THRESHOLDS = Array.from({ length: 9 }, (_, i) => -0.44 + i * 0.11)
-  const TIME_STEP = 0.003 // increment per frame at 6fps → very slow drift
+  const TIME_STEP = 0.003 // increment per frame at ~30fps
 
   let lineColor = 'rgba(128,135,150,0.8)'
   function updateColor() {
@@ -185,7 +185,7 @@ onMounted(() => {
   )
   io.observe(canvas)
 
-  // Start animation at ~6 FPS via setInterval (doesn't block rAF)
+  // Start animation at ~10 FPS (enough for slow background drift)
   timer = setInterval(draw, 33)
 
   onUnmounted(() => {
