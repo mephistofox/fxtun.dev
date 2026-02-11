@@ -12,8 +12,22 @@ export const createApp = ViteSSG(
     app.use(createPinia())
     app.use(i18n)
 
+    // Set locale from route meta — works during both SSG and client
+    router.beforeEach((to, _from, next) => {
+      if (to.meta.forcedLocale) {
+        // @ts-expect-error vue-i18n composition api
+        i18n.global.locale.value = to.meta.forcedLocale as 'en' | 'ru'
+      }
+      next()
+    })
+
     if (!import.meta.env.SSR) {
       router.beforeEach(async (to, _from, next) => {
+        if (to.meta.forcedLocale) {
+          const { setLocale } = await import('./i18n')
+          setLocale(to.meta.forcedLocale as 'en' | 'ru')
+        }
+
         const { useAuthStore } = await import('./stores/auth')
         const authStore = useAuthStore()
 

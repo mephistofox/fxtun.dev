@@ -1,6 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
 
-export const routes: RouteRecordRaw[] = [
+const publicRoutes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'landing',
@@ -24,6 +24,19 @@ export const routes: RouteRecordRaw[] = [
     name: 'offer',
     component: () => import('./views/OfferView.vue'),
   },
+]
+
+function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
+  return publicRoutes.map(r => ({
+    ...r,
+    path: `/${lang}${r.path === '/' ? '' : r.path}`,
+    name: `${String(r.name)}-${lang}`,
+    meta: { ...r.meta, forcedLocale: lang },
+  }))
+}
+
+export const routes: RouteRecordRaw[] = [
+  ...publicRoutes,
   {
     path: '/checkout',
     name: 'checkout',
@@ -140,6 +153,8 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('./views/admin/AdminSubscriptionsView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
+  ...langPrefixedRoutes('ru'),
+  ...langPrefixedRoutes('en'),
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
