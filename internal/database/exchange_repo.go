@@ -20,6 +20,8 @@ func NewExchangeRepository(db *sql.DB) *ExchangeRepository {
 	return &ExchangeRepository{db: db}
 }
 
+const maxExchangeBodySize = 1 << 20 // 1MB
+
 // Save persists a captured exchange to the database
 func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) error {
 	reqHeaders, err := json.Marshal(ex.RequestHeaders)
@@ -29,6 +31,16 @@ func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) er
 	respHeaders, err := json.Marshal(ex.ResponseHeaders)
 	if err != nil {
 		return fmt.Errorf("marshal response headers: %w", err)
+	}
+
+	// Truncate bodies that exceed the maximum size
+	reqBody := ex.RequestBody
+	if len(reqBody) > maxExchangeBodySize {
+		reqBody = reqBody[:maxExchangeBodySize]
+	}
+	respBody := ex.ResponseBody
+	if len(respBody) > maxExchangeBodySize {
+		respBody = respBody[:maxExchangeBodySize]
 	}
 
 	query := `
@@ -43,8 +55,8 @@ func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) er
 		ex.ID, ex.TunnelID, userID, ex.TraceID, ex.ReplayRef,
 		ex.Timestamp, int64(ex.Duration),
 		ex.Method, ex.Path, ex.Host,
-		string(reqHeaders), ex.RequestBody, ex.RequestBodySize,
-		string(respHeaders), ex.ResponseBody, ex.ResponseBodySize,
+		string(reqHeaders), reqBody, ex.RequestBodySize,
+		string(respHeaders), respBody, ex.ResponseBodySize,
 		ex.StatusCode, ex.RemoteAddr,
 	)
 	if err != nil {

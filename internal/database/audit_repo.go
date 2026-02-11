@@ -132,8 +132,13 @@ func (r *AuditRepository) queryAuditLogs(query string, total int, args ...interf
 	return logs, total, nil
 }
 
-// DeleteOlderThan deletes audit logs older than the specified duration
+// DeleteOlderThan deletes audit logs older than the specified duration.
+// A minimum retention period of 90 days is enforced.
 func (r *AuditRepository) DeleteOlderThan(duration time.Duration) (int64, error) {
+	const minRetention = 90 * 24 * time.Hour
+	if duration < minRetention {
+		duration = minRetention
+	}
 	cutoff := time.Now().Add(-duration)
 	query := `DELETE FROM audit_logs WHERE created_at < ?`
 

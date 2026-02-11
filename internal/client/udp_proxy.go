@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	udpHeaderSize    = 6     // 2 bytes length + 4 bytes addr hash
+	udpHeaderSize    = 10    // 2 bytes length + 8 bytes addr hash (fnv64a)
 	maxUDPPacketSize = 65507 // max UDP payload
 )
 
@@ -39,7 +39,7 @@ func (c *Client) handleUDPStream(stream net.Conn, tunnel *ActiveTunnel) {
 		Msg("UDP proxy started")
 
 	// Store last seen addr hash for responses
-	var lastAddrHash atomic.Uint32
+	var lastAddrHash atomic.Uint64
 
 	done := make(chan struct{}, 2)
 
@@ -61,7 +61,7 @@ func (c *Client) handleUDPStream(stream net.Conn, tunnel *ActiveTunnel) {
 			}
 
 			length := binary.BigEndian.Uint16(header[0:2])
-			addrHash := binary.BigEndian.Uint32(header[2:6])
+			addrHash := binary.BigEndian.Uint64(header[2:10])
 			lastAddrHash.Store(addrHash)
 
 			if _, err := io.ReadFull(stream, payload[:length]); err != nil {
@@ -100,7 +100,7 @@ func (c *Client) handleUDPStream(stream net.Conn, tunnel *ActiveTunnel) {
 
 			frame := make([]byte, udpHeaderSize+n)
 			binary.BigEndian.PutUint16(frame[0:2], uint16(n)) //nolint:gosec // n bounded by UDP read
-			binary.BigEndian.PutUint32(frame[2:6], lastAddrHash.Load())
+			binary.BigEndian.PutUint64(frame[2:10], lastAddrHash.Load())
 			copy(frame[udpHeaderSize:], buf[:n])
 
 			if _, err := stream.Write(frame); err != nil {

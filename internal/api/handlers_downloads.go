@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -143,7 +144,7 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	w.Header().Set("Content-Length", string(rune(stat.Size())))
+	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
 
 	// Serve file
 	http.ServeFile(w, r, filePath)
@@ -151,13 +152,8 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 // handleInstallScript serves a shell install script with the domain derived from the request Host
 func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
-	domain := r.Host
-	if i := strings.IndexByte(domain, ':'); i != -1 {
-		domain = domain[:i]
-	}
-	if domain == "" || domain == "localhost" || domain == "127.0.0.1" {
-		domain = s.baseDomain
-	}
+	// Use configured base domain instead of trusting Host header
+	domain := s.baseDomain
 	if domain == "" {
 		domain = "mfdev.ru"
 	}

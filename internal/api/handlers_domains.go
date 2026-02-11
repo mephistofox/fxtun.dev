@@ -59,13 +59,7 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.ReserveDomainRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Subdomain == "" {
-		s.respondError(w, http.StatusBadRequest, "subdomain is required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 

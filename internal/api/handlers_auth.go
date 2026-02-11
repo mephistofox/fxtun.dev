@@ -11,23 +11,7 @@ import (
 // handleRegister handles user registration
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	// Validate required fields
-	if req.Phone == "" || req.Password == "" {
-		s.respondError(w, http.StatusBadRequest, "phone and password are required")
-		return
-	}
-
-	if len(req.Password) < 8 {
-		s.respondError(w, http.StatusBadRequest, "password must be at least 8 characters")
-		return
-	}
-	if len(req.Password) > 128 {
-		s.respondError(w, http.StatusBadRequest, "password must be at most 128 characters")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 
@@ -60,13 +44,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 // handleLogin handles user login
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Phone == "" || req.Password == "" {
-		s.respondError(w, http.StatusBadRequest, "phone/email and password are required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 
@@ -140,13 +118,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 // handleRefresh handles token refresh
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req dto.RefreshRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.RefreshToken == "" {
-		s.respondError(w, http.StatusBadRequest, "refresh_token is required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 
@@ -204,13 +176,7 @@ func (s *Server) handleTOTPVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.TOTPVerifyRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Code == "" {
-		s.respondError(w, http.StatusBadRequest, "code is required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 
@@ -241,13 +207,7 @@ func (s *Server) handleTOTPDisable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.TOTPDisableRequest
-	if err := s.decodeJSON(r, &req); err != nil {
-		s.respondError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Code == "" {
-		s.respondError(w, http.StatusBadRequest, "code is required")
+	if !decodeAndValidate(w, r, &req) {
 		return
 	}
 

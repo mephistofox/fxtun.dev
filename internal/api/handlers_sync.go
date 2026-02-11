@@ -8,6 +8,8 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/database"
 )
 
+const maxSyncItems = 500
+
 // handleGetSyncData returns all sync data for the user
 func (s *Server) handleGetSyncData(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
@@ -74,6 +76,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	var req dto.SyncRequest
 	if err := s.decodeJSON(r, &req); err != nil {
 		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.Bundles) > maxSyncItems || len(req.History) > maxSyncItems || len(req.Settings) > maxSyncItems {
+		s.respondError(w, http.StatusRequestEntityTooLarge, "too many items in sync request")
 		return
 	}
 
@@ -146,6 +153,11 @@ func (s *Server) handleSyncBundles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Bundles) > maxSyncItems {
+		s.respondError(w, http.StatusRequestEntityTooLarge, "too many items in sync request")
+		return
+	}
+
 	bundles := make([]*database.UserBundle, 0, len(req.Bundles))
 	for _, b := range req.Bundles {
 		if b.Deleted {
@@ -197,6 +209,11 @@ func (s *Server) handleSyncSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Settings) > maxSyncItems {
+		s.respondError(w, http.StatusRequestEntityTooLarge, "too many items in sync request")
+		return
+	}
+
 	if len(req.Settings) > 0 {
 		settings := make([]*database.UserSetting, len(req.Settings))
 		for i, st := range req.Settings {
@@ -239,6 +256,11 @@ func (s *Server) handleAddHistory(w http.ResponseWriter, r *http.Request) {
 	var req dto.SyncHistoryRequest
 	if err := s.decodeJSON(r, &req); err != nil {
 		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.History) > maxSyncItems {
+		s.respondError(w, http.StatusRequestEntityTooLarge, "too many items in sync request")
 		return
 	}
 

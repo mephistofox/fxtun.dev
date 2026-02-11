@@ -62,23 +62,33 @@ func TestRateLimiter_DifferentIPsIndependent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w2.Code)
 }
 
-func TestRateLimiter_UsesXRealIP(t *testing.T) {
+func TestRateLimiter_UsesRemoteAddr(t *testing.T) {
+	// Rate limiter uses r.RemoteAddr which is set by Chi's middleware.RealIP upstream.
+	// It should NOT read X-Real-IP or X-Forwarded-For headers directly.
 	rl := newIPRateLimiter(1)
 	handler := rateLimitMiddleware(rl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
+	// First request from 5.5.5.5 (simulating middleware.RealIP having set RemoteAddr)
 	req := httptest.NewRequest("GET", "/", nil)
-	req.RemoteAddr = "127.0.0.1:1234"
-	req.Header.Set("X-Real-IP", "5.5.5.5")
+	req.RemoteAddr = "5.5.5.5"
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
+	// Second request from same RemoteAddr should be rate limited
 	req2 := httptest.NewRequest("GET", "/", nil)
-	req2.RemoteAddr = "127.0.0.1:5678"
-	req2.Header.Set("X-Real-IP", "5.5.5.5")
+	req2.RemoteAddr = "5.5.5.5"
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusTooManyRequests, w2.Code)
+
+	// X-Real-IP header should be ignored; a different RemoteAddr should not be limited
+	req3 := httptest.NewRequest("GET", "/", nil)
+	req3.RemoteAddr = "6.6.6.6"
+	req3.Header.Set("X-Real-IP", "5.5.5.5")
+	w3 := httptest.NewRecorder()
+	handler.ServeHTTP(w3, req3)
+	assert.Equal(t, http.StatusOK, w3.Code, "should use RemoteAddr not X-Real-IP header")
 }
