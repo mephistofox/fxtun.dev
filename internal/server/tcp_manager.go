@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -111,12 +112,16 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 		return
 	}
 
+	// Context for bandwidth limiter cancellation
+	ctx, cancel := context.WithCancel(m.server.ctx)
+	defer cancel()
+
 	// Apply bandwidth throttling if configured
 	var streamReader io.Reader = stream
 	var streamWriter io.Writer = stream
 	if client.bwLimiter != nil {
-		streamReader = client.bwLimiter.Reader(stream)
-		streamWriter = client.bwLimiter.Writer(stream)
+		streamReader = client.bwLimiter.Reader(ctx, stream)
+		streamWriter = client.bwLimiter.Writer(ctx, stream)
 	}
 
 	// Bidirectional copy with large buffers
@@ -137,7 +142,8 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	}()
 
 	<-done
-	// Close both to unblock the other goroutine
+	// Cancel bandwidth limiter WaitN, then close both to unblock the other goroutine
+	cancel()
 	_ = conn.Close()
 	_ = stream.Close()
 	<-done
