@@ -25,24 +25,27 @@ func NewBandwidthLimiter(bytesPerSec int) *BandwidthLimiter {
 }
 
 // Reader wraps an io.Reader with bandwidth throttling.
-func (b *BandwidthLimiter) Reader(r io.Reader) io.Reader {
-	return &throttledReader{r: r, limiter: b.limiter}
+// The context allows cancellation when the request is done.
+func (b *BandwidthLimiter) Reader(ctx context.Context, r io.Reader) io.Reader {
+	return &throttledReader{r: r, limiter: b.limiter, ctx: ctx}
 }
 
 // Writer wraps an io.Writer with bandwidth throttling.
-func (b *BandwidthLimiter) Writer(w io.Writer) io.Writer {
-	return &throttledWriter{w: w, limiter: b.limiter}
+// The context allows cancellation when the request is done.
+func (b *BandwidthLimiter) Writer(ctx context.Context, w io.Writer) io.Writer {
+	return &throttledWriter{w: w, limiter: b.limiter, ctx: ctx}
 }
 
 type throttledReader struct {
 	r       io.Reader
 	limiter *rate.Limiter
+	ctx     context.Context
 }
 
 func (tr *throttledReader) Read(p []byte) (int, error) {
 	n, err := tr.r.Read(p)
 	if n > 0 {
-		_ = tr.limiter.WaitN(context.Background(), n)
+		_ = tr.limiter.WaitN(tr.ctx, n)
 	}
 	return n, err
 }
@@ -50,9 +53,12 @@ func (tr *throttledReader) Read(p []byte) (int, error) {
 type throttledWriter struct {
 	w       io.Writer
 	limiter *rate.Limiter
+	ctx     context.Context
 }
 
 func (tw *throttledWriter) Write(p []byte) (int, error) {
-	_ = tw.limiter.WaitN(context.Background(), len(p))
+	if err := tw.limiter.WaitN(tw.ctx, len(p)); err != nil {
+		return 0, err
+	}
 	return tw.w.Write(p)
 }
