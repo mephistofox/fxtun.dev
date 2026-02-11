@@ -149,6 +149,8 @@ export const authApi = {
   deviceAuthorize: (sessionId: string) =>
     api.post('/auth/device/authorize', { session_id: sessionId }),
   refresh: (refreshToken: string) => api.post<TokenPair>('/auth/refresh', { refresh_token: refreshToken }),
+  exchangeCode: (code: string) => api.post<TokenPair & { expires_in: number }>('/auth/exchange', { code }),
+  initOAuthLink: (provider: string) => api.post<{ url: string }>(`/auth/${provider}/link`),
 }
 
 export const profileApi = {

@@ -35,7 +35,7 @@ type Database struct {
 func New(dbPath string, log zerolog.Logger) (*Database, error) {
 	// Ensure directory exists
 	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, fmt.Errorf("create database directory: %w", err)
 	}
 

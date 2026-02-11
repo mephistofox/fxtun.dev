@@ -373,11 +373,6 @@ func (r *HTTPRouter) mayNeedInterstitial(req *http.Request, subdomain string) bo
 		return false
 	}
 
-	// Skip if explicit header is set
-	if req.Header.Get("X-FxTunnel-Skip-Warning") != "" {
-		return false
-	}
-
 	// Skip if user already consented
 	cookieName := "_fxt_consent_" + subdomain
 	if cookie, err := req.Cookie(cookieName); err == nil && cookie.Value == "1" {

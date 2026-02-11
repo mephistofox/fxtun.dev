@@ -17,6 +17,14 @@ var (
 	ErrTOTPRequired       = errors.New("TOTP code required")
 )
 
+// maskPhone masks a phone number for logging, showing only the last 4 digits.
+func maskPhone(phone string) string {
+	if len(phone) <= 4 {
+		return "****"
+	}
+	return strings.Repeat("*", len(phone)-4) + phone[len(phone)-4:]
+}
+
 // Service handles authentication operations
 type Service struct {
 	db          *database.Database
@@ -89,7 +97,7 @@ func (s *Service) Register(phone, password, displayName, ipAddress string) (*dat
 		"phone": phone,
 	}, ipAddress)
 
-	s.log.Info().Int64("user_id", user.ID).Str("phone", phone).Msg("User registered")
+	s.log.Info().Int64("user_id", user.ID).Str("phone", maskPhone(phone)).Msg("User registered")
 
 	return user, tokenPair, nil
 }
@@ -186,7 +194,7 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 		"user_agent": userAgent,
 	}, ipAddress)
 
-	s.log.Info().Int64("user_id", user.ID).Str("identifier", identifier).Msg("User logged in")
+	s.log.Info().Int64("user_id", user.ID).Str("identifier", maskPhone(identifier)).Msg("User logged in")
 
 	return user, tokenPair, nil
 }
@@ -205,7 +213,7 @@ func (s *Service) Logout(refreshToken string, ipAddress string, userID int64) er
 }
 
 // RefreshTokens generates new tokens using a refresh token
-func (s *Service) RefreshTokens(refreshToken string) (*database.User, *TokenPair, error) {
+func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
 	tokenHash := HashToken(refreshToken)
 
 	// Get session
@@ -247,8 +255,8 @@ func (s *Service) RefreshTokens(refreshToken string) (*database.User, *TokenPair
 	newSession := &database.Session{
 		UserID:           user.ID,
 		RefreshTokenHash: newRefreshTokenHash,
-		UserAgent:        session.UserAgent,
-		IPAddress:        session.IPAddress,
+		UserAgent:        userAgent,
+		IPAddress:        ipAddress,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
 	if err := s.db.Sessions.Create(newSession); err != nil {
@@ -317,12 +325,15 @@ func (s *Service) EnableTOTP(userID int64, phone string) (secret string, qrCode 
 		return "", nil, nil, fmt.Errorf("generate backup codes: %w", err)
 	}
 
+	// Hash backup codes for secure storage (plaintext returned to user)
+	hashedCodes := HashBackupCodes(backupCodes)
+
 	// Check if TOTP already exists
 	existing, err := s.db.TOTP.GetByUserID(userID)
 	if err == nil && existing != nil {
 		// Update existing
 		existing.SecretEncrypted = encryptedSecret
-		existing.BackupCodes = backupCodes
+		existing.BackupCodes = hashedCodes
 		existing.IsEnabled = false // Will be enabled after verification
 		if err := s.db.TOTP.Update(existing); err != nil {
 			return "", nil, nil, fmt.Errorf("update TOTP secret: %w", err)
@@ -333,7 +344,7 @@ func (s *Service) EnableTOTP(userID int64, phone string) (secret string, qrCode 
 			UserID:          userID,
 			SecretEncrypted: encryptedSecret,
 			IsEnabled:       false,
-			BackupCodes:     backupCodes,
+			BackupCodes:     hashedCodes,
 		}
 		if err := s.db.TOTP.Create(totpSecret); err != nil {
 			return "", nil, nil, fmt.Errorf("create TOTP secret: %w", err)

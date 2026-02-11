@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/client'
 import Card from '@/components/ui/Card.vue'
 
 const router = useRouter()
@@ -13,8 +14,12 @@ const loading = ref(true)
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search)
   const errorParam = params.get('error')
-  const accessToken = params.get('access_token')
-  const refreshToken = params.get('refresh_token')
+  const code = params.get('code')
+
+  // Clean URL to remove sensitive parameters from browser history
+  if (window.history.replaceState) {
+    window.history.replaceState({}, document.title, window.location.pathname)
+  }
 
   if (errorParam) {
     error.value = errorParam
@@ -22,21 +27,29 @@ onMounted(async () => {
     return
   }
 
-  if (accessToken && refreshToken) {
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    await authStore.refreshProfile()
-    authStore.initialized = true
+  if (code) {
+    try {
+      const response = await authApi.exchangeCode(code)
+      localStorage.setItem('accessToken', response.data.access_token)
+      localStorage.setItem('refreshToken', response.data.refresh_token)
+      await authStore.refreshProfile()
+      authStore.initialized = true
 
-    // Check for saved redirect (e.g., from pricing page)
-    const savedRedirect = localStorage.getItem('authRedirect')
-    if (savedRedirect) {
-      localStorage.removeItem('authRedirect')
-      router.replace(savedRedirect)
-    } else {
-      router.replace({ name: 'dashboard' })
+      // Check for saved redirect (e.g., from pricing page)
+      const savedRedirect = localStorage.getItem('authRedirect')
+      if (savedRedirect) {
+        localStorage.removeItem('authRedirect')
+        const safeRedirect = savedRedirect.startsWith('/') && !savedRedirect.startsWith('//') ? savedRedirect : undefined
+        router.replace(safeRedirect || { name: 'dashboard' })
+      } else {
+        router.replace({ name: 'dashboard' })
+      }
+      return
+    } catch {
+      error.value = 'Failed to complete authentication'
+      loading.value = false
+      return
     }
-    return
   }
 
   error.value = 'Invalid callback parameters'

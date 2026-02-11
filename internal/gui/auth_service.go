@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -472,7 +473,7 @@ func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error
 
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<!DOCTYPE html><html><body><h2>Ошибка авторизации</h2><p>%s</p><p>Вы можете закрыть это окно.</p></body></html>`, errMsg)
+			fmt.Fprintf(w, `<!DOCTYPE html><html><body><h2>Ошибка авторизации</h2><p>%s</p><p>Вы можете закрыть это окно.</p></body></html>`, html.EscapeString(errMsg))
 			select {
 			case ch <- nil:
 			default:
