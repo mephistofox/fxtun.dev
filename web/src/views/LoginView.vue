@@ -1,51 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
-import { useAuthStore } from '@/stores/auth'
 import { setLocale, getLocale } from '@/i18n'
 import { useSeo } from '@/composables/useSeo'
 import Card from '@/components/ui/Card.vue'
 
 const themeStore = useThemeStore()
-const authStore = useAuthStore()
 const { t, locale } = useI18n()
 
 useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description' })
 
 const showOffer = computed(() => locale.value === 'ru')
-
-const email = ref('')
-const password = ref('')
-const totpCode = ref('')
-const needTotp = ref(false)
-const formError = ref('')
-const submitting = ref(false)
-
-async function handleEmailLogin() {
-  formError.value = ''
-  submitting.value = true
-
-  try {
-    await authStore.login({
-      phone: email.value,
-      password: password.value,
-      ...(needTotp.value && totpCode.value ? { totp_code: totpCode.value } : {}),
-    })
-  } catch (e: unknown) {
-    const err = e as { response?: { data?: { error?: string } } }
-    const msg = err.response?.data?.error || ''
-    if (msg === 'TOTP_REQUIRED') {
-      needTotp.value = true
-      formError.value = ''
-    } else {
-      formError.value = msg || t('auth.loginFailed')
-    }
-  } finally {
-    submitting.value = false
-  }
-}
 
 function toggleLocale() {
   const current = getLocale()
@@ -169,57 +136,6 @@ function cycleTheme() {
           {{ t('auth.signInWithGoogle') }}
         </a>
       </div>
-
-      <!-- Divider -->
-      <div class="flex items-center gap-3 my-5">
-        <div class="flex-1 h-px bg-border"></div>
-        <span class="text-xs text-muted-foreground">{{ t('auth.or') }}</span>
-        <div class="flex-1 h-px bg-border"></div>
-      </div>
-
-      <!-- Email + Password form -->
-      <form @submit.prevent="handleEmailLogin" class="space-y-3">
-        <div v-if="formError" class="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
-          {{ formError }}
-        </div>
-
-        <template v-if="!needTotp">
-          <input
-            v-model="email"
-            type="email"
-            required
-            :placeholder="t('auth.email')"
-            class="w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-          />
-          <input
-            v-model="password"
-            type="password"
-            required
-            :placeholder="t('auth.password')"
-            class="w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-          />
-        </template>
-
-        <template v-else>
-          <input
-            v-model="totpCode"
-            type="text"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            required
-            :placeholder="t('auth.totpCode')"
-            class="w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-center tracking-widest placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
-          />
-        </template>
-
-        <button
-          type="submit"
-          :disabled="submitting"
-          class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {{ submitting ? '...' : t('auth.signIn') }}
-        </button>
-      </form>
 
       <!-- Tunnel illustration -->
       <div class="my-8 flex justify-center">
