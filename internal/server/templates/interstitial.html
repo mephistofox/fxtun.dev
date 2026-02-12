@@ -215,7 +215,7 @@
 
         <p class="warning-text">{{.Text}}</p>
 
-        <button class="continue-btn" onclick="document.cookie='_fxt_consent_{{.Subdomain}}=1; Path=/; Max-Age=43200; Secure; SameSite=Lax'; window.location.reload();">
+        <button class="continue-btn" onclick="document.cookie='_fxt_consent_{{.Subdomain}}=1; Path=/; Max-Age=43200; SameSite=Lax'; window.location.reload();">
             {{.Button}}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7"/>

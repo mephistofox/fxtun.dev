@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +26,9 @@ import (
 )
 
 const (
+	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
+	yamuxMaxStreamWindowSize = 16 * 1024 * 1024 // 16MB
+
 	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
 	yamuxKeepAliveInterval = 10 * time.Second
 
@@ -50,35 +52,7 @@ const (
 
 	// defaultInspectMaxEntries is the default capacity for the inspect buffer.
 	defaultInspectMaxEntries = 1000
-
-	// defaultMaxControlConns is the default global limit on concurrent control connections.
-	defaultMaxControlConns = 1000
-
-	// defaultMaxConnsPerIP is the default per-IP connection limit.
-	defaultMaxConnsPerIP = 50
-
-	// maxDataSessionsPerClient is the maximum number of data sessions per client.
-	maxDataSessionsPerClient = 32
 )
-
-// subdomainRegex validates subdomain format: alphanumeric, may contain hyphens, 1-32 chars.
-var subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
-
-// reservedSubdomains is a blocklist of subdomains that cannot be used for tunnels.
-var reservedSubdomains = map[string]struct{}{
-	"www":  {},
-	"api":  {},
-	"admin": {},
-	"mail": {},
-	"ftp":  {},
-	"smtp": {},
-	"imap": {},
-	"pop":  {},
-	"ns1":  {},
-	"ns2":  {},
-	"mx":   {},
-	"app":  {},
-}
 
 // Server is the main tunnel server
 type Server struct {
@@ -112,14 +86,6 @@ type Server struct {
 
 	// Active connections tracking for graceful drain
 	activeConns sync.WaitGroup
-
-	// Connection limits
-	connSem    chan struct{} // semaphore for global max connections
-	ipConnCount sync.Map     // map[string]*int32 — per-IP connection count
-
-	// DDoS protection
-	ipBan        *IPBanManager
-	acceptLimiter *acceptRateLimiter
 
 	// Shutdown
 	ctx    context.Context
@@ -164,9 +130,6 @@ type Client struct {
 
 	// Stream pool: pre-opened yamux streams for low-latency connection handling
 	streamPool chan net.Conn
-
-	// Bandwidth limiter (per-client, based on plan)
-	bwLimiter *BandwidthLimiter
 }
 
 // Tunnel represents an active tunnel
@@ -183,43 +146,20 @@ type Tunnel struct {
 	// For TCP/UDP
 	listener net.Listener
 	udpConn  *net.UDPConn
-
-	// Per-tunnel HTTP request concurrency limiter
-	reqSem chan struct{}
 }
 
 // New creates a new server
 func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	maxConns := cfg.Server.MaxControlConns
-	if maxConns <= 0 {
-		maxConns = defaultMaxControlConns
-	}
-
 	s := &Server{
 		cfg:           cfg,
 		log:           log.With().Str("component", "server").Logger(),
 		clientMgr:     NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains: make(map[string]*database.CustomDomain),
-		connSem:       make(chan struct{}, maxConns),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
-
-	// Apply configurable buffer sizes
-	initProxyBufSize(cfg.Server.ProxyBufferSize)
-	if cfg.Server.TCPBufferSize > 0 {
-		tcpBufSize = cfg.Server.TCPBufferSize
-	}
-
-	// Initialize IP ban manager
-	if cfg.Server.IPBan.Enabled {
-		s.ipBan = NewIPBanManager(cfg.Server.IPBan, log)
-	}
-
-	// Initialize accept rate limiter
-	s.acceptLimiter = newAcceptRateLimiter(cfg.Server.AcceptRateGlobal, cfg.Server.AcceptRatePerIP)
 
 	s.httpRouter = NewHTTPRouter(s, log)
 	s.tcpManager = NewTCPManager(s, log)
@@ -380,9 +320,6 @@ func (s *Server) Start() error {
 			s.httpsServer = &http.Server{
 				Handler:           s.httpRouter,
 				ReadHeaderTimeout: 10 * time.Second,
-				ReadTimeout:       s.httpReadTimeout(),
-				WriteTimeout:      s.httpWriteTimeout(),
-				IdleTimeout:       s.httpIdleTimeout(),
 			}
 			s.wg.Add(1)
 			go func() {
@@ -399,29 +336,10 @@ func (s *Server) Start() error {
 	s.wg.Add(1)
 	go s.acceptControlConnections()
 
-	// Periodic cleanup of accept rate limiter per-IP entries
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			case <-ticker.C:
-				s.acceptLimiter.Cleanup()
-			}
-		}
-	}()
-
 	// Start HTTP server with keep-alive support
 	s.httpServer = &http.Server{
 		Handler:           s.httpRouter,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       s.httpReadTimeout(),
-		WriteTimeout:      s.httpWriteTimeout(),
-		IdleTimeout:       s.httpIdleTimeout(),
 	}
 	s.wg.Add(1)
 	go func() {
@@ -519,10 +437,6 @@ func (s *Server) Stop() error {
 		s.certManager.Stop()
 	}
 
-	if s.ipBan != nil {
-		s.ipBan.Stop()
-	}
-
 	s.wg.Wait()
 	s.log.Info().Msg("Server stopped")
 	return nil
@@ -530,12 +444,6 @@ func (s *Server) Stop() error {
 
 func (s *Server) acceptControlConnections() {
 	defer s.wg.Done()
-
-	maxPerIPCfg := s.cfg.Server.MaxConnsPerIP
-	if maxPerIPCfg <= 0 {
-		maxPerIPCfg = defaultMaxConnsPerIP
-	}
-	maxPerIP := int32(maxPerIPCfg) //nolint:gosec // config values are small positive ints, overflow impossible
 
 	for {
 		conn, err := s.controlListener.Accept()
@@ -549,85 +457,8 @@ func (s *Server) acceptControlConnections() {
 			}
 		}
 
-		ip := connIP(conn)
-
-		// Check IP ban
-		if s.ipBan != nil && s.ipBan.IsBanned(ip) {
-			s.log.Debug().Str("ip", ip).Msg("Rejected banned IP")
-			conn.Close()
-			continue
-		}
-
-		// Accept rate limiting
-		if !s.acceptLimiter.Allow(ip) {
-			s.log.Warn().Str("ip", ip).Msg("Accept rate limit exceeded, rejecting")
-			if s.ipBan != nil {
-				s.ipBan.RecordViolation(ip, ViolationFlood)
-			}
-			conn.Close()
-			continue
-		}
-
-		// Global connection limit (non-blocking check)
-		select {
-		case s.connSem <- struct{}{}:
-			// acquired
-		default:
-			s.log.Warn().Str("remote", conn.RemoteAddr().String()).Msg("Global connection limit reached, rejecting")
-			conn.Close()
-			continue
-		}
-
-		// Per-IP connection limit
-		if !s.ipConnAcquire(ip, maxPerIP) {
-			s.log.Warn().Str("ip", ip).Msg("Per-IP connection limit reached, rejecting")
-			<-s.connSem // release global slot
-			conn.Close()
-			continue
-		}
-
 		s.wg.Add(1)
-		go func() {
-			defer func() {
-				s.ipConnRelease(ip)
-				<-s.connSem
-			}()
-			s.handleControlConnection(conn)
-		}()
-	}
-}
-
-// connIP extracts the IP address (without port) from a connection.
-func connIP(conn net.Conn) string {
-	addr := conn.RemoteAddr().String()
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return addr
-	}
-	return host
-}
-
-// ipConnAcquire increments the per-IP counter and returns false if the limit is reached.
-func (s *Server) ipConnAcquire(ip string, max int32) bool {
-	val, _ := s.ipConnCount.LoadOrStore(ip, new(int32))
-	counter := val.(*int32)
-	n := atomic.AddInt32(counter, 1)
-	if n > max {
-		atomic.AddInt32(counter, -1)
-		return false
-	}
-	return true
-}
-
-// ipConnRelease decrements the per-IP counter.
-func (s *Server) ipConnRelease(ip string) {
-	val, ok := s.ipConnCount.Load(ip)
-	if !ok {
-		return
-	}
-	counter := val.(*int32)
-	if atomic.AddInt32(counter, -1) <= 0 {
-		s.ipConnCount.Delete(ip)
+		go s.handleControlConnection(conn)
 	}
 }
 
@@ -656,7 +487,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	yamuxCfg := yamux.DefaultConfig()
 	yamuxCfg.EnableKeepAlive = true
 	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
-	yamuxCfg.MaxStreamWindowSize = s.yamuxWindowSize()
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
 	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
 	session, err := yamux.Server(rwc, yamuxCfg)
 	if err != nil {
@@ -709,18 +540,12 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
 		if err != nil {
 			log.Warn().Err(err).Msg("Authentication failed")
-			if s.ipBan != nil {
-				s.ipBan.RecordViolation(connIP(conn), ViolationAuth)
-			}
 			session.Close()
 			return
 		}
 
 		log = log.With().Str("client_id", client.ID).Logger()
 		log.Info().Msg("Client authenticated")
-
-		// Trust this IP so data sessions bypass per-IP rate limiting
-		s.acceptLimiter.Trust(connIP(conn))
 
 		// Handle client messages
 		client.handle()
@@ -754,22 +579,8 @@ func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, contro
 		return
 	}
 
-	// Enforce data session limit
-	client.DataMu.Lock()
-	if len(client.DataSessions) >= maxDataSessionsPerClient {
-		client.DataMu.Unlock()
-		log.Warn().Str("client_id", joinMsg.ClientID).Int("count", len(client.DataSessions)).Msg("Data session limit reached")
-		result := &protocol.JoinSessionResult{
-			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
-			Success: false,
-			Error:   "data session limit reached",
-		}
-		_ = codec.Encode(result)
-		session.Close()
-		return
-	}
-
 	// Add data session to client
+	client.DataMu.Lock()
 	client.DataSessions = append(client.DataSessions, session)
 	client.DataConns = append(client.DataConns, conn)
 	client.DataMu.Unlock()
@@ -930,18 +741,6 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		subdomain = generateShortID()
 	}
 
-	// Validate subdomain format
-	if !subdomainRegex.MatchString(subdomain) {
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "invalid subdomain format")
-		return
-	}
-
-	// Check against reserved subdomain blocklist
-	if _, reserved := reservedSubdomains[subdomain]; reserved {
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "subdomain is reserved")
-		return
-	}
-
 	// Check subdomain permission
 	if c.Token != nil && !c.Token.CanUseSubdomain(subdomain) {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePermissionDenied, "subdomain not allowed")
@@ -950,10 +749,6 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 	// Register with HTTP router
 	tunnelID := generateID()
-	maxConcurrent := c.server.cfg.Server.MaxConcurrentRequestsPerTunnel
-	if maxConcurrent <= 0 {
-		maxConcurrent = 100
-	}
 	tunnel := &Tunnel{
 		ID:        tunnelID,
 		ClientID:  c.ID,
@@ -962,12 +757,10 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		Subdomain: subdomain,
 		LocalPort: req.LocalPort,
 		Created:   time.Now(),
-		reqSem:    make(chan struct{}, maxConcurrent),
 	}
 
 	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
-		c.log.Warn().Err(err).Str("subdomain", subdomain).Msg("Failed to register HTTP tunnel")
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain already in use")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, err.Error())
 		return
 	}
 
@@ -996,8 +789,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	port, listener, err := c.server.tcpManager.AllocatePort(req.RemotePort)
 	if err != nil {
-		c.log.Warn().Err(err).Int("requested_port", req.RemotePort).Msg("Failed to allocate TCP port")
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, "resource allocation failed")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
 		return
 	}
 
@@ -1039,8 +831,7 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	port, udpConn, err := c.server.udpManager.AllocatePort(req.RemotePort)
 	if err != nil {
-		c.log.Warn().Err(err).Int("requested_port", req.RemotePort).Msg("Failed to allocate UDP port")
-		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, "resource allocation failed")
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
 		return
 	}
 
@@ -1221,11 +1012,6 @@ func (c *Client) Close() {
 		// Unlink user from client
 		c.server.clientMgr.unlinkUserClient(c.UserID, c.ID)
 
-		// Untrust IP when client disconnects
-		if c.conn != nil {
-			c.server.acceptLimiter.Untrust(connIP(c.conn))
-		}
-
 		c.server.removeClient(c.ID)
 		c.log.Info().Msg("Client disconnected")
 	})
@@ -1293,42 +1079,5 @@ func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
 // GetStats returns server statistics
 func (s *Server) GetStats() Stats {
 	return s.clientMgr.GetStats()
-}
-
-// httpReadTimeout returns the configured HTTP read timeout or a default.
-func (s *Server) httpReadTimeout() time.Duration {
-	if s.cfg.Server.HTTPReadTimeout > 0 {
-		return s.cfg.Server.HTTPReadTimeout
-	}
-	return 30 * time.Second
-}
-
-// httpWriteTimeout returns the configured HTTP write timeout or a default.
-func (s *Server) httpWriteTimeout() time.Duration {
-	if s.cfg.Server.HTTPWriteTimeout > 0 {
-		return s.cfg.Server.HTTPWriteTimeout
-	}
-	return 120 * time.Second
-}
-
-// httpIdleTimeout returns the configured HTTP idle timeout or a default.
-func (s *Server) httpIdleTimeout() time.Duration {
-	if s.cfg.Server.HTTPIdleTimeout > 0 {
-		return s.cfg.Server.HTTPIdleTimeout
-	}
-	return 120 * time.Second
-}
-
-// yamuxWindowSize returns the configured yamux window size or a default.
-func (s *Server) yamuxWindowSize() uint32 {
-	if s.cfg.Server.YamuxWindowSize > 0 {
-		return uint32(s.cfg.Server.YamuxWindowSize) //nolint:gosec // config value validated
-	}
-	return 4 * 1024 * 1024 // 4MB default
-}
-
-// IPBanManager returns the server's IP ban manager (may be nil).
-func (s *Server) IPBanManager() *IPBanManager {
-	return s.ipBan
 }
 

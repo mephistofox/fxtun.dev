@@ -155,7 +155,7 @@ func TestMayNeedInterstitial(t *testing.T) {
 	}{
 		{"GET request", http.MethodGet, "", "", true},
 		{"POST skips", http.MethodPost, "", "", false},
-		{"skip header no longer bypasses", http.MethodGet, "", "1", true},
+		{"skip header", http.MethodGet, "", "1", false},
 		{"consent cookie", http.MethodGet, "1", "", false},
 	}
 
