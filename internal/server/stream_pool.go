@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
-const streamPoolSize = 16
+const streamPoolSize = 256
 
 // OpenStream returns a pre-opened yamux stream from the pool,
 // falling back to opening a new one via round-robin if the pool is empty.
