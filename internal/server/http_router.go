@@ -483,6 +483,14 @@ func generateExchangeID() string {
 	return "ex-" + hex.EncodeToString(b)
 }
 
+// normalizeHost strips the port from a host:port string, returning just the hostname.
+func normalizeHost(host string) string {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	return host
+}
+
 // buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
 func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
 	ex := &inspect.CapturedExchange{
@@ -493,7 +501,7 @@ func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string,
 		Duration:        time.Since(startTime),
 		Method:          req.Method,
 		Path:            req.URL.RequestURI(),
-		Host:            req.Host,
+		Host:            normalizeHost(req.Host),
 		RequestHeaders:  req.Header.Clone(),
 		RequestBody:     reqBody,
 		RequestBodySize: int64(len(reqBody)),
