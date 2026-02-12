@@ -108,6 +108,45 @@ tunnels:
 	assert.Equal(t, "from-fxtunnel", cfg.Tunnels[0].Name)
 }
 
+func TestInspectConfigDefaults(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "client.yaml")
+	yaml := `
+server:
+  address: "localhost:4443"
+`
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
+
+	cfg, err := LoadClientConfig(cfgFile)
+	require.NoError(t, err)
+	assert.True(t, cfg.Inspect.Enabled)
+	assert.Equal(t, "127.0.0.1:4040", cfg.Inspect.Addr)
+	assert.Equal(t, 262144, cfg.Inspect.MaxBodySize)
+	assert.Equal(t, 1000, cfg.Inspect.MaxEntries)
+}
+
+func TestInspectConfigOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "client.yaml")
+	yaml := `
+server:
+  address: "localhost:4443"
+inspect:
+  enabled: false
+  addr: "0.0.0.0:9090"
+  max_body_size: 1048576
+  max_entries: 500
+`
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
+
+	cfg, err := LoadClientConfig(cfgFile)
+	require.NoError(t, err)
+	assert.False(t, cfg.Inspect.Enabled)
+	assert.Equal(t, "0.0.0.0:9090", cfg.Inspect.Addr)
+	assert.Equal(t, 1048576, cfg.Inspect.MaxBodySize)
+	assert.Equal(t, 500, cfg.Inspect.MaxEntries)
+}
+
 func TestLoadClientConfig_FromFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "client.yaml")

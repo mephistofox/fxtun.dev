@@ -96,9 +96,10 @@ type DownloadsSettings struct {
 
 // InspectSettings contains traffic inspection configuration
 type InspectSettings struct {
-	Enabled     bool `mapstructure:"enabled"`
-	MaxEntries  int  `mapstructure:"max_entries"`
-	MaxBodySize int  `mapstructure:"max_body_size"`
+	Enabled     bool   `mapstructure:"enabled"`
+	Addr        string `mapstructure:"addr"`
+	MaxEntries  int    `mapstructure:"max_entries"`
+	MaxBodySize int    `mapstructure:"max_body_size"`
 }
 
 // TokenConfig defines a single auth token
