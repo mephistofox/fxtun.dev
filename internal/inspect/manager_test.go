@@ -158,7 +158,7 @@ func TestManager_AddAndPersist_NoUserID(t *testing.T) {
 	ex := &CapturedExchange{ID: "ex-1", TunnelID: "tunnel-1"}
 	m.AddAndPersist("tunnel-1", ex)
 
-	assert.Len(t, store.getSaved(), 0, "should not persist without user ID")
+	assert.Len(t, store.getSaved(), 1, "should persist even without user ID (legacy tokens)")
 }
 
 func TestManager_ListPersisted(t *testing.T) {

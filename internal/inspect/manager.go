@@ -106,9 +106,6 @@ func (m *Manager) AddAndPersist(tunnelID string, ex *CapturedExchange) {
 	m.mu.RLock()
 	userID := m.userIDs[tunnelID]
 	m.mu.RUnlock()
-	if userID == 0 {
-		return
-	}
 
 	if err := m.store.Save(ex, userID); err != nil {
 		log.Printf("[inspect] failed to persist exchange %s: %v", ex.ID, err)
