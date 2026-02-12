@@ -48,31 +48,30 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 
+	if s.inspectProvider == nil {
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"exchanges": []interface{}{},
+			"total":     0,
+		})
+		return
+	}
+
 	// Always use persisted data (DB) as source of truth for listing.
 	// DB contains full history; in-memory buffer is only for live SSE streaming.
-	if s.inspectProvider != nil {
-		host := s.tunnelSubdomain(tunnelID)
-		if host != "" {
-			host = host + "." + s.baseDomain
-		}
-		if host != "" {
-			exchanges, total, err := s.inspectProvider.ListPersistedByHostAndUser(host, user.ID, offset, limit)
-			if err == nil && total > 0 {
-				summaries := make([]inspect.ExchangeSummary, len(exchanges))
-				for i, ex := range exchanges {
-					summaries[i] = ex.Summary()
-				}
-				s.respondJSON(w, http.StatusOK, map[string]interface{}{
-					"exchanges": summaries,
-					"total":     total,
-				})
-				return
-			}
-		}
 
-		// Try by tunnel_id as last resort (current session data)
-		exchanges, total, err := s.inspectProvider.ListPersisted(tunnelID, offset, limit)
-		if err == nil && total > 0 {
+	// 1. Try by host (stable across server restarts / tunnel reconnects).
+	host := s.tunnelSubdomain(tunnelID)
+	if host != "" {
+		host = host + "." + s.baseDomain
+	}
+	if host != "" {
+		exchanges, total, err := s.inspectProvider.ListPersistedByHostAndUser(host, user.ID, offset, limit)
+		if err != nil {
+			s.log.Error().Err(err).Str("host", host).Msg("Failed to list persisted exchanges by host")
+			s.respondError(w, http.StatusInternalServerError, "failed to load exchanges")
+			return
+		}
+		if total > 0 {
 			summaries := make([]inspect.ExchangeSummary, len(exchanges))
 			for i, ex := range exchanges {
 				summaries[i] = ex.Summary()
@@ -83,6 +82,25 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+	}
+
+	// 2. Fallback: try by tunnel_id (current session data only).
+	exchanges, total, err := s.inspectProvider.ListPersisted(tunnelID, offset, limit)
+	if err != nil {
+		s.log.Error().Err(err).Str("tunnel_id", tunnelID).Msg("Failed to list persisted exchanges by tunnel_id")
+		s.respondError(w, http.StatusInternalServerError, "failed to load exchanges")
+		return
+	}
+	if total > 0 {
+		summaries := make([]inspect.ExchangeSummary, len(exchanges))
+		for i, ex := range exchanges {
+			summaries[i] = ex.Summary()
+		}
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"exchanges": summaries,
+			"total":     total,
+		})
+		return
 	}
 
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
@@ -287,9 +305,6 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 	var subdomain string
 	if s.tunnelProvider != nil {
 		tunnels := s.tunnelProvider.GetTunnelsByUserID(user.ID)
-		if user.IsAdmin {
-			tunnels = s.tunnelProvider.GetAllTunnels()
-		}
 		for _, t := range tunnels {
 			if t.ID == tunnelID {
 				subdomain = t.Subdomain
@@ -380,9 +395,6 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) checkTunnelAccess(tunnelID string, user *auth.AuthenticatedUser) error {
-	if user.IsAdmin {
-		return nil
-	}
 	if s.tunnelProvider == nil {
 		return fmt.Errorf("access denied")
 	}
