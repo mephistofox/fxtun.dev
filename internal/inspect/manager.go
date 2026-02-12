@@ -153,6 +153,16 @@ func (m *Manager) Remove(tunnelID string) {
 	}
 }
 
+// ForEach calls fn for each tunnel's RingBuffer under a read lock.
+// The callback receives the tunnel ID and its buffer.
+func (m *Manager) ForEach(fn func(tunnelID string, buf *RingBuffer)) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for id, buf := range m.buffers {
+		fn(id, buf)
+	}
+}
+
 // Close closes all buffers and clears the map.
 func (m *Manager) Close() {
 	m.mu.Lock()
