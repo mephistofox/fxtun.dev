@@ -69,18 +69,26 @@ type AuthMessage struct {
 	UserAgent string `json:"user_agent,omitempty"`
 }
 
+// ClientCapabilities describes features available based on the user's plan.
+type ClientCapabilities struct {
+	InspectorEnabled bool `json:"inspector_enabled"`
+	MaxBodySize      int  `json:"max_body_size,omitempty"`
+	MaxBufferEntries int  `json:"max_buffer_entries,omitempty"`
+}
+
 // AuthResultMessage is the server response to authentication
 type AuthResultMessage struct {
 	Message
-	Success     bool   `json:"success"`
-	ClientID    string `json:"client_id,omitempty"`
-	Error       string `json:"error,omitempty"`
-	Code        string `json:"code,omitempty"`
-	MaxTunnels  int    `json:"max_tunnels,omitempty"`
-	ServerName  string `json:"server_name,omitempty"`
-	SessionID     string `json:"session_id,omitempty"`
-	SessionSecret string `json:"session_secret,omitempty"`
-	MinVersion    string `json:"min_version,omitempty"`
+	Success       bool                `json:"success"`
+	ClientID      string              `json:"client_id,omitempty"`
+	Error         string              `json:"error,omitempty"`
+	Code          string              `json:"code,omitempty"`
+	MaxTunnels    int                 `json:"max_tunnels,omitempty"`
+	ServerName    string              `json:"server_name,omitempty"`
+	SessionID     string              `json:"session_id,omitempty"`
+	SessionSecret string              `json:"session_secret,omitempty"`
+	MinVersion    string              `json:"min_version,omitempty"`
+	Capabilities  *ClientCapabilities `json:"capabilities,omitempty"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel

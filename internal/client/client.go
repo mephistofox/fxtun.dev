@@ -19,6 +19,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 )
 
@@ -103,6 +104,9 @@ type Client struct {
 	tokenMu        sync.RWMutex
 
 	lastPong atomic.Int64 // unix nano timestamp of last pong received
+
+	inspector  *Inspector
+	inspectMgr *inspect.Manager
 }
 
 // ActiveTunnel represents an active tunnel on the client side
@@ -256,6 +260,13 @@ func (c *Client) Connect() error {
 		}
 	}
 
+	if c.inspector != nil {
+		c.inspector.SetTunnels(c.tunnels, &c.tunnelsMu)
+		if err := c.inspector.Start(c.ctx); err != nil {
+			c.log.Warn().Err(err).Msg("Failed to start inspector")
+		}
+	}
+
 	return nil
 }
 
@@ -305,8 +316,27 @@ func (c *Client) authenticate() error {
 	c.clientID = result.ClientID
 	c.sessionID = result.SessionID
 	c.sessionSecret = result.SessionSecret
+	c.applyCapabilities(result.Capabilities)
 
 	return nil
+}
+
+func (c *Client) applyCapabilities(caps *protocol.ClientCapabilities) {
+	if caps == nil || !caps.InspectorEnabled || !c.cfg.Inspect.Enabled {
+		return
+	}
+
+	maxBodySize := c.cfg.Inspect.MaxBodySize
+	if caps.MaxBodySize > 0 {
+		maxBodySize = caps.MaxBodySize
+	}
+	maxEntries := c.cfg.Inspect.MaxEntries
+	if caps.MaxBufferEntries > 0 {
+		maxEntries = caps.MaxBufferEntries
+	}
+
+	c.inspectMgr = inspect.NewManager(maxEntries, maxBodySize)
+	c.inspector = NewInspector(c.inspectMgr, c.cfg.Inspect.Addr, maxBodySize, c.log)
 }
 
 // RequestTunnel requests a new tunnel
@@ -676,29 +706,58 @@ func (c *Client) handleStream(stream net.Conn) {
 	}
 
 	// Bidirectional copy with byte counting and large buffers
-	done := make(chan struct{}, 2)
-	download := &countingWriter{w: local, count: &tunnel.BytesReceived}
-	upload := &countingWriter{w: stream, count: &tunnel.BytesSent}
+	if tunnel.Config.Type == "http" && c.inspector != nil {
+		cap := NewCapture(tunnel.ID, tunnel.Config.Name, c.inspectMgr.MaxBodySize())
+		wrappedStream := cap.WrapRequest(streamReader)
+		wrappedLocal := cap.WrapResponse(local)
 
-	go func() {
-		bp := proxyBufPool.Get().(*[]byte)
-		_, _ = io.CopyBuffer(download, streamReader, *bp) // download: stream → local
-		proxyBufPool.Put(bp)
-		done <- struct{}{}
-	}()
+		done := make(chan struct{}, 2)
+		go func() {
+			bp := proxyBufPool.Get().(*[]byte)
+			_, _ = io.CopyBuffer(&countingWriter{w: local, count: &tunnel.BytesReceived}, wrappedStream, *bp)
+			proxyBufPool.Put(bp)
+			done <- struct{}{}
+		}()
+		go func() {
+			bp := proxyBufPool.Get().(*[]byte)
+			_, _ = io.CopyBuffer(&countingWriter{w: stream, count: &tunnel.BytesSent}, wrappedLocal, *bp)
+			proxyBufPool.Put(bp)
+			done <- struct{}{}
+		}()
+		<-done
+		_ = local.Close()
+		_ = stream.Close()
+		<-done
 
-	go func() {
-		bp := proxyBufPool.Get().(*[]byte)
-		_, _ = io.CopyBuffer(upload, local, *bp) // upload: local → stream
-		proxyBufPool.Put(bp)
-		done <- struct{}{}
-	}()
+		go func() {
+			if ex, err := cap.Finalize(); err == nil {
+				c.inspector.AddExchange(ex)
+			}
+		}()
+	} else {
+		done := make(chan struct{}, 2)
+		download := &countingWriter{w: local, count: &tunnel.BytesReceived}
+		upload := &countingWriter{w: stream, count: &tunnel.BytesSent}
 
-	<-done
-	// Close both to unblock the other goroutine
-	_ = local.Close()
-	_ = stream.Close()
-	<-done
+		go func() {
+			bp := proxyBufPool.Get().(*[]byte)
+			_, _ = io.CopyBuffer(download, streamReader, *bp) // download: stream → local
+			proxyBufPool.Put(bp)
+			done <- struct{}{}
+		}()
+
+		go func() {
+			bp := proxyBufPool.Get().(*[]byte)
+			_, _ = io.CopyBuffer(upload, local, *bp) // upload: local → stream
+			proxyBufPool.Put(bp)
+			done <- struct{}{}
+		}()
+
+		<-done
+		_ = local.Close()
+		_ = stream.Close()
+		<-done
+	}
 
 	if httpMethod != "" {
 		elapsed := time.Since(reqStart).Milliseconds()
@@ -852,6 +911,12 @@ func (c *Client) reconnect() {
 		c.tunnels = make(map[string]*ActiveTunnel)
 		c.tunnelsMu.Unlock()
 
+		if c.inspector != nil {
+			_ = c.inspector.Stop()
+			c.inspector = nil
+			c.inspectMgr = nil
+		}
+
 		// Cancel old context and wait for goroutines to finish
 		c.cancel()
 		c.wg.Wait()
@@ -950,9 +1015,21 @@ func (c *Client) Wait() {
 	c.wg.Wait()
 }
 
+// InspectorAddr returns the actual inspector address, or empty if not running.
+func (c *Client) InspectorAddr() string {
+	if c.inspector != nil {
+		return c.inspector.Addr()
+	}
+	return ""
+}
+
 // Close closes the client
 func (c *Client) Close() {
 	c.cancel()
+
+	if c.inspector != nil {
+		_ = c.inspector.Stop()
+	}
 
 	if c.controlStream != nil {
 		c.controlStream.Close()
