@@ -34,3 +34,4 @@ client.yaml
 
 seo-promotion-checklist.md
 .vite-ssg-temp/
+.worktrees/

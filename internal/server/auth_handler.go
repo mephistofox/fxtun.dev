@@ -57,14 +57,15 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 			// Send success
 			result := &protocol.AuthResultMessage{
-				Message:    protocol.NewMessage(protocol.MsgAuthResult),
-				Success:    true,
-				ClientID:   client.ID,
-				MaxTunnels: maxTunnels,
+				Message:       protocol.NewMessage(protocol.MsgAuthResult),
+				Success:       true,
+				ClientID:      client.ID,
+				MaxTunnels:    maxTunnels,
 				ServerName:    s.cfg.Domain.Base,
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
 				MinVersion:    s.cfg.Server.MinVersion,
+				Capabilities:  buildCapabilities(client.Plan),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -119,6 +120,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
 				MinVersion:    s.cfg.Server.MinVersion,
+				Capabilities:  buildCapabilities(client.Plan),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -157,6 +159,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			SessionID:     client.ID,
 			SessionSecret: client.SessionSecret,
 			MinVersion:    s.cfg.Server.MinVersion,
+			Capabilities:  buildCapabilities(client.Plan),
 		}
 		if err := codec.Encode(result); err != nil {
 			client.Close()
@@ -179,6 +182,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		SessionID:     client.ID,
 		SessionSecret: client.SessionSecret,
 		MinVersion:    s.cfg.Server.MinVersion,
+		Capabilities:  buildCapabilities(client.Plan),
 	}
 	if err := codec.Encode(result); err != nil {
 		client.Close()
@@ -321,4 +325,15 @@ func isJWT(token string) bool {
 func hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+// buildCapabilities creates ClientCapabilities from the user's plan.
+// Returns nil if no plan is set (legacy tokens).
+func buildCapabilities(plan *database.Plan) *protocol.ClientCapabilities {
+	if plan == nil {
+		return nil
+	}
+	return &protocol.ClientCapabilities{
+		InspectorEnabled: plan.InspectorEnabled,
+	}
 }

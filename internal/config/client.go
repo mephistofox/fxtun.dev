@@ -15,6 +15,7 @@ type ClientConfig struct {
 	Server    ClientServerSettings `mapstructure:"server"`
 	Tunnels   []TunnelConfig       `mapstructure:"tunnels"`
 	Reconnect ReconnectSettings    `mapstructure:"reconnect"`
+	Inspect   InspectSettings      `mapstructure:"inspect"`
 	Logging   LoggingSettings      `mapstructure:"logging"`
 }
 
@@ -56,6 +57,10 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	v.SetDefault("reconnect.enabled", true)
 	v.SetDefault("reconnect.interval", "5s")
 	v.SetDefault("reconnect.max_attempts", 0)
+	v.SetDefault("inspect.enabled", true)
+	v.SetDefault("inspect.addr", "127.0.0.1:4040")
+	v.SetDefault("inspect.max_body_size", 262144)
+	v.SetDefault("inspect.max_entries", 1000)
 	v.SetDefault("logging.level", "info")
 	v.SetDefault("logging.format", "console")
 

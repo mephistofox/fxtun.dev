@@ -39,6 +39,10 @@ var (
 	// Quick tunnel flags
 	remotePort int
 	domain     string
+
+	// Inspector flags
+	inspectAddr string
+	noInspect   bool
 )
 
 func main() {
@@ -71,6 +75,8 @@ For GUI mode, use fxtunnel-gui binary.`,
 	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Authentication token")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
+	rootCmd.PersistentFlags().StringVar(&inspectAddr, "inspect-addr", "", "Inspector listen address (default 127.0.0.1:4040)")
+	rootCmd.PersistentFlags().BoolVar(&noInspect, "no-inspect", false, "Disable local traffic inspector")
 
 	// HTTP tunnel command
 	httpCmd := &cobra.Command{
@@ -173,6 +179,12 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	}
 	if token != "" {
 		cfg.Server.Token = token
+	}
+	if noInspect {
+		cfg.Inspect.Enabled = false
+	}
+	if inspectAddr != "" {
+		cfg.Inspect.Addr = inspectAddr
 	}
 
 	// Normalize server address (add default port if missing)
@@ -504,6 +516,19 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 			Interval:    5 * time.Second,
 			MaxAttempts: 0,
 		},
+		Inspect: config.InspectSettings{
+			Enabled:     true,
+			Addr:        "127.0.0.1:4040",
+			MaxBodySize: 262144,
+			MaxEntries:  1000,
+		},
+	}
+
+	if noInspect {
+		cfg.Inspect.Enabled = false
+	}
+	if inspectAddr != "" {
+		cfg.Inspect.Addr = inspectAddr
 	}
 
 	return cfg
@@ -561,6 +586,9 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}
 		fmt.Printf("  Forwarding to localhost:%d\n", t.Config.LocalPort)
+	}
+	if addr := c.InspectorAddr(); addr != "" {
+		fmt.Printf("  Inspector: http://%s\n", addr)
 	}
 	fmt.Println("  \033[90mReady to receive connections\033[0m")
 
