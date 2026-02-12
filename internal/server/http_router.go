@@ -88,18 +88,6 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.server.activeConns.Add(1)
 	defer r.server.activeConns.Done()
 
-	// Check IP ban
-	if r.server.ipBan != nil {
-		clientIP := req.RemoteAddr
-		if host, _, err := net.SplitHostPort(clientIP); err == nil {
-			clientIP = host
-		}
-		if r.server.ipBan.IsBanned(clientIP) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-	}
-
 	// ACME challenge intercept
 	if r.server.certManager != nil && strings.HasPrefix(req.URL.Path, "/.well-known/acme-challenge/") {
 		r.server.certManager.HandleACMEChallenge(w, req)
@@ -137,23 +125,6 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Per-tunnel concurrency limit
-	if tunnel.reqSem != nil {
-		select {
-		case tunnel.reqSem <- struct{}{}:
-			defer func() { <-tunnel.reqSem }()
-		default:
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-			return
-		}
-	}
-
-	// Request body size limit (skip for upgrade/WebSocket requests)
-	maxBody := r.server.cfg.Server.MaxTunnelRequestBody
-	if maxBody > 0 && req.Body != nil && !isUpgradeRequest(req) {
-		req.Body = http.MaxBytesReader(w, req.Body, maxBody)
-	}
-
 	// Determine if interstitial might be needed (will check response Content-Type later)
 	isCustomDomain := r.server.LookupCustomDomain(req.Host) != nil
 	mayNeedInterstitial := !client.IsAdmin && !isCustomDomain && r.mayNeedInterstitial(req, subdomain)
@@ -170,19 +141,6 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer stream.Close()
-
-	// Close stream when client disconnects or write timeout fires.
-	// This unblocks any pending tunnel-side reads/writes and ensures
-	// the concurrency semaphore slot is released promptly.
-	streamClosed := make(chan struct{})
-	go func() {
-		select {
-		case <-req.Context().Done():
-			stream.Close()
-		case <-streamClosed:
-		}
-	}()
-	defer close(streamClosed)
 
 	// Send binary stream header
 	remoteAddr := req.RemoteAddr
@@ -224,24 +182,16 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req.Body = io.NopCloser(io.TeeReader(req.Body, &limitedWriter{w: &capturedReqBuf, remaining: maxBody}))
 	}
 
-	// Apply bandwidth throttling if configured
-	var streamReader io.Reader = stream
-	var streamWriter io.Writer = stream
-	if client.bwLimiter != nil {
-		streamReader = client.bwLimiter.Reader(req.Context(), stream)
-		streamWriter = client.bwLimiter.Writer(req.Context(), stream)
-	}
-
-	// Write the HTTP request to the stream (via throttled writer)
-	if err := req.Write(streamWriter); err != nil {
+	// Write the HTTP request to the stream
+	if err := req.Write(stream); err != nil {
 		r.log.Error().Err(err).Msg("Failed to write request to stream")
 		r.serveErrorPage(w, http.StatusBadGateway, "Failed to proxy request")
 		return
 	}
 
-	// Read response from stream (via throttled reader)
-	bufferedReader := bufio.NewReader(streamReader)
-	resp, err := http.ReadResponse(bufferedReader, req)
+	// Read response from stream
+	streamReader := bufio.NewReader(stream)
+	resp, err := http.ReadResponse(streamReader, req)
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to read response from tunnel")
 		r.serveErrorPage(w, http.StatusBadGateway, "Failed to read tunnel response")
@@ -420,6 +370,11 @@ func (r *HTTPRouter) extractSubdomain(host string) string {
 func (r *HTTPRouter) mayNeedInterstitial(req *http.Request, subdomain string) bool {
 	// Only for GET requests
 	if req.Method != http.MethodGet {
+		return false
+	}
+
+	// Skip if explicit header is set
+	if req.Header.Get("X-FxTunnel-Skip-Warning") != "" {
 		return false
 	}
 

@@ -1,12 +1,10 @@
 package config
 
 import (
-	"crypto/subtle"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -38,45 +36,6 @@ type ServerSettings struct {
 	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
 	CompressionEnabled bool      `mapstructure:"compression_enabled"`
 	MinVersion         string    `mapstructure:"min_version"`
-	MaxControlConns    int       `mapstructure:"max_control_conns"`
-	MaxConnsPerIP      int       `mapstructure:"max_conns_per_ip"`
-
-	// HTTP tunnel timeouts
-	HTTPReadTimeout  time.Duration `mapstructure:"http_read_timeout"`
-	HTTPWriteTimeout time.Duration `mapstructure:"http_write_timeout"`
-	HTTPIdleTimeout  time.Duration `mapstructure:"http_idle_timeout"`
-
-	// Accept rate limiting (connections per second)
-	AcceptRateGlobal int `mapstructure:"accept_rate_global"`
-	AcceptRatePerIP  int `mapstructure:"accept_rate_per_ip"`
-
-	// IP ban
-	IPBan IPBanConfig `mapstructure:"ip_ban"`
-
-	// Per-tunnel concurrency limit for HTTP requests
-	MaxConcurrentRequestsPerTunnel int `mapstructure:"max_concurrent_requests_per_tunnel"`
-
-	// Max request body size for tunnel traffic (bytes, 0 = unlimited)
-	MaxTunnelRequestBody int64 `mapstructure:"max_tunnel_request_body"`
-
-	// Buffer sizes
-	TCPBufferSize   int `mapstructure:"tcp_buffer_size"`
-	YamuxWindowSize int `mapstructure:"yamux_window_size"`
-	ProxyBufferSize int `mapstructure:"proxy_buffer_size"`
-
-	// Bandwidth limit per client (Mbps, 0 = unlimited)
-	BandwidthLimitMbps int `mapstructure:"bandwidth_limit_mbps"`
-}
-
-// IPBanConfig contains automatic IP ban settings
-type IPBanConfig struct {
-	Enabled        bool          `mapstructure:"enabled"`
-	AuthThreshold  int           `mapstructure:"auth_threshold"`
-	AuthWindow     time.Duration `mapstructure:"auth_window"`
-	FloodThreshold int           `mapstructure:"flood_threshold"`
-	FloodWindow    time.Duration `mapstructure:"flood_window"`
-	BanDuration    time.Duration `mapstructure:"ban_duration"`
-	MaxBanDuration time.Duration `mapstructure:"max_ban_duration"`
 }
 
 // PortRange defines a range of ports
@@ -261,24 +220,6 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("server.udp_port_range.min", 20001)
 	v.SetDefault("server.udp_port_range.max", 30000)
 	v.SetDefault("server.compression_enabled", true)
-	v.SetDefault("server.http_read_timeout", "30s")
-	v.SetDefault("server.http_write_timeout", "120s")
-	v.SetDefault("server.http_idle_timeout", "120s")
-	v.SetDefault("server.accept_rate_global", 50)
-	v.SetDefault("server.accept_rate_per_ip", 5)
-	v.SetDefault("server.ip_ban.enabled", true)
-	v.SetDefault("server.ip_ban.auth_threshold", 5)
-	v.SetDefault("server.ip_ban.auth_window", "5m")
-	v.SetDefault("server.ip_ban.flood_threshold", 20)
-	v.SetDefault("server.ip_ban.flood_window", "10s")
-	v.SetDefault("server.ip_ban.ban_duration", "1h")
-	v.SetDefault("server.ip_ban.max_ban_duration", "24h")
-	v.SetDefault("server.max_concurrent_requests_per_tunnel", 100)
-	v.SetDefault("server.max_tunnel_request_body", 104857600)
-	v.SetDefault("server.tcp_buffer_size", 262144)
-	v.SetDefault("server.yamux_window_size", 4194304)
-	v.SetDefault("server.proxy_buffer_size", 131072)
-	v.SetDefault("server.bandwidth_limit_mbps", 10)
 	v.SetDefault("domain.base", "localhost")
 	v.SetDefault("domain.wildcard", true)
 	v.SetDefault("auth.enabled", false)
@@ -404,7 +345,7 @@ func (c *ServerConfig) Validate() error {
 // FindToken finds a token configuration by token string
 func (c *ServerConfig) FindToken(token string) *TokenConfig {
 	for i := range c.Auth.Tokens {
-		if subtle.ConstantTimeCompare([]byte(c.Auth.Tokens[i].Token), []byte(token)) == 1 {
+		if c.Auth.Tokens[i].Token == token {
 			return &c.Auth.Tokens[i]
 		}
 	}
