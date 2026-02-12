@@ -759,12 +759,13 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		Created:   time.Now(),
 	}
 
+	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
+
 	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
+		c.server.inspectMgr.Remove(tunnelID)
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, err.Error())
 		return
 	}
-
-	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
 
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel
