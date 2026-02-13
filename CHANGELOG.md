@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.2](https://github.com/mephistofox/fxTunnel/compare/v3.4.1...v3.4.2) (2026-02-13)
+
+
+### Bug Fixes
+
+* **ci:** use systemctl stop instead of kill in deploy ([cae60b5](https://github.com/mephistofox/fxTunnel/commit/cae60b565fa0ebe91a54ed12c839586307fc12e6))
+
 ## [3.4.1](https://github.com/mephistofox/fxTunnel/compare/v3.4.0...v3.4.1) (2026-02-13)
 
 
