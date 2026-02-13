@@ -265,8 +265,11 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // isUpgradeRequest returns true if the request is a WebSocket or other HTTP upgrade.
+// Checks both Connection: upgrade AND a non-empty Upgrade header, because reverse
+// proxies (nginx) may always set Connection: upgrade for all requests.
 func isUpgradeRequest(req *http.Request) bool {
-	return strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade")
+	return strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade") &&
+		req.Header.Get("Upgrade") != ""
 }
 
 // serveUpgrade hijacks the connection and performs bidirectional proxying
