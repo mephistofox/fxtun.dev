@@ -13,9 +13,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
-	"github.com/mephistofox/fxtunnel/internal/storage"
+	"github.com/mephistofox/fxtun.dev/internal/client"
+	"github.com/mephistofox/fxtun.dev/internal/keyring"
+	"github.com/mephistofox/fxtun.dev/internal/storage"
 )
 
 // App is the main application struct for Wails

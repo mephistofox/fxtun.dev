@@ -1,4 +1,4 @@
-module github.com/mephistofox/fxtunnel
+module github.com/mephistofox/fxtun.dev
 
 go 1.24.0
 

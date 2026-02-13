@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 )
 
 // Capture records HTTP request/response bytes flowing through a tunnel connection.

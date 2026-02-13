@@ -3,8 +3,8 @@ package client
 import (
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 	"github.com/rs/zerolog"
 )
 

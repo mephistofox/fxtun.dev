@@ -1,6 +1,6 @@
 package client
 
-import "github.com/mephistofox/fxtunnel/internal/protocol"
+import "github.com/mephistofox/fxtun.dev/internal/protocol"
 
 // AuthError represents an authentication error with a specific code
 type AuthError struct {

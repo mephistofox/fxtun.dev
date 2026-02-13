@@ -17,12 +17,12 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	"github.com/mephistofox/fxtun.dev/internal/auth"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/tls"
 )
 
 const (

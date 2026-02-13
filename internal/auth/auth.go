@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/database"
 	"github.com/rs/zerolog"
 )
 

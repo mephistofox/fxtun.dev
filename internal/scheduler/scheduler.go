@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
-	"github.com/mephistofox/fxtunnel/internal/payment"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/payment"
 )
 
 // EventType represents the type of scheduler event

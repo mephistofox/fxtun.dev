@@ -3,7 +3,7 @@ package server
 import (
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtun.dev/internal/database"
 )
 
 func TestBuildCapabilities(t *testing.T) {
