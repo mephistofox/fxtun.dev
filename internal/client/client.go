@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -316,6 +317,16 @@ func (c *Client) authenticate() error {
 	c.clientID = result.ClientID
 	c.sessionID = result.SessionID
 	c.sessionSecret = result.SessionSecret
+
+	if result.Capabilities != nil {
+		c.log.Debug().
+			Bool("inspector_enabled", result.Capabilities.InspectorEnabled).
+			Int("max_body_size", result.Capabilities.MaxBodySize).
+			Int("max_buffer_entries", result.Capabilities.MaxBufferEntries).
+			Msg("Server capabilities received")
+	} else {
+		c.log.Debug().Msg("No capabilities from server (nil)")
+	}
 	c.applyCapabilities(result.Capabilities)
 
 	return nil
@@ -706,34 +717,76 @@ func (c *Client) handleStream(stream net.Conn) {
 	}
 
 	// Bidirectional copy with byte counting and large buffers
+	c.log.Debug().
+		Str("tunnel_type", tunnel.Config.Type).
+		Bool("inspector_exists", c.inspector != nil).
+		Bool("inspectmgr_exists", c.inspectMgr != nil).
+		Msg("handleStream capture check")
 	if tunnel.Config.Type == "http" && c.inspector != nil {
 		cap := NewCapture(tunnel.ID, tunnel.Config.Name, c.inspectMgr.MaxBodySize())
-		wrappedStream := cap.WrapRequest(streamReader)
-		wrappedLocal := cap.WrapResponse(local)
 
-		done := make(chan struct{}, 2)
-		go func() {
-			bp := proxyBufPool.Get().(*[]byte)
-			_, _ = io.CopyBuffer(&countingWriter{w: local, count: &tunnel.BytesReceived}, wrappedStream, *bp)
-			proxyBufPool.Put(bp)
-			done <- struct{}{}
-		}()
-		go func() {
-			bp := proxyBufPool.Get().(*[]byte)
-			_, _ = io.CopyBuffer(&countingWriter{w: stream, count: &tunnel.BytesSent}, wrappedLocal, *bp)
-			proxyBufPool.Put(bp)
-			done <- struct{}{}
-		}()
-		<-done
-		_ = local.Close()
-		_ = stream.Close()
-		<-done
+		// Parse HTTP request from the stream (server sends a complete HTTP request).
+		reqBuf := bufio.NewReader(streamReader)
+		httpReq, reqErr := http.ReadRequest(reqBuf)
+		if reqErr != nil {
+			// Not valid HTTP — fall back to raw bidirectional copy without capture.
+			c.log.Debug().Err(reqErr).Msg("Inspector: not valid HTTP request, falling back to raw proxy")
+			done := make(chan struct{}, 2)
+			go func() {
+				bp := proxyBufPool.Get().(*[]byte)
+				_, _ = io.CopyBuffer(&countingWriter{w: local, count: &tunnel.BytesReceived}, reqBuf, *bp)
+				proxyBufPool.Put(bp)
+				done <- struct{}{}
+			}()
+			go func() {
+				bp := proxyBufPool.Get().(*[]byte)
+				_, _ = io.CopyBuffer(&countingWriter{w: stream, count: &tunnel.BytesSent}, local, *bp)
+				proxyBufPool.Put(bp)
+				done <- struct{}{}
+			}()
+			<-done
+			_ = local.Close()
+			_ = stream.Close()
+			<-done
+			return
+		}
 
-		go func() {
-			if ex, err := cap.Finalize(); err == nil {
-				c.inspector.AddExchange(ex)
-			}
-		}()
+		// Capture request metadata and body.
+		cap.CaptureRequest(httpReq)
+
+		// Forward the request to the local service.
+		if writeErr := httpReq.Write(local); writeErr != nil {
+			c.log.Debug().Err(writeErr).Msg("Inspector: failed to forward request to local")
+			return
+		}
+		tunnel.BytesReceived.Add(httpReq.ContentLength)
+
+		// Read the HTTP response from local service (respects Content-Length/chunked).
+		localBuf := bufio.NewReader(local)
+		resp, respErr := http.ReadResponse(localBuf, httpReq)
+		if respErr != nil {
+			c.log.Debug().Err(respErr).Msg("Inspector: failed to read HTTP response from local")
+			return
+		}
+
+		// Capture response BEFORE Write (reads body, replaces with buffer).
+		cap.CaptureResponse(resp)
+
+		// Write the HTTP response back to the stream (server).
+		if writeErr := resp.Write(stream); writeErr != nil {
+			c.log.Debug().Err(writeErr).Msg("Inspector: failed to write response to stream")
+		}
+		resp.Body.Close()
+		tunnel.BytesSent.Add(resp.ContentLength)
+
+		// Finalize and store exchange.
+		ex, err := cap.Finalize()
+		if err != nil {
+			c.log.Error().Err(err).Msg("Capture finalize failed")
+		} else {
+			c.log.Debug().Str("method", ex.Method).Str("path", ex.Path).Int("status", ex.StatusCode).Msg("Exchange captured")
+			c.inspector.AddExchange(ex)
+		}
 	} else {
 		done := make(chan struct{}, 2)
 		download := &countingWriter{w: local, count: &tunnel.BytesReceived}

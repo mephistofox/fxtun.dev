@@ -35,6 +35,10 @@ type Inspector struct {
 	server      *http.Server
 	actualAddr  string
 	log         zerolog.Logger
+
+	// Global broadcast for SSE subscribers.
+	sseSubsMu sync.RWMutex
+	sseSubs   map[chan *inspect.CapturedExchange]struct{}
 }
 
 // NewInspector creates a new Inspector with all routes configured.
@@ -46,6 +50,7 @@ func NewInspector(manager *inspect.Manager, addr string, maxBodySize int, log ze
 		startTime:   time.Now(),
 		mux:         http.NewServeMux(),
 		log:         log.With().Str("component", "inspector").Logger(),
+		sseSubs:     make(map[chan *inspect.CapturedExchange]struct{}),
 	}
 
 	// Register routes. summary must be registered before {id} to be safe.
@@ -58,10 +63,10 @@ func NewInspector(manager *inspect.Manager, addr string, maxBodySize int, log ze
 	i.mux.HandleFunc("GET /api/tunnels", i.handleListTunnels)
 	i.mux.HandleFunc("GET /api/status", i.handleStatus)
 
-	// Serve embedded UI files.
+	// Serve embedded UI files with no-cache to prevent stale JS.
 	uiFS, err := fs.Sub(inspectorUIFS, "inspector_ui")
 	if err == nil {
-		i.mux.Handle("/", http.FileServerFS(uiFS))
+		i.mux.Handle("/", noCacheMiddleware(http.FileServerFS(uiFS)))
 	}
 
 	return i
@@ -137,12 +142,29 @@ func (i *Inspector) Addr() string {
 	return i.actualAddr
 }
 
-// AddExchange adds a captured exchange to the appropriate tunnel buffer.
+// AddExchange adds a captured exchange to the appropriate tunnel buffer
+// and broadcasts to all SSE subscribers.
 func (i *Inspector) AddExchange(ex *inspect.CapturedExchange) {
 	buf := i.manager.GetOrCreate(ex.TunnelID)
 	if buf != nil {
 		buf.Add(ex)
 	}
+	// Broadcast to SSE subscribers.
+	i.sseSubsMu.RLock()
+	for ch := range i.sseSubs {
+		select {
+		case ch <- ex:
+		default:
+		}
+	}
+	i.sseSubsMu.RUnlock()
+}
+
+func noCacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // SetTunnels gives the inspector access to the client's active tunnels.
@@ -408,31 +430,16 @@ func (i *Inspector) handleSSEStream(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	// Subscribe to all existing buffers and merge into a single channel.
-	merged := make(chan *inspect.CapturedExchange, 128)
-	type sub struct {
-		buf *inspect.RingBuffer
-		ch  chan *inspect.CapturedExchange
-	}
-	var subs []sub
-
-	i.manager.ForEach(func(_ string, buf *inspect.RingBuffer) {
-		ch := buf.Subscribe()
-		subs = append(subs, sub{buf: buf, ch: ch})
-		go func(ch chan *inspect.CapturedExchange) {
-			for ex := range ch {
-				select {
-				case merged <- ex:
-				default:
-				}
-			}
-		}(ch)
-	})
+	// Subscribe to the global broadcast channel.
+	ch := make(chan *inspect.CapturedExchange, 128)
+	i.sseSubsMu.Lock()
+	i.sseSubs[ch] = struct{}{}
+	i.sseSubsMu.Unlock()
 
 	defer func() {
-		for _, s := range subs {
-			s.buf.Unsubscribe(s.ch)
-		}
+		i.sseSubsMu.Lock()
+		delete(i.sseSubs, ch)
+		i.sseSubsMu.Unlock()
 	}()
 
 	pingTicker := time.NewTicker(30 * time.Second)
@@ -443,7 +450,7 @@ func (i *Inspector) handleSSEStream(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-ctx.Done():
 			return
-		case ex := <-merged:
+		case ex := <-ch:
 			data, err := json.Marshal(ex.Summary())
 			if err != nil {
 				continue

@@ -211,6 +211,9 @@ function replayExchange(id) {
 }
 
 // --------------- SSE ---------------
+var sseRetryDelay = 3000;
+var sseMaxDelay = 30000;
+
 function connectSSE() {
     if (eventSource) {
         eventSource.close();
@@ -221,21 +224,55 @@ function connectSSE() {
     eventSource.addEventListener('exchange', function(e) {
         try {
             var ex = JSON.parse(e.data);
-            // SSE sends summary objects (no bodies), merge into list
-            // Prepend to array (newest first)
-            exchanges.unshift(ex);
-            // Cap at 500 entries in the UI list
-            if (exchanges.length > 500) exchanges.length = 500;
-            renderExchangeList();
-            fetchSummary();
+            // Deduplicate by ID
+            if (!exchanges.some(function(x) { return x.id === ex.id; })) {
+                exchanges.unshift(ex);
+                if (exchanges.length > 500) exchanges.length = 500;
+                renderExchangeList();
+                fetchSummary();
+            }
         } catch (_) {}
     });
 
-    eventSource.onerror = function() {
-        // Reconnect after a delay
-        eventSource.close();
-        setTimeout(connectSSE, 3000);
+    eventSource.onopen = function() {
+        sseRetryDelay = 3000; // Reset backoff on success
     };
+
+    eventSource.onerror = function() {
+        eventSource.close();
+        setTimeout(connectSSE, sseRetryDelay);
+        sseRetryDelay = Math.min(sseRetryDelay * 2, sseMaxDelay);
+    };
+}
+
+// --------------- Background sync (fallback) ---------------
+function backgroundSync() {
+    fetch('/api/requests/http?limit=100')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var newExchanges = data.requests || [];
+            if (newExchanges.length === 0) return;
+            // Build set of existing IDs for fast lookup
+            var existingIds = {};
+            exchanges.forEach(function(ex) { existingIds[ex.id] = true; });
+            var added = 0;
+            newExchanges.forEach(function(ex) {
+                if (!existingIds[ex.id]) {
+                    exchanges.unshift(ex);
+                    added++;
+                }
+            });
+            if (added > 0) {
+                // Sort by timestamp descending
+                exchanges.sort(function(a, b) {
+                    return new Date(b.timestamp) - new Date(a.timestamp);
+                });
+                if (exchanges.length > 500) exchanges.length = 500;
+                renderExchangeList();
+                fetchSummary();
+            }
+        })
+        .catch(function() {});
 }
 
 // --------------- Rendering: List ---------------
@@ -607,6 +644,9 @@ function init() {
 
     // Periodic summary refresh
     summaryTimer = setInterval(fetchSummary, 5000);
+
+    // Background sync as fallback to SSE (every 2s)
+    setInterval(backgroundSync, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', init);

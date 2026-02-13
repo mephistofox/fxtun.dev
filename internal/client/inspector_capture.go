@@ -14,12 +14,18 @@ import (
 
 // Capture records HTTP request/response bytes flowing through a tunnel connection.
 type Capture struct {
-	tunnelID    string
-	tunnelName  string
-	maxBodySize int
-	startTime   time.Time
-	reqBuf      bytes.Buffer
-	respBuf     bytes.Buffer
+	tunnelID     string
+	tunnelName   string
+	maxBodySize  int
+	startTime    time.Time
+	reqBuf       bytes.Buffer  // used by TeeReader path (non-HTTP fallback)
+	respBuf      bytes.Buffer  // used by TeeReader path (non-HTTP fallback)
+	parsedReq    *http.Request // set when request is parsed at HTTP level
+	parsedResp   *http.Response
+	reqBody      []byte
+	reqBodySize  int64
+	respBody     []byte
+	respBodySize int64
 }
 
 // NewCapture creates a new capture for a single HTTP exchange.
@@ -42,6 +48,35 @@ func (c *Capture) WrapResponse(r io.Reader) io.Reader {
 	return io.TeeReader(r, &c.respBuf)
 }
 
+// CaptureRequest captures HTTP request metadata and body.
+// Replaces req.Body so the caller can still use req.Write().
+func (c *Capture) CaptureRequest(req *http.Request) {
+	c.parsedReq = req
+	if req.Body != nil {
+		body, _ := io.ReadAll(req.Body)
+		req.Body.Close()
+		c.reqBody = c.truncateBody(body)
+		c.reqBodySize = int64(len(body))
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		req.ContentLength = int64(len(body))
+	}
+}
+
+// CaptureResponse captures HTTP response metadata and body.
+// Must be called BEFORE resp.Write() since Write drains the body.
+// Replaces resp.Body with a new reader so the caller can still use resp.Write().
+func (c *Capture) CaptureResponse(resp *http.Response) {
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	// Store captured data.
+	c.parsedResp = resp
+	c.respBody = c.truncateBody(body)
+	c.respBodySize = int64(len(body))
+	// Replace body so resp.Write() can still send it.
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+}
+
 // Finalize parses captured bytes into a CapturedExchange.
 // Safe to call even if data is not valid HTTP — returns exchange with method UNKNOWN.
 func (c *Capture) Finalize() (*inspect.CapturedExchange, error) {
@@ -52,8 +87,16 @@ func (c *Capture) Finalize() (*inspect.CapturedExchange, error) {
 		Duration:  time.Since(c.startTime),
 		Method:    "UNKNOWN",
 	}
-	c.parseRequest(ex)
-	c.parseResponse(ex)
+	if c.parsedReq != nil {
+		c.fillFromRequest(ex, c.parsedReq)
+	} else {
+		c.parseRequest(ex)
+	}
+	if c.parsedResp != nil {
+		c.fillFromResponse(ex, c.parsedResp)
+	} else {
+		c.parseResponse(ex)
+	}
 	return ex, nil
 }
 
@@ -98,6 +141,22 @@ func (c *Capture) parseResponse(ex *inspect.CapturedExchange) {
 	body, _ := io.ReadAll(resp.Body)
 	ex.ResponseBodySize = int64(len(body))
 	ex.ResponseBody = c.truncateBody(body)
+}
+
+func (c *Capture) fillFromRequest(ex *inspect.CapturedExchange, req *http.Request) {
+	ex.Method = req.Method
+	ex.Path = req.URL.RequestURI()
+	ex.Host = req.Host
+	ex.RequestHeaders = req.Header
+	ex.RequestBody = c.reqBody
+	ex.RequestBodySize = c.reqBodySize
+}
+
+func (c *Capture) fillFromResponse(ex *inspect.CapturedExchange, resp *http.Response) {
+	ex.StatusCode = resp.StatusCode
+	ex.ResponseHeaders = resp.Header
+	ex.ResponseBody = c.respBody
+	ex.ResponseBodySize = c.respBodySize
 }
 
 func (c *Capture) truncateBody(data []byte) []byte {
