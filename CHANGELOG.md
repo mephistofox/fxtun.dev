@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.4.0](https://github.com/mephistofox/fxtun.dev/compare/v3.3.0...v3.4.0) (2026-02-13)
+
+
+### Features
+
+* **ci:** add VirusTotal scanning and SmartScreen notice in README ([f9025ed](https://github.com/mephistofox/fxtun.dev/commit/f9025ede1c2f2e1dae4ad90a173d3a6a2b28ff2e))
+* **web:** add pricing page and fix CLI auth redirect ([af903bc](https://github.com/mephistofox/fxtun.dev/commit/af903bcc882bb8d458ad35d41fa69beaabf9e2d5))
+* **web:** add search to domains and tokens pages ([66bd89b](https://github.com/mephistofox/fxtun.dev/commit/66bd89b45fabbe9b2e70d7438fa633016191c87f))
+* **web:** redesign dashboard and downloads pages ([fe66e63](https://github.com/mephistofox/fxtun.dev/commit/fe66e63b783dc24e49fac12f6ffc27fa1bafaf76))
+* **web:** redesign profile page and merge subscription into hero ([2f4bf82](https://github.com/mephistofox/fxtun.dev/commit/2f4bf82425288071b1f8377303c686c77a5d3c22))
+
+
+### Bug Fixes
+
+* **ci:** lowercase Docker image name for GHCR ([b471089](https://github.com/mephistofox/fxtun.dev/commit/b471089c6fef66ecd750a78429e9a7977ca3b1b3))
+* **ci:** use github.repository for Docker image name ([c0038a5](https://github.com/mephistofox/fxtun.dev/commit/c0038a562722eefe83028a7a15434dda464e3f9c))
+* **inspect:** fix exchange persistence and loading in inspector ([2ac8e1d](https://github.com/mephistofox/fxtun.dev/commit/2ac8e1d594631d5f1d187c31ce98dbb326ac445f))
+* **inspector:** HTTP-level proxy, SSE broadcast, admin capabilities ([#62](https://github.com/mephistofox/fxtun.dev/issues/62)) ([0d9f2aa](https://github.com/mephistofox/fxtun.dev/commit/0d9f2aacdff1aad3cbe6a74d595cfe595be9a481))
+* **seo:** emit structured data only on canonical route ([fcfcf78](https://github.com/mephistofox/fxtun.dev/commit/fcfcf788e67338c17f4f38244af640439c61cd46))
+* **server:** prevent rate limiter from blocking authenticated client sessions ([60ffa41](https://github.com/mephistofox/fxtun.dev/commit/60ffa41a97c349664c5a7e0c9e838ec0afb2b9dd))
+* **server:** require Upgrade header for WebSocket detection ([5323e2c](https://github.com/mephistofox/fxtun.dev/commit/5323e2cb3513268670d6e608815de737b1438ce0))
+* **server:** update WebSocket detection test for Upgrade header check ([66e6d28](https://github.com/mephistofox/fxtun.dev/commit/66e6d28d01d3345a77e6f1417cd60cd315b4d4a0))
+
+
+### Reverts
+
+* **server:** remove DDoS protection that blocked legitimate traffic ([a629179](https://github.com/mephistofox/fxtun.dev/commit/a629179dea6c832e034c23cea2a3144beedc07fa))
+
 ## [3.4.1](https://github.com/mephistofox/fxTunnel/compare/v3.4.0...v3.4.1) (2026-02-13)
 
 
