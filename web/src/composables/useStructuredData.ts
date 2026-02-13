@@ -4,6 +4,7 @@ export function useOrganizationSchema() {
   useHead({
     script: [
       {
+        id: 'ld-organization',
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
@@ -21,6 +22,7 @@ export function useSoftwareApplicationSchema() {
   useHead({
     script: [
       {
+        id: 'ld-software-application',
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
@@ -75,6 +77,7 @@ export function useWebSiteSchema() {
   useHead({
     script: [
       {
+        id: 'ld-website',
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
@@ -93,6 +96,7 @@ export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) 
   useHead({
     script: [
       {
+        id: 'ld-faq',
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
