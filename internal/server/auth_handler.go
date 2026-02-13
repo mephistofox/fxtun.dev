@@ -65,7 +65,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
 				MinVersion:    s.cfg.Server.MinVersion,
-				Capabilities:  buildCapabilities(client.Plan),
+				Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -120,7 +120,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				SessionID:     client.ID,
 				SessionSecret: client.SessionSecret,
 				MinVersion:    s.cfg.Server.MinVersion,
-				Capabilities:  buildCapabilities(client.Plan),
+				Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -159,7 +159,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			SessionID:     client.ID,
 			SessionSecret: client.SessionSecret,
 			MinVersion:    s.cfg.Server.MinVersion,
-			Capabilities:  buildCapabilities(client.Plan),
+			Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
 		}
 		if err := codec.Encode(result); err != nil {
 			client.Close()
@@ -182,7 +182,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		SessionID:     client.ID,
 		SessionSecret: client.SessionSecret,
 		MinVersion:    s.cfg.Server.MinVersion,
-		Capabilities:  buildCapabilities(client.Plan),
+		Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
 	}
 	if err := codec.Encode(result); err != nil {
 		client.Close()
@@ -328,12 +328,18 @@ func hashToken(token string) string {
 }
 
 // buildCapabilities creates ClientCapabilities from the user's plan.
-// Returns nil if no plan is set (legacy tokens).
-func buildCapabilities(plan *database.Plan) *protocol.ClientCapabilities {
-	if plan == nil {
+// Admin users always get full capabilities regardless of plan.
+// Returns nil if no plan is set and user is not admin (legacy tokens).
+func buildCapabilities(plan *database.Plan, isAdmin bool) *protocol.ClientCapabilities {
+	if plan == nil && !isAdmin {
 		return nil
 	}
-	return &protocol.ClientCapabilities{
-		InspectorEnabled: plan.InspectorEnabled,
+	caps := &protocol.ClientCapabilities{}
+	if plan != nil {
+		caps.InspectorEnabled = plan.InspectorEnabled
 	}
+	if isAdmin {
+		caps.InspectorEnabled = true
+	}
+	return caps
 }
