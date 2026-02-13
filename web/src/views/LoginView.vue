@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
@@ -13,6 +13,13 @@ const { t, locale } = useI18n()
 useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description' })
 
 const showOffer = computed(() => locale.value === 'ru')
+
+// Save redirect URL for OAuth flow (e.g. /auth/cli?session=xxx)
+const route = useRoute()
+const redirectParam = route.query.redirect as string | undefined
+if (redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')) {
+  localStorage.setItem('authRedirect', redirectParam)
+}
 
 function toggleLocale() {
   const current = getLocale()

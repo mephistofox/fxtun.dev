@@ -489,8 +489,11 @@
     "crossPlatform": "все ОС"
   },
   "dashboard": {
-    "title": "Панель управления",
-    "subtitle": "Ваши активные туннели",
+    "title": "Центр управления",
+    "subtitle": "Мониторинг и управление вашими туннелями",
+    "welcome": "С возвращением",
+    "welcomeAnon": "Панель управления",
+    "statusOnline": "Система работает",
     "noTunnels": "Нет активных туннелей",
     "noTunnelsHint": "Используйте CLI клиент для создания туннелей:",
     "localPort": "Локальный порт",
@@ -498,9 +501,43 @@
     "unnamed": "Без имени",
     "failedToLoad": "Не удалось загрузить туннели",
     "failedToClose": "Не удалось закрыть туннель",
+    "inspect": "Инспектор",
+    "createdAt": "Создан",
+    "copyUrl": "Скопировать URL",
+    "urlCopied": "URL скопирован",
+    "stats": {
+      "tunnels": "Активные туннели",
+      "domains": "Субдомены",
+      "tokens": "Ключи доступа",
+      "used": "использовано",
+      "of": "из",
+      "noLimit": "безлимит"
+    },
+    "quickActions": {
+      "title": "Быстрые действия",
+      "domains": "Домены",
+      "domainsDesc": "Зарезервировать субдомен",
+      "tokens": "Токены",
+      "tokensDesc": "Создать ключ доступа",
+      "downloads": "Скачать",
+      "downloadsDesc": "Клиент для вашей ОС",
+      "profile": "Профиль",
+      "profileDesc": "Настройки аккаунта"
+    },
+    "tunnels": {
+      "title": "Активные туннели",
+      "empty": "Нет активных подключений",
+      "emptyDesc": "Туннели появятся здесь, когда вы подключите клиент"
+    },
     "cli": {
-      "title": "Быстрый старт с CLI",
-      "subtitle": "Установите клиент и создайте первый туннель за пару команд.",
+      "title": "Быстрый старт",
+      "subtitle": "Три шага до первого туннеля",
+      "step1": "Установите клиент",
+      "step1Desc": "Одна команда для macOS, Linux и Windows",
+      "step2": "Авторизуйтесь",
+      "step2Desc": "Интерактивно или с API-токеном",
+      "step3": "Запустите туннель",
+      "step3Desc": "Выберите протокол и порт",
       "install": "Установка",
       "installDesc": "macOS, Linux, Windows",
       "auth": "Авторизация",
@@ -510,21 +547,27 @@
       "httpTunnel": "HTTP-туннель",
       "tcpTunnel": "TCP-туннель",
       "udpTunnel": "UDP-туннель",
+      "httpDesc": "Веб, API, вебхуки",
+      "tcpDesc": "SSH, базы данных, Redis",
+      "udpDesc": "DNS, игры, VoIP",
       "domains": "Субдомены",
       "domainsDesc": "Резервирование субдоменов на сервере",
       "customDomains": "Кастомные домены",
       "customDomainsDesc": "Привязка своих доменов через DNS",
-      "hint": "Скачайте клиент на странице «Скачать». Авторизуйтесь через fxtunnel login или создайте токен в разделе «Токены»."
+      "hint": "Скачайте клиент на странице «Скачать». Авторизуйтесь через fxtunnel login или создайте токен в разделе «Токены».",
+      "moreCommands": "Больше команд в документации"
     },
     "plan": {
       "tunnels": "Туннели",
       "domains": "Субдомены",
       "tokens": "Токены",
-      "upgrade": "Улучшить",
-      "manage": "Управление",
+      "upgrade": "Улучшить тариф",
+      "manage": "Управление подпиской",
       "inspector": "Инспектор",
       "locked": "Заблокировано",
-      "of": "из"
+      "of": "из",
+      "freePlan": "Бесплатный тариф",
+      "currentPlan": "Текущий тариф"
     }
   },
   "domains": {
@@ -543,7 +586,8 @@
     "failedToLoad": "Не удалось загрузить домены",
     "failedToReserve": "Не удалось зарезервировать домен",
     "failedToRelease": "Не удалось освободить домен",
-    "confirmRelease": "Вы уверены, что хотите освободить этот домен?"
+    "confirmRelease": "Вы уверены, что хотите освободить этот домен?",
+    "searchPlaceholder": "Поиск по субдоменам..."
   },
   "customDomains": {
     "title": "Кастомные домены",
@@ -614,7 +658,8 @@
     "failedToCreate": "Не удалось создать ключ",
     "failedToDelete": "Не удалось удалить ключ",
     "confirmDelete": "Удалить этот ключ? Все устройства, использующие его, потеряют доступ к серверу.",
-    "advancedSettings": "Дополнительные настройки"
+    "advancedSettings": "Дополнительные настройки",
+    "searchPlaceholder": "Поиск по ключам..."
   },
   "downloads": {
     "title": "Скачать клиент",
@@ -634,6 +679,8 @@
     "step2": "Создайте {link} и запустите туннель",
     "step2TokenLink": "токен",
     "failedToLoad": "Не удалось загрузить список",
+    "macGuiComingSoon": "В разработке",
+    "macGuiComingSoonHint": "GUI-клиент для macOS находится в разработке. Пока используйте CLI-версию.",
     "platforms": {
       "LinuxAmd64": "Linux (64-бит)",
       "LinuxArm64": "Linux (ARM64)",
@@ -697,7 +744,18 @@
     "noSubscription": "У вас нет активной подписки",
     "upgradePlan": "Выбрать тариф",
     "confirmCancelSubscription": "Вы уверены, что хотите отменить автопродление? Подписка будет активна до конца оплаченного периода.",
-    "failedToCancelSubscription": "Не удалось отменить подписку"
+    "failedToCancelSubscription": "Не удалось отменить подписку",
+    "securitySection": "Безопасность",
+    "planAndLimits": "Тариф и лимиты",
+    "tunnels": "Туннели",
+    "domains": "Домены",
+    "customDomains": "Кастомные домены",
+    "tokens": "Токены",
+    "tunnelsPerToken": "Туннелей/токен",
+    "inspector": "Инспектор",
+    "enabled": "Включён",
+    "disabled": "Отключён",
+    "linkedAccounts": "Привязанные аккаунты"
   },
   "theme": {
     "light": "Светлая",
