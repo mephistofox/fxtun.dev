@@ -231,13 +231,16 @@ func TestDetectLanguage(t *testing.T) {
 
 func TestIsUpgradeRequest(t *testing.T) {
 	tests := []struct {
-		conn string
-		want bool
+		conn    string
+		upgrade string
+		want    bool
 	}{
-		{"Upgrade", true},
-		{"keep-alive, upgrade", true},
-		{"keep-alive", false},
-		{"", false},
+		{"Upgrade", "websocket", true},
+		{"keep-alive, upgrade", "websocket", true},
+		{"Upgrade", "", false},
+		{"keep-alive, upgrade", "", false},
+		{"keep-alive", "", false},
+		{"", "", false},
 	}
 
 	for _, tt := range tests {
@@ -245,8 +248,11 @@ func TestIsUpgradeRequest(t *testing.T) {
 		if tt.conn != "" {
 			req.Header.Set("Connection", tt.conn)
 		}
+		if tt.upgrade != "" {
+			req.Header.Set("Upgrade", tt.upgrade)
+		}
 		if got := isUpgradeRequest(req); got != tt.want {
-			t.Errorf("isUpgradeRequest(Connection: %q) = %v, want %v", tt.conn, got, tt.want)
+			t.Errorf("isUpgradeRequest(Connection: %q, Upgrade: %q) = %v, want %v", tt.conn, tt.upgrade, got, tt.want)
 		}
 	}
 }
