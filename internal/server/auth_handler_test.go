@@ -10,16 +10,20 @@ func TestBuildCapabilities(t *testing.T) {
 	tests := []struct {
 		name     string
 		plan     *database.Plan
+		isAdmin  bool
 		wantNil  bool
 		wantInsp bool
 	}{
-		{"nil plan", nil, true, false},
-		{"free plan", &database.Plan{InspectorEnabled: false}, false, false},
-		{"pro plan", &database.Plan{InspectorEnabled: true}, false, true},
+		{"nil plan non-admin", nil, false, true, false},
+		{"nil plan admin", nil, true, false, true},
+		{"free plan non-admin", &database.Plan{InspectorEnabled: false}, false, false, false},
+		{"free plan admin", &database.Plan{InspectorEnabled: false}, true, false, true},
+		{"pro plan non-admin", &database.Plan{InspectorEnabled: true}, false, false, true},
+		{"pro plan admin", &database.Plan{InspectorEnabled: true}, true, false, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			caps := buildCapabilities(tt.plan)
+			caps := buildCapabilities(tt.plan, tt.isAdmin)
 			if tt.wantNil {
 				if caps != nil {
 					t.Error("expected nil capabilities")
