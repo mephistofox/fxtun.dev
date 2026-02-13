@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.4.0](https://github.com/mephistofox/fxTunnel/compare/v3.3.0...v3.4.0) (2026-02-13)
+
+
+### Features
+
+* **ci:** add VirusTotal scanning and SmartScreen notice in README ([57c6cab](https://github.com/mephistofox/fxTunnel/commit/57c6cab5273f637d68bc02368a88af4c517ce4ac))
+* **web:** add pricing page and fix CLI auth redirect ([02c7c9b](https://github.com/mephistofox/fxTunnel/commit/02c7c9bad764698aa74e7a1d0c56c3207e83a542))
+* **web:** add search to domains and tokens pages ([70bd2bd](https://github.com/mephistofox/fxTunnel/commit/70bd2bdf29a52ced9e569fbb537a3f098ada154f))
+* **web:** redesign dashboard and downloads pages ([3d75a56](https://github.com/mephistofox/fxTunnel/commit/3d75a568848639fb114c525b9e1358546bff17f4))
+* **web:** redesign profile page and merge subscription into hero ([3d06626](https://github.com/mephistofox/fxTunnel/commit/3d0662697c973375e6b3ee167178c2612a667394))
+
+
+### Bug Fixes
+
+* **ci:** use github.repository for Docker image name ([2e90bc6](https://github.com/mephistofox/fxTunnel/commit/2e90bc6cc421137addf50b7d9617443ad365d649))
+* **inspect:** fix exchange persistence and loading in inspector ([2eb1bd3](https://github.com/mephistofox/fxTunnel/commit/2eb1bd378cc1c6a92367870459924da4d77379ee))
+* **inspector:** HTTP-level proxy, SSE broadcast, admin capabilities ([#62](https://github.com/mephistofox/fxTunnel/issues/62)) ([f1a3c5e](https://github.com/mephistofox/fxTunnel/commit/f1a3c5e298a715e73941e86145b73c9a5856e290))
+* **seo:** emit structured data only on canonical route ([d844738](https://github.com/mephistofox/fxTunnel/commit/d844738beb0e0f73495da50da4508a1c8e40adc7))
+* **server:** prevent rate limiter from blocking authenticated client sessions ([d8d30cd](https://github.com/mephistofox/fxTunnel/commit/d8d30cde8d93675ae19e5ada9848bf878b3450e6))
+* **server:** require Upgrade header for WebSocket detection ([40be288](https://github.com/mephistofox/fxTunnel/commit/40be288589fbcee06595cd08a8eaeca26b2a64d7))
+* **server:** update WebSocket detection test for Upgrade header check ([4328341](https://github.com/mephistofox/fxTunnel/commit/4328341053f1b9c88ab08b44a677dfc44c8c7ec9))
+
+
+### Reverts
+
+* **server:** remove DDoS protection that blocked legitimate traffic ([3de9e1a](https://github.com/mephistofox/fxTunnel/commit/3de9e1a61939bfcc4f88ff630d9d23a2810e8e24))
+
 ## [3.3.0](https://github.com/mephistofox/fxTunnel/compare/v3.2.0...v3.3.0) (2026-02-11)
 
 
