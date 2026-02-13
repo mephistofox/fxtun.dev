@@ -4,6 +4,10 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
 
+const props = defineProps<{
+  compact?: boolean
+}>()
+
 const { t, locale } = useI18n()
 const router = useRouter()
 
@@ -94,7 +98,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section id="pricing" ref="sectionRef" class="py-16 md:py-32 relative overflow-hidden">
+  <section id="pricing" ref="sectionRef" :class="['relative overflow-hidden', props.compact ? 'py-8 md:py-12' : 'py-16 md:py-32']">
     <!-- Background -->
     <div class="absolute inset-0 bg-gradient-to-b from-background via-surface/20 to-background" />
 
@@ -105,8 +109,9 @@ onMounted(async () => {
 
     <div class="container mx-auto px-4 relative z-10">
       <!-- Section header -->
-      <div class="max-w-3xl mx-auto text-center mb-16">
+      <div :class="['max-w-3xl mx-auto text-center', props.compact ? 'mb-8' : 'mb-16']">
         <div
+          v-if="!props.compact"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/5 mb-6 reveal"
           :class="{ 'visible': isVisible }"
         >

@@ -489,8 +489,11 @@
     "crossPlatform": "cross-platform"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "subtitle": "Your active tunnels",
+    "title": "Command Center",
+    "subtitle": "Monitor and manage your tunnels",
+    "welcome": "Welcome back",
+    "welcomeAnon": "Dashboard",
+    "statusOnline": "System operational",
     "noTunnels": "No active tunnels",
     "noTunnelsHint": "Use the CLI client to create tunnels:",
     "localPort": "Local port",
@@ -498,9 +501,43 @@
     "unnamed": "Unnamed",
     "failedToLoad": "Failed to load tunnels",
     "failedToClose": "Failed to close tunnel",
+    "inspect": "Inspect",
+    "createdAt": "Created",
+    "copyUrl": "Copy URL",
+    "urlCopied": "URL copied",
+    "stats": {
+      "tunnels": "Active Tunnels",
+      "domains": "Subdomains",
+      "tokens": "Access Keys",
+      "used": "used",
+      "of": "of",
+      "noLimit": "unlimited"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "domains": "Domains",
+      "domainsDesc": "Reserve a subdomain",
+      "tokens": "Tokens",
+      "tokensDesc": "Create an access key",
+      "downloads": "Download",
+      "downloadsDesc": "Client for your OS",
+      "profile": "Profile",
+      "profileDesc": "Account settings"
+    },
+    "tunnels": {
+      "title": "Active Tunnels",
+      "empty": "No active connections",
+      "emptyDesc": "Tunnels will appear here when you connect a client"
+    },
     "cli": {
-      "title": "Get Started with CLI",
-      "subtitle": "Install the client and create your first tunnel in a couple of commands.",
+      "title": "Quick Start",
+      "subtitle": "Three steps to your first tunnel",
+      "step1": "Install the client",
+      "step1Desc": "One command for macOS, Linux and Windows",
+      "step2": "Authenticate",
+      "step2Desc": "Interactive or with API token",
+      "step3": "Launch a tunnel",
+      "step3Desc": "Pick a protocol and port",
       "install": "Install",
       "installDesc": "macOS, Linux, Windows",
       "auth": "Authentication",
@@ -510,21 +547,27 @@
       "httpTunnel": "HTTP tunnel",
       "tcpTunnel": "TCP tunnel",
       "udpTunnel": "UDP tunnel",
+      "httpDesc": "Web, API, webhooks",
+      "tcpDesc": "SSH, databases, Redis",
+      "udpDesc": "DNS, games, VoIP",
       "domains": "Subdomains",
       "domainsDesc": "Reserve subdomains on the server",
       "customDomains": "Custom domains",
       "customDomainsDesc": "Bind your own domains via DNS",
-      "hint": "Download the client from the Downloads page. Log in via fxtunnel login or create a token in the Tokens section."
+      "hint": "Download the client from the Downloads page. Log in via fxtunnel login or create a token in the Tokens section.",
+      "moreCommands": "More commands in the docs"
     },
     "plan": {
       "tunnels": "Tunnels",
       "domains": "Subdomains",
       "tokens": "Tokens",
-      "upgrade": "Upgrade",
-      "manage": "Manage",
+      "upgrade": "Upgrade Plan",
+      "manage": "Manage Subscription",
       "inspector": "Inspector",
       "locked": "Locked",
-      "of": "of"
+      "of": "of",
+      "freePlan": "Free Plan",
+      "currentPlan": "Current Plan"
     }
   },
   "domains": {
@@ -543,7 +586,8 @@
     "failedToLoad": "Failed to load domains",
     "failedToReserve": "Failed to reserve domain",
     "failedToRelease": "Failed to release domain",
-    "confirmRelease": "Are you sure you want to release this domain?"
+    "confirmRelease": "Are you sure you want to release this domain?",
+    "searchPlaceholder": "Search subdomains..."
   },
   "customDomains": {
     "title": "Custom Domains",
@@ -614,7 +658,8 @@
     "failedToCreate": "Failed to create key",
     "failedToDelete": "Failed to delete key",
     "confirmDelete": "Delete this key? All devices using it will lose access to the server.",
-    "advancedSettings": "Advanced settings"
+    "advancedSettings": "Advanced settings",
+    "searchPlaceholder": "Search keys..."
   },
   "downloads": {
     "title": "Download Client",
@@ -634,6 +679,8 @@
     "step2": "Create a {link} and run your tunnel",
     "step2TokenLink": "token",
     "failedToLoad": "Failed to load downloads",
+    "macGuiComingSoon": "Coming Soon",
+    "macGuiComingSoonHint": "The macOS GUI client is under development. Use the CLI version in the meantime.",
     "platforms": {
       "LinuxAmd64": "Linux (64-bit)",
       "LinuxArm64": "Linux (ARM64)",
@@ -697,7 +744,18 @@
     "noSubscription": "You don't have an active subscription",
     "upgradePlan": "Choose a plan",
     "confirmCancelSubscription": "Are you sure you want to cancel auto-renewal? Your subscription will remain active until the end of the paid period.",
-    "failedToCancelSubscription": "Failed to cancel subscription"
+    "failedToCancelSubscription": "Failed to cancel subscription",
+    "securitySection": "Security",
+    "planAndLimits": "Plan & Limits",
+    "tunnels": "Tunnels",
+    "domains": "Domains",
+    "customDomains": "Custom Domains",
+    "tokens": "Tokens",
+    "tunnelsPerToken": "Tunnels/Token",
+    "inspector": "Inspector",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "linkedAccounts": "Linked Accounts"
   },
   "theme": {
     "light": "Light",
