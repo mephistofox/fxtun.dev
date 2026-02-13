@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1](https://github.com/mephistofox/fxTunnel/compare/v3.4.0...v3.4.1) (2026-02-13)
+
+
+### Bug Fixes
+
+* **ci:** lowercase Docker image name for GHCR ([0f9e72b](https://github.com/mephistofox/fxTunnel/commit/0f9e72bba4dd862da8d238a6bb5014286089dc90))
+
 ## [3.4.0](https://github.com/mephistofox/fxTunnel/compare/v3.3.0...v3.4.0) (2026-02-13)
 
 
