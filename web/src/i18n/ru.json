@@ -286,7 +286,6 @@
       "free": "Бесплатно",
       "perMonth": "/мес",
       "selectPlan": "Выбрать тариф",
-      "paymentsComingSoon": "Скоро",
       "tunnels": "активный туннель;;активных туннеля;;активных туннелей",
       "tunnelsDesc": "Одновременных подключений к вашим сервисам",
       "anySubdomain": "Любой субдомен",
@@ -429,9 +428,7 @@
     "securePayment": "Безопасная оплата через ЮKassa",
     "securePaymentVia": "Безопасная оплата через",
     "failedToLoadPlans": "Не удалось загрузить тарифы",
-    "paymentFailed": "Ошибка при создании платежа",
-    "paymentsDisabledTitle": "Оплата будет доступна позже",
-    "paymentsDisabledMessage": "Мы работаем над подключением платежей для этого домена. Пожалуйста, используйте fxtun.ru для оплаты."
+    "paymentFailed": "Ошибка при создании платежа"
   },
   "payment": {
     "successTitle": "Оплата прошла успешно!",
@@ -755,7 +752,15 @@
     "inspector": "Инспектор",
     "enabled": "Включён",
     "disabled": "Отключён",
-    "linkedAccounts": "Привязанные аккаунты"
+    "linkedAccounts": "Привязанные аккаунты",
+    "paymentHistory": "История платежей",
+    "noPayments": "Платежей пока нет",
+    "invoiceId": "Счёт",
+    "amount": "Сумма",
+    "date": "Дата",
+    "paymentSuccess": "Оплачен",
+    "paymentPending": "В обработке",
+    "paymentFailed": "Не удался"
   },
   "theme": {
     "light": "Светлая",
@@ -768,7 +773,9 @@
   },
   "legal": {
     "offer": "Оферта",
+    "terms": "Terms of Service",
     "offerTitle": "Публичная оферта",
+    "termsTitle": "Terms of Service",
     "offerAgreement": "Регистрируясь, вы соглашаетесь с условиями",
     "downloadPdf": "Скачать PDF",
     "lastUpdated": "Дата последнего обновления"
@@ -790,6 +797,10 @@
     "offer": {
       "title": "Публичная оферта — fxTunnel",
       "description": "Договор публичной оферты и условия предоставления услуг fxTunnel."
+    },
+    "terms": {
+      "title": "Terms of Service — fxTunnel",
+      "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
     }
   },
   "admin": {

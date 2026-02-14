@@ -32,10 +32,7 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-const isRuLocale = computed(() => locale.value === 'ru')
-
-// Payments disabled for non-Russian users (no Paddle yet)
-const isPaymentsDisabled = computed(() => locale.value !== 'ru')
+const isRuDomain = computed(() => window.location.hostname.endsWith('fxtun.ru'))
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {
@@ -50,7 +47,7 @@ function displayLimit(val: number): string {
 // Format price using backend-calculated values
 function formatPrice(plan: Plan): string {
   if (plan.price === 0) return ''
-  if (isRuLocale.value) {
+  if (isRuDomain.value) {
     const priceRub = plan.price_rub ?? plan.price * 75
     return `${Math.round(priceRub)} ₽`
   }
@@ -282,22 +279,14 @@ onMounted(async () => {
             <!-- CTA Button -->
             <button
               @click="selectPlan(plan.id)"
-              :disabled="isPaymentsDisabled && plan.price > 0"
               :class="[
                 'block w-full py-2.5 px-4 rounded-lg text-center text-sm font-medium transition-all duration-300',
-                isPaymentsDisabled && plan.price > 0
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                  : plan.is_recommended
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer'
-                    : 'bg-surface border border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer',
+                plan.is_recommended
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 cursor-pointer'
+                  : 'bg-surface border border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer',
               ]"
             >
-              <template v-if="isPaymentsDisabled && plan.price > 0">
-                {{ t('landing.pricing.paymentsComingSoon') }}
-              </template>
-              <template v-else>
-                {{ t('landing.pricing.selectPlan') }}
-              </template>
+              {{ t('landing.pricing.selectPlan') }}
             </button>
           </div>
         </div>

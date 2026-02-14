@@ -203,11 +203,14 @@ function cycleTheme() {
         </div>
       </div>
 
-      <!-- Terms agreement (only on fxtun.ru) -->
-      <p v-if="showOffer" class="mt-6 text-center text-xs text-muted-foreground">
+      <!-- Terms agreement -->
+      <p class="mt-6 text-center text-xs text-muted-foreground">
         {{ t('legal.offerAgreement') }}
-        <RouterLink to="/offer" class="text-primary hover:underline">
+        <RouterLink v-if="showOffer" to="/offer" class="text-primary hover:underline">
           {{ t('legal.offer') }}
+        </RouterLink>
+        <RouterLink v-else to="/terms" class="text-primary hover:underline">
+          {{ t('legal.terms') }}
         </RouterLink>
       </p>
 

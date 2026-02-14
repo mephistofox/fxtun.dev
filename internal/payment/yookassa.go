@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -155,8 +156,8 @@ type CancellationDetails struct {
 	Reason string `json:"reason"` // "3d_secure_failed", "expired_on_confirmation", etc.
 }
 
-// WebhookEvent represents incoming webhook notification
-type WebhookEvent struct {
+// YooKassaWebhookEvent represents incoming webhook notification from YooKassa
+type YooKassaWebhookEvent struct {
 	Type   string   `json:"type"`   // "notification"
 	Event  string   `json:"event"`  // "payment.succeeded", "payment.canceled", etc.
 	Object *Payment `json:"object"` // Payment data
@@ -372,10 +373,158 @@ func FormatAmount(amount float64) string {
 }
 
 // ParseWebhookEvent parses webhook event from request body
-func ParseWebhookEvent(body []byte) (*WebhookEvent, error) {
-	var event WebhookEvent
+func ParseWebhookEvent(body []byte) (*YooKassaWebhookEvent, error) {
+	var event YooKassaWebhookEvent
 	if err := json.Unmarshal(body, &event); err != nil {
 		return nil, fmt.Errorf("unmarshal webhook: %w", err)
 	}
 	return &event, nil
+}
+
+// Name returns the provider name
+func (y *YooKassa) Name() string {
+	return "yookassa"
+}
+
+// CreateCheckoutSession creates a YooKassa payment and returns the redirect URL
+func (y *YooKassa) CreateCheckoutSession(params CheckoutParams) (*CheckoutResult, error) {
+	idempotencyKey := fmt.Sprintf("checkout-%d-%d", params.InvoiceID, time.Now().UnixNano())
+
+	req := CreatePaymentRequest{
+		Amount: Amount{
+			Value:    FormatAmount(params.Amount),
+			Currency: params.Currency,
+		},
+		Description: params.Description,
+		Capture:     true,
+		Confirmation: &Confirmation{
+			Type:      "redirect",
+			ReturnURL: y.GetReturnURL(),
+		},
+		SavePaymentMethod: params.Recurring,
+		Metadata: map[string]string{
+			"invoice_id":      fmt.Sprintf("%d", params.InvoiceID),
+			"user_id":         fmt.Sprintf("%d", params.UserID),
+			"subscription_id": fmt.Sprintf("%d", params.SubscriptionID),
+			"plan_id":         fmt.Sprintf("%d", params.PlanID),
+		},
+	}
+
+	// Add receipt for 54-FZ compliance if email is provided
+	if params.Email != "" {
+		req.Receipt = &Receipt{
+			Customer: &Customer{
+				Email: params.Email,
+			},
+			Items: []ReceiptItem{
+				{
+					Description:    params.Description,
+					Quantity:       "1",
+					Amount:         req.Amount,
+					VATCode:        1, // No VAT (self-employed)
+					PaymentSubject: "service",
+					PaymentMode:    "full_payment",
+				},
+			},
+		}
+	}
+
+	yooPayment, err := y.CreatePayment(req, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+
+	paymentURL := ""
+	if yooPayment.Confirmation != nil {
+		paymentURL = yooPayment.Confirmation.ConfirmationURL
+	}
+
+	return &CheckoutResult{
+		PaymentURL:        paymentURL,
+		ProviderPaymentID: yooPayment.ID,
+		Metadata: map[string]string{
+			"idempotency_key": idempotencyKey,
+		},
+	}, nil
+}
+
+// HandleWebhook parses a YooKassa webhook request and returns events
+func (y *YooKassa) HandleWebhook(r *http.Request) ([]WebhookEvent, error) {
+	// Verify IP (skip in test mode)
+	if !y.config.TestMode {
+		if !IsYooKassaIP(r.RemoteAddr) {
+			return nil, fmt.Errorf("webhook from unauthorized IP: %s", r.RemoteAddr)
+		}
+	}
+
+	// Read body
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read webhook body: %w", err)
+	}
+
+	// Parse event
+	yooEvent, err := ParseWebhookEvent(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse webhook event: %w", err)
+	}
+
+	// Convert to generic webhook event
+	event := WebhookEvent{
+		ProviderPaymentID: yooEvent.Object.ID,
+		ProviderData: map[string]interface{}{
+			"status": yooEvent.Object.Status,
+			"paid":   yooEvent.Object.Paid,
+			"test":   yooEvent.Object.Test,
+		},
+	}
+
+	// Parse metadata
+	if invoiceIDStr, ok := yooEvent.Object.Metadata["invoice_id"]; ok {
+		_, _ = fmt.Sscanf(invoiceIDStr, "%d", &event.InvoiceID)
+	}
+	if userIDStr, ok := yooEvent.Object.Metadata["user_id"]; ok {
+		_, _ = fmt.Sscanf(userIDStr, "%d", &event.UserID)
+	}
+	if subIDStr, ok := yooEvent.Object.Metadata["subscription_id"]; ok {
+		_, _ = fmt.Sscanf(subIDStr, "%d", &event.SubscriptionID)
+	}
+	if planIDStr, ok := yooEvent.Object.Metadata["plan_id"]; ok {
+		_, _ = fmt.Sscanf(planIDStr, "%d", &event.PlanID)
+	}
+
+	// Parse amount
+	if yooEvent.Object.Amount.Value != "" {
+		_, _ = fmt.Sscanf(yooEvent.Object.Amount.Value, "%f", &event.Amount)
+	}
+	event.Currency = yooEvent.Object.Amount.Currency
+
+	// Payment method info
+	if yooEvent.Object.PaymentMethod != nil {
+		event.PaymentMethodTitle = yooEvent.Object.PaymentMethod.Title
+		if yooEvent.Object.PaymentMethod.Saved {
+			event.PaymentMethodSaved = true
+			event.PaymentMethodID = yooEvent.Object.PaymentMethod.ID
+		}
+		event.ProviderData["payment_method_type"] = yooEvent.Object.PaymentMethod.Type
+	}
+
+	// Map YooKassa event to generic event type
+	switch yooEvent.Event {
+	case "payment.succeeded":
+		event.Type = WebhookEventPaymentSucceeded
+	case "payment.canceled":
+		event.Type = WebhookEventPaymentFailed
+	default:
+		// Unknown event type, still return it
+		event.Type = WebhookEventType(yooEvent.Event)
+	}
+
+	return []WebhookEvent{event}, nil
+}
+
+// CancelSubscription is a no-op for YooKassa (cancellation is handled locally)
+func (y *YooKassa) CancelSubscription(providerSubscriptionID string) error {
+	// YooKassa doesn't have subscription management - cancellation is local only
+	return nil
 }
