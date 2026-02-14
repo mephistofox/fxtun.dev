@@ -251,223 +251,156 @@ const (
 
 // TemplateData holds data for email templates
 type TemplateData struct {
-	UserName      string
-	UserEmail     string
-	PlanName      string
-	NewPlanName   string
-	DaysLeft      int
-	Amount        float64
-	ExpiresAt     string
-	RenewalDate   string
-	DashboardURL  string
-	CheckoutURL   string
-	SupportEmail  string
-	ErrorMessage  string
+	UserName        string
+	UserEmail       string
+	PlanName        string
+	NewPlanName     string
+	DaysLeft        int
+	Amount          float64
+	FormattedAmount string // Pre-formatted amount with currency (e.g. "350 ₽" or "$10")
+	ExpiresAt       string
+	RenewalDate     string
+	DashboardURL    string
+	CheckoutURL     string
+	SupportEmail    string
+	ErrorMessage    string
+}
+
+// LocalizedTemplateName returns the template name for the given language.
+// For "en" it appends "_en" suffix, otherwise returns the base name (Russian).
+func LocalizedTemplateName(base, lang string) string {
+	if lang == "en" {
+		return base + "_en"
+	}
+	return base
 }
 
 // templates holds email templates
 var templates = map[string]*template.Template{}
 
-// Dark theme email styles - Cyber-Industrial Noir
-const darkEmailStyles = `
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #f2f2f2; background: #0a0b0f; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
-        .header-warning { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
-        .header-error { background: #121418; padding: 32px 20px; text-align: center; border-radius: 10px 10px 0 0; border: 1px solid #1e2128; border-bottom: none; }
-        .header h1, .header-warning h1, .header-error h1 { margin: 0; font-size: 24px; font-weight: 700; color: #80ff00; letter-spacing: -0.5px; }
-        .content { background: #121418; padding: 32px; border: 1px solid #1e2128; border-top: none; }
-        .content h2 { margin: 0 0 20px; color: #f2f2f2; font-size: 18px; font-weight: 600; }
-        .content p { margin: 0 0 12px; color: #7f8694; }
-        .content strong { color: #f2f2f2; }
-        .info-block { margin: 24px 0; background: #0a0b0f; border-radius: 8px; padding: 4px 16px; }
-        .info-row { padding: 12px 0; border-bottom: 1px solid #1e2128; }
+// Email styles matching the landing page design system (Cyber-Industrial Noir)
+const emailStyles = `
+        @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;800&family=Onest:wght@400;600&display=swap');
+        body { font-family: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #f2f2f2; background: #090a10; margin: 0; padding: 24px; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 600px; margin: 0 auto; border-radius: 18px; overflow: hidden; border: 1px solid #1f2330; background: #111319; }
+        .accent-bar { height: 3px; background: linear-gradient(90deg, #80ff00, #b84dff, #80ff00); }
+        .header { padding: 32px 32px 24px; text-align: center; }
+        .logo { font-family: 'Unbounded', sans-serif; font-size: 26px; font-weight: 800; color: #80ff00; letter-spacing: -0.02em; margin: 0; line-height: 1; }
+        .logo span { color: #f2f2f2; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #1f2330 20%, rgba(128,255,0,0.3) 50%, #1f2330 80%, transparent); margin: 0; }
+        .content { padding: 28px 32px 32px; }
+        .content h2 { font-family: 'Unbounded', sans-serif; font-size: 20px; font-weight: 700; color: #f2f2f2; margin: 0 0 20px; letter-spacing: -0.01em; line-height: 1.3; }
+        .content p { margin: 0 0 14px; color: #7f8694; font-size: 15px; line-height: 1.7; }
+        .content strong { color: #f2f2f2; font-weight: 600; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; vertical-align: middle; }
+        .dot-success { background: #80ff00; box-shadow: 0 0 8px rgba(128,255,0,0.5); }
+        .dot-warning { background: #f0ad4e; box-shadow: 0 0 8px rgba(240,173,78,0.5); }
+        .dot-error { background: #ff6b6b; box-shadow: 0 0 8px rgba(255,107,107,0.5); }
+        .info-block { margin: 24px 0; background: #090a10; border: 1px solid #1f2330; border-radius: 12px; overflow: hidden; }
+        .info-row { padding: 14px 20px; border-bottom: 1px solid #1f2330; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { color: #7f8694; }
-        .info-value { color: #f2f2f2; font-weight: 600; float: right; }
-        .button { display: inline-block; background: #80ff00; color: #0a0b0f; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: 600; font-size: 14px; }
-        .error-box { background: #1a0a0a; border: 1px solid #3d1515; padding: 12px 16px; border-radius: 8px; margin: 16px 0; color: #ff6b6b; }
-        .footer { text-align: center; padding: 20px; color: #7f8694; font-size: 13px; border: 1px solid #1e2128; border-top: none; border-radius: 0 0 10px 10px; background: #121418; }
-        .footer a { color: #80ff00; text-decoration: none; }
+        .info-label { color: #7f8694; font-size: 14px; }
+        .info-value { color: #f2f2f2; font-weight: 600; font-size: 14px; float: right; }
+        .button { display: inline-block; background: linear-gradient(135deg, #80ff00, #5c8a18); color: #090a10; padding: 14px 28px; text-decoration: none; border-radius: 10px; margin-top: 24px; font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+        .error-box { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); padding: 14px 18px; border-radius: 10px; margin: 18px 0; color: #ff6b6b; font-size: 14px; line-height: 1.6; }
+        .footer { padding: 20px 32px; text-align: center; }
+        .footer p { margin: 0 0 6px; color: #4a4f5c; font-size: 12px; }
+        .footer a { color: #80ff00; text-decoration: none; font-weight: 500; }
 `
 
-func init() {
-	// Subscription expiring template
-	templates[TemplateSubscriptionExpiring] = template.Must(template.New("subscription_expiring").Parse(`
-<!DOCTYPE html>
+// emailHead is the shared HTML head with brand styles
+const emailHead = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
+    <style>` + emailStyles + `</style>
 </head>
 <body>
     <div class="container">
-        <div class="header-warning">
-            <h1>fxTunnel</h1>
+        <div class="accent-bar"></div>
+        <div class="header">
+            <p class="logo">fx<span>Tunnel</span></p>
         </div>
-        <div class="content">
-            <h2>Подписка скоро истекает</h2>
+        <div class="divider"></div>
+        <div class="content">`
+
+// emailFooterRU is the shared Russian footer
+const emailFooterRU = `
+        </div>
+        <div class="divider"></div>
+        <div class="footer">
+            <p style="color:#7f8694;">fxTunnel — Reverse tunneling service</p>
+            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
+        </div>
+    </div>
+</body>
+</html>`
+
+// emailFooterEN is the shared English footer
+const emailFooterEN = `
+        </div>
+        <div class="divider"></div>
+        <div class="footer">
+            <p style="color:#7f8694;">fxTunnel — Reverse tunneling service</p>
+            {{if .SupportEmail}}<p>Support: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
+        </div>
+    </div>
+</body>
+</html>`
+
+func init() {
+	// ── Russian templates ──────────────────────────────────────────────
+
+	templates[TemplateSubscriptionExpiring] = template.Must(template.New("subscription_expiring").Parse(emailHead + `
+            <h2><span class="status-dot dot-warning"></span>Подписка скоро истекает</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> истекает через <strong>{{.DaysLeft}}</strong> {{if eq .DaysLeft 1}}день{{else if le .DaysLeft 4}}дня{{else}}дней{{end}}.</p>
             <p>Дата окончания: <strong>{{.ExpiresAt}}</strong></p>
-            {{if .CheckoutURL}}
-            <a href="{{.CheckoutURL}}" class="button">Продлить подписку</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Продлить подписку</a>{{end}}` + emailFooterRU))
 
-	// Subscription expired template
-	templates[TemplateSubscriptionExpired] = template.Must(template.New("subscription_expired").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header-error">
-            <h1>fxTunnel</h1>
-        </div>
-        <div class="content">
-            <h2>Подписка истекла</h2>
+	templates[TemplateSubscriptionExpired] = template.Must(template.New("subscription_expired").Parse(emailHead + `
+            <h2><span class="status-dot dot-error"></span>Подписка истекла</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> истекла.</p>
             <p>Ваш аккаунт переведён на бесплатный тариф с ограниченными возможностями.</p>
-            {{if .CheckoutURL}}
-            <a href="{{.CheckoutURL}}" class="button">Оформить подписку</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Оформить подписку</a>{{end}}` + emailFooterRU))
 
-	// Subscription renewed template
-	templates[TemplateSubscriptionRenewed] = template.Must(template.New("subscription_renewed").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>fxTunnel</h1>
-        </div>
-        <div class="content">
-            <h2>Подписка продлена</h2>
+	templates[TemplateSubscriptionRenewed] = template.Must(template.New("subscription_renewed").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Подписка продлена</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Ваша подписка на тариф <strong>{{.PlanName}}</strong> успешно продлена.</p>
-            <p>Сумма списания: <strong>{{printf "%.0f" .Amount}} ₽</strong></p>
-            <p>Следующее продление: <strong>{{.RenewalDate}}</strong></p>
-            {{if .DashboardURL}}
-            <a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            <div class="info-block">
+                <div class="info-row">
+                    <span class="info-label">Сумма</span>
+                    <span class="info-value">{{.FormattedAmount}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Следующее продление</span>
+                    <span class="info-value">{{.RenewalDate}}</span>
+                </div>
+            </div>
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>{{end}}` + emailFooterRU))
 
-	// Subscription renewal failed template
-	templates[TemplateSubscriptionRenewFailed] = template.Must(template.New("subscription_renew_failed").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header-error">
-            <h1>fxTunnel</h1>
-        </div>
-        <div class="content">
-            <h2>Ошибка продления подписки</h2>
+	templates[TemplateSubscriptionRenewFailed] = template.Must(template.New("subscription_renew_failed").Parse(emailHead + `
+            <h2><span class="status-dot dot-error"></span>Ошибка продления подписки</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Не удалось автоматически продлить вашу подписку на тариф <strong>{{.PlanName}}</strong>.</p>
-            {{if .ErrorMessage}}
-            <div class="error-box">
-                <strong>Причина:</strong> {{.ErrorMessage}}
-            </div>
-            {{end}}
+            {{if .ErrorMessage}}<div class="error-box"><strong>Причина:</strong> {{.ErrorMessage}}</div>{{end}}
             <p>Пожалуйста, проверьте платёжные данные и попробуйте продлить подписку вручную:</p>
-            {{if .CheckoutURL}}
-            <a href="{{.CheckoutURL}}" class="button">Продлить подписку</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Продлить подписку</a>{{end}}` + emailFooterRU))
 
-	// Plan changed template
-	templates[TemplatePlanChanged] = template.Must(template.New("plan_changed").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>fxTunnel</h1>
-        </div>
-        <div class="content">
-            <h2>Тариф изменён</h2>
+	templates[TemplatePlanChanged] = template.Must(template.New("plan_changed").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Тариф изменён</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Ваш тарифный план успешно изменён на <strong>{{.NewPlanName}}</strong>.</p>
             <p>Новые условия уже действуют.</p>
-            {{if .DashboardURL}}
-            <a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>{{end}}` + emailFooterRU))
 
-	// Payment success template
-	templates[TemplatePaymentSuccess] = template.Must(template.New("payment_success").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>` + darkEmailStyles + `</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>fxTunnel</h1>
-        </div>
-        <div class="content">
-            <h2>Оплата прошла успешно</h2>
+	templates[TemplatePaymentSuccess] = template.Must(template.New("payment_success").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Оплата прошла успешно</h2>
             <p>Здравствуйте{{if .UserName}}, {{.UserName}}{{end}}!</p>
             <p>Благодарим за оплату!</p>
             <div class="info-block">
@@ -477,21 +410,73 @@ func init() {
                 </div>
                 <div class="info-row">
                     <span class="info-label">Сумма</span>
-                    <span class="info-value">{{printf "%.0f" .Amount}} ₽</span>
+                    <span class="info-value">{{.FormattedAmount}}</span>
                 </div>
             </div>
-            {{if .DashboardURL}}
-            <a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>
-            {{end}}
-        </div>
-        <div class="footer">
-            <p>fxTunnel — Reverse tunneling service</p>
-            {{if .SupportEmail}}<p>Поддержка: <a href="mailto:{{.SupportEmail}}">{{.SupportEmail}}</a></p>{{end}}
-        </div>
-    </div>
-</body>
-</html>
-`))
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>{{end}}` + emailFooterRU))
+
+	// ── English templates ──────────────────────────────────────────────
+
+	templates[TemplateSubscriptionExpiring+"_en"] = template.Must(template.New("subscription_expiring_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-warning"></span>Your subscription is expiring soon</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>Your <strong>{{.PlanName}}</strong> subscription expires in <strong>{{.DaysLeft}}</strong> day{{if ne .DaysLeft 1}}s{{end}}.</p>
+            <p>Expiration date: <strong>{{.ExpiresAt}}</strong></p>
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Renew Subscription</a>{{end}}` + emailFooterEN))
+
+	templates[TemplateSubscriptionExpired+"_en"] = template.Must(template.New("subscription_expired_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-error"></span>Subscription expired</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>Your <strong>{{.PlanName}}</strong> subscription has expired.</p>
+            <p>Your account has been downgraded to the free plan with limited features.</p>
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Subscribe Now</a>{{end}}` + emailFooterEN))
+
+	templates[TemplateSubscriptionRenewed+"_en"] = template.Must(template.New("subscription_renewed_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Subscription renewed</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>Your <strong>{{.PlanName}}</strong> subscription has been successfully renewed.</p>
+            <div class="info-block">
+                <div class="info-row">
+                    <span class="info-label">Amount</span>
+                    <span class="info-value">{{.FormattedAmount}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Next renewal</span>
+                    <span class="info-value">{{.RenewalDate}}</span>
+                </div>
+            </div>
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Go to Dashboard</a>{{end}}` + emailFooterEN))
+
+	templates[TemplateSubscriptionRenewFailed+"_en"] = template.Must(template.New("subscription_renew_failed_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-error"></span>Subscription renewal failed</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>We couldn't automatically renew your <strong>{{.PlanName}}</strong> subscription.</p>
+            {{if .ErrorMessage}}<div class="error-box"><strong>Reason:</strong> {{.ErrorMessage}}</div>{{end}}
+            <p>Please check your payment details and try renewing manually:</p>
+            {{if .CheckoutURL}}<a href="{{.CheckoutURL}}" class="button">Renew Subscription</a>{{end}}` + emailFooterEN))
+
+	templates[TemplatePlanChanged+"_en"] = template.Must(template.New("plan_changed_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Plan changed</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>Your plan has been changed to <strong>{{.NewPlanName}}</strong>.</p>
+            <p>The new plan is now active.</p>
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Go to Dashboard</a>{{end}}` + emailFooterEN))
+
+	templates[TemplatePaymentSuccess+"_en"] = template.Must(template.New("payment_success_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Payment successful</h2>
+            <p>Hello{{if .UserName}}, {{.UserName}}{{end}}!</p>
+            <p>Thank you for your payment!</p>
+            <div class="info-block">
+                <div class="info-row">
+                    <span class="info-label">Plan</span>
+                    <span class="info-value">{{.PlanName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Amount</span>
+                    <span class="info-value">{{.FormattedAmount}}</span>
+                </div>
+            </div>
+            {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Go to Dashboard</a>{{end}}` + emailFooterEN))
 }
 
 // RenderTemplate renders an email template with data

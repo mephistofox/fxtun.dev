@@ -137,6 +137,7 @@ func (d *Database) migrate() error {
 		migrationCreateInspectExchanges,
 		migrationAddInspectHostUserIndex,
 		migrationAddPlanBandwidth,
+		migrationAddStripeSupport,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -530,4 +531,12 @@ UPDATE plans SET bandwidth_mbps = 10 WHERE slug = 'free';
 UPDATE plans SET bandwidth_mbps = 50 WHERE slug = 'base';
 UPDATE plans SET bandwidth_mbps = 100 WHERE slug = 'pro';
 UPDATE plans SET bandwidth_mbps = 0 WHERE slug = 'admin';
+`
+
+const migrationAddStripeSupport = `
+ALTER TABLE subscriptions ADD COLUMN stripe_customer_id TEXT;
+ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT;
+ALTER TABLE payments ADD COLUMN provider TEXT NOT NULL DEFAULT 'yookassa';
+ALTER TABLE payments ADD COLUMN provider_data TEXT;
+UPDATE payments SET provider_data = yookassa_data WHERE yookassa_data IS NOT NULL AND yookassa_data != '';
 `

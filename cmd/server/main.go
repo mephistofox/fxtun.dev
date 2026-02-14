@@ -18,6 +18,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/email"
 	"github.com/mephistofox/fxtunnel/internal/exchange"
+	"github.com/mephistofox/fxtunnel/internal/payment"
 	"github.com/mephistofox/fxtunnel/internal/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
@@ -233,14 +234,37 @@ func run(cmd *cobra.Command, args []string) error {
 					baseURL = fmt.Sprintf("http://%s:%d", cfg.Domain.Base, cfg.Web.Port)
 				}
 			}
-			notifier = email.NewNotifier(emailService, db, baseURL, cfg.SMTP.From, log)
+			notifier = email.NewNotifier(emailService, db, baseURL, cfg.SMTP.BaseURLEN, cfg.SMTP.From, log)
 			apiServer.SetNotifier(notifier)
 			log.Info().Msg("Email service initialized")
 		}
 
-		// Start subscription scheduler if payments are enabled
+		// Setup payment providers
+		providers := payment.NewRegistry()
 		if cfg.YooKassa.Enabled {
-			subscriptionScheduler := scheduler.New(db, cfg, log)
+			yookassa := payment.NewYooKassa(payment.YooKassaConfig{
+				ShopID:    cfg.YooKassa.ShopID,
+				SecretKey: cfg.YooKassa.SecretKey,
+				TestMode:  cfg.YooKassa.TestMode,
+				ReturnURL: cfg.YooKassa.ReturnURL,
+			})
+			providers.Register(yookassa)
+		}
+		if cfg.Stripe.Enabled {
+			stripeProvider := payment.NewStripe(payment.StripeConfig{
+				SecretKey:     cfg.Stripe.SecretKey,
+				WebhookSecret: cfg.Stripe.WebhookSecret,
+				TestMode:      cfg.Stripe.TestMode,
+				SuccessURL:    cfg.Stripe.SuccessURL,
+				CancelURL:     cfg.Stripe.CancelURL,
+			})
+			providers.Register(stripeProvider)
+		}
+		apiServer.SetPaymentProviders(providers)
+
+		// Start subscription scheduler if payments are enabled
+		if cfg.YooKassa.Enabled || cfg.Stripe.Enabled {
+			subscriptionScheduler := scheduler.New(db, cfg, providers, log)
 
 			// Register event handler for logging
 			subscriptionScheduler.OnEvent(func(event scheduler.Event) {
