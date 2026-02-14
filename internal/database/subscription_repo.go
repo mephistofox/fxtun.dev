@@ -19,10 +19,11 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepository {
 // Create creates a new subscription
 func (r *SubscriptionRepository) Create(sub *Subscription) error {
 	result, err := r.db.Exec(`
-		INSERT INTO subscriptions (user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO subscriptions (user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, stripe_customer_id, stripe_subscription_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		sub.UserID, sub.PlanID, sub.NextPlanID, sub.Status, sub.Recurring,
-		sub.CurrentPeriodStart, sub.CurrentPeriodEnd, sub.YooKassaPaymentMethodID)
+		sub.CurrentPeriodStart, sub.CurrentPeriodEnd, sub.YooKassaPaymentMethodID,
+		sub.StripeCustomerID, sub.StripeSubscriptionID)
 	if err != nil {
 		return fmt.Errorf("create subscription: %w", err)
 	}
@@ -43,11 +44,12 @@ func (r *SubscriptionRepository) GetByID(id int64) (*Subscription, error) {
 	sub := &Subscription{}
 	err := r.db.QueryRow(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions WHERE id = ?`, id).Scan(
 		&sub.ID, &sub.UserID, &sub.PlanID, &sub.NextPlanID, &sub.Status, &sub.Recurring,
 		&sub.CurrentPeriodStart, &sub.CurrentPeriodEnd, &sub.YooKassaPaymentMethodID,
-		&sub.CreatedAt, &sub.UpdatedAt)
+		&sub.StripeCustomerID, &sub.StripeSubscriptionID, &sub.CreatedAt, &sub.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -62,13 +64,14 @@ func (r *SubscriptionRepository) GetByUserID(userID int64) (*Subscription, error
 	sub := &Subscription{}
 	err := r.db.QueryRow(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
 		WHERE user_id = ? AND status IN ('active', 'cancelled')
 		ORDER BY created_at DESC LIMIT 1`, userID).Scan(
 		&sub.ID, &sub.UserID, &sub.PlanID, &sub.NextPlanID, &sub.Status, &sub.Recurring,
 		&sub.CurrentPeriodStart, &sub.CurrentPeriodEnd, &sub.YooKassaPaymentMethodID,
-		&sub.CreatedAt, &sub.UpdatedAt)
+		&sub.StripeCustomerID, &sub.StripeSubscriptionID, &sub.CreatedAt, &sub.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -84,14 +87,37 @@ func (r *SubscriptionRepository) Update(sub *Subscription) error {
 	_, err := r.db.Exec(`
 		UPDATE subscriptions
 		SET plan_id = ?, next_plan_id = ?, status = ?, recurring = ?,
-		    current_period_start = ?, current_period_end = ?, yookassa_payment_method_id = ?, updated_at = ?
+		    current_period_start = ?, current_period_end = ?, yookassa_payment_method_id = ?,
+		    stripe_customer_id = ?, stripe_subscription_id = ?, updated_at = ?
 		WHERE id = ?`,
 		sub.PlanID, sub.NextPlanID, sub.Status, sub.Recurring,
-		sub.CurrentPeriodStart, sub.CurrentPeriodEnd, sub.YooKassaPaymentMethodID, sub.UpdatedAt, sub.ID)
+		sub.CurrentPeriodStart, sub.CurrentPeriodEnd, sub.YooKassaPaymentMethodID,
+		sub.StripeCustomerID, sub.StripeSubscriptionID, sub.UpdatedAt, sub.ID)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
 	}
 	return nil
+}
+
+// GetByStripeSubscriptionID retrieves a subscription by Stripe subscription ID
+func (r *SubscriptionRepository) GetByStripeSubscriptionID(stripeSubID string) (*Subscription, error) {
+	sub := &Subscription{}
+	err := r.db.QueryRow(`
+		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
+		FROM subscriptions WHERE stripe_subscription_id = ?`, stripeSubID).Scan(
+		&sub.ID, &sub.UserID, &sub.PlanID, &sub.NextPlanID, &sub.Status, &sub.Recurring,
+		&sub.CurrentPeriodStart, &sub.CurrentPeriodEnd, &sub.YooKassaPaymentMethodID,
+		&sub.StripeCustomerID, &sub.StripeSubscriptionID,
+		&sub.CreatedAt, &sub.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get subscription by stripe subscription id: %w", err)
+	}
+	return sub, nil
 }
 
 // Delete deletes a subscription by ID
@@ -108,7 +134,8 @@ func (r *SubscriptionRepository) GetExpiring(within time.Duration) ([]*Subscript
 	threshold := time.Now().Add(within)
 	rows, err := r.db.Query(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
 		WHERE status = 'active' AND recurring = 1 AND current_period_end <= ?`, threshold)
 	if err != nil {
@@ -123,9 +150,10 @@ func (r *SubscriptionRepository) GetExpiring(within time.Duration) ([]*Subscript
 func (r *SubscriptionRepository) GetExpired() ([]*Subscription, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
-		WHERE status = 'active' AND current_period_end < ?`, time.Now())
+		WHERE status IN ('active', 'cancelled') AND current_period_end < ?`, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("get expired subscriptions: %w", err)
 	}
@@ -138,7 +166,8 @@ func (r *SubscriptionRepository) GetExpired() ([]*Subscription, error) {
 func (r *SubscriptionRepository) GetWithPendingPlanChange() ([]*Subscription, error) {
 	rows, err := r.db.Query(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
 		WHERE next_plan_id IS NOT NULL AND current_period_end < ?`, time.Now())
 	if err != nil {
@@ -155,7 +184,8 @@ func (r *SubscriptionRepository) GetForRenewalReminder(daysAhead int) ([]*Subscr
 	end := start.AddDate(0, 0, 1)
 	rows, err := r.db.Query(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
 		WHERE status = 'active' AND recurring = 1 AND current_period_end >= ? AND current_period_end < ?`,
 		start, end)
@@ -177,7 +207,8 @@ func (r *SubscriptionRepository) ListAll(limit, offset int) ([]*Subscription, in
 
 	rows, err := r.db.Query(`
 		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
-		       current_period_start, current_period_end, yookassa_payment_method_id, created_at, updated_at
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
 		FROM subscriptions
 		ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
@@ -200,7 +231,7 @@ func (r *SubscriptionRepository) scanMultiple(rows *sql.Rows) ([]*Subscription, 
 		err := rows.Scan(
 			&sub.ID, &sub.UserID, &sub.PlanID, &sub.NextPlanID, &sub.Status, &sub.Recurring,
 			&sub.CurrentPeriodStart, &sub.CurrentPeriodEnd, &sub.YooKassaPaymentMethodID,
-			&sub.CreatedAt, &sub.UpdatedAt)
+			&sub.StripeCustomerID, &sub.StripeSubscriptionID, &sub.CreatedAt, &sub.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}

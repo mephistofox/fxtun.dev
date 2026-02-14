@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Layout from '@/components/Layout.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import { useAuthStore } from '@/stores/auth'
-import { profileApi, subscriptionApi, authApi, type ProfileResponse, type Subscription } from '@/api/client'
+import { profileApi, subscriptionApi, authApi, type ProfileResponse, type Subscription, type Payment } from '@/api/client'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +19,9 @@ const profile = ref<ProfileResponse | null>(null)
 const subscription = ref<Subscription | null>(null)
 const cancellingSubscription = ref(false)
 const subscriptionError = ref('')
+
+// Payment history
+const payments = ref<Payment[]>([])
 
 // GitHub linking
 const githubLinkSuccess = ref(false)
@@ -60,6 +63,22 @@ async function loadProfile() {
   }
 }
 
+async function loadPayments() {
+  try {
+    const response = await subscriptionApi.getPayments()
+    payments.value = response.data.payments || []
+  } catch {
+    // Ignore errors
+  }
+}
+
+function formatAmount(amount: number, currency: string) {
+  if (currency === 'USD') {
+    return `$${amount.toFixed(2)}`
+  }
+  return `${Math.round(amount)} \u20BD`
+}
+
 async function loadSubscription() {
   try {
     const response = await subscriptionApi.get()
@@ -85,8 +104,11 @@ async function cancelSubscription() {
   }
 }
 
+const isRuDomain = computed(() => window.location.hostname.endsWith('fxtun.ru'))
+
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
+  const locale = isRuDomain.value ? 'ru-RU' : 'en-US'
+  return new Date(dateStr).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric'
@@ -108,6 +130,7 @@ async function linkOAuthAccount(provider: string) {
 onMounted(() => {
   loadProfile()
   loadSubscription()
+  loadPayments()
   if (route.query.github_linked === 'true') {
     githubLinkSuccess.value = true
     authStore.refreshProfile()
@@ -161,7 +184,7 @@ onMounted(() => {
                     {{ subscription.status === 'active' ? t('profile.renewsOn') : t('profile.expiresOn') }}
                     <strong>{{ formatDate(subscription.current_period_end) }}</strong>
                   </span>
-                  <span class="prof-hero-sub-meta">
+                  <span v-if="isRuDomain" class="prof-hero-sub-meta">
                     {{ t('profile.autoRenewal') }}:
                     <strong :class="subscription.recurring ? 'prof-val-on' : ''">{{ subscription.recurring ? t('common.yes') : t('common.no') }}</strong>
                   </span>
@@ -349,6 +372,48 @@ onMounted(() => {
                 <span :class="['prof-limit-value', profile.plan.inspector_enabled ? 'prof-limit-val-on' : 'prof-limit-val-off']">
                   {{ profile.plan.inspector_enabled ? t('profile.enabled') : t('profile.disabled') }}
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment History Section -->
+          <div class="prof-section">
+            <div class="prof-section-header">
+              <div class="prof-section-icon prof-section-icon-accent">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
+              <h2>{{ t('profile.paymentHistory') }}</h2>
+            </div>
+
+            <div v-if="payments.length === 0" class="prof-empty">
+              {{ t('profile.noPayments') }}
+            </div>
+
+            <div v-else class="prof-payments-list">
+              <div
+                v-for="payment in payments.slice(0, 10)"
+                :key="payment.id"
+                class="prof-payment-row"
+              >
+                <div class="prof-payment-info">
+                  <span class="prof-payment-invoice">#{{ payment.invoice_id }}</span>
+                  <span class="prof-payment-date">{{ formatDate(payment.created_at) }}</span>
+                </div>
+                <div class="prof-payment-right">
+                  <span class="prof-payment-amount">{{ formatAmount(payment.amount, payment.currency) }}</span>
+                  <span
+                    :class="[
+                      'prof-payment-status',
+                      payment.status === 'success' ? 'prof-payment-success' :
+                      payment.status === 'pending' ? 'prof-payment-pending' :
+                      'prof-payment-failed'
+                    ]"
+                  >
+                    {{ payment.status === 'success' ? t('profile.paymentSuccess') :
+                       payment.status === 'pending' ? t('profile.paymentPending') :
+                       t('profile.paymentFailed') }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -738,5 +803,69 @@ onMounted(() => {
 .modal-leave-to .prof-modal {
   transform: scale(0.95) translateY(10px);
   opacity: 0;
+}
+
+/* ---- Payment History ---- */
+.prof-empty {
+  @apply text-sm text-muted-foreground py-4 text-center;
+}
+
+.prof-payments-list {
+  @apply space-y-0;
+}
+
+.prof-payment-row {
+  @apply flex items-center justify-between py-3;
+}
+
+.prof-payment-row + .prof-payment-row {
+  border-top: 1px solid hsl(var(--border) / 0.4);
+}
+
+.prof-payment-row:first-child {
+  @apply pt-0;
+}
+
+.prof-payment-row:last-child {
+  @apply pb-0;
+}
+
+.prof-payment-info {
+  @apply flex flex-col gap-0.5;
+}
+
+.prof-payment-invoice {
+  @apply text-sm font-semibold font-mono;
+}
+
+.prof-payment-date {
+  @apply text-xs text-muted-foreground;
+}
+
+.prof-payment-right {
+  @apply flex items-center gap-3;
+}
+
+.prof-payment-amount {
+  @apply text-sm font-bold font-mono;
+}
+
+.prof-payment-status {
+  @apply px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider;
+}
+
+.prof-payment-success {
+  background: hsl(160 84% 45% / 0.12);
+  color: hsl(160 84% 45%);
+}
+
+.prof-payment-pending {
+  background: hsl(38 85% 55% / 0.12);
+  color: hsl(38 85% 55%);
+}
+
+.prof-payment-failed {
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--destructive));
 }
 </style>

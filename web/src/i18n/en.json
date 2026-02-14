@@ -286,7 +286,6 @@
       "free": "Free",
       "perMonth": "/mo",
       "selectPlan": "Choose Plan",
-      "paymentsComingSoon": "Coming Soon",
       "tunnels": "active tunnel;;active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
       "anySubdomain": "Any subdomain",
@@ -429,9 +428,7 @@
     "securePayment": "Secure payment via YooKassa",
     "securePaymentVia": "Secure payment via",
     "failedToLoadPlans": "Failed to load plans",
-    "paymentFailed": "Failed to create payment",
-    "paymentsDisabledTitle": "Payments Coming Soon",
-    "paymentsDisabledMessage": "We're working on enabling payments for this domain. Please use fxtun.ru to make payments."
+    "paymentFailed": "Failed to create payment"
   },
   "payment": {
     "successTitle": "Payment Successful!",
@@ -755,7 +752,15 @@
     "inspector": "Inspector",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "linkedAccounts": "Linked Accounts"
+    "linkedAccounts": "Linked Accounts",
+    "paymentHistory": "Payment History",
+    "noPayments": "No payments yet",
+    "invoiceId": "Invoice",
+    "amount": "Amount",
+    "date": "Date",
+    "paymentSuccess": "Paid",
+    "paymentPending": "Pending",
+    "paymentFailed": "Failed"
   },
   "theme": {
     "light": "Light",
@@ -768,7 +773,9 @@
   },
   "legal": {
     "offer": "Terms of Service",
+    "terms": "Terms of Service",
     "offerTitle": "Public Offer Agreement",
+    "termsTitle": "Terms of Service",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
@@ -790,6 +797,10 @@
     "offer": {
       "title": "Public Offer — fxTunnel",
       "description": "fxTunnel public offer agreement and terms of service."
+    },
+    "terms": {
+      "title": "Terms of Service — fxTunnel",
+      "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
     }
   },
   "admin": {

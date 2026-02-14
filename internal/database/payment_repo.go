@@ -19,9 +19,10 @@ func NewPaymentRepository(db *sql.DB) *PaymentRepository {
 // Create creates a new payment record
 func (r *PaymentRepository) Create(p *Payment) error {
 	result, err := r.db.Exec(`
-		INSERT INTO payments (user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		p.UserID, p.SubscriptionID, p.InvoiceID, p.Amount, p.Status, p.IsRecurring, p.YooKassaData)
+		INSERT INTO payments (user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.UserID, p.SubscriptionID, p.InvoiceID, p.Amount, p.Status, p.IsRecurring, p.YooKassaData,
+		p.Provider, p.ProviderData)
 	if err != nil {
 		return fmt.Errorf("create payment: %w", err)
 	}
@@ -40,10 +41,11 @@ func (r *PaymentRepository) Create(p *Payment) error {
 func (r *PaymentRepository) GetByID(id int64) (*Payment, error) {
 	p := &Payment{}
 	err := r.db.QueryRow(`
-		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, created_at
+		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data,
+		       provider, provider_data, created_at
 		FROM payments WHERE id = ?`, id).Scan(
 		&p.ID, &p.UserID, &p.SubscriptionID, &p.InvoiceID, &p.Amount, &p.Status,
-		&p.IsRecurring, &p.YooKassaData, &p.CreatedAt)
+		&p.IsRecurring, &p.YooKassaData, &p.Provider, &p.ProviderData, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -57,10 +59,11 @@ func (r *PaymentRepository) GetByID(id int64) (*Payment, error) {
 func (r *PaymentRepository) GetByInvoiceID(invoiceID int64) (*Payment, error) {
 	p := &Payment{}
 	err := r.db.QueryRow(`
-		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, created_at
+		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data,
+		       provider, provider_data, created_at
 		FROM payments WHERE invoice_id = ?`, invoiceID).Scan(
 		&p.ID, &p.UserID, &p.SubscriptionID, &p.InvoiceID, &p.Amount, &p.Status,
-		&p.IsRecurring, &p.YooKassaData, &p.CreatedAt)
+		&p.IsRecurring, &p.YooKassaData, &p.Provider, &p.ProviderData, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -74,9 +77,9 @@ func (r *PaymentRepository) GetByInvoiceID(invoiceID int64) (*Payment, error) {
 func (r *PaymentRepository) Update(p *Payment) error {
 	_, err := r.db.Exec(`
 		UPDATE payments
-		SET subscription_id = ?, status = ?, yookassa_data = ?
+		SET subscription_id = ?, status = ?, yookassa_data = ?, provider = ?, provider_data = ?
 		WHERE id = ?`,
-		p.SubscriptionID, p.Status, p.YooKassaData, p.ID)
+		p.SubscriptionID, p.Status, p.YooKassaData, p.Provider, p.ProviderData, p.ID)
 	if err != nil {
 		return fmt.Errorf("update payment: %w", err)
 	}
@@ -92,7 +95,8 @@ func (r *PaymentRepository) GetByUserID(userID int64, limit, offset int) ([]*Pay
 	}
 
 	rows, err := r.db.Query(`
-		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, created_at
+		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data,
+		       provider, provider_data, created_at
 		FROM payments WHERE user_id = ?
 		ORDER BY created_at DESC LIMIT ? OFFSET ?`, userID, limit, offset)
 	if err != nil {
@@ -111,7 +115,8 @@ func (r *PaymentRepository) GetByUserID(userID int64, limit, offset int) ([]*Pay
 // GetPendingBySubscriptionID retrieves pending payments for a subscription
 func (r *PaymentRepository) GetPendingBySubscriptionID(subscriptionID int64) ([]*Payment, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, created_at
+		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data,
+		       provider, provider_data, created_at
 		FROM payments WHERE subscription_id = ? AND status = 'pending'
 		ORDER BY created_at DESC`, subscriptionID)
 	if err != nil {
@@ -131,7 +136,8 @@ func (r *PaymentRepository) ListAll(limit, offset int) ([]*Payment, int, error) 
 	}
 
 	rows, err := r.db.Query(`
-		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, created_at
+		SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data,
+		       provider, provider_data, created_at
 		FROM payments
 		ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
@@ -169,7 +175,7 @@ func (r *PaymentRepository) scanMultiple(rows *sql.Rows) ([]*Payment, error) {
 		p := &Payment{}
 		err := rows.Scan(
 			&p.ID, &p.UserID, &p.SubscriptionID, &p.InvoiceID, &p.Amount, &p.Status,
-			&p.IsRecurring, &p.YooKassaData, &p.CreatedAt)
+			&p.IsRecurring, &p.YooKassaData, &p.Provider, &p.ProviderData, &p.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("scan payment: %w", err)
 		}

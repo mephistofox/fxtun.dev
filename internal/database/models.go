@@ -248,6 +248,8 @@ type Subscription struct {
 	CurrentPeriodStart       *time.Time         `json:"current_period_start,omitempty"`
 	CurrentPeriodEnd         *time.Time         `json:"current_period_end,omitempty"`
 	YooKassaPaymentMethodID  *string            `json:"yookassa_payment_method_id,omitempty"`
+	StripeCustomerID         *string            `json:"stripe_customer_id,omitempty"`
+	StripeSubscriptionID     *string            `json:"stripe_subscription_id,omitempty"`
 	CreatedAt                time.Time          `json:"created_at"`
 	UpdatedAt                time.Time          `json:"updated_at"`
 }
@@ -281,6 +283,8 @@ type Payment struct {
 	Status         PaymentStatus `json:"status"`
 	IsRecurring    bool          `json:"is_recurring"`
 	YooKassaData   string        `json:"yookassa_data,omitempty"`
+	Provider       string        `json:"provider"`
+	ProviderData   string        `json:"provider_data,omitempty"`
 	CreatedAt      time.Time     `json:"created_at"`
 }
 

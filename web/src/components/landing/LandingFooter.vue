@@ -41,6 +41,13 @@ const blogUrl = computed(() => getBlogUrl())
           >
             {{ t('legal.offer') }}
           </RouterLink>
+          <RouterLink
+            v-else
+            to="/terms"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.terms') }}
+          </RouterLink>
           <a
             :href="blogUrl"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"

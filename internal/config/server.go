@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // ServerConfig holds all server configuration
@@ -24,6 +25,7 @@ type ServerConfig struct {
 	CustomDomains CustomDomainSettings `mapstructure:"custom_domains"`
 	OAuth         OAuthSettings        `mapstructure:"oauth"`
 	YooKassa      YooKassaSettings     `mapstructure:"yookassa"`
+	Stripe        StripeSettings       `mapstructure:"stripe"`
 	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 }
@@ -184,11 +186,21 @@ type YooKassaSettings struct {
 	ReturnURL string `mapstructure:"return_url"`
 }
 
+// StripeSettings contains Stripe payment configuration
+type StripeSettings struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	SecretKey     string `mapstructure:"secret_key"`
+	WebhookSecret string `mapstructure:"webhook_secret"`
+	TestMode      bool   `mapstructure:"test_mode"`
+	SuccessURL    string `mapstructure:"success_url"`
+	CancelURL     string `mapstructure:"cancel_url"`
+}
+
 // PaymentDomainSettings contains per-domain payment settings
 type PaymentDomainSettings struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Provider string `mapstructure:"provider"` // "yookassa"
-	Message  string `mapstructure:"message"`  // Message when disabled
+	Enabled  bool   `mapstructure:"enabled" yaml:"enabled"`
+	Provider string `mapstructure:"provider" yaml:"provider"`
+	Message  string `mapstructure:"message" yaml:"message"`
 }
 
 // PaymentsSettings contains payment configuration
@@ -206,7 +218,8 @@ type SMTPSettings struct {
 	Password string `mapstructure:"password"`
 	From     string `mapstructure:"from"`
 	FromName string `mapstructure:"from_name"`
-	BaseURL  string `mapstructure:"base_url"` // Base URL for email links (e.g. https://fxtun.ru)
+	BaseURL  string `mapstructure:"base_url"`    // Base URL for email links (e.g. https://fxtun.ru)
+	BaseURLEN string `mapstructure:"base_url_en"` // Base URL for English emails (e.g. https://fxtun.dev)
 }
 
 // LoadServerConfig loads server configuration from file
@@ -252,6 +265,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("inspect.max_body_size", 262144)
 	v.SetDefault("yookassa.enabled", false)
 	v.SetDefault("yookassa.test_mode", true)
+	v.SetDefault("stripe.enabled", false)
+	v.SetDefault("stripe.test_mode", true)
 	v.SetDefault("smtp.enabled", false)
 	v.SetDefault("smtp.port", 587)
 	v.SetDefault("smtp.ssl_port", 465)
@@ -290,11 +305,39 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	// Viper splits dots in map keys (e.g., "fxtun.ru" becomes "fxtun" -> "ru").
+	// Re-parse payments.domains directly from YAML to preserve domain names with dots.
+	if cfgFile := v.ConfigFileUsed(); cfgFile != "" {
+		if domains, err := parsePaymentDomains(cfgFile); err == nil && len(domains) > 0 {
+			cfg.Payments.Domains = domains
+		}
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// parsePaymentDomains reads payments.domains from YAML file directly,
+// bypassing Viper which mangles dots in map keys.
+func parsePaymentDomains(configPath string) (map[string]PaymentDomainSettings, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw struct {
+		Payments struct {
+			Domains map[string]PaymentDomainSettings `yaml:"domains"`
+		} `yaml:"payments"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	return raw.Payments.Domains, nil
 }
 
 // Validate checks the configuration for errors
