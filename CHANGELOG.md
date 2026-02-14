@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.0](https://github.com/mephistofox/fxTunnel/compare/v3.4.2...v3.5.0) (2026-02-14)
+
+
+### Features
+
+* **payments:** add Stripe subscription cancel, payment history and fix cancel flow ([85bc237](https://github.com/mephistofox/fxTunnel/commit/85bc23786a8f7d8b981e9d73513829d0c1aa9d7f))
+
 ## [3.4.2](https://github.com/mephistofox/fxTunnel/compare/v3.4.1...v3.4.2) (2026-02-13)
 
 
