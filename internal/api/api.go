@@ -19,6 +19,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/email"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtunnel/internal/payment"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 	"github.com/mephistofox/fxtunnel/internal/web"
 )
@@ -86,6 +87,7 @@ type Server struct {
 	customDomainManager  CustomDomainManager
 	replayProvider       ReplayProvider
 	notifier             *email.Notifier
+	paymentProviders     *payment.Registry
 	router               chi.Router
 	httpServer     *http.Server
 	log            zerolog.Logger
@@ -130,6 +132,11 @@ func (s *Server) SetReplayProvider(rp ReplayProvider) {
 // SetNotifier sets the email notifier for payment notifications.
 func (s *Server) SetNotifier(n *email.Notifier) {
 	s.notifier = n
+}
+
+// SetPaymentProviders sets the payment provider registry.
+func (s *Server) SetPaymentProviders(r *payment.Registry) {
+	s.paymentProviders = r
 }
 
 // SetVersion sets the server version string for health endpoint.
@@ -225,9 +232,10 @@ func (s *Server) setupRoutes() {
 
 		// Payment callbacks (public, from YooKassa)
 		r.Route("/payments", func(r chi.Router) {
-			r.Post("/webhook", s.handlePaymentWebhook) // YooKassa webhook
-			r.Get("/success", s.handlePaymentSuccess)  // Return URL redirect
-			r.Get("/fail", s.handlePaymentFail)        // Fail redirect
+			r.Post("/webhook", s.handlePaymentWebhook)        // YooKassa webhook
+			r.Post("/webhook/stripe", s.handleStripeWebhook)   // Stripe webhook
+			r.Get("/success", s.handlePaymentSuccess)          // Return URL redirect
+			r.Get("/fail", s.handlePaymentFail)                // Fail redirect
 		})
 
 		// SSE inspect stream (no timeout, long-lived connection)

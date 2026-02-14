@@ -353,9 +353,21 @@ type PaymentDTO struct {
 	ID          int64     `json:"id"`
 	InvoiceID   int64     `json:"invoice_id"`
 	Amount      float64   `json:"amount"`
+	Currency    string    `json:"currency"`
+	Provider    string    `json:"provider"`
 	Status      string    `json:"status"`
 	IsRecurring bool      `json:"is_recurring"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+// currencyForProvider returns the currency used by the given payment provider
+func currencyForProvider(provider string) string {
+	switch provider {
+	case "stripe":
+		return "USD"
+	default:
+		return "RUB"
+	}
 }
 
 // PaymentFromModel converts a database Payment to PaymentDTO
@@ -367,6 +379,8 @@ func PaymentFromModel(p *database.Payment) *PaymentDTO {
 		ID:          p.ID,
 		InvoiceID:   p.InvoiceID,
 		Amount:      p.Amount,
+		Currency:    currencyForProvider(p.Provider),
+		Provider:    p.Provider,
 		Status:      string(p.Status),
 		IsRecurring: p.IsRecurring,
 		CreatedAt:   p.CreatedAt,

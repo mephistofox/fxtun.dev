@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/mephistofox/fxtunnel/internal/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/auth"
@@ -53,7 +50,8 @@ func (s *Server) handleGetSubscription(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Subscription = subDTO
-		resp.HasActive = sub.Status == database.SubscriptionStatusActive
+		resp.HasActive = sub.Status == database.SubscriptionStatusActive ||
+			(sub.Status == database.SubscriptionStatusCancelled && sub.CurrentPeriodEnd != nil && sub.CurrentPeriodEnd.After(time.Now()))
 	}
 
 	s.respondJSON(w, http.StatusOK, resp)
@@ -84,11 +82,37 @@ func (s *Server) isPaymentEnabledForDomain(host string) (bool, string) {
 		}
 	}
 
-	// Default: enabled if YooKassa is enabled
-	return s.cfg.YooKassa.Enabled, "payments are not enabled"
+	// Default: enabled if any provider is enabled
+	return s.cfg.YooKassa.Enabled || s.cfg.Stripe.Enabled, "payments are not enabled"
 }
 
-// handleCheckout creates a payment and returns YooKassa payment URL
+// getPaymentProvider resolves the payment provider for the given host
+func (s *Server) getPaymentProvider(host string) (payment.Provider, error) {
+	if s.paymentProviders == nil {
+		return nil, fmt.Errorf("payment providers not configured")
+	}
+
+	domain := extractDomainFromHost(host)
+
+	// Check per-domain settings
+	if s.cfg.Payments.Domains != nil {
+		if settings, ok := s.cfg.Payments.Domains[domain]; ok {
+			if !settings.Enabled {
+				return nil, fmt.Errorf("payments disabled for domain %s", domain)
+			}
+			return s.paymentProviders.Get(settings.Provider)
+		}
+	}
+
+	// Default: try yookassa
+	if s.cfg.YooKassa.Enabled {
+		return s.paymentProviders.Get("yookassa")
+	}
+
+	return nil, fmt.Errorf("no payment provider configured")
+}
+
+// handleCheckout creates a payment and returns the payment URL
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
@@ -102,6 +126,21 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusServiceUnavailable, msg)
 		return
 	}
+
+	// Resolve payment provider
+	provider, err := s.getPaymentProvider(r.Host)
+	if err != nil {
+		s.log.Error().Err(err).Str("host", r.Host).Msg("Failed to resolve payment provider")
+		s.respondError(w, http.StatusServiceUnavailable, "payment provider not available")
+		return
+	}
+
+	s.log.Info().
+		Str("host", r.Host).
+		Str("domain", extractDomainFromHost(r.Host)).
+		Str("provider", provider.Name()).
+		Interface("payment_domains", s.cfg.Payments.Domains).
+		Msg("Checkout: resolved payment provider")
 
 	var req dto.CheckoutRequest
 	if err := s.decodeJSON(r, &req); err != nil {
@@ -143,12 +182,18 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Stripe Billing manages renewal itself, so always mark as recurring
+	recurring := req.Recurring
+	if provider.Name() == "stripe" {
+		recurring = true
+	}
+
 	// Create subscription record (pending)
 	sub := &database.Subscription{
 		UserID:    user.ID,
 		PlanID:    plan.ID,
 		Status:    database.SubscriptionStatusPending,
-		Recurring: req.Recurring,
+		Recurring: recurring,
 	}
 	if err := s.db.Subscriptions.Create(sub); err != nil {
 		s.log.Error().Err(err).Msg("Failed to create subscription")
@@ -156,24 +201,36 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user email from database
+	// Get user email
 	dbUser, _ := s.db.Users.GetByID(user.ID)
 	email := ""
 	if dbUser != nil {
 		email = dbUser.Email
 	}
 
-	// Convert USD to RUB
-	priceRUB := exchange.ConvertUSDToRUB(plan.Price)
+	// Determine amount and currency based on provider
+	var amount float64
+	var currency string
+	providerName := provider.Name()
+
+	switch providerName {
+	case "stripe":
+		amount = plan.Price // USD
+		currency = "USD"
+	default: // yookassa
+		amount = exchange.ConvertUSDToRUB(plan.Price)
+		currency = "RUB"
+	}
 
 	// Create payment record
 	pmt := &database.Payment{
 		UserID:         user.ID,
 		SubscriptionID: &sub.ID,
 		InvoiceID:      invoiceID,
-		Amount:         priceRUB,
+		Amount:         amount,
 		Status:         database.PaymentStatusPending,
-		IsRecurring:    req.Recurring,
+		IsRecurring:    recurring,
+		Provider:       providerName,
 	}
 	if err := s.db.Payments.Create(pmt); err != nil {
 		s.log.Error().Err(err).Msg("Failed to create payment")
@@ -181,83 +238,42 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create YooKassa payment
-	yookassa := payment.NewYooKassa(payment.YooKassaConfig{
-		ShopID:    s.cfg.YooKassa.ShopID,
-		SecretKey: s.cfg.YooKassa.SecretKey,
-		TestMode:  s.cfg.YooKassa.TestMode,
-		ReturnURL: s.cfg.YooKassa.ReturnURL,
+	// Create checkout session via provider
+	result, err := provider.CreateCheckoutSession(payment.CheckoutParams{
+		InvoiceID:      invoiceID,
+		UserID:         user.ID,
+		SubscriptionID: sub.ID,
+		PlanID:         plan.ID,
+		PlanName:       plan.Name,
+		Amount:         amount,
+		Currency:       currency,
+		Email:          email,
+		Recurring:      recurring,
+		Description:    fmt.Sprintf("fxTunnel %s subscription", plan.Name),
 	})
-
-	// Generate idempotency key
-	idempotencyKey := uuid.New().String()
-
-	// Build payment request
-	paymentReq := payment.CreatePaymentRequest{
-		Amount: payment.Amount{
-			Value:    payment.FormatAmount(priceRUB),
-			Currency: "RUB",
-		},
-		Description: fmt.Sprintf("fxTunnel %s subscription", plan.Name),
-		Capture:     true, // Immediate capture
-		Confirmation: &payment.Confirmation{
-			Type:      "redirect",
-			ReturnURL: yookassa.GetReturnURL(),
-		},
-		SavePaymentMethod: req.Recurring, // Save for recurring if requested
-		Metadata: map[string]string{
-			"invoice_id":      fmt.Sprintf("%d", invoiceID),
-			"user_id":         fmt.Sprintf("%d", user.ID),
-			"subscription_id": fmt.Sprintf("%d", sub.ID),
-			"plan_id":         fmt.Sprintf("%d", plan.ID),
-		},
-	}
-
-	// Add receipt for 54-FZ compliance (self-employed = no VAT)
-	if email != "" {
-		paymentReq.Receipt = &payment.Receipt{
-			Customer: &payment.Customer{
-				Email: email,
-			},
-			Items: []payment.ReceiptItem{
-				{
-					Description:    fmt.Sprintf("Подписка fxTunnel %s (1 месяц)", plan.Name),
-					Quantity:       "1",
-					Amount:         paymentReq.Amount,
-					VATCode:        1, // No VAT (self-employed)
-					PaymentSubject: "service",
-					PaymentMode:    "full_payment",
-				},
-			},
-		}
-	}
-
-	// Create payment via YooKassa API
-	yooPayment, err := yookassa.CreatePayment(paymentReq, idempotencyKey)
 	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to create YooKassa payment")
+		s.log.Error().Err(err).Str("provider", providerName).Msg("Failed to create checkout session")
 		s.respondError(w, http.StatusInternalServerError, "failed to create payment")
 		return
 	}
 
-	// Save YooKassa payment ID
-	yookassaData, _ := json.Marshal(map[string]interface{}{
-		"yookassa_payment_id": yooPayment.ID,
-		"idempotency_key":     idempotencyKey,
-	})
-	pmt.YooKassaData = string(yookassaData)
+	// Save provider data
+	providerData, _ := json.Marshal(result.Metadata)
+	pmt.ProviderData = string(providerData)
 	if err := s.db.Payments.Update(pmt); err != nil {
-		s.log.Error().Err(err).Msg("Failed to update payment with YooKassa ID")
+		s.log.Error().Err(err).Msg("Failed to update payment with provider data")
 	}
 
-	// Get confirmation URL
-	paymentURL := ""
-	if yooPayment.Confirmation != nil {
-		paymentURL = yooPayment.Confirmation.ConfirmationURL
+	// For Stripe: save customer ID on subscription
+	if providerName == "stripe" && result.ProviderCustomerID != "" {
+		sub.StripeCustomerID = &result.ProviderCustomerID
+		if err := s.db.Subscriptions.Update(sub); err != nil {
+			s.log.Error().Err(err).Msg("Failed to save Stripe customer ID")
+		}
 	}
 
-	if paymentURL == "" {
-		s.log.Error().Str("payment_id", yooPayment.ID).Msg("No confirmation URL in YooKassa response")
+	if result.PaymentURL == "" {
+		s.log.Error().Str("provider", providerName).Msg("No payment URL in checkout result")
 		s.respondError(w, http.StatusInternalServerError, "failed to get payment URL")
 		return
 	}
@@ -265,16 +281,66 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	// Log audit
 	_ = s.db.Audit.Log(&user.ID, "payment_initiated", map[string]interface{}{
 		"invoice_id":          invoiceID,
-		"yookassa_payment_id": yooPayment.ID,
+		"provider":            providerName,
+		"provider_payment_id": result.ProviderPaymentID,
 		"plan_id":             plan.ID,
-		"amount":              priceRUB,
-		"recurring":           req.Recurring,
+		"amount":              amount,
+		"currency":            currency,
+		"recurring":           recurring,
 	}, auth.GetClientIP(r))
 
 	s.respondJSON(w, http.StatusOK, dto.CheckoutResponse{
-		PaymentURL: paymentURL,
+		PaymentURL: result.PaymentURL,
 		InvoiceID:  invoiceID,
 	})
+}
+
+// activateSubscription activates a subscription after successful payment
+func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.Payment, providerName string) {
+	now := time.Now()
+	periodEnd := now.AddDate(0, 1, 0) // +1 month
+	sub.Status = database.SubscriptionStatusActive
+	sub.CurrentPeriodStart = &now
+	sub.CurrentPeriodEnd = &periodEnd
+
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to activate subscription")
+		return
+	}
+
+	// Update user's plan
+	if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+		user.PlanID = sub.PlanID
+		if err := s.db.Users.Update(user); err != nil {
+			s.log.Error().Err(err).Msg("Failed to update user plan")
+		}
+	}
+
+	s.log.Info().
+		Int64("user_id", sub.UserID).
+		Int64("plan_id", sub.PlanID).
+		Str("provider", providerName).
+		Msg("Subscription activated")
+
+	// Log audit
+	_ = s.db.Audit.Log(&sub.UserID, "subscription_activated", map[string]interface{}{
+		"invoice_id":      pmt.InvoiceID,
+		"plan_id":         sub.PlanID,
+		"subscription_id": sub.ID,
+		"provider":        providerName,
+	}, "webhook")
+
+	// Send payment success email notification
+	if s.notifier != nil {
+		plan, _ := s.db.Plans.GetByID(sub.PlanID)
+		planName := "Unknown"
+		if plan != nil {
+			planName = plan.Name
+		}
+		if err := s.notifier.SendPaymentSuccessNotification(sub.UserID, planName, pmt.Amount, providerName); err != nil {
+			s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to send payment success email")
+		}
+	}
 }
 
 // handlePaymentWebhook handles YooKassa webhook notifications (POST)
@@ -401,55 +467,12 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 	if pmt.SubscriptionID != nil {
 		sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
 		if err == nil && sub != nil {
-			now := time.Now()
-			periodEnd := now.AddDate(0, 1, 0) // +1 month
-			sub.Status = database.SubscriptionStatusActive
-			sub.CurrentPeriodStart = &now
-			sub.CurrentPeriodEnd = &periodEnd
-
 			// Save payment_method_id for recurring payments
 			if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
 				sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
 			}
 
-			if err := s.db.Subscriptions.Update(sub); err != nil {
-				s.log.Error().Err(err).Msg("Failed to activate subscription")
-			}
-
-			// Update user's plan
-			if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
-				user.PlanID = sub.PlanID
-				if err := s.db.Users.Update(user); err != nil {
-					s.log.Error().Err(err).Msg("Failed to update user plan")
-				}
-			}
-
-			s.log.Info().
-				Int64("user_id", sub.UserID).
-				Int64("plan_id", sub.PlanID).
-				Str("yookassa_payment_id", yooPayment.ID).
-				Msg("Subscription activated")
-
-			// Log audit
-			_ = s.db.Audit.Log(&sub.UserID, "subscription_activated", map[string]interface{}{
-				"invoice_id":          invoiceID,
-				"yookassa_payment_id": yooPayment.ID,
-				"plan_id":             sub.PlanID,
-				"subscription_id":     sub.ID,
-			}, "webhook")
-
-			// Send payment success email notification
-			if s.notifier != nil {
-				plan, _ := s.db.Plans.GetByID(sub.PlanID)
-				planName := "Unknown"
-				if plan != nil {
-					planName = plan.Name
-				}
-				amount, _ := strconv.ParseFloat(yooPayment.Amount.Value, 64)
-				if err := s.notifier.SendPaymentSuccessNotification(sub.UserID, planName, amount); err != nil {
-					s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to send payment success email")
-				}
-			}
+			s.activateSubscription(sub, pmt, "yookassa")
 		}
 	}
 
@@ -550,6 +573,18 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	sub.Recurring = false
 	// Clear payment method to prevent autopayments
 	sub.YooKassaPaymentMethodID = nil
+
+	// Cancel Stripe subscription if applicable
+	if sub.StripeSubscriptionID != nil && *sub.StripeSubscriptionID != "" {
+		if provider, err := s.getPaymentProvider(r.Host); err == nil {
+			if cancelErr := provider.CancelSubscription(*sub.StripeSubscriptionID); cancelErr != nil {
+				s.log.Error().Err(cancelErr).Msg("Failed to cancel Stripe subscription")
+				s.respondError(w, http.StatusInternalServerError, "failed to cancel subscription")
+				return
+			}
+		}
+		sub.StripeSubscriptionID = nil
+	}
 
 	if err := s.db.Subscriptions.Update(sub); err != nil {
 		s.log.Error().Err(err).Msg("Failed to cancel subscription")
@@ -668,4 +703,197 @@ func (s *Server) handleGetPayments(w http.ResponseWriter, r *http.Request) {
 		Payments: paymentDTOs,
 		Total:    total,
 	})
+}
+
+// handleStripeWebhook handles Stripe webhook notifications
+func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
+	s.log.Info().
+		Str("remote_addr", r.RemoteAddr).
+		Msg("Stripe webhook received")
+
+	if !s.cfg.Stripe.Enabled {
+		http.Error(w, "stripe payments disabled", http.StatusServiceUnavailable)
+		return
+	}
+
+	provider, err := s.paymentProviders.Get("stripe")
+	if err != nil {
+		s.log.Error().Err(err).Msg("Stripe provider not registered")
+		http.Error(w, "stripe not configured", http.StatusInternalServerError)
+		return
+	}
+
+	events, err := provider.HandleWebhook(r)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to handle Stripe webhook")
+		http.Error(w, "webhook processing failed", http.StatusBadRequest)
+		return
+	}
+
+	for _, evt := range events {
+		s.log.Info().
+			Str("type", string(evt.Type)).
+			Int64("invoice_id", evt.InvoiceID).
+			Str("provider_payment_id", evt.ProviderPaymentID).
+			Msg("Stripe webhook event")
+
+		switch evt.Type {
+		case payment.WebhookEventPaymentSucceeded:
+			s.handleStripePaymentSucceeded(evt)
+		case payment.WebhookEventSubscriptionRenewed:
+			s.handleStripeSubscriptionRenewed(evt)
+		case payment.WebhookEventPaymentFailed:
+			s.handleStripePaymentFailed(evt)
+		case payment.WebhookEventSubscriptionDeleted:
+			s.handleStripeSubscriptionDeleted(evt)
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleStripePaymentSucceeded handles checkout.session.completed from Stripe
+func (s *Server) handleStripePaymentSucceeded(evt payment.WebhookEvent) {
+	if evt.InvoiceID == 0 {
+		s.log.Warn().Str("payment_id", evt.ProviderPaymentID).Msg("No invoice_id in Stripe event")
+		return
+	}
+
+	pmt, err := s.db.Payments.GetByInvoiceID(evt.InvoiceID)
+	if err != nil || pmt == nil {
+		s.log.Error().Err(err).Int64("invoice_id", evt.InvoiceID).Msg("Payment not found for Stripe event")
+		return
+	}
+
+	if pmt.Status == database.PaymentStatusSuccess {
+		s.log.Info().Int64("invoice_id", evt.InvoiceID).Msg("Payment already processed")
+		return
+	}
+
+	// Update payment
+	pmt.Status = database.PaymentStatusSuccess
+	providerData, _ := json.Marshal(evt.ProviderData)
+	pmt.ProviderData = string(providerData)
+	if err := s.db.Payments.Update(pmt); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update payment")
+		return
+	}
+
+	// Activate subscription and save Stripe IDs
+	if pmt.SubscriptionID != nil {
+		sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
+		if err == nil && sub != nil {
+			if evt.ProviderCustomerID != "" {
+				sub.StripeCustomerID = &evt.ProviderCustomerID
+			}
+			if evt.ProviderSubscriptionID != "" {
+				sub.StripeSubscriptionID = &evt.ProviderSubscriptionID
+			}
+			s.activateSubscription(sub, pmt, "stripe")
+		}
+	}
+}
+
+// handleStripeSubscriptionRenewed handles invoice.payment_succeeded (renewal) from Stripe
+func (s *Server) handleStripeSubscriptionRenewed(evt payment.WebhookEvent) {
+	if evt.ProviderSubscriptionID == "" {
+		s.log.Warn().Msg("No subscription ID in Stripe renewal event")
+		return
+	}
+
+	// Find subscription by Stripe subscription ID
+	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	if err != nil || sub == nil {
+		s.log.Error().Err(err).Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for Stripe renewal")
+		return
+	}
+
+	// Extend subscription period
+	now := time.Now()
+	periodEnd := now.AddDate(0, 1, 0)
+	sub.CurrentPeriodStart = &now
+	sub.CurrentPeriodEnd = &periodEnd
+	sub.Status = database.SubscriptionStatusActive
+
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to extend subscription")
+		return
+	}
+
+	s.log.Info().
+		Int64("subscription_id", sub.ID).
+		Int64("user_id", sub.UserID).
+		Str("stripe_subscription_id", evt.ProviderSubscriptionID).
+		Msg("Subscription renewed via Stripe")
+
+	_ = s.db.Audit.Log(&sub.UserID, "subscription_renewed", map[string]interface{}{
+		"subscription_id":        sub.ID,
+		"stripe_subscription_id": evt.ProviderSubscriptionID,
+		"plan_id":                sub.PlanID,
+		"amount":                 evt.Amount,
+	}, "webhook")
+}
+
+// handleStripePaymentFailed handles invoice.payment_failed from Stripe
+func (s *Server) handleStripePaymentFailed(evt payment.WebhookEvent) {
+	if evt.ProviderSubscriptionID == "" {
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	if err != nil || sub == nil {
+		s.log.Warn().Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for failed payment")
+		return
+	}
+
+	s.log.Warn().
+		Int64("subscription_id", sub.ID).
+		Int64("user_id", sub.UserID).
+		Msg("Stripe payment failed")
+
+	_ = s.db.Audit.Log(&sub.UserID, "payment_failed", map[string]interface{}{
+		"subscription_id":        sub.ID,
+		"stripe_subscription_id": evt.ProviderSubscriptionID,
+		"provider":               "stripe",
+	}, "webhook")
+}
+
+// handleStripeSubscriptionDeleted handles customer.subscription.deleted from Stripe
+func (s *Server) handleStripeSubscriptionDeleted(evt payment.WebhookEvent) {
+	if evt.ProviderSubscriptionID == "" {
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	if err != nil || sub == nil {
+		s.log.Warn().Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for deletion")
+		return
+	}
+
+	sub.Status = database.SubscriptionStatusExpired
+	sub.StripeSubscriptionID = nil
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update subscription after Stripe deletion")
+		return
+	}
+
+	// Downgrade to free plan
+	freePlan, _ := s.db.Plans.GetBySlug("free")
+	if freePlan != nil {
+		if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+			user.PlanID = freePlan.ID
+			_ = s.db.Users.Update(user)
+		}
+	}
+
+	s.log.Info().
+		Int64("subscription_id", sub.ID).
+		Int64("user_id", sub.UserID).
+		Msg("Subscription deleted via Stripe webhook")
+
+	_ = s.db.Audit.Log(&sub.UserID, "subscription_expired", map[string]interface{}{
+		"subscription_id":        sub.ID,
+		"stripe_subscription_id": evt.ProviderSubscriptionID,
+		"reason":                 "stripe_subscription_deleted",
+	}, "webhook")
 }

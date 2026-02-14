@@ -469,6 +469,8 @@ export interface Payment {
   id: number
   invoice_id: number
   amount: number
+  currency: string
+  provider: string
   status: 'pending' | 'success' | 'failed'
   is_recurring: boolean
   created_at: string

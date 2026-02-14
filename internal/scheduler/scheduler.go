@@ -41,33 +41,23 @@ type EventHandler func(event Event)
 
 // Scheduler handles subscription lifecycle tasks
 type Scheduler struct {
-	db       *database.Database
-	cfg      *config.ServerConfig
-	log      zerolog.Logger
-	yookassa *payment.YooKassa
-	handlers []EventHandler
+	db        *database.Database
+	cfg       *config.ServerConfig
+	log       zerolog.Logger
+	providers *payment.Registry
+	handlers  []EventHandler
 
 	// Check intervals
 	checkInterval time.Duration
 }
 
 // New creates a new scheduler
-func New(db *database.Database, cfg *config.ServerConfig, log zerolog.Logger) *Scheduler {
-	var yookassa *payment.YooKassa
-	if cfg.YooKassa.Enabled {
-		yookassa = payment.NewYooKassa(payment.YooKassaConfig{
-			ShopID:    cfg.YooKassa.ShopID,
-			SecretKey: cfg.YooKassa.SecretKey,
-			TestMode:  cfg.YooKassa.TestMode,
-			ReturnURL: cfg.YooKassa.ReturnURL,
-		})
-	}
-
+func New(db *database.Database, cfg *config.ServerConfig, providers *payment.Registry, log zerolog.Logger) *Scheduler {
 	return &Scheduler{
 		db:            db,
 		cfg:           cfg,
 		log:           log.With().Str("component", "scheduler").Logger(),
-		yookassa:      yookassa,
+		providers:     providers,
 		checkInterval: 1 * time.Hour,
 	}
 }
@@ -177,7 +167,7 @@ func (s *Scheduler) processExpiredSubscriptions() {
 
 // processRecurringRenewals handles automatic renewal of recurring subscriptions
 func (s *Scheduler) processRecurringRenewals() {
-	if s.yookassa == nil {
+	if s.providers == nil || !s.providers.Has("yookassa") {
 		return
 	}
 
@@ -190,6 +180,11 @@ func (s *Scheduler) processRecurringRenewals() {
 
 	for _, sub := range subs {
 		if !sub.Recurring {
+			continue
+		}
+
+		// Skip subscriptions managed by Stripe - renewals are handled by Stripe Billing webhooks
+		if sub.StripeSubscriptionID != nil && *sub.StripeSubscriptionID != "" {
 			continue
 		}
 
@@ -317,7 +312,15 @@ func (s *Scheduler) createAutopayment(sub *database.Subscription, plan *database
 		},
 	}
 
-	return s.yookassa.CreatePayment(req, idempotencyKey)
+	yookassa, err := s.providers.Get("yookassa")
+	if err != nil {
+		return nil, fmt.Errorf("yookassa provider not available: %w", err)
+	}
+	yk, ok := yookassa.(*payment.YooKassa)
+	if !ok {
+		return nil, fmt.Errorf("invalid yookassa provider type")
+	}
+	return yk.CreatePayment(req, idempotencyKey)
 }
 
 // handleAutopaymentSuccess processes successful autopayment

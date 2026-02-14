@@ -29,6 +29,11 @@ const publicRoutes: RouteRecordRaw[] = [
     name: 'pricing',
     component: () => import('./views/PricingView.vue'),
   },
+  {
+    path: '/terms',
+    name: 'terms',
+    component: () => import('./views/TermsView.vue'),
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {

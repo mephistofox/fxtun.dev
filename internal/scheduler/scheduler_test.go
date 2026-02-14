@@ -10,6 +10,7 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
+	"github.com/mephistofox/fxtunnel/internal/payment"
 )
 
 func setupTestDB(t *testing.T) *database.Database {
@@ -50,12 +51,19 @@ func TestScheduler_New(t *testing.T) {
 	}
 	log := zerolog.New(zerolog.NewTestWriter(t))
 
-	s := New(db, cfg, log)
+	providers := payment.NewRegistry()
+	providers.Register(payment.NewYooKassa(payment.YooKassaConfig{
+		ShopID:    cfg.YooKassa.ShopID,
+		SecretKey: cfg.YooKassa.SecretKey,
+		TestMode:  cfg.YooKassa.TestMode,
+	}))
+
+	s := New(db, cfg, providers, log)
 	if s == nil {
 		t.Fatal("Expected scheduler to be created")
 	}
-	if s.yookassa == nil {
-		t.Fatal("Expected yookassa client to be created")
+	if s.providers == nil || !s.providers.Has("yookassa") {
+		t.Fatal("Expected yookassa provider to be registered")
 	}
 }
 
@@ -68,12 +76,14 @@ func TestScheduler_NewWithoutYooKassa(t *testing.T) {
 	}
 	log := zerolog.New(zerolog.NewTestWriter(t))
 
-	s := New(db, cfg, log)
+	providers := payment.NewRegistry()
+
+	s := New(db, cfg, providers, log)
 	if s == nil {
 		t.Fatal("Expected scheduler to be created")
 	}
-	if s.yookassa != nil {
-		t.Fatal("Expected yookassa client to be nil when disabled")
+	if s.providers.Has("yookassa") {
+		t.Fatal("Expected yookassa provider to not be registered when disabled")
 	}
 }
 
@@ -82,7 +92,7 @@ func TestScheduler_OnEvent(t *testing.T) {
 	cfg := &config.ServerConfig{}
 	log := zerolog.New(zerolog.NewTestWriter(t))
 
-	s := New(db, cfg, log)
+	s := New(db, cfg, nil, log)
 
 	var receivedEvent *Event
 	s.OnEvent(func(e Event) {
@@ -112,7 +122,7 @@ func TestScheduler_RunOnce(t *testing.T) {
 	cfg := &config.ServerConfig{}
 	log := zerolog.New(zerolog.NewTestWriter(t))
 
-	s := New(db, cfg, log)
+	s := New(db, cfg, nil, log)
 
 	// Should not panic with empty database
 	s.RunOnce()
@@ -123,7 +133,7 @@ func TestScheduler_StartAndStop(t *testing.T) {
 	cfg := &config.ServerConfig{}
 	log := zerolog.New(zerolog.NewTestWriter(t))
 
-	s := New(db, cfg, log)
+	s := New(db, cfg, nil, log)
 	s.checkInterval = 100 * time.Millisecond
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,7 +200,7 @@ func TestScheduler_ProcessExpiredSubscriptions(t *testing.T) {
 		t.Fatalf("Failed to create subscription: %v", err)
 	}
 
-	s := New(db, cfg, log)
+	s := New(db, cfg, nil, log)
 
 	var expiredEvents []Event
 	s.OnEvent(func(e Event) {

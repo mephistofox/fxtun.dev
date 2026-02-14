@@ -157,13 +157,17 @@ async function extendSubscription() {
   }
 }
 
+const isRuDomain = computed(() => window.location.hostname.endsWith('fxtun.ru'))
+
 function formatDate(dateStr?: string) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('ru-RU')
+  return new Date(dateStr).toLocaleDateString(isRuDomain.value ? 'ru-RU' : 'en-US')
 }
 
 function formatAmount(amount: number) {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(amount)
+  const locale = isRuDomain.value ? 'ru-RU' : 'en-US'
+  const currency = isRuDomain.value ? 'RUB' : 'USD'
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount)
 }
 
 onMounted(() => {

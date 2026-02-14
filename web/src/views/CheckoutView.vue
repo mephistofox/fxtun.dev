@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button.vue'
 import { plansApi, subscriptionApi, type Plan } from '@/api/client'
 
 const route = useRoute()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const plans = ref<Plan[]>([])
 const selectedPlanId = ref<number | null>(null)
@@ -17,8 +17,7 @@ const loading = ref(false)
 const error = ref('')
 const submitting = ref(false)
 
-// Payments disabled for non-Russian users until Paddle integration
-const isPaymentsDisabled = computed(() => locale.value !== 'ru')
+const isRuDomain = computed(() => window.location.hostname.endsWith('fxtun.ru'))
 
 const selectedPlan = computed(() => {
   return plans.value.find(p => p.id === selectedPlanId.value) || null
@@ -54,7 +53,7 @@ async function handleCheckout() {
   error.value = ''
   try {
     const response = await subscriptionApi.checkout(selectedPlanId.value, recurring.value)
-    // Redirect to YooKassa
+    // Redirect to payment provider
     window.location.href = response.data.payment_url
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
@@ -63,10 +62,9 @@ async function handleCheckout() {
   }
 }
 
-// Format price using backend-calculated price_rub
+// Format price based on domain (fxtun.ru = RUB, fxtun.dev = USD)
 function formatPrice(plan: Plan) {
-  if (locale.value === 'ru') {
-    // Use backend price_rub or fallback to price * 75
+  if (isRuDomain.value) {
     const priceRub = plan.price_rub ?? plan.price * 75
     return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(priceRub)
   }
@@ -85,29 +83,13 @@ onMounted(() => {
 <template>
   <Layout>
     <div class="max-w-4xl mx-auto space-y-6">
-      <!-- Payments Disabled Message -->
-      <div v-if="isPaymentsDisabled" class="text-center py-16">
-        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-        </div>
-        <h1 class="text-2xl font-bold mb-3">{{ t('checkout.paymentsDisabledTitle') }}</h1>
-        <p class="text-muted-foreground max-w-md mx-auto">
-          {{ t('checkout.paymentsDisabledMessage') }}
-        </p>
-      </div>
-
-      <!-- Normal Checkout Flow -->
-      <template v-else>
         <div class="text-center mb-8">
           <h1 class="text-2xl font-bold">{{ t('checkout.title') }}</h1>
           <p class="text-muted-foreground mt-2">{{ t('checkout.subtitle') }}</p>
         </div>
 
-        <!-- Subscription Warning -->
-      <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
+        <!-- Subscription Warning (YooKassa only — Stripe always manages renewals) -->
+      <div v-if="isRuDomain" class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
         <div class="flex items-start gap-3">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
@@ -187,8 +169,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Recurring toggle (disabled until recurring payments enabled) -->
-      <Card v-if="selectedPlan" class="p-6 mt-6 opacity-50">
+      <!-- Recurring toggle (YooKassa only — Stripe handles renewals automatically) -->
+      <Card v-if="selectedPlan && isRuDomain" class="p-6 mt-6 opacity-50">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="font-medium">{{ t('checkout.autoRenewal') }}</h3>
@@ -216,7 +198,7 @@ onMounted(() => {
           <span class="text-muted-foreground">{{ t('checkout.total') }}</span>
           <span class="text-2xl font-bold">{{ formatPrice(selectedPlan) }}</span>
         </div>
-        <div class="flex items-center justify-between text-sm text-muted-foreground mb-6">
+        <div v-if="isRuDomain" class="flex items-center justify-between text-sm text-muted-foreground mb-6">
           <span>{{ t('checkout.paymentType') }}</span>
           <span>{{ recurring ? t('checkout.subscription') : t('checkout.oneTime') }}</span>
         </div>
@@ -231,10 +213,14 @@ onMounted(() => {
         </Button>
         <p class="text-xs text-muted-foreground text-center mt-4">
           {{ t('checkout.securePaymentVia') }}
-          <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
+          <template v-if="isRuDomain">
+            <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
+          </template>
+          <template v-else>
+            <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Stripe</a>
+          </template>
         </p>
       </Card>
-      </template>
     </div>
   </Layout>
 </template>
