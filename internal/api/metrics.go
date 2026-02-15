@@ -56,7 +56,7 @@ func metricsMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start).Seconds()
-		pattern := r.URL.Path
+		pattern := "/*"
 		if rctx := chi.RouteContext(r.Context()); rctx != nil {
 			if p := rctx.RoutePattern(); p != "" {
 				pattern = p
