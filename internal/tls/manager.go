@@ -236,9 +236,12 @@ func (cm *CertManager) renewExpiring() {
 }
 
 func (cm *CertManager) hostPolicy(_ context.Context, host string) error {
-	_, err := cm.db.CustomDomains.GetByDomain(host)
+	d, err := cm.db.CustomDomains.GetByDomain(host)
 	if err != nil {
 		return fmt.Errorf("unknown host: %s", host)
+	}
+	if !d.Verified {
+		return fmt.Errorf("domain not verified: %s", host)
 	}
 	return nil
 }
