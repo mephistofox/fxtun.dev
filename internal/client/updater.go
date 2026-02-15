@@ -5,12 +5,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 )
+
+// allowedUpdateHosts is the list of trusted hosts for binary downloads.
+var allowedUpdateHosts = []string{
+	"github.com",
+	"api.github.com",
+	"objects.githubusercontent.com",
+}
 
 // UpdateInfo contains information about an available update
 type UpdateInfo struct {
@@ -19,6 +27,7 @@ type UpdateInfo struct {
 	MinVersion    string            `json:"min_version"`
 	Downloads     map[string]string `json:"downloads"`
 	DownloadURL   string            `json:"-"` // resolved for current platform
+	ServerHost    string            `json:"-"` // server host for URL validation
 }
 
 // CheckUpdate checks the server for available updates.
@@ -47,6 +56,7 @@ func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
 	}
 
 	// Resolve download URL for current platform
+	info.ServerHost = host
 	platform := runtime.GOOS + "_" + runtime.GOARCH
 	if dlPath, ok := info.Downloads[platform]; ok {
 		info.DownloadURL = fmt.Sprintf("%s://%s%s", scheme, host, dlPath)
@@ -65,10 +75,34 @@ func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
 	return nil, nil // up to date
 }
 
+// ValidateUpdateURL checks that the download URL uses HTTPS and comes from a trusted host.
+// extraHosts allows additional trusted hosts (e.g., the fxTunnel server the client connected to).
+func ValidateUpdateURL(downloadURL string, extraHosts ...string) error {
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return fmt.Errorf("invalid download URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("download URL must use HTTPS, got %s", u.Scheme)
+	}
+	allHosts := append(allowedUpdateHosts, extraHosts...)
+	for _, h := range allHosts {
+		if u.Host == h || strings.HasSuffix(u.Host, "."+h) {
+			return nil
+		}
+	}
+	return fmt.Errorf("download URL host not allowed: %s", u.Host)
+}
+
 // SelfUpdate downloads a new binary and replaces the current executable.
-func SelfUpdate(downloadURL string) error {
+// extraHosts allows additional trusted hosts for URL validation.
+func SelfUpdate(downloadURL string, extraHosts ...string) error {
+	if err := ValidateUpdateURL(downloadURL, extraHosts...); err != nil {
+		return err
+	}
+
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(downloadURL) //nolint:gosec // URL is from trusted server
+	resp, err := client.Get(downloadURL) //nolint:gosec // URL validated above
 	if err != nil {
 		return fmt.Errorf("download update: %w", err)
 	}
@@ -128,8 +162,9 @@ func IsVersionIncompatible(minVersion, currentVersion string) bool {
 
 // SelfUpdateAndRestart downloads a new binary, replaces the current executable,
 // and restarts the process with the same arguments.
-func SelfUpdateAndRestart(downloadURL string) error {
-	if err := SelfUpdate(downloadURL); err != nil {
+// extraHosts allows additional trusted hosts for URL validation.
+func SelfUpdateAndRestart(downloadURL string, extraHosts ...string) error {
+	if err := SelfUpdate(downloadURL, extraHosts...); err != nil {
 		return err
 	}
 
