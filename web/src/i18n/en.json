@@ -781,10 +781,10 @@
     "lastUpdated": "Last updated"
   },
   "seo": {
-    "defaultDescription": "Secure localhost tunneling service. Expose local HTTP, TCP, UDP services to the internet with free custom subdomains and a desktop GUI client.",
+    "defaultDescription": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector.",
     "landing": {
-      "title": "fxTunnel — Secure Localhost Tunneling Service",
-      "description": "Expose local servers to the internet via HTTP, TCP, UDP tunnels. Free custom subdomains, desktop GUI client, traffic inspector. The best ngrok alternative."
+      "title": "fxTunnel — Free ngrok Alternative {'|'} HTTP, TCP & UDP Tunneling",
+      "description": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector. Self-hostable."
     },
     "login": {
       "title": "Sign In — fxTunnel",

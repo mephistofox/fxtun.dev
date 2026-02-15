@@ -21,6 +21,18 @@ export const createApp = ViteSSG(
       next()
     })
 
+    // GA4: track SPA page views
+    if (!import.meta.env.SSR) {
+      router.afterEach((to) => {
+        if (typeof window.gtag === 'function') {
+          window.gtag('config', 'G-4FH5VTH49H', {
+            page_path: to.fullPath,
+            page_title: document.title,
+          })
+        }
+      })
+    }
+
     if (!import.meta.env.SSR) {
       router.beforeEach(async (to, _from, next) => {
         if (to.meta.forcedLocale) {

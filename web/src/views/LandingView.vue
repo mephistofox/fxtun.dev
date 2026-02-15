@@ -5,7 +5,7 @@ import { setLocale, getLocale, getBlogUrl } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
-import { useOrganizationSchema, useSoftwareApplicationSchema, useWebSiteSchema, useFaqSchema } from '@/composables/useStructuredData'
+import { useOrganizationSchema, useSoftwareApplicationSchema, useWebSiteSchema, useWebPageSchema, useFaqSchema } from '@/composables/useStructuredData'
 import HeroSection from '@/components/landing/HeroSection.vue'
 import FeaturesSection from '@/components/landing/FeaturesSection.vue'
 import AdvancedFeaturesSection from '@/components/landing/AdvancedFeaturesSection.vue'
@@ -23,14 +23,16 @@ const { t, tm } = useI18n()
 
 useSeo({ titleKey: 'seo.landing.title', descriptionKey: 'seo.landing.description' })
 
-// Only emit structured data on the canonical `/` route, not on lang-prefixed `/ru` `/en`
-// to avoid Google "duplicate FAQPage" warnings
+// Emit structured data on canonical routes: `/` (EN, fxtun.dev) and `/ru` (RU, fxtun.ru).
+// `/ru` is served as root on fxtun.ru via domain-based pre-rendering in SPAHandler.
+// `/en` is excluded because its canonical points to `/` which already has structured data.
 const route = useRoute()
-const isCanonicalRoute = route.path === '/'
+const isCanonicalRoute = route.path === '/' || route.path === '/ru'
 if (isCanonicalRoute) {
   useOrganizationSchema()
   useSoftwareApplicationSchema()
   useWebSiteSchema()
+  useWebPageSchema()
   const faqItems = tm('landing.faq.items') as Array<{ q: string; a: string }>
   useFaqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))
 }
