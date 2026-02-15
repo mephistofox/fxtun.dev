@@ -108,9 +108,9 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 				}
 
 				user = &AuthenticatedUser{
-					ID:      claims.UserID,
-					Phone:   claims.Phone,
-					IsAdmin: claims.IsAdmin,
+					ID:      jwtUser.ID,
+					Phone:   jwtUser.Phone,
+					IsAdmin: jwtUser.IsAdmin,
 					Plan:    plan,
 				}
 			}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,20 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+)
+
+var (
+	// subdomainRegex validates subdomain format
+	subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
+
+	// reservedSubdomains are subdomains that cannot be claimed by tunnel clients
+	reservedSubdomains = map[string]bool{
+		"api": true, "www": true, "admin": true, "mail": true,
+		"smtp": true, "imap": true, "pop": true, "ftp": true,
+		"ns1": true, "ns2": true, "ns3": true, "ns4": true,
+		"autoconfig": true, "autodiscover": true, "_dmarc": true,
+		"status": true, "metrics": true, "grafana": true,
+	}
 )
 
 const (
@@ -741,10 +756,36 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		subdomain = generateShortID()
 	}
 
+	// Validate subdomain format
+	if !subdomainRegex.MatchString(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "invalid subdomain format")
+		return
+	}
+
+	// Block reserved subdomains
+	if reservedSubdomains[subdomain] {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "subdomain is reserved")
+		return
+	}
+
 	// Check subdomain permission
 	if c.Token != nil && !c.Token.CanUseSubdomain(subdomain) {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePermissionDenied, "subdomain not allowed")
 		return
+	}
+	if c.DBToken != nil && !c.DBToken.CanUseSubdomain(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePermissionDenied, "subdomain not allowed by token")
+		return
+	}
+
+	// Check reserved domains in database
+	if c.server.db != nil && c.UserID > 0 {
+		owned, _ := c.server.db.Domains.IsOwnedByUser(subdomain, c.UserID)
+		available, _ := c.server.db.Domains.IsAvailable(subdomain)
+		if !available && !owned {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain is reserved by another user")
+			return
+		}
 	}
 
 	// Register with HTTP router
