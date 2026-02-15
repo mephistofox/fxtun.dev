@@ -167,11 +167,17 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing active subscription
+	// Check for existing active or pending subscription
 	existingSub, _ := s.db.Subscriptions.GetByUserID(user.ID)
-	if existingSub != nil && existingSub.Status == database.SubscriptionStatusActive {
-		s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
-		return
+	if existingSub != nil {
+		switch existingSub.Status {
+		case database.SubscriptionStatusActive:
+			s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
+			return
+		case database.SubscriptionStatusPending:
+			s.respondError(w, http.StatusBadRequest, "pending payment already exists, please complete or wait")
+			return
+		}
 	}
 
 	// Generate invoice ID
@@ -355,10 +361,12 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify IP (skip in test mode)
+	// Verify IP using original TCP remote address (before RealIP middleware).
+	// This prevents X-Forwarded-For header spoofing to bypass IP verification.
 	if !s.cfg.YooKassa.TestMode {
-		if !payment.IsYooKassaIP(r.RemoteAddr) {
-			s.log.Warn().Str("ip", r.RemoteAddr).Msg("Webhook from unauthorized IP")
+		originalIP := getOriginalRemoteAddr(r)
+		if !payment.IsYooKassaIP(originalIP) {
+			s.log.Warn().Str("ip", originalIP).Str("remote_addr", r.RemoteAddr).Msg("Webhook from unauthorized IP")
 			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
@@ -436,6 +444,22 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 		s.log.Info().Int64("invoice_id", invoiceID).Msg("Payment already processed")
 		w.WriteHeader(http.StatusOK)
 		return
+	}
+
+	// Verify payment amount matches expected amount
+	if yooPayment.Amount.Value != "" {
+		var webhookAmount float64
+		if _, err := fmt.Sscanf(yooPayment.Amount.Value, "%f", &webhookAmount); err == nil {
+			if webhookAmount < pmt.Amount*0.99 {
+				s.log.Error().
+					Float64("expected", pmt.Amount).
+					Float64("received", webhookAmount).
+					Int64("invoice_id", invoiceID).
+					Msg("Payment amount mismatch")
+				http.Error(w, "amount mismatch", http.StatusBadRequest)
+				return
+			}
+		}
 	}
 
 	// Update payment status

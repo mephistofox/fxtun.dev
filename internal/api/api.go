@@ -155,6 +155,7 @@ func (s *Server) setupRoutes() {
 
 	// Middleware
 	r.Use(middleware.RequestID)
+	r.Use(saveOriginalIPMiddleware)
 	r.Use(middleware.RealIP)
 	r.Use(s.loggingMiddleware)
 	r.Use(middleware.Recoverer)
@@ -191,6 +192,7 @@ func (s *Server) setupRoutes() {
 	r.Get("/install.sh", s.handleInstallScript)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.MiddlewareWithDB(s.authService, s.db))
+		r.Use(auth.AdminMiddleware)
 		r.Handle("/metrics", metricsHandler())
 	})
 
