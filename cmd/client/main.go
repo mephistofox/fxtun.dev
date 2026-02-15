@@ -473,7 +473,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("  \033[90mDownloading...\033[0m\n")
-	if err := client.SelfUpdate(info.DownloadURL); err != nil {
+	if err := client.SelfUpdate(info.DownloadURL, info.ServerHost); err != nil {
 		fmt.Fprintf(os.Stderr, "  \033[31mUpdate failed: %v\033[0m\n", err)
 		return err
 	}
@@ -494,7 +494,7 @@ func checkAndAutoUpdate(addr string) {
 			fmt.Fprintf(os.Stderr, "  \033[31mNo download available for this platform\033[0m\n")
 			os.Exit(1)
 		}
-		if err := client.SelfUpdateAndRestart(info.DownloadURL); err != nil {
+		if err := client.SelfUpdateAndRestart(info.DownloadURL, info.ServerHost); err != nil {
 			fmt.Fprintf(os.Stderr, "  \033[31mAuto-update failed: %v\033[0m\n", err)
 			os.Exit(1)
 		}
