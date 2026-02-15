@@ -60,6 +60,11 @@ func (s *Service) IsEnabled() bool {
 	return s.cfg.Enabled && s.cfg.Host != "" && s.cfg.From != ""
 }
 
+// sanitizeHeader removes CR and LF characters to prevent email header injection.
+func sanitizeHeader(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(s)
+}
+
 // Message represents an email message
 type Message struct {
 	To       string
@@ -82,9 +87,9 @@ func (s *Service) Send(msg Message) error {
 
 	// Build email content
 	var body strings.Builder
-	body.WriteString(fmt.Sprintf("From: %s\r\n", from))
-	body.WriteString(fmt.Sprintf("To: %s\r\n", msg.To))
-	body.WriteString(fmt.Sprintf("Subject: %s\r\n", msg.Subject))
+	body.WriteString(fmt.Sprintf("From: %s\r\n", sanitizeHeader(from)))
+	body.WriteString(fmt.Sprintf("To: %s\r\n", sanitizeHeader(msg.To)))
+	body.WriteString(fmt.Sprintf("Subject: %s\r\n", sanitizeHeader(msg.Subject)))
 
 	if msg.HTMLBody != "" {
 		boundary := "----=_Part_0_1234567890.1234567890"
@@ -208,6 +213,8 @@ func (s *Service) sendStartTLS(addr string, auth smtp.Auth, from, to string, msg
 		if err := client.StartTLS(tlsConfig); err != nil {
 			return fmt.Errorf("starttls: %w", err)
 		}
+	} else {
+		return errors.New("server does not support STARTTLS, refusing to send credentials in plaintext")
 	}
 
 	if err := client.Auth(auth); err != nil {

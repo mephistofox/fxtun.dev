@@ -448,9 +448,13 @@ func (y *YooKassa) CreateCheckoutSession(params CheckoutParams) (*CheckoutResult
 	}, nil
 }
 
-// HandleWebhook parses a YooKassa webhook request and returns events
+// HandleWebhook parses a YooKassa webhook request and returns events.
+// IMPORTANT: r.RemoteAddr may be rewritten by RealIP middleware.
+// Callers should verify IP using the original TCP remote address before calling this method.
 func (y *YooKassa) HandleWebhook(r *http.Request) ([]WebhookEvent, error) {
-	// Verify IP (skip in test mode)
+	// Verify IP (skip in test mode).
+	// NOTE: This check may be unreliable if RealIP middleware has rewritten r.RemoteAddr.
+	// The API handler performs its own IP verification using the original remote address.
 	if !y.config.TestMode {
 		if !IsYooKassaIP(r.RemoteAddr) {
 			return nil, fmt.Errorf("webhook from unauthorized IP: %s", r.RemoteAddr)
