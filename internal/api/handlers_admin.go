@@ -319,7 +319,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserDeleted, map[string]interface{}{
 		"deleted_user_id":    id,
-		"deleted_user_phone": user.Phone,
+		"deleted_user_email": user.Email,
 	}, ipAddress)
 
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
@@ -387,9 +387,9 @@ func (s *Server) handleMergeUsers(w http.ResponseWriter, r *http.Request) {
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUsersMerged, map[string]interface{}{
 		"primary_user_id":    req.PrimaryUserID,
-		"primary_phone":      primaryUser.Phone,
+		"primary_email":      primaryUser.Email,
 		"secondary_user_id":  req.SecondaryUserID,
-		"secondary_phone":    secondaryUser.Phone,
+		"secondary_email":    secondaryUser.Email,
 	}, ipAddress)
 
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
@@ -445,6 +445,9 @@ func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request
 		s.respondError(w, http.StatusInternalServerError, "failed to reset password")
 		return
 	}
+
+	// Invalidate all existing sessions for the user
+	_ = s.db.Sessions.DeleteByUserID(id)
 
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&currentUser.ID, database.ActionPasswordReset, map[string]interface{}{

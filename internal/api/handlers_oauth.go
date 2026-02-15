@@ -531,30 +531,14 @@ func (s *Server) getGoogleUser(accessToken string) (*googleUser, error) {
 	return &user, nil
 }
 
-// buildGoogleRedirectURI constructs the Google OAuth callback URL from the incoming request.
+// buildGoogleRedirectURI constructs the Google OAuth callback URL from the server's base domain.
 func (s *Server) buildGoogleRedirectURI(r *http.Request) string {
-	scheme := "https"
-	if r.TLS == nil {
-		if fwd := r.Header.Get("X-Forwarded-Proto"); fwd != "" {
-			scheme = fwd
-		} else {
-			scheme = "http"
-		}
-	}
-	return fmt.Sprintf("%s://%s/api/auth/google/callback", scheme, r.Host)
+	return fmt.Sprintf("https://%s/api/auth/google/callback", s.baseDomain)
 }
 
-// buildRedirectURI constructs the OAuth callback URL from the incoming request.
+// buildRedirectURI constructs the OAuth callback URL from the server's base domain.
 func (s *Server) buildRedirectURI(r *http.Request) string {
-	scheme := "https"
-	if r.TLS == nil {
-		if fwd := r.Header.Get("X-Forwarded-Proto"); fwd != "" {
-			scheme = fwd
-		} else {
-			scheme = "http"
-		}
-	}
-	return fmt.Sprintf("%s://%s/api/auth/github/callback", scheme, r.Host)
+	return fmt.Sprintf("https://%s/api/auth/github/callback", s.baseDomain)
 }
 
 // redirectWithError redirects to the frontend auth callback with an error message.

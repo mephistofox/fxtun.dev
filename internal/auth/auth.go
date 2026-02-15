@@ -17,8 +17,8 @@ var (
 	ErrTOTPRequired       = errors.New("TOTP code required")
 )
 
-// maskPhone masks a phone number for logging, showing only the last 4 digits.
-func maskPhone(phone string) string {
+// MaskPhone masks a phone number for logging, showing only the last 4 digits.
+func MaskPhone(phone string) string {
 	if len(phone) <= 4 {
 		return "****"
 	}
@@ -94,10 +94,10 @@ func (s *Service) Register(phone, password, displayName, ipAddress string) (*dat
 
 	// Log audit
 	_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
-		"phone": phone,
+		"email": user.Email,
 	}, ipAddress)
 
-	s.log.Info().Int64("user_id", user.ID).Str("phone", maskPhone(phone)).Msg("User registered")
+	s.log.Info().Int64("user_id", user.ID).Str("phone", MaskPhone(phone)).Msg("User registered")
 
 	return user, tokenPair, nil
 }
@@ -194,7 +194,7 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 		"user_agent": userAgent,
 	}, ipAddress)
 
-	s.log.Info().Int64("user_id", user.ID).Str("identifier", maskPhone(identifier)).Msg("User logged in")
+	s.log.Info().Int64("user_id", user.ID).Str("identifier", MaskPhone(identifier)).Msg("User logged in")
 
 	return user, tokenPair, nil
 }
@@ -202,7 +202,17 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 // Logout invalidates a refresh token
 func (s *Service) Logout(refreshToken string, ipAddress string, userID int64) error {
 	tokenHash := HashToken(refreshToken)
-	if err := s.db.Sessions.DeleteByTokenHash(tokenHash); err != nil {
+
+	// Verify the session belongs to the authenticated user
+	session, err := s.db.Sessions.GetByTokenHash(tokenHash)
+	if err != nil {
+		return fmt.Errorf("get session: %w", err)
+	}
+	if session.UserID != userID {
+		return fmt.Errorf("session does not belong to user")
+	}
+
+	if err := s.db.Sessions.Delete(session.ID); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 
