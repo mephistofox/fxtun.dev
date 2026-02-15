@@ -1,8 +1,45 @@
 import { createI18n } from 'vue-i18n'
+import type { MessageCompiler } from 'vue-i18n'
 import en from './en.json'
 import ru from './ru.json'
 
 type MessageSchema = typeof en
+
+// CSP-compatible message compiler: interprets {name} and {'literal'}
+// without using new Function() (which requires unsafe-eval)
+const cspMessageCompiler: MessageCompiler = (message) => {
+  if (typeof message === 'function') return message as any
+
+  const msg = String(message)
+
+  // Parse message into parts: text, named interpolation {key}, literal {'|'}
+  const parts: Array<{ t: 'x', v: string } | { t: 'n', k: string }> = []
+  let lastIdx = 0
+  const re = /\{'([^']*)'\}|\{([^}]+)\}/g
+  let m: RegExpExecArray | null
+
+  while ((m = re.exec(msg)) !== null) {
+    if (m.index > lastIdx) parts.push({ t: 'x', v: msg.slice(lastIdx, m.index) })
+    if (m[1] !== undefined) {
+      parts.push({ t: 'x', v: m[1] }) // literal {'|'} → |
+    } else {
+      parts.push({ t: 'n', k: m[2] }) // named {key}
+    }
+    lastIdx = re.lastIndex
+  }
+  if (lastIdx < msg.length) parts.push({ t: 'x', v: msg.slice(lastIdx) })
+
+  // No interpolation — return static string
+  if (parts.every(p => p.t === 'x')) {
+    const text = parts.map(p => p.v).join('')
+    return () => text
+  }
+
+  return (ctx: any) =>
+    parts
+      .map(p => (p.t === 'n' ? (ctx.named(p.k) ?? `{${p.k}}`) : p.v))
+      .join('')
+}
 
 export function getDomainLocale(): 'en' | 'ru' | null {
   if (import.meta.env.SSR) return null
@@ -24,6 +61,7 @@ export const i18n = createI18n<[MessageSchema], 'en' | 'ru'>({
   legacy: false,
   locale: getDefaultLocale(),
   fallbackLocale: 'en',
+  messageCompiler: cspMessageCompiler,
   messages: {
     en,
     ru,
