@@ -77,6 +77,8 @@ func (s *UpdateService) DownloadUpdate(downloadURL string) error {
 }
 
 // ApplyUpdateAndRestart downloads the update and restarts the process.
+// URL is validated inside SelfUpdateAndRestart against trusted hosts.
 func (s *UpdateService) ApplyUpdateAndRestart(downloadURL string) error {
-	return client.SelfUpdateAndRestart(downloadURL)
+	host, _, _ := strings.Cut(s.app.serverAddress, ":")
+	return client.SelfUpdateAndRestart(downloadURL, host)
 }
