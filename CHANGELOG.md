@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.6.0](https://github.com/mephistofox/fxTunnel/compare/v3.5.0...v3.6.0) (2026-02-16)
+
+
+### Features
+
+* **server:** enhance CSP headers, email validation and static file serving ([182b115](https://github.com/mephistofox/fxTunnel/commit/182b115063ad03a2f620323ee631db69e80e9544))
+* **web:** improve SEO, structured data and add analytics integration ([8e23894](https://github.com/mephistofox/fxTunnel/commit/8e23894692e8897267ea7611a3f5c643960550d5))
+
+
+### Bug Fixes
+
+* **client:** add trusted host validation to auto-updater ([0c14bb2](https://github.com/mephistofox/fxTunnel/commit/0c14bb26ef7e575c64ef1a19294790eb4c9640a6))
+* **security:** apply critical and high severity audit findings ([5efe7d8](https://github.com/mephistofox/fxTunnel/commit/5efe7d85c6279e5fe93975dc67f9454272e88387))
+* **server:** use request host for OAuth redirect URIs and replace hardcoded mfdev.ru ([9b6b3f1](https://github.com/mephistofox/fxTunnel/commit/9b6b3f1f574ee686970aa59150dc772ec8b91e95))
+
 ## [3.5.0](https://github.com/mephistofox/fxTunnel/compare/v3.4.2...v3.5.0) (2026-02-14)
 
 
