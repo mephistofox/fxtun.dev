@@ -73,7 +73,7 @@ func TestLoadClientConfig_Defaults(t *testing.T) {
 
 	cfg, err := LoadClientConfig("")
 	require.NoError(t, err)
-	assert.Equal(t, "mfdev.ru:4443", cfg.Server.Address)
+	assert.Equal(t, "fxtun.dev:4443", cfg.Server.Address)
 	assert.True(t, cfg.Reconnect.Enabled)
 }
 
