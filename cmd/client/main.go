@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -152,8 +153,8 @@ Use -t to provide token directly, or enter it interactively.`,
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
-			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
-			fmt.Println("Website: https://fxtun.dev")
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
+			fmt.Printf("Website: %s\n", getInstalledWebsite())
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
@@ -532,6 +533,21 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 	}
 
 	return cfg
+}
+
+// getInstalledWebsite returns the website URL saved by the install script.
+// Falls back to DefaultServerURL if not found.
+func getInstalledWebsite() string {
+	exe, err := os.Executable()
+	if err == nil {
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(exe), ".fxtunnel-website"))
+		if err == nil {
+			if url := strings.TrimSpace(string(data)); url != "" {
+				return url
+			}
+		}
+	}
+	return DefaultServerURL
 }
 
 // normalizeServerAddr adds default port if not specified

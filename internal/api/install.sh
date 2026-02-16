@@ -4,6 +4,7 @@ set -e
 BINARY_NAME="fxtunnel"
 INSTALL_DIR="/usr/local/bin"
 BASE_URL="${FXTUNNEL_BASE_URL:-{{.BaseURL}}}"
+WEBSITE_URL="${FXTUNNEL_WEBSITE_URL:-{{.WebsiteURL}}}"
 
 main() {
     detect_os
@@ -30,8 +31,10 @@ main() {
     echo "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
     if [ -w "$INSTALL_DIR" ]; then
         mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
+        echo "$WEBSITE_URL" > "${INSTALL_DIR}/.fxtunnel-website"
     else
         sudo mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
+        echo "$WEBSITE_URL" | sudo tee "${INSTALL_DIR}/.fxtunnel-website" > /dev/null
     fi
 
     echo "fxTunnel installed successfully!"
