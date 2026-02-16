@@ -227,7 +227,7 @@ async function verifyCustomDomain(id: number) {
               </div>
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold truncate">{{ domain.subdomain }}</h3>
-                <p class="text-[10px] text-muted-foreground">.mfdev.ru</p>
+                <p class="text-[10px] text-muted-foreground">.{{ customDomainsStore.baseDomain || 'fxtun.dev' }}</p>
               </div>
             </div>
 
@@ -345,7 +345,7 @@ async function verifyCustomDomain(id: number) {
               </div>
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold truncate">{{ cd.domain }}</h3>
-                <p class="text-[10px] text-muted-foreground">→ {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}</p>
+                <p class="text-[10px] text-muted-foreground">→ {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'fxtun.dev' }}</p>
               </div>
             </div>
 
@@ -360,7 +360,7 @@ async function verifyCustomDomain(id: number) {
 
             <!-- DNS hint for unverified -->
             <div v-if="!cd.verified" class="mb-3 p-2 rounded-lg bg-muted/50 text-[10px] text-muted-foreground font-mono break-all">
-              → {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}
+              → {{ cd.targetSubdomain }}.{{ customDomainsStore.baseDomain || 'fxtun.dev' }}
             </div>
 
             <!-- Actions -->
@@ -427,7 +427,7 @@ async function verifyCustomDomain(id: number) {
             </div>
             <p class="text-xs text-muted-foreground">
               {{ t('domains.willBeAvailable') }}
-              <code class="px-1 py-0.5 rounded bg-type-http/10 text-type-http font-mono">{{ newSubdomain || 'xxx' }}.mfdev.ru</code>
+              <code class="px-1 py-0.5 rounded bg-type-http/10 text-type-http font-mono">{{ newSubdomain || 'xxx' }}.{{ customDomainsStore.baseDomain || 'fxtun.dev' }}</code>
             </p>
 
             <!-- Availability result -->
@@ -499,7 +499,7 @@ async function verifyCustomDomain(id: number) {
             <div class="space-y-2">
               <div class="bg-blue-500/10 px-3 py-2 rounded">
                 <p class="font-medium text-muted-foreground mb-1">{{ t('customDomains.dnsGuideSubdomain') }}:</p>
-                <code class="block text-blue-500 font-mono">{{ newCustomDomain }} → CNAME → {{ newTargetSubdomain }}.{{ customDomainsStore.baseDomain || 'mfdev.ru' }}</code>
+                <code class="block text-blue-500 font-mono">{{ newCustomDomain }} → CNAME → {{ newTargetSubdomain }}.{{ customDomainsStore.baseDomain || 'fxtun.dev' }}</code>
               </div>
               <div class="bg-blue-500/10 px-3 py-2 rounded">
                 <p class="font-medium text-muted-foreground mb-1">{{ t('customDomains.dnsGuideApex') }}:</p>

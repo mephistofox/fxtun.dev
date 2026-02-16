@@ -433,7 +433,7 @@ func (s *Server) resolveActiveTunnelID(tunnelID string) string {
 	if host == "" {
 		return tunnelID
 	}
-	// Extract subdomain from host (e.g. "poster.mfdev.ru" → "poster")
+	// Extract subdomain from host (e.g. "poster.fxtun.dev" → "poster")
 	subdomain := strings.TrimSuffix(host, "."+s.baseDomain)
 	if subdomain == host {
 		return tunnelID // host doesn't match base domain
