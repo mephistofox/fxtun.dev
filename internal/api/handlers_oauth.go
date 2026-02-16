@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	githubAuthorizeURL = "https://github.com/login/oauth/authorize"
-	githubTokenURL     = "https://github.com/login/oauth/access_token" //nolint:gosec // not a credential, this is GitHub's OAuth endpoint URL
-	githubUserURL      = "https://api.github.com/user"
+	githubAuthorizeURL  = "https://github.com/login/oauth/authorize"
+	githubTokenURL      = "https://github.com/login/oauth/access_token" //nolint:gosec // not a credential, this is GitHub's OAuth endpoint URL
+	githubUserURL       = "https://api.github.com/user"
+	githubUserEmailsURL = "https://api.github.com/user/emails"
 )
 
 type githubTokenResponse struct {
@@ -30,6 +31,12 @@ type githubUser struct {
 	Email     string `json:"email"`
 	Name      string `json:"name"`
 	AvatarURL string `json:"avatar_url"`
+}
+
+type githubUserEmail struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
 }
 
 // handleGitHubAuth initiates the GitHub OAuth login flow.
@@ -225,6 +232,7 @@ func (s *Server) exchangeGitHubCode(code, redirectURI string, creds *config.GitH
 }
 
 // getGitHubUser fetches the authenticated user's info from GitHub.
+// If the user has a private email, it falls back to /user/emails endpoint.
 func (s *Server) getGitHubUser(accessToken string) (*githubUser, error) {
 	req, err := http.NewRequest("GET", githubUserURL, nil)
 	if err != nil {
@@ -248,7 +256,64 @@ func (s *Server) getGitHubUser(accessToken string) (*githubUser, error) {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
+	if user.Email == "" {
+		email, err := s.getGitHubPrimaryEmail(accessToken)
+		if err != nil {
+			s.log.Warn().Err(err).Int64("github_id", user.ID).Msg("failed to fetch GitHub primary email")
+		} else {
+			user.Email = email
+		}
+	}
+
 	return &user, nil
+}
+
+// getGitHubPrimaryEmail fetches the primary verified email from /user/emails.
+func (s *Server) getGitHubPrimaryEmail(accessToken string) (string, error) {
+	req, err := http.NewRequest("GET", githubUserEmailsURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("send request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	var emails []githubUserEmail
+	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+
+	// Prefer primary+verified, then any verified, then any email
+	var verified, fallback string
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email, nil
+		}
+		if e.Verified && verified == "" {
+			verified = e.Email
+		}
+		if fallback == "" {
+			fallback = e.Email
+		}
+	}
+
+	if verified != "" {
+		return verified, nil
+	}
+	if fallback != "" {
+		return fallback, nil
+	}
+
+	return "", fmt.Errorf("no emails found")
 }
 
 const (
