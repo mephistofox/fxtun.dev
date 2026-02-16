@@ -162,8 +162,12 @@ func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
 
-	data := struct{ BaseURL string }{
-		BaseURL: fmt.Sprintf("https://%s/api/downloads", domain),
+	data := struct {
+		BaseURL    string
+		WebsiteURL string
+	}{
+		BaseURL:    fmt.Sprintf("https://%s/api/downloads", domain),
+		WebsiteURL: fmt.Sprintf("https://%s", domain),
 	}
 	if err := installTmpl.Execute(w, data); err != nil {
 		s.log.Error().Err(err).Msg("failed to execute install script template")
