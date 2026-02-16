@@ -751,6 +751,38 @@ func (c *Client) handleStream(stream net.Conn) {
 			return
 		}
 
+		// WebSocket/upgrade requests cannot be inspected — the connection must stay
+		// open for bidirectional framing after the 101 handshake. Forward the request
+		// and fall back to raw bidirectional copy.
+		if isHTTPUpgrade(httpReq) {
+			c.log.Debug().
+				Str("upgrade", httpReq.Header.Get("Upgrade")).
+				Str("path", httpReq.URL.Path).
+				Msg("Inspector: upgrade request, falling back to raw proxy")
+			if writeErr := httpReq.Write(local); writeErr != nil {
+				c.log.Debug().Err(writeErr).Msg("Inspector: failed to forward upgrade request")
+				return
+			}
+			done := make(chan struct{}, 2)
+			go func() {
+				bp := proxyBufPool.Get().(*[]byte)
+				_, _ = io.CopyBuffer(&countingWriter{w: local, count: &tunnel.BytesReceived}, reqBuf, *bp)
+				proxyBufPool.Put(bp)
+				done <- struct{}{}
+			}()
+			go func() {
+				bp := proxyBufPool.Get().(*[]byte)
+				_, _ = io.CopyBuffer(&countingWriter{w: stream, count: &tunnel.BytesSent}, local, *bp)
+				proxyBufPool.Put(bp)
+				done <- struct{}{}
+			}()
+			<-done
+			_ = local.Close()
+			_ = stream.Close()
+			<-done
+			return
+		}
+
 		// Capture request metadata and body.
 		cap.CaptureRequest(httpReq)
 
@@ -1257,6 +1289,12 @@ func (c *Client) tryOpenDataConnection(idx int) error {
 
 	c.log.Info().Int("index", idx).Msg("Data connection established")
 	return nil
+}
+
+// isHTTPUpgrade reports whether the request is a WebSocket or other HTTP upgrade.
+func isHTTPUpgrade(req *http.Request) bool {
+	return strings.Contains(strings.ToLower(req.Header.Get("Connection")), "upgrade") &&
+		req.Header.Get("Upgrade") != ""
 }
 
 func generateID() string {
