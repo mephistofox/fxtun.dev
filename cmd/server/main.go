@@ -44,7 +44,7 @@ It allows clients to expose local services through HTTP subdomains,
 TCP ports, or UDP ports.
 
 GitHub: https://github.com/mephistofox/fxtunnel
-Website: https://mfdev.ru`,
+Website: https://fxtun.dev`,
 		RunE: run,
 	}
 
@@ -58,7 +58,7 @@ Website: https://mfdev.ru`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Server %s (built %s)\n", Version, BuildTime)
 			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
-			fmt.Println("Website: https://mfdev.ru")
+			fmt.Println("Website: https://fxtun.dev")
 		},
 	}
 	rootCmd.AddCommand(versionCmd)

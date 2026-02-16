@@ -46,7 +46,7 @@ export function getDomainLocale(): 'en' | 'ru' | null {
   const host = window.location.hostname
   if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
   if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
-  if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en'
+  if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en' // legacy domain
   return null
 }
 

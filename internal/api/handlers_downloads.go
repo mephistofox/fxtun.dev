@@ -152,10 +152,10 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 
 // handleInstallScript serves a shell install script with the domain derived from the request Host
 func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
-	// Use configured base domain instead of trusting Host header
-	domain := s.baseDomain
+	// Use request host to match the domain the user is accessing
+	domain := requestHost(r)
 	if domain == "" {
-		domain = "mfdev.ru"
+		domain = s.baseDomain
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

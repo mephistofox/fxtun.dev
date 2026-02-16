@@ -26,7 +26,7 @@ const defaultControlPort = "4443"
 var (
 	Version          = "dev"
 	BuildTime        = "unknown"
-	DefaultServerURL = "https://mfdev.ru"
+	DefaultServerURL = "https://fxtun.dev"
 )
 
 var (
@@ -153,7 +153,7 @@ Use -t to provide token directly, or enter it interactively.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
 			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
-			fmt.Println("Website: https://mfdev.ru")
+			fmt.Println("Website: https://fxtun.dev")
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
@@ -537,7 +537,7 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 // normalizeServerAddr adds default port if not specified
 func normalizeServerAddr(addr string) string {
 	if addr == "" {
-		return "mfdev.ru:" + defaultControlPort
+		return "fxtun.dev:" + defaultControlPort
 	}
 	// Check if port is already specified
 	if !strings.Contains(addr, ":") {
