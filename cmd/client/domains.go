@@ -55,18 +55,29 @@ func newDomainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "domains",
 		Short: "Manage reserved subdomains",
-		RunE:  runDomainsList,
+		Long: `Reserve and manage persistent subdomains on the fxTunnel server.
+
+Reserved subdomains guarantee the same URL every time you start a tunnel.
+
+Examples:
+  fxtunnel domains list              List reserved subdomains
+  fxtunnel domains add myapp         Reserve 'myapp'
+  fxtunnel domains remove myapp      Release reservation
+  fxtunnel domains check myapp       Check availability`,
+		RunE: runDomainsList,
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List reserved subdomains",
+		Long:  `Show all subdomains reserved by your account, with URLs and creation dates.`,
 		RunE:  runDomainsList,
 	})
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "add <subdomain>",
 		Short: "Reserve a subdomain",
+		Long:  `Reserve a subdomain so it is always available for your tunnels.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runDomainsAdd,
 	})
@@ -74,6 +85,7 @@ func newDomainsCmd() *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "remove <subdomain>",
 		Short: "Release a reserved subdomain",
+		Long:  `Release a previously reserved subdomain, making it available to others.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runDomainsRemove,
 	})
@@ -81,6 +93,7 @@ func newDomainsCmd() *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "check <subdomain>",
 		Short: "Check if a subdomain is available",
+		Long:  `Check whether a subdomain is available for reservation.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runDomainsCheck,
 	})
@@ -88,18 +101,23 @@ func newDomainsCmd() *cobra.Command {
 	customCmd := &cobra.Command{
 		Use:   "custom",
 		Short: "Manage custom domains (2nd level)",
-		RunE:  runCustomDomainsList,
+		Long: `Manage custom domains that point to your fxTunnel subdomains.
+
+Requires DNS setup (CNAME or A record) and verification.`,
+		RunE: runCustomDomainsList,
 	}
 
 	customCmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List custom domains",
+		Long:  `Show all custom domains with their target subdomains and verification status.`,
 		RunE:  runCustomDomainsList,
 	})
 
 	addCustomCmd := &cobra.Command{
 		Use:   "add <domain>",
 		Short: "Add a custom domain",
+		Long:  `Add a custom domain and map it to a reserved subdomain. Requires DNS verification.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runCustomDomainsAdd,
 	}
@@ -110,6 +128,7 @@ func newDomainsCmd() *cobra.Command {
 	customCmd.AddCommand(&cobra.Command{
 		Use:   "remove <domain>",
 		Short: "Remove a custom domain",
+		Long:  `Remove a custom domain mapping.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runCustomDomainsRemove,
 	})
@@ -117,6 +136,7 @@ func newDomainsCmd() *cobra.Command {
 	customCmd.AddCommand(&cobra.Command{
 		Use:   "verify <domain>",
 		Short: "Verify DNS for a custom domain",
+		Long:  `Verify that DNS records are correctly configured for a custom domain.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  runCustomDomainsVerify,
 	})

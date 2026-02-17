@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ClientConfig holds all client configuration
@@ -36,6 +37,13 @@ type TunnelConfig struct {
 	LocalPort  int    `mapstructure:"local_port" yaml:"local_port"`
 	RemotePort int    `mapstructure:"remote_port" yaml:"remote_port,omitempty"` // For TCP/UDP, 0 = auto-assign
 	Subdomain  string `mapstructure:"subdomain" yaml:"subdomain,omitempty"`    // For HTTP tunnels
+
+	// Security features
+	BasicAuth     string   `mapstructure:"basic_auth"      yaml:"basic_auth,omitempty"`      // "user:password"
+	BasicAuthHash string   `mapstructure:"basic_auth_hash" yaml:"-"`                         // derived bcrypt hash, never in YAML
+	AllowIPs      []string `mapstructure:"allow_ips"       yaml:"allow_ips,omitempty"`       // CIDR list
+	AutoClose     string   `mapstructure:"auto_close"      yaml:"auto_close,omitempty"`      // "30m", "2h"
+	MaxLifetime   string   `mapstructure:"max_lifetime"    yaml:"max_lifetime,omitempty"`    // "8h"
 }
 
 // ReconnectSettings contains reconnection configuration
@@ -112,7 +120,8 @@ func (c *ClientConfig) Validate() error {
 		return fmt.Errorf("server address is required")
 	}
 
-	for i, t := range c.Tunnels {
+	for i := range c.Tunnels {
+		t := &c.Tunnels[i]
 		if t.Type == "" {
 			return fmt.Errorf("tunnel[%d]: type is required", i)
 		}
@@ -129,8 +138,30 @@ func (c *ClientConfig) Validate() error {
 		default:
 			return fmt.Errorf("tunnel[%d]: unknown type: %s", i, t.Type)
 		}
+
+		if err := t.deriveHashes(); err != nil {
+			return fmt.Errorf("tunnel[%d]: %w", i, err)
+		}
 	}
 
+	return nil
+}
+
+// deriveHashes hashes the plaintext basic_auth field into BasicAuthHash if it is set
+// and BasicAuthHash has not already been provided. The plaintext is cleared after hashing.
+func (t *TunnelConfig) deriveHashes() error {
+	if t.BasicAuth != "" && t.BasicAuthHash == "" {
+		parts := strings.SplitN(t.BasicAuth, ":", 2)
+		if len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) < 8 {
+			return fmt.Errorf("basic_auth must be in format 'user:password' with password at least 8 characters")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(t.BasicAuth), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("basic_auth: failed to hash: %w", err)
+		}
+		t.BasicAuthHash = string(hash)
+		t.BasicAuth = "" // clear plaintext after hashing
+	}
 	return nil
 }
 

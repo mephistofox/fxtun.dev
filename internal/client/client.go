@@ -98,6 +98,9 @@ type Client struct {
 
 	streamWorkers chan net.Conn // bounded worker pool for incoming streams
 
+	closed    atomic.Bool
+	closeOnce sync.Once
+
 	reconnecting   bool
 	reconnectMu    sync.Mutex
 	mu             sync.Mutex // for writing to control stream
@@ -108,6 +111,11 @@ type Client struct {
 
 	inspector  *Inspector
 	inspectMgr *inspect.Manager
+
+	// Auto-close timers
+	autoCloseTimers   map[string]*autoCloseTimer  // tunnelID -> timer
+	maxLifetimeTimers map[string]*maxLifetimeTimer // tunnelID -> timer
+	timersMu          sync.Mutex
 }
 
 // ActiveTunnel represents an active tunnel on the client side
@@ -120,6 +128,12 @@ type ActiveTunnel struct {
 
 	BytesSent     atomic.Int64
 	BytesReceived atomic.Int64
+
+	// Security status (echoed from server on tunnel creation)
+	BasicAuthEnabled bool
+	AllowIPsCount    int
+	AutoClose        string
+	MaxLifetime      string
 }
 
 // countingWriter wraps an io.Writer and counts bytes written.
@@ -139,13 +153,15 @@ func New(cfg *config.ClientConfig, log zerolog.Logger) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Client{
-		cfg:             cfg,
-		log:             log.With().Str("component", "client").Logger(),
-		events:          NewEventEmitter(),
-		tunnels:         make(map[string]*ActiveTunnel),
-		pendingRequests: make(map[string]chan *protocol.TunnelCreatedMessage),
-		ctx:             ctx,
-		cancel:          cancel,
+		cfg:               cfg,
+		log:               log.With().Str("component", "client").Logger(),
+		events:            NewEventEmitter(),
+		tunnels:           make(map[string]*ActiveTunnel),
+		pendingRequests:   make(map[string]chan *protocol.TunnelCreatedMessage),
+		autoCloseTimers:   make(map[string]*autoCloseTimer),
+		maxLifetimeTimers: make(map[string]*maxLifetimeTimer),
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 }
 
@@ -355,12 +371,16 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 	requestID := generateID()
 
 	req := &protocol.TunnelRequestMessage{
-		Message:    protocol.NewMessage(protocol.MsgTunnelRequest),
-		TunnelType: protocol.TunnelType(tunnelCfg.Type),
-		Name:       tunnelCfg.Name,
-		LocalPort:  tunnelCfg.LocalPort,
-		RemotePort: tunnelCfg.RemotePort,
-		Subdomain:  tunnelCfg.Subdomain,
+		Message:       protocol.NewMessage(protocol.MsgTunnelRequest),
+		TunnelType:    protocol.TunnelType(tunnelCfg.Type),
+		Name:          tunnelCfg.Name,
+		LocalPort:     tunnelCfg.LocalPort,
+		RemotePort:    tunnelCfg.RemotePort,
+		Subdomain:     tunnelCfg.Subdomain,
+		BasicAuthHash: tunnelCfg.BasicAuthHash,
+		AllowIPs:      tunnelCfg.AllowIPs,
+		AutoClose:     tunnelCfg.AutoClose,
+		MaxLifetime:   tunnelCfg.MaxLifetime,
 	}
 	req.RequestID = requestID
 
@@ -384,11 +404,15 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 	select {
 	case resp := <-respChan:
 		tunnel := &ActiveTunnel{
-			ID:         resp.TunnelID,
-			Config:     tunnelCfg,
-			URL:        resp.URL,
-			RemoteAddr: resp.RemoteAddr,
-			Connected:  time.Now(),
+			ID:               resp.TunnelID,
+			Config:           tunnelCfg,
+			URL:              resp.URL,
+			RemoteAddr:       resp.RemoteAddr,
+			Connected:        time.Now(),
+			BasicAuthEnabled: resp.BasicAuthEnabled,
+			AllowIPsCount:    resp.AllowIPsCount,
+			AutoClose:        resp.AutoClose,
+			MaxLifetime:      resp.MaxLifetime,
 		}
 
 		c.tunnelsMu.Lock()
@@ -397,6 +421,37 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 
 		// Pre-probe local address synchronously so first connection is instant
 		ProbeLocalAddress(c.log, tunnelCfg.LocalAddr, tunnelCfg.LocalPort)
+
+		// Start auto-close timer (idle timeout)
+		if tunnelCfg.AutoClose != "" {
+			d, _ := parseDuration(tunnelCfg.AutoClose) // already validated by CLI
+			c.timersMu.Lock()
+			c.autoCloseTimers[resp.TunnelID] = newAutoCloseTimer(d, func() {
+				c.log.Info().
+					Str("tunnel_id", resp.TunnelID).
+					Str("reason", "idle for "+tunnelCfg.AutoClose).
+					Msg("tunnel auto-closed")
+				c.Close()
+			})
+			c.timersMu.Unlock()
+		}
+
+		// Start max-lifetime timer.
+		// Note: max-lifetime timer resets on reconnect. This means a tunnel with
+		// --max-lifetime 8h that reconnects after 7h gets another full 8h.
+		// This is acceptable for MVP — the timer measures "time since last connect".
+		if tunnelCfg.MaxLifetime != "" {
+			d, _ := parseDuration(tunnelCfg.MaxLifetime) // already validated by CLI
+			c.timersMu.Lock()
+			c.maxLifetimeTimers[resp.TunnelID] = newMaxLifetimeTimer(d, func() {
+				c.log.Info().
+					Str("tunnel_id", resp.TunnelID).
+					Str("reason", "max lifetime "+tunnelCfg.MaxLifetime+" reached").
+					Msg("tunnel auto-closed")
+				c.Close()
+			})
+			c.timersMu.Unlock()
+		}
 
 		// Emit tunnel created event
 		c.events.EmitTunnelCreated(tunnel)
@@ -676,6 +731,13 @@ func (c *Client) handleStream(stream net.Conn) {
 		return
 	}
 
+	// Record activity for auto-close timer
+	c.timersMu.Lock()
+	if t, ok := c.autoCloseTimers[hdr.TunnelID]; ok {
+		t.recordActivity()
+	}
+	c.timersMu.Unlock()
+
 	// UDP tunnels use a different proxy path
 	if tunnel.Config.Type == "udp" {
 		c.handleUDPStream(stream, tunnel)
@@ -950,6 +1012,10 @@ func (c *Client) reconnect() {
 	currentBackoff := baseInterval
 
 	for {
+		if c.closed.Load() {
+			return
+		}
+
 		select {
 		case <-c.ctx.Done():
 			return
@@ -991,10 +1057,12 @@ func (c *Client) reconnect() {
 		c.dataConns = nil
 		c.dataSessionMu.Unlock()
 
-		// Clear tunnels
+		// Clear tunnels and stop timers
 		c.tunnelsMu.Lock()
 		c.tunnels = make(map[string]*ActiveTunnel)
 		c.tunnelsMu.Unlock()
+
+		c.stopAllTimers()
 
 		if c.inspector != nil {
 			_ = c.inspector.Stop()
@@ -1006,6 +1074,11 @@ func (c *Client) reconnect() {
 		c.cancel()
 		c.wg.Wait()
 		c.ctx, c.cancel = context.WithCancel(context.Background())
+
+		if c.closed.Load() {
+			c.cancel()
+			return
+		}
 
 		// Try to connect
 		if err := c.Connect(); err != nil {
@@ -1108,37 +1181,67 @@ func (c *Client) InspectorAddr() string {
 	return ""
 }
 
-// Close closes the client
+// Close closes the client. It is safe to call multiple times.
 func (c *Client) Close() {
-	c.cancel()
+	c.closeOnce.Do(func() {
+		c.closed.Store(true)
+		c.cancel()
 
-	if c.inspector != nil {
-		_ = c.inspector.Stop()
-	}
+		// Stop all auto-close and max-lifetime timers
+		c.stopAllTimers()
 
-	if c.controlStream != nil {
-		c.controlStream.Close()
-	}
-	if c.session != nil {
-		c.session.Close()
-	}
-	if c.conn != nil {
-		c.conn.Close()
-	}
+		if c.inspector != nil {
+			_ = c.inspector.Stop()
+		}
 
-	// Close all data sessions
-	c.dataSessionMu.Lock()
-	for _, ds := range c.dataSessions {
-		ds.Close()
-	}
-	for _, dc := range c.dataConns {
-		dc.Close()
-	}
-	c.dataSessions = nil
-	c.dataConns = nil
-	c.dataSessionMu.Unlock()
+		if c.controlStream != nil {
+			c.controlStream.Close()
+		}
+		if c.session != nil {
+			c.session.Close()
+		}
+		if c.conn != nil {
+			c.conn.Close()
+		}
 
-	c.log.Info().Msg("Client closed")
+		// Close all data sessions
+		c.dataSessionMu.Lock()
+		for _, ds := range c.dataSessions {
+			ds.Close()
+		}
+		for _, dc := range c.dataConns {
+			dc.Close()
+		}
+		c.dataSessions = nil
+		c.dataConns = nil
+		c.dataSessionMu.Unlock()
+
+		// Wait for goroutines to finish with timeout
+		done := make(chan struct{})
+		go func() { c.wg.Wait(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			c.log.Warn().Msg("Close: goroutine drain timeout")
+		}
+
+		c.log.Info().Msg("Client closed")
+	})
+}
+
+// stopAllTimers stops and clears all auto-close and max-lifetime timers.
+func (c *Client) stopAllTimers() {
+	c.timersMu.Lock()
+	defer c.timersMu.Unlock()
+
+	for id, t := range c.autoCloseTimers {
+		t.stop()
+		delete(c.autoCloseTimers, id)
+	}
+	for id, t := range c.maxLifetimeTimers {
+		t.stop()
+		delete(c.maxLifetimeTimers, id)
+	}
 }
 
 func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {

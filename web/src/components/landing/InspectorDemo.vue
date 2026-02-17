@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
+const domain = computed(() => getBaseDomain())
 
 interface MockExchange {
   id: number
@@ -232,7 +234,7 @@ onUnmounted(() => {
         <span class="text-emerald-400 text-[10px] font-medium">Live</span>
       </div>
       <div class="h-3 w-px bg-border/50" />
-      <span class="text-foreground/60 text-[11px]">my-app.fxtun.dev</span>
+      <span class="text-foreground/60 text-[11px]">my-app.{{ domain }}</span>
       <div class="ml-auto flex items-center gap-1.5">
         <span class="text-[10px] text-muted-foreground/60 tabular-nums">{{ exchanges.length }} {{ t('landing.advanced.inspector.demo.requests') }}</span>
       </div>
