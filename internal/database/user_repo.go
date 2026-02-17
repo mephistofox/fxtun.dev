@@ -94,7 +94,7 @@ func (r *UserRepository) Create(user *User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(id int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users WHERE id = ?`, id,
 	))
 	if err != nil {
@@ -106,7 +106,7 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 // GetByPhone retrieves a user by phone number
 func (r *UserRepository) GetByPhone(phone string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users WHERE phone = ?`, phone,
 	))
 	if err != nil {
@@ -211,7 +211,7 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 	}
 
 	rows, err := r.db.Query(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset,
 	)
 	if err != nil {
@@ -244,7 +244,7 @@ func (r *UserRepository) GetByIDs(ids []int64) (map[int64]*User, error) {
 		args[i] = id
 	}
 
-	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at FROM users WHERE id IN (%s)`, strings.Join(placeholders, ",")) //nolint:gosec // placeholders are all "?", no SQL injection
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -288,11 +288,12 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	var avatarURL sql.NullString
 	var phone sql.NullString
 	var planID sql.NullInt64
+	var firstTunnelAt sql.NullTime
 
 	err := s.Scan(
 		&user.ID, &phone, &user.PasswordHash, &user.DisplayName,
 		&user.IsAdmin, &user.IsActive, &user.CreatedAt, &lastLoginAt,
-		&githubID, &email, &avatarURL, &googleID, &planID,
+		&githubID, &email, &avatarURL, &googleID, &planID, &firstTunnelAt,
 	)
 	if err != nil {
 		return nil, err
@@ -319,6 +320,9 @@ func scanUserFromScanner(s scanner) (*User, error) {
 	if planID.Valid {
 		user.PlanID = planID.Int64
 	}
+	if firstTunnelAt.Valid {
+		user.FirstTunnelAt = &firstTunnelAt.Time
+	}
 
 	return user, nil
 }
@@ -334,7 +338,7 @@ func scanUserRows(rows *sql.Rows) (*User, error) {
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(email string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users WHERE email = ?`, email,
 	))
 	if err != nil {
@@ -366,7 +370,7 @@ func (r *UserRepository) UpdatePhone(userID int64, phone string) error {
 // GetByGitHubID retrieves a user by GitHub ID
 func (r *UserRepository) GetByGitHubID(githubID int64) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users WHERE github_id = ?`, githubID,
 	))
 	if err != nil {
@@ -446,7 +450,7 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 // GetByGoogleID retrieves a user by Google ID
 func (r *UserRepository) GetByGoogleID(googleID string) (*User, error) {
 	user, err := scanUser(r.db.QueryRow(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id
+		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
 		FROM users WHERE google_id = ?`, googleID,
 	))
 	if err != nil {
@@ -494,6 +498,23 @@ func (r *UserRepository) UpdatePlan(userID, planID int64) error {
 		return ErrUserNotFound
 	}
 	return nil
+}
+
+// SetFirstTunnelAt sets the first tunnel creation timestamp if not already set.
+// Returns true if this was the first tunnel (value was NULL and got updated).
+func (r *UserRepository) SetFirstTunnelAt(userID int64) (bool, error) {
+	result, err := r.db.Exec(
+		`UPDATE users SET first_tunnel_at = ? WHERE id = ? AND first_tunnel_at IS NULL`,
+		time.Now(), userID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("set first_tunnel_at: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("get rows affected: %w", err)
+	}
+	return rows > 0, nil
 }
 
 // MergeUsers transfers all data from secondary user to primary user and deletes the secondary user.

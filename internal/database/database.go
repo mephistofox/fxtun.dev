@@ -138,6 +138,7 @@ func (d *Database) migrate() error {
 		migrationAddInspectHostUserIndex,
 		migrationAddPlanBandwidth,
 		migrationAddStripeSupport,
+		migrationAddFirstTunnelAt,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -539,4 +540,8 @@ ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT;
 ALTER TABLE payments ADD COLUMN provider TEXT NOT NULL DEFAULT 'yookassa';
 ALTER TABLE payments ADD COLUMN provider_data TEXT;
 UPDATE payments SET provider_data = yookassa_data WHERE yookassa_data IS NOT NULL AND yookassa_data != '';
+`
+
+const migrationAddFirstTunnelAt = `
+ALTER TABLE users ADD COLUMN first_tunnel_at DATETIME;
 `

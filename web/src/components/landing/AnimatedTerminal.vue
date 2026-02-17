@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { getBaseDomain } from '@/i18n'
 
 interface TerminalLine {
   type: 'command' | 'output' | 'success' | 'info' | 'url'
@@ -7,17 +8,19 @@ interface TerminalLine {
   delay?: number
 }
 
-const lines: TerminalLine[] = [
+const domain = computed(() => getBaseDomain())
+
+const lines = computed<TerminalLine[]>(() => [
   { type: 'command', text: 'fxtunnel http 3000 --domain myapp', delay: 50 },
   { type: 'info', text: 'Connecting...', delay: 600 },
   { type: 'success', text: 'Tunnel established!', delay: 400 },
   { type: 'output', text: '', delay: 100 },
-  { type: 'url', text: 'https://myapp.fxtun.ru → localhost:3000', delay: 200 },
+  { type: 'url', text: `https://myapp.${domain.value} → localhost:3000`, delay: 200 },
   { type: 'output', text: '', delay: 400 },
   { type: 'info', text: 'GET  /api/health          200  12ms', delay: 800 },
   { type: 'info', text: 'POST /api/webhooks/stripe  200  45ms', delay: 600 },
   { type: 'info', text: 'GET  /dashboard            200   8ms', delay: 500 },
-]
+])
 
 const displayedLines = ref<{ type: string; text: string; typing: boolean }[]>([])
 const currentLineIndex = ref(0)
@@ -26,7 +29,7 @@ const isTyping = ref(true)
 let animationTimer: ReturnType<typeof setTimeout> | null = null
 
 function typeNextChar() {
-  if (currentLineIndex.value >= lines.length) {
+  if (currentLineIndex.value >= lines.value.length) {
     isTyping.value = false
     // Restart after pause
     animationTimer = setTimeout(() => {
@@ -39,7 +42,7 @@ function typeNextChar() {
     return
   }
 
-  const currentLine = lines[currentLineIndex.value]
+  const currentLine = lines.value[currentLineIndex.value]
 
   if (currentCharIndex.value === 0) {
     displayedLines.value.push({

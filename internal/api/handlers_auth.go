@@ -33,6 +33,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.telegramNotifier != nil {
+		s.telegramNotifier.NotifyNewUser(user.ID, user.DisplayName, user.Email)
+	}
+
 	s.respondJSON(w, http.StatusCreated, dto.AuthResponse{
 		User:         dto.UserFromModel(user),
 		AccessToken:  tokenPair.AccessToken,

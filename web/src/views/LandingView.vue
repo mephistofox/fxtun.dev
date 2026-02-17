@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
-import { setLocale, getLocale, getBlogUrl } from '@/i18n'
+import { getBlogUrl } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
@@ -39,11 +39,6 @@ if (isCanonicalRoute) {
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
-
-function toggleLocale() {
-  const current = getLocale()
-  setLocale(current === 'en' ? 'ru' : 'en')
-}
 
 function cycleTheme() {
   const modes: ThemeMode[] = ['light', 'dark', 'system']
@@ -167,14 +162,6 @@ onUnmounted(() => {
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
-            </button>
-
-            <!-- Language toggle -->
-            <button
-              @click="toggleLocale"
-              class="px-3 py-2 text-sm font-medium rounded-xl hover:bg-surface transition-colors text-muted-foreground"
-            >
-              {{ getLocale() === 'en' ? 'RU' : 'EN' }}
             </button>
 
             <!-- Sign in button -->

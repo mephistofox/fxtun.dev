@@ -125,6 +125,16 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// IP Allowlist check (before auth to reduce load)
+	if !checkIPAllowlist(w, req, tunnel) {
+		return
+	}
+
+	// Basic Auth check
+	if !checkBasicAuth(w, req, tunnel) {
+		return
+	}
+
 	// Determine if interstitial might be needed (will check response Content-Type later)
 	isCustomDomain := r.server.LookupCustomDomain(req.Host) != nil
 	mayNeedInterstitial := !client.IsAdmin && !isCustomDomain && r.mayNeedInterstitial(req, subdomain)
@@ -254,6 +264,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			Int("buffer_len", inspectBuf.Len()).
 			Msg("Exchange captured in inspect buffer")
 	}
+
+	// Update LastActivity timestamp for auto-close tracking
+	tunnel.LastActivity.Store(time.Now().UnixNano())
 
 	r.log.Debug().
 		Str("trace_id", traceID).
@@ -530,6 +543,9 @@ func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*inspec
 		return nil, fmt.Errorf("client not connected for tunnel: %s", tunnel.ID)
 	}
 
+	// Note: Basic Auth check is intentionally skipped for replay requests.
+	// Replay is an operator-only feature accessed through the inspect UI,
+	// which requires authenticated API access.
 	stream, err := client.OpenStream()
 	if err != nil {
 		return nil, fmt.Errorf("open stream: %w", err)

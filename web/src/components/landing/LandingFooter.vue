@@ -48,6 +48,12 @@ const blogUrl = computed(() => getBlogUrl())
           >
             {{ t('legal.terms') }}
           </RouterLink>
+          <RouterLink
+            to="/privacy"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.privacy') }}
+          </RouterLink>
           <a
             :href="blogUrl"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
