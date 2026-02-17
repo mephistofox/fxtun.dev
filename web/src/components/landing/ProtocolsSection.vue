@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
 
 type Protocol = 'http' | 'tcp' | 'udp'
 
 const activeProtocol = ref<Protocol>('http')
+const domain = computed(() => getBaseDomain())
 
-const protocols = {
+const protocols = computed(() => ({
   http: {
     type: 'HTTP',
     color: 'type-http',
@@ -19,7 +21,7 @@ const protocols = {
       'landing.protocols.http.feature2',
       'landing.protocols.http.feature3',
     ],
-    example: 'https://myapp.fxtun.dev',
+    example: `https://myapp.${domain.value}`,
     command: 'fxtunnel http 3000 --domain myapp',
     useCases: ['Web apps', 'APIs', 'Webhooks'],
   },
@@ -33,7 +35,7 @@ const protocols = {
       'landing.protocols.tcp.feature2',
       'landing.protocols.tcp.feature3',
     ],
-    example: 'tcp://fxtun.dev:54321',
+    example: `tcp://${domain.value}:54321`,
     command: 'fxtunnel tcp 22 --remote-port 54321',
     useCases: ['SSH', 'Databases', 'Custom protocols'],
   },
@@ -47,13 +49,13 @@ const protocols = {
       'landing.protocols.udp.feature2',
       'landing.protocols.udp.feature3',
     ],
-    example: 'udp://fxtun.dev:54322',
+    example: `udp://${domain.value}:54322`,
     command: 'fxtunnel udp 53 --remote-port 54322',
     useCases: ['Game servers', 'VoIP', 'DNS'],
   },
-}
+}))
 
-const currentProtocol = computed(() => protocols[activeProtocol.value])
+const currentProtocol = computed(() => protocols.value[activeProtocol.value])
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)

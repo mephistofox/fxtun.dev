@@ -32,7 +32,9 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-const isRuDomain = computed(() => window.location.hostname.endsWith('fxtun.ru'))
+const isRuDomain = computed(() =>
+  !import.meta.env.SSR && window.location.hostname.endsWith('fxtun.ru')
+)
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {

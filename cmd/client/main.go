@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/mephistofox/fxtunnel/internal/client"
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -38,8 +40,17 @@ var (
 	logFormat  string
 
 	// Quick tunnel flags
-	remotePort int
-	domain     string
+	remotePort   int
+	domain       string
+	authFlag     string
+	allowIPsFlag []string
+
+	// Auto-close flags
+	autoCloseFlag   string
+	maxLifetimeFlag string
+
+	// Preset flag
+	presetFlag string
 
 	// Inspector flags
 	inspectAddr string
@@ -51,20 +62,50 @@ func main() {
 		Use:   "fxtunnel",
 		Short: "fxTunnel Client - Expose local services to the internet",
 		Long: `fxTunnel Client connects to a fxTunnel Server and creates tunnels
-to expose local services to the internet.
+to expose local services to the internet via HTTP subdomains, TCP ports, or UDP ports.
 
-Examples:
-  # Expose local HTTP server on port 3000
-  fxtunnel http 3000
+Quick start:
+  fxtunnel login                       Save your API token
+  fxtunnel http 3000                   Expose local HTTP server
+  fxtunnel tcp 22                      Expose local TCP service
+  fxtunnel udp 53                      Expose local UDP service
 
-  # Expose local HTTP server with custom domain
-  fxtunnel http 3000 --domain myapp
+Tunneling options:
+  fxtunnel http 3000 --domain myapp    Use a custom subdomain
+  fxtunnel tcp 22 --remote-port 2222   Use a specific remote port
+  fxtunnel --config client.yaml        Use config file for multiple tunnels
 
-  # Expose local TCP port
-  fxtunnel tcp 22
+Security options (HTTP tunnels):
+  fxtunnel http 3000 --auth user:pass           Require HTTP Basic Auth
+  fxtunnel http 3000 --allow-ip 203.0.113.0/24  Restrict by IP/CIDR
+  fxtunnel http 3000 --auto-close 30m           Auto-close after idle period
+  fxtunnel http 3000 --max-lifetime 8h          Set maximum tunnel lifetime
+  fxtunnel http 3000 --preset openclaw          Apply security preset
 
-  # Use config file
-  fxtunnel --config client.yaml
+Daemon mode (background):
+  fxtunnel up                          Start daemon from config file
+  fxtunnel status                      Show daemon status and tunnels
+  fxtunnel down                        Stop daemon gracefully
+
+Domain management:
+  fxtunnel domains list                List reserved subdomains
+  fxtunnel domains add myapp           Reserve a subdomain
+
+Project setup:
+  fxtunnel init                        Create fxtunnel.yaml interactively
+  fxtunnel presets                     List available security presets
+
+Authentication:
+  fxtunnel login                       Save API token (interactive or -t)
+  fxtunnel logout                      Remove saved credentials
+
+Configuration:
+  -c, --config <path>                  Use config file for multiple tunnels
+  -s, --server <host:port>             Server address (default port: 4443)
+  -t, --token <token>                  API token (or use 'fxtunnel login')
+  --log-level debug|info|warn|error    Log verbosity (default: warn)
+  --inspect-addr <addr>                Inspector address (default 127.0.0.1:4040)
+  --no-inspect                         Disable traffic inspector
 
 For GUI mode, use fxtunnel-gui binary.`,
 		RunE: runConfig,
@@ -83,31 +124,65 @@ For GUI mode, use fxtunnel-gui binary.`,
 	httpCmd := &cobra.Command{
 		Use:   "http <local_port>",
 		Short: "Create an HTTP tunnel",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runHTTP,
+		Long: `Create an HTTP tunnel to expose a local web service.
+
+Security options:
+  --auth user:pass         Require HTTP Basic Auth for tunnel access
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)
+  --preset openclaw        Apply security preset (random Basic Auth)
+
+Presets provide a convenient shorthand for common security configurations.
+Explicit flags override preset values.`,
+		Args: cobra.ExactArgs(1),
+		RunE: runHTTP,
 	}
 	httpCmd.Flags().StringVarP(&domain, "domain", "d", "", "Subdomain to use (auto-generated if not set)")
 	httpCmd.Flags().StringVar(&domain, "subdomain", "", "Alias for --domain")
+	httpCmd.Flags().StringVar(&authFlag, "auth", "", "HTTP Basic Auth credentials (format: user:password, min 8 char password)")
+	httpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	httpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	httpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
+	httpCmd.Flags().StringVar(&presetFlag, "preset", "", "Apply a named preset (available: openclaw)")
 	rootCmd.AddCommand(httpCmd)
 
 	// TCP tunnel command
 	tcpCmd := &cobra.Command{
 		Use:   "tcp <local_port>",
 		Short: "Create a TCP tunnel",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runTCP,
+		Long: `Create a TCP tunnel to expose a local TCP service.
+
+Security options:
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)`,
+		Args: cobra.ExactArgs(1),
+		RunE: runTCP,
 	}
 	tcpCmd.Flags().IntVarP(&remotePort, "remote-port", "r", 0, "Remote port (auto-assigned if 0)")
+	tcpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	tcpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	tcpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
 	rootCmd.AddCommand(tcpCmd)
 
 	// UDP tunnel command
 	udpCmd := &cobra.Command{
 		Use:   "udp <local_port>",
 		Short: "Create a UDP tunnel",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runUDP,
+		Long: `Create a UDP tunnel to expose a local UDP service.
+
+Security options:
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)`,
+		Args: cobra.ExactArgs(1),
+		RunE: runUDP,
 	}
 	udpCmd.Flags().IntVarP(&remotePort, "remote-port", "r", 0, "Remote port (auto-assigned if 0)")
+	udpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	udpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	udpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
 	rootCmd.AddCommand(udpCmd)
 
 	// Login command
@@ -124,7 +199,9 @@ Use -t to provide token directly, or enter it interactively.`,
 	logoutCmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Remove saved credentials",
-		RunE:  runLogout,
+		Long: `Remove the saved API token and server address from the system keyring.
+After logout, you will need to run 'fxtunnel login' or use --token for all commands.`,
+		RunE: runLogout,
 	}
 	rootCmd.AddCommand(logoutCmd)
 
@@ -133,6 +210,17 @@ Use -t to provide token directly, or enter it interactively.`,
 
 	// Domains command
 	rootCmd.AddCommand(newDomainsCmd())
+
+	// Presets command
+	presetsCmd := &cobra.Command{
+		Use:   "presets",
+		Short: "List available security presets",
+		Long:  `Show all available presets and the flags they apply when used with --preset.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			printPresets()
+		},
+	}
+	rootCmd.AddCommand(presetsCmd)
 
 	// Daemon commands
 	rootCmd.AddCommand(newUpCmd())
@@ -143,7 +231,10 @@ Use -t to provide token directly, or enter it interactively.`,
 	updateCmd := &cobra.Command{
 		Use:   "update",
 		Short: "Check for updates and self-update",
-		RunE:  runUpdate,
+		Long: `Check the server for a newer client version and self-update if available.
+
+The server address is taken from --server flag or saved credentials.`,
+		RunE: runUpdate,
 	}
 	rootCmd.AddCommand(updateCmd)
 
@@ -151,6 +242,7 @@ Use -t to provide token directly, or enter it interactively.`,
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
+		Long:  `Print the client version, build timestamp, and project URLs.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
 			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
@@ -208,11 +300,78 @@ func runHTTP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Apply preset (explicit flags override preset values)
+	if presetFlag != "" {
+		preset, err := resolvePreset(presetFlag)
+		if err != nil {
+			return err
+		}
+		if !cmd.Flags().Changed("auth") && authFlag == "" {
+			authFlag = preset.AuthUser + ":" + preset.AuthPass
+			fmt.Printf("Preset '%s' credentials:\n", presetFlag)
+			fmt.Printf("  Username: %s\n", preset.AuthUser)
+			fmt.Printf("  Password: %s\n", preset.AuthPass)
+			fmt.Println()
+		}
+		if !cmd.Flags().Changed("auto-close") && autoCloseFlag == "" && preset.AutoClose != "" {
+			autoCloseFlag = preset.AutoClose
+		}
+		if !cmd.Flags().Changed("max-lifetime") && maxLifetimeFlag == "" && preset.MaxLifetime != "" {
+			maxLifetimeFlag = preset.MaxLifetime
+		}
+		if !cmd.Flags().Changed("allow-ip") && len(allowIPsFlag) == 0 && len(preset.AllowIPs) > 0 {
+			allowIPsFlag = preset.AllowIPs
+		}
+	}
+
+	// Validate and hash --auth flag
+	var basicAuthHash string
+	if authFlag != "" {
+		parts := strings.SplitN(authFlag, ":", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid --auth format: must be user:password")
+		}
+		username, password := parts[0], parts[1]
+		if len(username) < 1 {
+			return fmt.Errorf("invalid --auth: username must be at least 1 character")
+		}
+		if strings.Contains(username, ":") {
+			return fmt.Errorf("invalid --auth: username must not contain ':'")
+		}
+		if len(password) < 8 {
+			return fmt.Errorf("invalid --auth: password must be at least 8 characters")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(username+":"+password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash auth credentials: %w", err)
+		}
+		basicAuthHash = string(hash)
+	}
+
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
 	tunnelCfg := config.TunnelConfig{
-		Name:      fmt.Sprintf("http-%d", port),
-		Type:      "http",
-		LocalPort: port,
-		Subdomain: domain,
+		Name:          fmt.Sprintf("http-%d", port),
+		Type:          "http",
+		LocalPort:     port,
+		Subdomain:     domain,
+		BasicAuthHash: basicAuthHash,
+		AllowIPs:      allowIPsFlag,
+		AutoClose:     autoCloseFlag,
+		MaxLifetime:   maxLifetimeFlag,
 	}
 	if addTunnelToDaemon(tunnelCfg) {
 		return nil
@@ -231,11 +390,29 @@ func runTCP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
 	tunnelCfg := config.TunnelConfig{
-		Name:       fmt.Sprintf("tcp-%d", port),
-		Type:       "tcp",
-		LocalPort:  port,
-		RemotePort: remotePort,
+		Name:        fmt.Sprintf("tcp-%d", port),
+		Type:        "tcp",
+		LocalPort:   port,
+		RemotePort:  remotePort,
+		AllowIPs:    allowIPsFlag,
+		AutoClose:   autoCloseFlag,
+		MaxLifetime: maxLifetimeFlag,
 	}
 	if addTunnelToDaemon(tunnelCfg) {
 		return nil
@@ -254,11 +431,29 @@ func runUDP(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
 	tunnelCfg := config.TunnelConfig{
-		Name:       fmt.Sprintf("udp-%d", port),
-		Type:       "udp",
-		LocalPort:  port,
-		RemotePort: remotePort,
+		Name:        fmt.Sprintf("udp-%d", port),
+		Type:        "udp",
+		LocalPort:   port,
+		RemotePort:  remotePort,
+		AllowIPs:    allowIPsFlag,
+		AutoClose:   autoCloseFlag,
+		MaxLifetime: maxLifetimeFlag,
 	}
 	if addTunnelToDaemon(tunnelCfg) {
 		return nil
@@ -574,6 +769,26 @@ func parsePort(s string) (int, error) {
 	return port, nil
 }
 
+// validateAllowIPs validates each --allow-ip entry as either a valid IP or CIDR.
+func validateAllowIPs(entries []string) error {
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			if _, _, err := net.ParseCIDR(entry); err != nil {
+				return fmt.Errorf("invalid --allow-ip CIDR %q: %w", entry, err)
+			}
+		} else {
+			if net.ParseIP(entry) == nil {
+				return fmt.Errorf("invalid --allow-ip address %q", entry)
+			}
+		}
+	}
+	return nil
+}
+
 func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	log.Debug().
 		Str("version", Version).
@@ -602,6 +817,18 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}
 		fmt.Printf("  Forwarding to localhost:%d\n", t.Config.LocalPort)
+		if t.BasicAuthEnabled {
+			fmt.Println("  Basic Auth: enabled")
+		}
+		if t.AllowIPsCount > 0 {
+			fmt.Printf("  IP Allowlist: %d %s\n", t.AllowIPsCount, pluralize(t.AllowIPsCount, "entry", "entries"))
+		}
+		if t.AutoClose != "" {
+			fmt.Printf("  Auto-close: %s (idle timeout)\n", t.AutoClose)
+		}
+		if t.MaxLifetime != "" {
+			fmt.Printf("  Max lifetime: %s\n", t.MaxLifetime)
+		}
 	}
 	if addr := c.InspectorAddr(); addr != "" {
 		fmt.Printf("  Inspector: http://%s\n", addr)
@@ -623,6 +850,14 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 		log.Warn().Msg("Close timeout, exiting")
 	}
 	return nil
+}
+
+// pluralize returns singular if count == 1, otherwise plural.
+func pluralize(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
 }
 
 func setupLogging(level, format string) zerolog.Logger {

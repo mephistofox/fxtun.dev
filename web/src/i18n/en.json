@@ -774,8 +774,10 @@
   "legal": {
     "offer": "Terms of Service",
     "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
     "offerTitle": "Public Offer Agreement",
     "termsTitle": "Terms of Service",
+    "privacyTitle": "Privacy Policy",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
@@ -801,7 +803,21 @@
     "terms": {
       "title": "Terms of Service — fxTunnel",
       "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
+    },
+    "privacy": {
+      "title": "Privacy Policy — fxTunnel",
+      "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Nocodo LTD, Republic of Cyprus."
+    },
+    "pricing": {
+      "title": "Pricing Plans — fxTunnel {'|'} Free, Base & Pro",
+      "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels and no limits. Base from $5/mo with custom domains. Pro from $10/mo with 15 tunnels."
     }
+  },
+  "notFound": {
+    "title": "404 — Page Not Found | fxTunnel",
+    "heading": "Page Not Found",
+    "description": "The page you're looking for doesn't exist or has been moved.",
+    "backHome": "Back to Home"
   },
   "admin": {
     "failedToLoad": "Failed to load data",

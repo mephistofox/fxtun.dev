@@ -95,6 +95,16 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	defer m.server.activeConns.Done()
 	defer conn.Close()
 
+	// Enforce IP allowlist
+	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+	if clientIP := net.ParseIP(host); clientIP != nil {
+		if !isIPAllowed(clientIP, tunnel) {
+			m.log.Warn().Str("remote_addr", conn.RemoteAddr().String()).
+				Str("tunnel_id", tunnel.ID).Msg("TCP connection blocked by IP allowlist")
+			return
+		}
+	}
+
 	tuneTCPConn(conn)
 
 	// Open stream to client
@@ -133,6 +143,9 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	_ = conn.Close()
 	_ = stream.Close()
 	<-done
+
+	// Update LastActivity timestamp for auto-close tracking
+	tunnel.LastActivity.Store(time.Now().UnixNano())
 
 	m.log.Debug().
 		Str("tunnel_id", tunnel.ID).

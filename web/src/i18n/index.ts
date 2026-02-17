@@ -46,7 +46,6 @@ export function getDomainLocale(): 'en' | 'ru' | null {
   const host = window.location.hostname
   if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
   if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
-  if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en' // legacy domain
   return null
 }
 
@@ -91,4 +90,8 @@ export function setLocale(locale: 'en' | 'ru') {
 export function getLocale(): 'en' | 'ru' {
   // @ts-expect-error vue-i18n composition api
   return i18n.global.locale.value as 'en' | 'ru'
+}
+
+export function getBaseDomain(): string {
+  return getLocale() === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
 }
