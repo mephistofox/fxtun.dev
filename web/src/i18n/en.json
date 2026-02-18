@@ -774,8 +774,15 @@
   "legal": {
     "offer": "Terms of Service",
     "terms": "Terms of Service",
+    "aup": "Acceptable Use",
+    "disclaimer": "Disclaimer",
+    "abuse": "Abuse Contact",
     "offerTitle": "Public Offer Agreement",
     "termsTitle": "Terms of Service",
+    "aupTitle": "Acceptable Use Policy",
+    "disclaimerTitle": "TCP & UDP Risk Disclaimer",
+    "abuseTitle": "Abuse Contact",
+    "disclaimerBanner": "TCP and UDP tunnels expose your local services directly to the public internet without built-in access controls. Read this page carefully before using these features.",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
@@ -801,6 +808,18 @@
     "terms": {
       "title": "Terms of Service — fxTunnel",
       "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
+    },
+    "aup": {
+      "title": "Acceptable Use Policy — fxTunnel",
+      "description": "fxTunnel acceptable use policy. Rules for using tunneling services, prohibited activities, and enforcement."
+    },
+    "disclaimer": {
+      "title": "TCP & UDP Risk Disclaimer — fxTunnel",
+      "description": "Security risks of TCP and UDP tunneling. Understand the dangers of exposing local services to the internet via fxTunnel."
+    },
+    "abuse": {
+      "title": "Abuse Contact — fxTunnel",
+      "description": "Report abuse, malicious activity, or illegal content on fxTunnel infrastructure. Contact information and reporting guidelines."
     }
   },
   "admin": {
