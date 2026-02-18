@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -32,12 +33,23 @@ type ServerConfig struct {
 
 // ServerSettings contains network settings
 type ServerSettings struct {
-	ControlPort        int       `mapstructure:"control_port"`
-	HTTPPort           int       `mapstructure:"http_port"`
-	TCPPortRange       PortRange `mapstructure:"tcp_port_range"`
-	UDPPortRange       PortRange `mapstructure:"udp_port_range"`
-	CompressionEnabled bool      `mapstructure:"compression_enabled"`
-	MinVersion         string    `mapstructure:"min_version"`
+	ControlPort        int           `mapstructure:"control_port"`
+	HTTPPort           int           `mapstructure:"http_port"`
+	TCPPortRange       PortRange     `mapstructure:"tcp_port_range"`
+	UDPPortRange       PortRange     `mapstructure:"udp_port_range"`
+	CompressionEnabled bool          `mapstructure:"compression_enabled"`
+	MinVersion         string        `mapstructure:"min_version"`
+	Monitor            MonitorConfig `mapstructure:"monitor"`
+}
+
+// MonitorConfig contains abuse detection settings.
+// Rate limits are not configured here — they come from the plans table in the database.
+type MonitorConfig struct {
+	Enabled                bool          `mapstructure:"enabled"`
+	DetectionInterval      time.Duration `mapstructure:"detection_interval"`
+	UniqueIPsThreshold     int           `mapstructure:"unique_ips_threshold"`
+	ShortConnRatio         float64       `mapstructure:"short_conn_ratio"`
+	UDPAmplificationFactor int           `mapstructure:"udp_amplification_factor"`
 }
 
 // PortRange defines a range of ports
@@ -234,6 +246,11 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("server.udp_port_range.min", 20001)
 	v.SetDefault("server.udp_port_range.max", 30000)
 	v.SetDefault("server.compression_enabled", true)
+	v.SetDefault("server.monitor.enabled", true)
+	v.SetDefault("server.monitor.detection_interval", "30s")
+	v.SetDefault("server.monitor.unique_ips_threshold", 200)
+	v.SetDefault("server.monitor.short_conn_ratio", 0.8)
+	v.SetDefault("server.monitor.udp_amplification_factor", 10)
 	v.SetDefault("domain.base", "localhost")
 	v.SetDefault("domain.wildcard", true)
 	v.SetDefault("auth.enabled", true)
