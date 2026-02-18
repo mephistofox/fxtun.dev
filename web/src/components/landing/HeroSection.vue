@@ -10,7 +10,7 @@ const { t } = useI18n()
 const isVisible = ref(false)
 const copied = ref(false)
 
-const quickCommand = 'fxtunnel http 3000'
+const quickCommand = 'fxtun http 3000'
 
 function copyCommand() {
   navigator.clipboard.writeText(quickCommand)
