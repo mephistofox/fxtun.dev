@@ -13,10 +13,10 @@ main() {
 
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         CURRENT_VERSION=$("$BINARY_NAME" version 2>/dev/null || echo "unknown")
-        echo "fxTunnel is already installed (${CURRENT_VERSION}). Reinstalling..."
+        echo "fxtun is already installed (${CURRENT_VERSION}). Reinstalling..."
     fi
 
-    echo "Downloading fxTunnel for ${OS}/${ARCH}..."
+    echo "Downloading fxtun for ${OS}/${ARCH}..."
 
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "$TMP_DIR"' EXIT
@@ -31,13 +31,16 @@ main() {
     echo "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
     if [ -w "$INSTALL_DIR" ]; then
         mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
+        ln -sf "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/fxtun"
         echo "$WEBSITE_URL" > "${INSTALL_DIR}/.fxtunnel-website"
     else
         sudo mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
+        sudo ln -sf "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/fxtun"
         echo "$WEBSITE_URL" | sudo tee "${INSTALL_DIR}/.fxtunnel-website" > /dev/null
     fi
 
-    echo "fxTunnel installed successfully!"
+    echo "fxtun installed successfully!"
+    echo "Available as: fxtun, fxtunnel"
     "${INSTALL_DIR}/${BINARY_NAME}" version || true
 }
 
