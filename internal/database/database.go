@@ -138,6 +138,7 @@ func (d *Database) migrate() error {
 		migrationAddInspectHostUserIndex,
 		migrationAddPlanBandwidth,
 		migrationAddStripeSupport,
+		migrationAddPlanRateLimits,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -539,4 +540,15 @@ ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT;
 ALTER TABLE payments ADD COLUMN provider TEXT NOT NULL DEFAULT 'yookassa';
 ALTER TABLE payments ADD COLUMN provider_data TEXT;
 UPDATE payments SET provider_data = yookassa_data WHERE yookassa_data IS NOT NULL AND yookassa_data != '';
+`
+
+const migrationAddPlanRateLimits = `
+ALTER TABLE plans ADD COLUMN rate_limit_tcp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN rate_limit_udp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN rate_limit_http INTEGER NOT NULL DEFAULT 0;
+UPDATE plans SET rate_limit_tcp = 300, rate_limit_udp = 1000, rate_limit_http = 600 WHERE slug = 'free';
+UPDATE plans SET rate_limit_tcp = 1800, rate_limit_udp = 10000, rate_limit_http = 3600 WHERE slug = 'base';
+UPDATE plans SET rate_limit_tcp = 1800, rate_limit_udp = 10000, rate_limit_http = 3600 WHERE slug = 'pro';
+UPDATE plans SET rate_limit_tcp = -1, rate_limit_udp = -1, rate_limit_http = -1 WHERE slug = 'business';
+UPDATE plans SET rate_limit_tcp = -1, rate_limit_udp = -1, rate_limit_http = -1 WHERE slug = 'admin';
 `
