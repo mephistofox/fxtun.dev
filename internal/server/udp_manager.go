@@ -137,6 +137,12 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 				return
 			}
 
+			// Rate limit check
+			if !m.server.monitor.AllowUDPPacket(tunnel.ID, addr.String(), n) {
+				continue
+			}
+			m.server.monitor.RecordUDPBytes(tunnel.ID, int64(n), 0)
+
 			// Use string key to avoid hash collisions
 			addrKey := addr.String()
 			addrHash := hashAddr(addr)
@@ -200,6 +206,7 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 
 		if addr != nil {
 			_, _ = tunnel.udpConn.WriteToUDP(frame[:length], addr)
+			m.server.monitor.RecordUDPBytes(tunnel.ID, 0, int64(length))
 		}
 		udpFramePool.Put(fp)
 	}
