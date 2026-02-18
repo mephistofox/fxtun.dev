@@ -777,7 +777,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	subdomain := req.Subdomain
 	subdomain = strings.ToLower(subdomain)
 	if subdomain == "" {
-		subdomain = generateShortID()
+		subdomain = c.server.generateUniqueSubdomain()
 	}
 
 	// Validate subdomain format
