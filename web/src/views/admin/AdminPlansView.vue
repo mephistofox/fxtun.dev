@@ -29,6 +29,9 @@ const defaultForm = {
   inspector_enabled: false,
   is_public: false,
   is_recommended: false,
+  rate_limit_tcp: 0,
+  rate_limit_udp: 0,
+  rate_limit_http: 0,
 }
 
 const form = ref({ ...defaultForm })
@@ -39,6 +42,12 @@ function resetForm() {
 
 function displayLimit(val: number): string {
   return val < 0 ? '∞' : String(val)
+}
+
+function displayRateLimit(val: number): string {
+  if (val < 0) return '∞'
+  if (val === 0) return '-'
+  return String(val)
 }
 
 type PlanTier = 'free' | 'paid' | 'expensive' | 'unlimited'
@@ -122,6 +131,9 @@ function startEdit(plan: Plan) {
     inspector_enabled: plan.inspector_enabled,
     is_public: plan.is_public,
     is_recommended: plan.is_recommended,
+    rate_limit_tcp: plan.rate_limit_tcp,
+    rate_limit_udp: plan.rate_limit_udp,
+    rate_limit_http: plan.rate_limit_http,
   }
 }
 
@@ -288,6 +300,24 @@ onMounted(loadPlans)
                   {{ plan.inspector_enabled ? t('admin.plans.yes') : t('admin.plans.no') }}
                 </span>
               </div>
+              <!-- Rate Limit TCP -->
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span class="text-xs text-muted-foreground truncate">{{ t('admin.plans.rateLimitTcp') }}</span>
+                <span class="text-sm font-medium text-foreground ml-auto">{{ displayRateLimit(plan.rate_limit_tcp) }}</span>
+              </div>
+              <!-- Rate Limit UDP -->
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span class="text-xs text-muted-foreground truncate">{{ t('admin.plans.rateLimitUdp') }}</span>
+                <span class="text-sm font-medium text-foreground ml-auto">{{ displayRateLimit(plan.rate_limit_udp) }}</span>
+              </div>
+              <!-- Rate Limit HTTP -->
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span class="text-xs text-muted-foreground truncate">{{ t('admin.plans.rateLimitHttp') }}</span>
+                <span class="text-sm font-medium text-foreground ml-auto">{{ displayRateLimit(plan.rate_limit_http) }}</span>
+              </div>
             </div>
 
             <!-- Actions -->
@@ -359,6 +389,23 @@ onMounted(loadPlans)
                   </label>
                 </div>
               </div>
+
+              <!-- Rate limits -->
+              <div class="grid grid-cols-3 gap-2">
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitTcp') }}</label>
+                  <Input v-model="form.rate_limit_tcp" type="number" />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitUdp') }}</label>
+                  <Input v-model="form.rate_limit_udp" type="number" />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitHttp') }}</label>
+                  <Input v-model="form.rate_limit_http" type="number" />
+                </div>
+              </div>
+              <p class="text-xs text-muted-foreground">{{ t('admin.plans.rateLimitHint') }}</p>
 
               <!-- Visibility settings -->
               <div class="grid grid-cols-2 gap-2">
@@ -448,6 +495,23 @@ onMounted(loadPlans)
                     </label>
                   </div>
                 </div>
+
+                <!-- Rate limits -->
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="space-y-1">
+                    <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitTcp') }}</label>
+                    <Input v-model="form.rate_limit_tcp" type="number" />
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitUdp') }}</label>
+                    <Input v-model="form.rate_limit_udp" type="number" />
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.rateLimitHttp') }}</label>
+                    <Input v-model="form.rate_limit_http" type="number" />
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground">{{ t('admin.plans.rateLimitHint') }}</p>
 
                 <!-- Visibility settings -->
                 <div class="grid grid-cols-2 gap-3">
