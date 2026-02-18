@@ -21,7 +21,7 @@ useSeo({ titleKey: 'landing.pricing.title', descriptionKey: 'landing.pricing.sub
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span class="font-display font-semibold text-lg">fxTunnel</span>
+          <span class="font-display font-semibold text-lg">fxtun</span>
         </RouterLink>
         <div class="flex items-center gap-4">
           <RouterLink to="/login" class="pricing-nav-link">{{ t('auth.signIn') }}</RouterLink>

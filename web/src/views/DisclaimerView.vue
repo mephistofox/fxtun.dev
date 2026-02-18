@@ -125,7 +125,7 @@ const lastUpdated = '18.02.2026'
 
         <h2>1. Nature of the Service</h2>
         <p>
-          fxTunnel is a reverse tunneling platform that exposes local network services to the public
+          fxtun is a reverse tunneling platform that exposes local network services to the public
           internet via HTTP subdomains, TCP ports, and UDP ports. By using this service, you
           acknowledge that you are making local services accessible from anywhere on the internet.
         </p>
@@ -143,7 +143,7 @@ const lastUpdated = '18.02.2026'
           <li><strong>Full network exposure:</strong> any device on the internet can connect to your
             service via the assigned public port. There is no built-in authentication or access control
             at the tunnel level;</li>
-          <li><strong>Protocol transparency:</strong> fxTunnel forwards TCP traffic as-is without
+          <li><strong>Protocol transparency:</strong> fxtun forwards TCP traffic as-is without
             inspection, filtering, or modification. If your local service has vulnerabilities, they
             become remotely exploitable;</li>
           <li><strong>Common dangerous services:</strong> exposing SSH (port 22), databases
@@ -151,7 +151,7 @@ const lastUpdated = '18.02.2026'
             interfaces without proper authentication is extremely risky;</li>
           <li><strong>Brute-force attacks:</strong> publicly exposed services will receive automated
             login attempts within minutes. Weak or default credentials will be compromised;</li>
-          <li><strong>Data interception:</strong> TCP connections between the fxTunnel server and
+          <li><strong>Data interception:</strong> TCP connections between the fxtun server and
             external clients are unencrypted unless your service uses TLS. Sensitive data may be
             intercepted in transit.</li>
         </ul>
@@ -183,9 +183,9 @@ const lastUpdated = '18.02.2026'
             accessible;</li>
           <li><strong>Session persistence:</strong> tunnels remain active until explicitly closed. A
             forgotten tunnel keeps your service exposed indefinitely;</li>
-          <li><strong>Shared infrastructure:</strong> fxTunnel is a shared platform. While we isolate
+          <li><strong>Shared infrastructure:</strong> fxtun is a shared platform. While we isolate
             tunnel traffic, the public IP addresses and ports are shared infrastructure;</li>
-          <li><strong>Service availability:</strong> tunnel connectivity depends on fxTunnel
+          <li><strong>Service availability:</strong> tunnel connectivity depends on fxtun
             infrastructure availability. Do not rely on tunnels for production or
             mission-critical workloads.</li>
         </ul>
@@ -200,7 +200,7 @@ const lastUpdated = '18.02.2026'
           <li><strong>Firewall rules:</strong> configure your local service to restrict access
             by IP address if possible, even when tunneled;</li>
           <li><strong>Monitoring:</strong> actively monitor tunnel connections and traffic. Use the
-            fxTunnel dashboard to track active tunnels;</li>
+            fxtun dashboard to track active tunnels;</li>
           <li><strong>Minimal exposure:</strong> only expose the specific service and port needed.
             Close tunnels when no longer in use;</li>
           <li><strong>Rate limiting:</strong> configure rate limits on your local service to mitigate
@@ -210,7 +210,7 @@ const lastUpdated = '18.02.2026'
 
         <h2>6. Disclaimer of Liability</h2>
         <p>
-          fxTunnel provides tunneling infrastructure on an "as is" and "as available" basis.
+          fxtun provides tunneling infrastructure on an "as is" and "as available" basis.
           We do not:
         </p>
         <ul>
@@ -220,7 +220,7 @@ const lastUpdated = '18.02.2026'
           <li>Accept responsibility for the security configuration of your local services.</li>
         </ul>
         <p>
-          <strong>You are solely responsible for the security of services you expose through fxTunnel
+          <strong>You are solely responsible for the security of services you expose through fxtun
           tunnels.</strong> By using TCP or UDP tunneling features, you acknowledge these risks and
           accept full responsibility for any consequences, including but not limited to unauthorized
           access, data loss, service disruption, or third-party claims.
@@ -233,7 +233,7 @@ const lastUpdated = '18.02.2026'
 
         <h2>7. Abuse Reporting</h2>
         <p>
-          If you observe suspicious or malicious activity originating from fxTunnel infrastructure,
+          If you observe suspicious or malicious activity originating from fxtun infrastructure,
           please report it via our
           <RouterLink to="/abuse" class="text-primary hover:underline">Abuse Contact</RouterLink> page.
         </p>
