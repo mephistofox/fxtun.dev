@@ -27,7 +27,7 @@ const blogUrl = computed(() => getBlogUrl())
             </svg>
           </div>
           <div>
-            <span class="font-display font-semibold text-lg">fxTunnel</span>
+            <span class="font-display font-semibold text-lg">fxtun</span>
             <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Secure tunneling' }}</p>
           </div>
         </div>
@@ -76,7 +76,7 @@ const blogUrl = computed(() => getBlogUrl())
 
         <!-- Copyright -->
         <p class="text-sm text-muted-foreground">
-          © {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}
+          © {{ currentYear }} fxtun. {{ t('landing.footer.rights') }}
         </p>
       </div>
     </div>

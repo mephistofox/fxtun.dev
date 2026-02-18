@@ -25,14 +25,14 @@ const steps = [
     icon: 'key',
     titleKey: 'landing.howItWorks.step2.title',
     descKey: 'landing.howItWorks.step2.desc',
-    code: 'fxtunnel login --token sk_xxxxx',
+    code: 'fxtun login --token sk_xxxxx',
   },
   {
     number: '03',
     icon: 'rocket',
     titleKey: 'landing.howItWorks.step3.title',
     descKey: 'landing.howItWorks.step3.desc',
-    code: 'fxtunnel http 3000 --domain myapp',
+    code: 'fxtun http 3000 --domain myapp',
   },
 ]
 
