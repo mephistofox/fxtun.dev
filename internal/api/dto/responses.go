@@ -36,6 +36,9 @@ type PlanDTO struct {
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
+	RateLimitTCP       int     `json:"rate_limit_tcp"`
+	RateLimitUDP       int     `json:"rate_limit_udp"`
+	RateLimitHTTP      int     `json:"rate_limit_http"`
 }
 
 // PlanFromModel converts a database Plan to PlanDTO
@@ -58,6 +61,9 @@ func PlanFromModel(p *database.Plan) *PlanDTO {
 		InspectorEnabled:   p.InspectorEnabled,
 		IsPublic:           p.IsPublic,
 		IsRecommended:      p.IsRecommended,
+		RateLimitTCP:       p.RateLimitTCP,
+		RateLimitUDP:       p.RateLimitUDP,
+		RateLimitHTTP:      p.RateLimitHTTP,
 	}
 }
 

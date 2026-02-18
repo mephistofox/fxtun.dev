@@ -79,6 +79,9 @@ type CreatePlanRequest struct {
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
+	RateLimitTCP       int     `json:"rate_limit_tcp"`
+	RateLimitUDP       int     `json:"rate_limit_udp"`
+	RateLimitHTTP      int     `json:"rate_limit_http"`
 }
 
 // UpdatePlanRequest represents a plan update request
@@ -94,6 +97,9 @@ type UpdatePlanRequest struct {
 	InspectorEnabled   *bool    `json:"inspector_enabled,omitempty"`
 	IsPublic           *bool    `json:"is_public,omitempty"`
 	IsRecommended      *bool    `json:"is_recommended,omitempty"`
+	RateLimitTCP       *int     `json:"rate_limit_tcp,omitempty"`
+	RateLimitUDP       *int     `json:"rate_limit_udp,omitempty"`
+	RateLimitHTTP      *int     `json:"rate_limit_http,omitempty"`
 }
 
 // MergeUsersRequest represents a request to merge two users
