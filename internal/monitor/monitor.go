@@ -46,7 +46,9 @@ func (m *Monitor) Stop() {
 func (m *Monitor) RegisterTunnel(tunnelID, tunnelType string, limits TunnelLimits) {
 	metrics := NewTunnelMetrics(tunnelID, tunnelType, limits)
 	m.tunnels.Store(tunnelID, metrics)
-	m.log.Debug().Str("tunnel", tunnelID).Str("type", tunnelType).Msg("tunnel registered with monitor")
+	m.log.Info().Str("tunnel", tunnelID).Str("type", tunnelType).
+		Int("tcp_limit", limits.TCPConnPerMin).Int("udp_limit", limits.UDPPacketsPerSec).Int("http_limit", limits.HTTPReqPerMin).
+		Msg("tunnel registered with monitor")
 }
 
 // RemoveTunnel removes a tunnel from monitoring.
