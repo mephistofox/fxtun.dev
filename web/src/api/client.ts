@@ -286,6 +286,9 @@ export interface Plan {
   inspector_enabled: boolean
   is_public: boolean
   is_recommended: boolean
+  rate_limit_tcp: number
+  rate_limit_udp: number
+  rate_limit_http: number
 }
 
 // Admin subscription and payment types

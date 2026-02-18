@@ -921,7 +921,11 @@
       "public": "Public",
       "recommended": "Recommended",
       "isPublic": "Show on Landing",
-      "isRecommended": "Recommended"
+      "isRecommended": "Recommended",
+      "rateLimitTcp": "TCP conn/min",
+      "rateLimitUdp": "UDP pkt/sec",
+      "rateLimitHttp": "HTTP req/min",
+      "rateLimitHint": "0 = default, -1 = unlimited"
     },
     "customDomains": {
       "title": "Custom Domains",
