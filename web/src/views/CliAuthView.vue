@@ -51,7 +51,7 @@ async function authorize() {
             </svg>
           </div>
           <h1 class="text-2xl font-bold">Authorize CLI</h1>
-          <p class="text-muted-foreground mt-2">Confirm access for the fxTunnel CLI client</p>
+          <p class="text-muted-foreground mt-2">Confirm access for the fxtun CLI client</p>
         </div>
 
         <!-- Missing session -->

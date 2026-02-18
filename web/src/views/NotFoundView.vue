@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 import { useSeoMeta } from '@unhead/vue'
 
 useSeoMeta({
-  title: '404 — Page Not Found | fxTunnel',
+  title: '404 — Page Not Found | fxtun',
   robots: 'noindex, nofollow',
 })
 </script>
