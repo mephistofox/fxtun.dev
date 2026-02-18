@@ -111,19 +111,19 @@ const lastUpdated = '18.02.2026'
 
         <h2>1. Purpose</h2>
         <p>
-          This Acceptable Use Policy ("AUP") defines the rules and boundaries for using the fxTunnel
+          This Acceptable Use Policy ("AUP") defines the rules and boundaries for using the fxtun
           tunneling service. It supplements the
           <RouterLink to="/terms" class="text-primary hover:underline">Terms of Service</RouterLink>
           and applies to all users regardless of their subscription plan.
         </p>
         <p>
-          fxTunnel provides infrastructure for exposing local services to the internet. We are committed
+          fxtun provides infrastructure for exposing local services to the internet. We are committed
           to keeping the platform safe, reliable, and free from abuse. Violation of this policy may
           result in immediate account suspension or termination.
         </p>
 
         <h2>2. Prohibited Activities</h2>
-        <p>You must not use fxTunnel to:</p>
+        <p>You must not use fxtun to:</p>
 
         <h3>2.1. Malicious Content & Attacks</h3>
         <ul>
@@ -153,16 +153,16 @@ const lastUpdated = '18.02.2026'
         <ul>
           <li>Consume excessive resources that degrade service quality for other users;</li>
           <li>Attempt to circumvent service limits, rate limits, or access controls;</li>
-          <li>Probe, scan, or test the vulnerability of fxTunnel infrastructure without authorization;</li>
-          <li>Reverse-engineer, decompile, or interfere with the fxTunnel platform;</li>
-          <li>Resell, sublicense, or redistribute fxTunnel access without written permission.</li>
+          <li>Probe, scan, or test the vulnerability of fxtun infrastructure without authorization;</li>
+          <li>Reverse-engineer, decompile, or interfere with the fxtun platform;</li>
+          <li>Resell, sublicense, or redistribute fxtun access without written permission.</li>
         </ul>
 
         <h3>2.5. TCP & UDP Tunnel Specific</h3>
         <ul>
           <li>Expose unprotected or known-vulnerable services (e.g., open databases, unpatched SSH) to the public internet;</li>
           <li>Use TCP/UDP tunnels to bypass network security policies of your organization;</li>
-          <li>Operate anonymous proxy or VPN services through fxTunnel tunnels;</li>
+          <li>Operate anonymous proxy or VPN services through fxtun tunnels;</li>
           <li>Run open public proxies (HTTP, SOCKS, or any other protocol) accessible to arbitrary third parties;</li>
           <li>Tunnel protocols designed for network attacks (e.g., ARP spoofing, DHCP starvation).</li>
         </ul>
@@ -193,7 +193,7 @@ const lastUpdated = '18.02.2026'
 
         <h2>5. Reporting Abuse</h2>
         <p>
-          If you believe an fxTunnel user is violating this policy, please report it to us.
+          If you believe an fxtun user is violating this policy, please report it to us.
           See our <RouterLink to="/abuse" class="text-primary hover:underline">Abuse Contact</RouterLink> page
           for reporting instructions.
         </p>
@@ -201,7 +201,7 @@ const lastUpdated = '18.02.2026'
         <h2>6. Changes to This Policy</h2>
         <p>
           We may update this AUP from time to time. Material changes will be communicated via the
-          Service at least 14 days before taking effect. Continued use of fxTunnel after the effective
+          Service at least 14 days before taking effect. Continued use of fxtun after the effective
           date constitutes acceptance.
         </p>
 
