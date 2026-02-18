@@ -19,11 +19,12 @@ const features = [
   'inspector',
   'selfHosted',
   'customDomains',
+  'abuseProtection',
 ] as const
 
-// Highlight fxTunnel advantages (cells where we're better)
+// Highlight fxtun advantages (cells where we're better)
 const advantages: Record<string, Set<string>> = {
-  fxtunnel: new Set(['freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'selfHosted']),
+  fxtunnel: new Set(['freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'selfHosted', 'abuseProtection']),
 }
 
 function isAdvantage(competitor: string, feature: string): boolean {
@@ -102,7 +103,7 @@ onMounted(() => {
                   class="p-4 font-display font-semibold text-center"
                   :class="comp === 'fxtunnel' ? 'text-primary bg-primary/5' : 'text-foreground'"
                 >
-                  {{ comp === 'fxtunnel' ? 'fxTunnel' : comp === 'ngrok' ? 'ngrok' : 'localhost.run' }}
+                  {{ comp === 'fxtunnel' ? 'fxtun' : comp === 'ngrok' ? 'ngrok' : 'localhost.run' }}
                 </th>
               </tr>
             </thead>
@@ -154,7 +155,7 @@ onMounted(() => {
                 ]"
               >
                 <div class="text-[10px] text-muted-foreground mb-1">
-                  {{ comp === 'fxtunnel' ? 'fxTunnel' : comp === 'ngrok' ? 'ngrok' : 'lhr' }}
+                  {{ comp === 'fxtunnel' ? 'fxtun' : comp === 'ngrok' ? 'ngrok' : 'lhr' }}
                 </div>
                 {{ t(`landing.comparison.values.${comp}.${feat}`) }}
               </div>
