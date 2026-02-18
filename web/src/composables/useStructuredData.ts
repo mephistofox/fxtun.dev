@@ -21,14 +21,14 @@ export function useOrganizationSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
-          name: 'fxTunnel',
+          name: 'fxtun',
           url: baseUrl,
           logo: `${baseUrl}/og-image.png`,
           sameAs: [
             'https://github.com/mephistofox/fxtun.dev',
           ],
           description:
-            'fxTunnel is a free ngrok alternative — reverse tunneling service with HTTP, TCP & UDP support, desktop GUI, and no usage limits.',
+            'fxtun is a free ngrok alternative — reverse tunneling service with HTTP, TCP & UDP support, desktop GUI, and no usage limits.',
         }),
       },
     ],
@@ -45,7 +45,7 @@ export function useSoftwareApplicationSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'SoftwareApplication',
-          name: 'fxTunnel',
+          name: 'fxtun',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Windows, macOS, Linux',
           description:
@@ -115,7 +115,7 @@ export function useWebSiteSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'WebSite',
-          name: 'fxTunnel',
+          name: 'fxtun',
           url: baseUrl,
           description:
             'Free ngrok alternative with no request limits and no session timeout. HTTP, TCP & UDP tunneling with desktop app.',
@@ -135,7 +135,7 @@ export function useWebPageSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'WebPage',
-          name: 'fxTunnel — Free ngrok Alternative',
+          name: 'fxtun — Free ngrok Alternative',
           url: baseUrl,
           description:
             'Free ngrok alternative with no request limits, no session timeout, and free custom subdomains. HTTP, TCP & UDP tunneling with desktop GUI.',
@@ -145,7 +145,7 @@ export function useWebPageSchema() {
           },
           mainEntity: {
             '@type': 'SoftwareApplication',
-            name: 'fxTunnel',
+            name: 'fxtun',
           },
         }),
       },

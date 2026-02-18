@@ -33,7 +33,7 @@ export function useSeo(options: SeoOptions = {}) {
     ? t(key, [], { locale: effectiveLocale })
     : t(key)
 
-  const title = computed(() => options.title || (options.titleKey ? te(options.titleKey) : 'fxTunnel'))
+  const title = computed(() => options.title || (options.titleKey ? te(options.titleKey) : 'fxtun'))
   const description = computed(() => options.description || (options.descriptionKey ? te(options.descriptionKey) : te('seo.defaultDescription')))
   const image = options.image || 'https://fxtun.dev/og-image.png'
 
@@ -84,7 +84,7 @@ export function useSeo(options: SeoOptions = {}) {
     ogImage: image,
     ogUrl: canonical,
     ogType: options.type || 'website',
-    ogSiteName: 'fxTunnel',
+    ogSiteName: 'fxtun',
     twitterCard: 'summary_large_image',
     twitterTitle: title,
     twitterDescription: description,

@@ -104,7 +104,7 @@ function cycleTheme() {
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h1 class="text-2xl font-bold">fxTunnel</h1>
+          <h1 class="text-2xl font-bold">fxtun</h1>
         </div>
         <p class="text-muted-foreground mt-2">{{ t('auth.signUpTitle') }}</p>
       </div>

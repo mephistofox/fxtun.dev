@@ -111,7 +111,7 @@ const lastUpdated = '13.02.2026'
 
         <h2>1. Introduction</h2>
         <p>
-          These Terms of Service ("Terms") govern your access to and use of the fxTunnel service
+          These Terms of Service ("Terms") govern your access to and use of the fxtun service
           ("Service"), including the website at <a href="https://fxtun.dev">fxtun.dev</a>,
           desktop applications, command-line tools, and all related APIs.
         </p>
@@ -127,7 +127,7 @@ const lastUpdated = '13.02.2026'
 
         <h2>2. Definitions</h2>
         <ul>
-          <li><strong>"Tunnel"</strong> — a secure connection that exposes a local service running on your device to the public internet via the fxTunnel infrastructure.</li>
+          <li><strong>"Tunnel"</strong> — a secure connection that exposes a local service running on your device to the public internet via the fxtun infrastructure.</li>
           <li><strong>"Subdomain"</strong> — a unique hostname (e.g., <code>your-app.fxtun.dev</code>) assigned to an HTTP tunnel.</li>
           <li><strong>"Token"</strong> — an API credential used to authenticate tunnel connections.</li>
           <li><strong>"Plan"</strong> — a subscription tier defining the scope of Service available to you (Free, Base, or Pro).</li>
@@ -136,7 +136,7 @@ const lastUpdated = '13.02.2026'
 
         <h2>3. Description of the Service</h2>
         <p>
-          fxTunnel provides secure reverse tunneling that allows you to expose local HTTP, TCP,
+          fxtun provides secure reverse tunneling that allows you to expose local HTTP, TCP,
           and UDP services to the internet. The Service includes:
         </p>
         <ul>
@@ -205,7 +205,7 @@ const lastUpdated = '13.02.2026'
           to use it as described herein.
         </p>
         <p>
-          The open-source components of fxTunnel are licensed under their respective licenses
+          The open-source components of fxtun are licensed under their respective licenses
           as specified in the source code repositories.
         </p>
 

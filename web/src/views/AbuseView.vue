@@ -106,7 +106,7 @@ function cycleTheme() {
 
         <p>
           If you have encountered abuse, illegal content, or malicious activity originating from
-          the fxTunnel network, please report it using the information below. We take all reports
+          the fxtun network, please report it using the information below. We take all reports
           seriously and will investigate promptly.
         </p>
 
