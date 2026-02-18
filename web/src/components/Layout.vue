@@ -116,7 +116,7 @@ function cycleTheme() {
                 <line x1="12" y1="20" x2="12.01" y2="20" />
               </svg>
             </div>
-            <span class="text-xl font-bold text-primary">fxTunnel</span>
+            <span class="text-xl font-bold text-primary">fxtun</span>
           </RouterLink>
 
           <!-- Desktop Navigation -->
@@ -325,8 +325,9 @@ function cycleTheme() {
             </svg>
           </button>
 
-          <!-- Language Switcher -->
+          <!-- Language Switcher (hidden) -->
           <button
+            v-if="false"
             @click="toggleLocale"
             class="px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted transition-colors"
           >
@@ -507,7 +508,7 @@ function cycleTheme() {
     <!-- Footer -->
     <footer class="border-t bg-muted/30 mt-auto">
       <div class="container mx-auto px-4 py-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>fxTunnel</span>
+        <span>fxtun</span>
         <a
           v-if="appVersion"
           :href="`https://github.com/mephistofox/fxtunnel/releases/tag/${appVersion}`"

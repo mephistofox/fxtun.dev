@@ -44,7 +44,6 @@ const cspMessageCompiler: MessageCompiler = (message) => {
 export function getDomainLocale(): 'en' | 'ru' | null {
   if (import.meta.env.SSR) return null
   const host = window.location.hostname
-  if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
   if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
   if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en' // legacy domain
   return null
@@ -76,9 +75,7 @@ if (!import.meta.env.SSR) {
 
 export function getBlogUrl(): string {
   if (import.meta.env.SSR) return '/blog'
-  const locale = getLocale()
-  const domain = locale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
-  return `${window.location.protocol}//${domain}/blog`
+  return `${window.location.protocol}//${window.location.hostname}/blog`
 }
 
 export function setLocale(locale: 'en' | 'ru') {

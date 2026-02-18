@@ -20,7 +20,7 @@ const protocols = {
       'landing.protocols.http.feature3',
     ],
     example: 'https://myapp.fxtun.dev',
-    command: 'fxtunnel http 3000 --domain myapp',
+    command: 'fxtun http 3000 --domain myapp',
     useCases: ['Web apps', 'APIs', 'Webhooks'],
   },
   tcp: {
@@ -34,7 +34,7 @@ const protocols = {
       'landing.protocols.tcp.feature3',
     ],
     example: 'tcp://fxtun.dev:54321',
-    command: 'fxtunnel tcp 22 --remote-port 54321',
+    command: 'fxtun tcp 22 --remote-port 54321',
     useCases: ['SSH', 'Databases', 'Custom protocols'],
   },
   udp: {
@@ -48,7 +48,7 @@ const protocols = {
       'landing.protocols.udp.feature3',
     ],
     example: 'udp://fxtun.dev:54322',
-    command: 'fxtunnel udp 53 --remote-port 54322',
+    command: 'fxtun udp 53 --remote-port 54322',
     useCases: ['Game servers', 'VoIP', 'DNS'],
   },
 }

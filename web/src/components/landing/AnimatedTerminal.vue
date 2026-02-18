@@ -7,12 +7,14 @@ interface TerminalLine {
   delay?: number
 }
 
+const baseDomain = typeof window !== 'undefined' ? window.location.hostname : 'fxtun.dev'
+
 const lines: TerminalLine[] = [
-  { type: 'command', text: 'fxtunnel http 3000 --domain myapp', delay: 50 },
+  { type: 'command', text: 'fxtun http 3000 --domain myapp', delay: 50 },
   { type: 'info', text: 'Connecting...', delay: 600 },
   { type: 'success', text: 'Tunnel established!', delay: 400 },
   { type: 'output', text: '', delay: 100 },
-  { type: 'url', text: 'https://myapp.fxtun.ru → localhost:3000', delay: 200 },
+  { type: 'url', text: `https://myapp.${baseDomain} → localhost:3000`, delay: 200 },
   { type: 'output', text: '', delay: 400 },
   { type: 'info', text: 'GET  /api/health          200  12ms', delay: 800 },
   { type: 'info', text: 'POST /api/webhooks/stripe  200  45ms', delay: 600 },
@@ -96,7 +98,7 @@ function getLineClass(type: string) {
       <div class="terminal-dot bg-red-500"></div>
       <div class="terminal-dot bg-yellow-500"></div>
       <div class="terminal-dot bg-green-500"></div>
-      <span class="ml-3 text-xs text-muted-foreground font-mono">fxTunnel</span>
+      <span class="ml-3 text-xs text-muted-foreground font-mono">fxtun</span>
     </div>
     <div class="terminal-body min-h-[220px]">
       <div v-for="(line, index) in displayedLines" :key="index" class="flex items-start">
