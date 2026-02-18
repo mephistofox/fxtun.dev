@@ -95,6 +95,13 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	defer m.server.activeConns.Done()
 	defer conn.Close()
 
+	// Rate limit check before opening yamux stream
+	if !m.server.monitor.AllowTCPConnection(tunnel.ID, conn.RemoteAddr().String()) {
+		return
+	}
+
+	start := time.Now()
+
 	tuneTCPConn(conn)
 
 	// Open stream to client
@@ -133,6 +140,8 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	_ = conn.Close()
 	_ = stream.Close()
 	<-done
+
+	m.server.monitor.RecordTCPConnectionDone(tunnel.ID, time.Since(start), 0, 0)
 
 	m.log.Debug().
 		Str("tunnel_id", tunnel.ID).

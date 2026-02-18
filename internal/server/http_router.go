@@ -125,6 +125,12 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Rate limit check before opening yamux stream
+	if !r.server.monitor.AllowHTTPRequest(tunnel.ID, req.RemoteAddr) {
+		http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+		return
+	}
+
 	// Determine if interstitial might be needed (will check response Content-Type later)
 	isCustomDomain := r.server.LookupCustomDomain(req.Host) != nil
 	mayNeedInterstitial := !client.IsAdmin && !isCustomDomain && r.mayNeedInterstitial(req, subdomain)

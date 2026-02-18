@@ -22,6 +22,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/database"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtunnel/internal/monitor"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
@@ -89,6 +90,9 @@ type Server struct {
 	tcpManager  *TCPManager
 	udpManager  *UDPManager
 	inspectMgr  *inspect.Manager
+
+	// Traffic monitor
+	monitor *monitor.Monitor
 
 	// Database integration
 	db          *database.Database
@@ -180,6 +184,17 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s.tcpManager = NewTCPManager(s, log)
 	s.udpManager = NewUDPManager(s, log)
 
+	monCfg := monitor.Config{
+		Enabled:           cfg.Server.Monitor.Enabled,
+		DetectionInterval: cfg.Server.Monitor.DetectionInterval,
+		Detection: monitor.DetectionConfig{
+			UniqueIPsThreshold:     cfg.Server.Monitor.UniqueIPsThreshold,
+			ShortConnRatio:         cfg.Server.Monitor.ShortConnRatio,
+			UDPAmplificationFactor: cfg.Server.Monitor.UDPAmplificationFactor,
+		},
+	}
+	s.monitor = monitor.New(monCfg, s.handleMonitorAlert)
+
 	capacity := 0
 	if cfg.Inspect.Enabled {
 		capacity = cfg.Inspect.MaxEntries
@@ -194,6 +209,15 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s.inspectMgr = inspect.NewManager(capacity, maxBody)
 
 	return s
+}
+
+func (s *Server) handleMonitorAlert(alert monitor.Alert) {
+	if alert.Severity == monitor.SeverityCritical {
+		s.log.Error().
+			Str("tunnel", alert.TunnelID).
+			Str("alert", string(alert.Type)).
+			Msg("critical security alert: " + alert.Message)
+	}
 }
 
 // SetDatabase sets the database for the server
@@ -445,6 +469,7 @@ func (s *Server) Stop() error {
 	// Stop managers
 	s.tcpManager.Stop()
 	s.udpManager.Stop()
+	s.monitor.Stop()
 
 	s.inspectMgr.Close()
 
@@ -812,6 +837,8 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
 
+	c.registerTunnelMonitor(tunnel)
+
 	url := fmt.Sprintf("http://%s.%s", subdomain, c.server.cfg.Domain.Base)
 
 	resp := &protocol.TunnelCreatedMessage{
@@ -850,6 +877,8 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
+
+	c.registerTunnelMonitor(tunnel)
 
 	// Start accepting connections
 	go c.server.tcpManager.AcceptConnections(tunnel, c)
@@ -893,6 +922,8 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
 
+	c.registerTunnelMonitor(tunnel)
+
 	// Start handling UDP packets
 	go c.server.udpManager.HandlePackets(tunnel, c)
 
@@ -923,6 +954,18 @@ func (c *Client) handleTunnelClose(data []byte) {
 	c.closeTunnel(closeMsg.TunnelID)
 }
 
+func (c *Client) registerTunnelMonitor(tunnel *Tunnel) {
+	var limits monitor.TunnelLimits
+	if c.Plan != nil {
+		limits = monitor.TunnelLimits{
+			TCPConnPerMin:    c.Plan.RateLimitTCP,
+			UDPPacketsPerSec: c.Plan.RateLimitUDP,
+			HTTPReqPerMin:    c.Plan.RateLimitHTTP,
+		}
+	}
+	c.server.monitor.RegisterTunnel(tunnel.ID, string(tunnel.Type), limits)
+}
+
 func (c *Client) closeTunnel(tunnelID string) {
 	c.TunnelsMu.Lock()
 	tunnel, exists := c.Tunnels[tunnelID]
@@ -934,6 +977,8 @@ func (c *Client) closeTunnel(tunnelID string) {
 	if !exists {
 		return
 	}
+
+	c.server.monitor.RemoveTunnel(tunnelID)
 
 	switch tunnel.Type {
 	case protocol.TunnelHTTP:
@@ -1012,6 +1057,7 @@ func (c *Client) Close() {
 		// Close all tunnels
 		c.TunnelsMu.Lock()
 		for tunnelID, tunnel := range c.Tunnels {
+			c.server.monitor.RemoveTunnel(tunnelID)
 			switch tunnel.Type {
 			case protocol.TunnelHTTP:
 				c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
