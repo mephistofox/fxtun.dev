@@ -921,7 +921,11 @@
       "public": "Публичный",
       "recommended": "Рекомендуемый",
       "isPublic": "Показать на лендинге",
-      "isRecommended": "Рекомендуемый"
+      "isRecommended": "Рекомендуемый",
+      "rateLimitTcp": "TCP соед/мин",
+      "rateLimitUdp": "UDP пак/сек",
+      "rateLimitHttp": "HTTP зап/мин",
+      "rateLimitHint": "0 = по умолчанию, -1 = без лимита"
     },
     "customDomains": {
       "title": "Кастомные домены",
