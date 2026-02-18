@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1107,11 +1106,16 @@ func (c *Client) Close() {
 
 // Helper functions
 
-var connIDCounter atomic.Uint64
-
 func generateID() string {
-	id := connIDCounter.Add(1)
-	return strconv.FormatUint(id, 36)
+	b := make([]byte, 9) // 9 bytes = 12 base64url chars
+	_, _ = rand.Read(b)
+	// Base36 encode: lowercase alphanumeric, URL-safe, short
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+	out := make([]byte, 12)
+	for i := range out {
+		out[i] = alphabet[int(b[i%len(b)])%len(alphabet)]
+	}
+	return string(out)
 }
 
 func generateShortID() string {
