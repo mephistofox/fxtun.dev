@@ -33,7 +33,7 @@ const blogUrl = computed(() => getBlogUrl())
         </div>
 
         <!-- Links -->
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-6 flex-wrap justify-center">
           <RouterLink
             v-if="showOffer"
             to="/offer"
@@ -47,6 +47,24 @@ const blogUrl = computed(() => getBlogUrl())
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {{ t('legal.terms') }}
+          </RouterLink>
+          <RouterLink
+            to="/aup"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.aup') }}
+          </RouterLink>
+          <RouterLink
+            to="/disclaimer"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.disclaimer') }}
+          </RouterLink>
+          <RouterLink
+            to="/abuse"
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {{ t('legal.abuse') }}
           </RouterLink>
           <a
             :href="blogUrl"

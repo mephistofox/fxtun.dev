@@ -774,8 +774,15 @@
   "legal": {
     "offer": "Оферта",
     "terms": "Terms of Service",
+    "aup": "Правила использования",
+    "disclaimer": "Дисклеймер",
+    "abuse": "Жалобы",
     "offerTitle": "Публичная оферта",
     "termsTitle": "Terms of Service",
+    "aupTitle": "Правила допустимого использования",
+    "disclaimerTitle": "Дисклеймер: риски TCP и UDP туннелей",
+    "abuseTitle": "Сообщить о нарушении",
+    "disclaimerBanner": "TCP и UDP туннели открывают ваши локальные сервисы напрямую в публичный интернет без встроенного контроля доступа. Внимательно прочитайте эту страницу перед использованием.",
     "offerAgreement": "Регистрируясь, вы соглашаетесь с условиями",
     "downloadPdf": "Скачать PDF",
     "lastUpdated": "Дата последнего обновления"
@@ -801,6 +808,18 @@
     "terms": {
       "title": "Terms of Service — fxTunnel",
       "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
+    },
+    "aup": {
+      "title": "Правила использования — fxTunnel",
+      "description": "Правила допустимого использования fxTunnel. Запрещённые действия, ответственность и enforcement."
+    },
+    "disclaimer": {
+      "title": "Дисклеймер TCP/UDP — fxTunnel",
+      "description": "Риски безопасности TCP и UDP туннелей. Что нужно знать перед открытием локальных сервисов в интернет через fxTunnel."
+    },
+    "abuse": {
+      "title": "Сообщить о нарушении — fxTunnel",
+      "description": "Сообщите о злоупотреблениях, вредоносной активности или нелегальном контенте в инфраструктуре fxTunnel."
     }
   },
   "admin": {
