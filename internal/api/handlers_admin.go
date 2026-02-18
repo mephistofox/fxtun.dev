@@ -531,6 +531,7 @@ func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 		MaxTunnelsPerToken: req.MaxTunnelsPerToken, BandwidthMbps: req.BandwidthMbps,
 		InspectorEnabled: req.InspectorEnabled,
 		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
+		RateLimitTCP: req.RateLimitTCP, RateLimitUDP: req.RateLimitUDP, RateLimitHTTP: req.RateLimitHTTP,
 	}
 	if err := s.db.Plans.Create(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to create plan")
@@ -592,6 +593,15 @@ func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.IsRecommended != nil {
 		plan.IsRecommended = *req.IsRecommended
+	}
+	if req.RateLimitTCP != nil {
+		plan.RateLimitTCP = *req.RateLimitTCP
+	}
+	if req.RateLimitUDP != nil {
+		plan.RateLimitUDP = *req.RateLimitUDP
+	}
+	if req.RateLimitHTTP != nil {
+		plan.RateLimitHTTP = *req.RateLimitHTTP
 	}
 	if err := s.db.Plans.Update(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to update plan")
