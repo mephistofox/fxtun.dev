@@ -32,7 +32,7 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-const isRuDomain = computed(() => false)
+const isRuDomain = computed(() => typeof window !== 'undefined' && window.location.hostname.endsWith('fxtun.ru'))
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {
