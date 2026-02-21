@@ -117,7 +117,7 @@
       },
       "reconnect": {
         "title": "Auto-Reconnect",
-        "desc": "Automatic reconnection on connection loss. Your tunnels stay online 24/7."
+        "desc": "Automatic reconnection on connection loss. Your services stay online 24/7."
       }
     },
     "howItWorks": {
@@ -133,7 +133,7 @@
         "desc": "Create an account and generate an API token."
       },
       "step3": {
-        "title": "Create a Tunnel",
+        "title": "Share a Service",
         "desc": "Run a single command to go live."
       }
     },
@@ -142,25 +142,25 @@
       "title": "Flexible Protocol Support",
       "subtitle": "Whether you need to expose a web app, SSH server, or game server - we've got you covered.",
       "http": {
-        "title": "HTTP Tunnels",
+        "title": "HTTP Sharing",
         "desc": "Expose web applications with custom subdomains. Perfect for webhooks, demos, and development.",
         "feature1": "Custom subdomain support",
         "feature2": "Automatic HTTPS",
         "feature3": "WebSocket support"
       },
       "tcp": {
-        "title": "TCP Tunnels",
+        "title": "TCP Forwarding",
         "desc": "Forward any TCP-based service with dedicated ports. Ideal for SSH, databases, and custom protocols.",
         "feature1": "SSH, databases, APIs",
         "feature2": "Dedicated port allocation",
         "feature3": "Persistent connections"
       },
       "udp": {
-        "title": "UDP Tunnels",
+        "title": "UDP Forwarding",
         "desc": "Support for real-time and gaming applications. Low-latency forwarding for demanding use cases.",
         "feature1": "Game servers, VoIP",
         "feature2": "Low-latency forwarding",
-        "feature3": "DNS tunneling"
+        "feature3": "DNS forwarding"
       }
     },
     "useCases": {
@@ -290,7 +290,7 @@
       "free": "Free",
       "perMonth": "/mo",
       "selectPlan": "Choose Plan",
-      "tunnels": "active tunnel;;active tunnels",
+      "tunnels": "live service;;live services",
       "tunnelsDesc": "Simultaneous connections to your local services",
       "anySubdomain": "Any subdomain",
       "anySubdomainDesc": "Pick myapp.fxtun.dev — no random URLs",
@@ -312,7 +312,7 @@
         "title": "All plans include",
         "noLimits": "No request or bandwidth limits",
         "noTimeout": "No session timeout",
-        "protocols": "HTTP, TCP & UDP tunnels",
+        "protocols": "HTTP, TCP & UDP protocols",
         "guiCli": "Desktop app & CLI",
         "subdomains": "Custom subdomains for free",
         "tls": "TLS encryption"
@@ -332,12 +332,12 @@
           "a": "fxtun offers free custom subdomains, unlimited bandwidth, no session timeout, and a desktop GUI client — features that competitors like ngrok charge for. You can use any subdomain you want on the free plan, unlike ngrok which assigns random URLs."
         },
         {
-          "q": "What tunneling service has a desktop app?",
-          "a": "fxtun is the only tunneling service with a native cross-platform desktop client. The GUI app runs on Windows, macOS, and Linux, letting you manage tunnels visually without using the terminal."
+          "q": "What sharing platform has a desktop app?",
+          "a": "fxtun is the only sharing platform with a native cross-platform desktop client. The GUI app runs on Windows, macOS, and Linux, letting you manage services visually without using the terminal."
         },
         {
-          "q": "Does fxtun support UDP tunneling?",
-          "a": "Yes. fxtun supports HTTP, TCP, and UDP protocols. UDP tunneling is useful for game servers, VoIP, DNS, and other real-time applications. Most competitors only support HTTP and TCP."
+          "q": "Does fxtun support UDP forwarding?",
+          "a": "Yes. fxtun supports HTTP, TCP, and UDP protocols. UDP forwarding is useful for game servers, VoIP, DNS, and other real-time applications. Most competitors only support HTTP and TCP."
         },
         {
           "q": "How do I test webhooks locally?",
@@ -349,19 +349,19 @@
         },
         {
           "q": "Does fxtun have bandwidth limits?",
-          "a": "No. There are no bandwidth or request limits on any plan, including free. Your tunnels can handle as much traffic as needed without throttling or caps."
+          "a": "No. There are no bandwidth or request limits on any plan, including free. Your services can handle as much traffic as needed without throttling or caps."
         },
         {
           "q": "Is there a session timeout?",
-          "a": "No. fxtun tunnels stay open indefinitely. Unlike ngrok's free tier which used to have 2-hour session limits, fxtun keeps your tunnels running 24/7 with automatic reconnection."
+          "a": "No. fxtun services stay open indefinitely. Unlike ngrok's free tier which used to have 2-hour session limits, fxtun keeps your services running 24/7 with automatic reconnection."
         },
         {
           "q": "Can I self-host fxtun?",
-          "a": "Yes. fxtun is fully self-hostable. You can run your own server on your infrastructure, giving you complete control over your tunneling setup, data, and security."
+          "a": "Yes. fxtun is fully self-hostable. You can run your own server on your infrastructure, giving you complete control over your sharing setup, data, and security."
         },
         {
           "q": "How much does fxtun cost?",
-          "a": "fxtun has a free plan with 3 tunnels and any subdomain you want. Paid plans start at $5/month for more tunnels, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
+          "a": "fxtun has a free plan with 3 services and any subdomain you want. Paid plans start at $5/month for more services, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
         },
         {
           "q": "What's the difference between fxtun and Cloudflare Tunnel?",
@@ -373,7 +373,7 @@
         },
         {
           "q": "Does fxtun support HTTPS?",
-          "a": "Yes. All HTTP tunnels automatically get HTTPS via the server's wildcard TLS certificate. Custom domains also get automatic HTTPS through Let's Encrypt certificate provisioning."
+          "a": "Yes. All HTTP services automatically get HTTPS via the server's wildcard TLS certificate. Custom domains also get automatic HTTPS through Let's Encrypt certificate provisioning."
         },
         {
           "q": "What is the traffic inspector?",
@@ -386,7 +386,7 @@
       ]
     },
     "footer": {
-      "tagline": "Secure tunneling",
+      "tagline": "Secure localhost sharing",
       "releases": "Releases",
       "issues": "Issues",
       "rights": "All rights reserved."
@@ -418,7 +418,7 @@
     "subscriptionWarningHint": "If you want to pay for only one month without auto-renewal, disable the toggle below.",
     "recommended": "Popular",
     "month": "mo",
-    "tunnels": "Tunnels",
+    "tunnels": "Services",
     "domains": "Domains",
     "customDomains": "Custom Domains",
     "tokens": "Tokens",
@@ -529,18 +529,18 @@
       "profileDesc": "Account settings"
     },
     "tunnels": {
-      "title": "Active Tunnels",
+      "title": "Active Services",
       "empty": "No active connections",
-      "emptyDesc": "Tunnels will appear here when you connect a client"
+      "emptyDesc": "Services will appear here when you connect a client"
     },
     "cli": {
       "title": "Quick Start",
-      "subtitle": "Three steps to your first tunnel",
+      "subtitle": "Three steps to your first service",
       "step1": "Install the client",
       "step1Desc": "One command for macOS, Linux and Windows",
       "step2": "Authenticate",
       "step2Desc": "Interactive or with API token",
-      "step3": "Launch a tunnel",
+      "step3": "Share a service",
       "step3Desc": "Pick a protocol and port",
       "install": "Install",
       "installDesc": "macOS, Linux, Windows",
@@ -548,9 +548,9 @@
       "authDesc": "Interactive or with --token from Tokens section",
       "authToken": "Project init",
       "authTokenDesc": "Creates a config in current directory",
-      "httpTunnel": "HTTP tunnel",
-      "tcpTunnel": "TCP tunnel",
-      "udpTunnel": "UDP tunnel",
+      "httpTunnel": "HTTP",
+      "tcpTunnel": "TCP",
+      "udpTunnel": "UDP",
       "httpDesc": "Web, API, webhooks",
       "tcpDesc": "SSH, databases, Redis",
       "udpDesc": "DNS, games, VoIP",
@@ -562,7 +562,7 @@
       "moreCommands": "More commands in the docs"
     },
     "plan": {
-      "tunnels": "Tunnels",
+      "tunnels": "Services",
       "domains": "Subdomains",
       "tokens": "Tokens",
       "upgrade": "Upgrade Plan",
@@ -642,11 +642,11 @@
     "allowedSubdomainsHint": "Which subdomains this key can use. Asterisk * means any. You can use patterns: dev-*, test-*.",
     "allowedSubdomainsPlaceholder": "* — any subdomains",
     "maxTunnels": "Connection limit",
-    "maxTunnelsHint": "How many tunnels can be opened at the same time with this key.",
+    "maxTunnelsHint": "How many services can be shared at the same time with this key.",
     "subdomains": "Addresses",
     "allSubdomains": "Any",
     "tunnelsLimit": "Limit",
-    "tunnelsCount": "{n} tunnels",
+    "tunnelsCount": "{n} services",
     "created": "Created",
     "lastUsed": "Last used",
     "neverUsed": "never used",
@@ -680,7 +680,7 @@
     "tokenHint": "Replace YOUR_TOKEN with your token from the {link} page.",
     "tokenHintLink": "Tokens",
     "step1": "Download and install the client",
-    "step2": "Create a {link} and run your tunnel",
+    "step2": "Create a {link} and share your service",
     "step2TokenLink": "token",
     "failedToLoad": "Failed to load downloads",
     "macGuiComingSoon": "Coming Soon",
@@ -751,11 +751,11 @@
     "failedToCancelSubscription": "Failed to cancel subscription",
     "securitySection": "Security",
     "planAndLimits": "Plan & Limits",
-    "tunnels": "Tunnels",
+    "tunnels": "Services",
     "domains": "Domains",
     "customDomains": "Custom Domains",
     "tokens": "Tokens",
-    "tunnelsPerToken": "Tunnels/Token",
+    "tunnelsPerToken": "Services/Key",
     "inspector": "Inspector",
     "enabled": "Enabled",
     "disabled": "Disabled",
@@ -789,7 +789,7 @@
     "aupTitle": "Acceptable Use Policy",
     "disclaimerTitle": "TCP & UDP Risk Disclaimer",
     "abuseTitle": "Abuse Contact",
-    "disclaimerBanner": "TCP and UDP tunnels expose your local services directly to the public internet without built-in access controls. Read this page carefully before using these features.",
+    "disclaimerBanner": "TCP and UDP services expose your local services directly to the public internet without built-in access controls. Read this page carefully before using these features.",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
@@ -802,11 +802,11 @@
     },
     "login": {
       "title": "Sign In — fxtun",
-      "description": "Sign in to your fxtun account to manage tunnels, domains, and tokens."
+      "description": "Sign in to your fxtun account to manage services, domains, and tokens."
     },
     "register": {
       "title": "Sign Up — fxtun",
-      "description": "Create a free fxtun account. Get 3 tunnels with custom subdomains, no bandwidth limits, no session timeout."
+      "description": "Create a free fxtun account. Get 3 services with custom subdomains, no bandwidth limits, no session timeout."
     },
     "offer": {
       "title": "Public Offer — fxtun",
@@ -818,11 +818,11 @@
     },
     "aup": {
       "title": "Acceptable Use Policy — fxtun",
-      "description": "fxtun acceptable use policy. Rules for using tunneling services, prohibited activities, and enforcement."
+      "description": "fxtun acceptable use policy. Rules for using sharing services, prohibited activities, and enforcement."
     },
     "disclaimer": {
       "title": "TCP & UDP Risk Disclaimer — fxtun",
-      "description": "Security risks of TCP and UDP tunneling. Understand the dangers of exposing local services to the internet via fxtun."
+      "description": "Security risks of TCP and UDP forwarding. Understand the dangers of exposing local services to the internet via fxtun."
     },
     "abuse": {
       "title": "Abuse Contact — fxtun",
