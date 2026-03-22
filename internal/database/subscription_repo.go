@@ -120,6 +120,28 @@ func (r *SubscriptionRepository) GetByStripeSubscriptionID(stripeSubID string) (
 	return sub, nil
 }
 
+// GetPendingByUserID retrieves a pending subscription for a user (if any)
+func (r *SubscriptionRepository) GetPendingByUserID(userID int64) (*Subscription, error) {
+	sub := &Subscription{}
+	err := r.db.QueryRow(`
+		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       stripe_customer_id, stripe_subscription_id, created_at, updated_at
+		FROM subscriptions
+		WHERE user_id = ? AND status = 'pending'
+		ORDER BY created_at DESC LIMIT 1`, userID).Scan(
+		&sub.ID, &sub.UserID, &sub.PlanID, &sub.NextPlanID, &sub.Status, &sub.Recurring,
+		&sub.CurrentPeriodStart, &sub.CurrentPeriodEnd, &sub.YooKassaPaymentMethodID,
+		&sub.StripeCustomerID, &sub.StripeSubscriptionID, &sub.CreatedAt, &sub.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get pending subscription by user id: %w", err)
+	}
+	return sub, nil
+}
+
 // Delete deletes a subscription by ID
 func (r *SubscriptionRepository) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM subscriptions WHERE id = ?`, id)

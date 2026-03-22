@@ -167,17 +167,18 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing active or pending subscription
+	// Check for existing active subscription
 	existingSub, _ := s.db.Subscriptions.GetByUserID(user.ID)
-	if existingSub != nil {
-		switch existingSub.Status {
-		case database.SubscriptionStatusActive:
-			s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
-			return
-		case database.SubscriptionStatusPending:
-			s.respondError(w, http.StatusBadRequest, "pending payment already exists, please complete or wait")
-			return
-		}
+	if existingSub != nil && existingSub.Status == database.SubscriptionStatusActive {
+		s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
+		return
+	}
+
+	// Check for existing pending subscription (separate query since GetByUserID only returns active/cancelled)
+	pendingSub, _ := s.db.Subscriptions.GetPendingByUserID(user.ID)
+	if pendingSub != nil {
+		s.respondError(w, http.StatusBadRequest, "pending payment already exists, please complete or wait")
+		return
 	}
 
 	// Generate invoice ID
@@ -414,12 +415,32 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// parseYooKassaMetadata extracts user_id, subscription_id, plan_id from YooKassa payment metadata
+func parseYooKassaMetadata(metadata map[string]string) (userID, subscriptionID, planID int64) {
+	if s, ok := metadata["user_id"]; ok {
+		_, _ = fmt.Sscanf(s, "%d", &userID)
+	}
+	if s, ok := metadata["subscription_id"]; ok {
+		_, _ = fmt.Sscanf(s, "%d", &subscriptionID)
+	}
+	if s, ok := metadata["plan_id"]; ok {
+		_, _ = fmt.Sscanf(s, "%d", &planID)
+	}
+	return
+}
+
 // handlePaymentSucceeded processes successful payment webhook
 func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payment.Payment) {
+	// Extract all metadata upfront for logging
+	metaUserID, metaSubID, metaPlanID := parseYooKassaMetadata(yooPayment.Metadata)
+
 	// Get invoice_id from metadata
 	invoiceIDStr, ok := yooPayment.Metadata["invoice_id"]
 	if !ok {
-		s.log.Error().Str("payment_id", yooPayment.ID).Msg("No invoice_id in payment metadata")
+		s.log.Error().
+			Str("payment_id", yooPayment.ID).
+			Int64("meta_user_id", metaUserID).
+			Msg("No invoice_id in payment metadata")
 		http.Error(w, "invalid payment metadata", http.StatusBadRequest)
 		return
 	}
@@ -434,9 +455,33 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 	// Get payment record
 	pmt, err := s.db.Payments.GetByInvoiceID(invoiceID)
 	if err != nil || pmt == nil {
-		s.log.Error().Err(err).Int64("invoice_id", invoiceID).Msg("Payment not found")
-		http.Error(w, "payment not found", http.StatusNotFound)
-		return
+		s.log.Error().Err(err).
+			Int64("invoice_id", invoiceID).
+			Int64("meta_user_id", metaUserID).
+			Int64("meta_subscription_id", metaSubID).
+			Int64("meta_plan_id", metaPlanID).
+			Str("yookassa_payment_id", yooPayment.ID).
+			Msg("Payment not found — likely deleted by stale cleanup. Attempting recovery")
+
+		// Recover: recreate payment and subscription from metadata
+		if metaUserID > 0 && metaPlanID > 0 {
+			pmt, err = s.recoverPaymentFromWebhook(invoiceID, metaUserID, metaSubID, metaPlanID, yooPayment)
+			if err != nil {
+				s.log.Error().Err(err).
+					Int64("invoice_id", invoiceID).
+					Int64("meta_user_id", metaUserID).
+					Msg("Failed to recover payment from webhook")
+				http.Error(w, "recovery failed", http.StatusInternalServerError)
+				return
+			}
+			s.log.Info().
+				Int64("invoice_id", invoiceID).
+				Int64("user_id", metaUserID).
+				Msg("Payment recovered from webhook metadata")
+		} else {
+			http.Error(w, "payment not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	// Already processed
@@ -455,6 +500,7 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 					Float64("expected", pmt.Amount).
 					Float64("received", webhookAmount).
 					Int64("invoice_id", invoiceID).
+					Int64("user_id", pmt.UserID).
 					Msg("Payment amount mismatch")
 				http.Error(w, "amount mismatch", http.StatusBadRequest)
 				return
@@ -482,7 +528,7 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 	pmt.YooKassaData = string(data)
 
 	if err := s.db.Payments.Update(pmt); err != nil {
-		s.log.Error().Err(err).Msg("Failed to update payment")
+		s.log.Error().Err(err).Int64("user_id", pmt.UserID).Msg("Failed to update payment")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -490,25 +536,157 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 	// Activate subscription
 	if pmt.SubscriptionID != nil {
 		sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
-		if err == nil && sub != nil {
+		if err != nil {
+			s.log.Error().Err(err).
+				Int64("subscription_id", *pmt.SubscriptionID).
+				Int64("user_id", pmt.UserID).
+				Int64("invoice_id", invoiceID).
+				Msg("Failed to get subscription for activation")
+			http.Error(w, "subscription lookup failed", http.StatusInternalServerError)
+			return
+		}
+		if sub == nil {
+			s.log.Error().
+				Int64("subscription_id", *pmt.SubscriptionID).
+				Int64("user_id", pmt.UserID).
+				Int64("invoice_id", invoiceID).
+				Msg("Subscription not found — was deleted. Creating new subscription")
+
+			// Recover: create new subscription
+			sub, err = s.recoverSubscription(pmt, metaPlanID, yooPayment)
+			if err != nil {
+				s.log.Error().Err(err).
+					Int64("user_id", pmt.UserID).
+					Int64("invoice_id", invoiceID).
+					Msg("Failed to recover subscription")
+				http.Error(w, "subscription recovery failed", http.StatusInternalServerError)
+				return
+			}
+		} else {
 			// Save payment_method_id for recurring payments
 			if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
 				sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
 			}
-
-			s.activateSubscription(sub, pmt, "yookassa")
 		}
+
+		s.activateSubscription(sub, pmt, "yookassa")
+	} else {
+		s.log.Error().
+			Int64("invoice_id", invoiceID).
+			Int64("user_id", pmt.UserID).
+			Msg("Payment has no subscription_id — cannot activate subscription")
+		http.Error(w, "no subscription linked", http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
+// recoverPaymentFromWebhook recreates a payment record from YooKassa webhook metadata
+// when the original was deleted by stale cleanup
+func (s *Server) recoverPaymentFromWebhook(invoiceID, userID, subID, planID int64, yooPayment *payment.Payment) (*database.Payment, error) {
+	// Parse amount from webhook
+	var amount float64
+	if yooPayment.Amount.Value != "" {
+		_, _ = fmt.Sscanf(yooPayment.Amount.Value, "%f", &amount)
+	}
+
+	// Check if subscription still exists
+	var subscriptionID *int64
+	if subID > 0 {
+		sub, _ := s.db.Subscriptions.GetByID(subID)
+		if sub != nil {
+			subscriptionID = &sub.ID
+		}
+	}
+
+	// If no subscription, create one
+	if subscriptionID == nil {
+		sub := &database.Subscription{
+			UserID: userID,
+			PlanID: planID,
+			Status: database.SubscriptionStatusPending,
+		}
+		if err := s.db.Subscriptions.Create(sub); err != nil {
+			return nil, fmt.Errorf("create recovery subscription: %w", err)
+		}
+		subscriptionID = &sub.ID
+		s.log.Info().
+			Int64("subscription_id", sub.ID).
+			Int64("user_id", userID).
+			Int64("plan_id", planID).
+			Msg("Recovery subscription created")
+	}
+
+	pmt := &database.Payment{
+		UserID:         userID,
+		SubscriptionID: subscriptionID,
+		InvoiceID:      invoiceID,
+		Amount:         amount,
+		Status:         database.PaymentStatusPending,
+		Provider:       "yookassa",
+	}
+	if err := s.db.Payments.Create(pmt); err != nil {
+		return nil, fmt.Errorf("create recovery payment: %w", err)
+	}
+
+	s.log.Warn().
+		Int64("invoice_id", invoiceID).
+		Int64("user_id", userID).
+		Int64("payment_id", pmt.ID).
+		Msg("Payment record recovered from webhook metadata")
+
+	return pmt, nil
+}
+
+// recoverSubscription creates a new subscription when the original was deleted
+func (s *Server) recoverSubscription(pmt *database.Payment, planID int64, yooPayment *payment.Payment) (*database.Subscription, error) {
+	if planID == 0 {
+		return nil, fmt.Errorf("no plan_id available for recovery")
+	}
+
+	sub := &database.Subscription{
+		UserID: pmt.UserID,
+		PlanID: planID,
+		Status: database.SubscriptionStatusPending,
+	}
+
+	// Save payment_method_id if available
+	if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
+		sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+	}
+
+	if err := s.db.Subscriptions.Create(sub); err != nil {
+		return nil, fmt.Errorf("create recovery subscription: %w", err)
+	}
+
+	// Link payment to new subscription
+	pmt.SubscriptionID = &sub.ID
+	if err := s.db.Payments.Update(pmt); err != nil {
+		s.log.Error().Err(err).Msg("Failed to link payment to recovered subscription")
+	}
+
+	s.log.Warn().
+		Int64("subscription_id", sub.ID).
+		Int64("user_id", pmt.UserID).
+		Int64("plan_id", planID).
+		Int64("invoice_id", pmt.InvoiceID).
+		Msg("Subscription recovered during webhook processing")
+
+	return sub, nil
+}
+
 // handlePaymentCanceled processes canceled payment webhook
 func (s *Server) handlePaymentCanceled(w http.ResponseWriter, yooPayment *payment.Payment) {
+	metaUserID, _, _ := parseYooKassaMetadata(yooPayment.Metadata)
+
 	// Get invoice_id from metadata
 	invoiceIDStr, ok := yooPayment.Metadata["invoice_id"]
 	if !ok {
-		s.log.Warn().Str("payment_id", yooPayment.ID).Msg("No invoice_id in canceled payment metadata")
+		s.log.Warn().
+			Str("payment_id", yooPayment.ID).
+			Int64("meta_user_id", metaUserID).
+			Msg("No invoice_id in canceled payment metadata")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -523,7 +701,10 @@ func (s *Server) handlePaymentCanceled(w http.ResponseWriter, yooPayment *paymen
 	// Get payment record
 	pmt, err := s.db.Payments.GetByInvoiceID(invoiceID)
 	if err != nil || pmt == nil {
-		s.log.Warn().Int64("invoice_id", invoiceID).Msg("Canceled payment not found")
+		s.log.Warn().
+			Int64("invoice_id", invoiceID).
+			Int64("meta_user_id", metaUserID).
+			Msg("Canceled payment not found in DB (may have been cleaned up)")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -549,6 +730,7 @@ func (s *Server) handlePaymentCanceled(w http.ResponseWriter, yooPayment *paymen
 
 	s.log.Info().
 		Int64("invoice_id", invoiceID).
+		Int64("user_id", pmt.UserID).
 		Str("yookassa_payment_id", yooPayment.ID).
 		Msg("Payment canceled")
 
