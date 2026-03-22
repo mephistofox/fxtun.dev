@@ -164,11 +164,15 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.UserAgent()
 	ipAddress := r.RemoteAddr
 
-	_, tokenPair, err := s.authService.RegisterOrLoginOAuth(info, userAgent, ipAddress)
+	user, tokenPair, isNew, err := s.authService.RegisterOrLoginOAuth(info, userAgent, ipAddress)
 	if err != nil {
 		s.log.Error().Err(err).Msg("OAuth register/login failed")
 		s.redirectWithError(w, r, "authentication failed", stateEntry.DesktopRedirect)
 		return
+	}
+
+	if isNew && s.telegramNotifier != nil {
+		s.telegramNotifier.NotifyNewUser(user.ID, user.DisplayName, user.Email)
 	}
 
 	s.redirectWithTokens(w, r, tokenPair, stateEntry.DesktopRedirect)
@@ -449,11 +453,15 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.UserAgent()
 	ipAddress := r.RemoteAddr
 
-	_, tokenPair, err := s.authService.RegisterOrLoginGoogleOAuth(info, userAgent, ipAddress)
+	user, tokenPair, isNew, err := s.authService.RegisterOrLoginGoogleOAuth(info, userAgent, ipAddress)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Google OAuth register/login failed")
 		s.redirectWithError(w, r, "authentication failed", stateEntry.DesktopRedirect)
 		return
+	}
+
+	if isNew && s.telegramNotifier != nil {
+		s.telegramNotifier.NotifyNewUser(user.ID, user.DisplayName, user.Email)
 	}
 
 	s.redirectWithTokens(w, r, tokenPair, stateEntry.DesktopRedirect)

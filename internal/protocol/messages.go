@@ -103,6 +103,12 @@ type TunnelRequestMessage struct {
 	// For TCP/UDP tunnels
 	LocalPort  int `json:"local_port"`
 	RemotePort int `json:"remote_port,omitempty"` // 0 = auto-assign
+
+	// Security features (Sprint 1)
+	BasicAuthHash string   `json:"basic_auth_hash,omitempty"` // bcrypt hash of "user:password"
+	AllowIPs      []string `json:"allow_ips,omitempty"`       // CIDR notation or exact IPs
+	AutoClose     string   `json:"auto_close,omitempty"`      // duration: "30m", "2h"
+	MaxLifetime   string   `json:"max_lifetime,omitempty"`    // duration: "8h"
 }
 
 // TunnelCreatedMessage is the server response when tunnel is created
@@ -119,6 +125,12 @@ type TunnelCreatedMessage struct {
 	// For TCP/UDP tunnels
 	RemotePort int    `json:"remote_port,omitempty"`
 	RemoteAddr string `json:"remote_addr,omitempty"`
+
+	// Security status echo
+	BasicAuthEnabled bool   `json:"basic_auth_enabled,omitempty"`
+	AllowIPsCount    int    `json:"allow_ips_count,omitempty"`
+	AutoClose        string `json:"auto_close,omitempty"`
+	MaxLifetime      string `json:"max_lifetime,omitempty"`
 }
 
 // TunnelCloseMessage is sent to close a tunnel

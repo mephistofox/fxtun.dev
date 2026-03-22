@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { downloadsApi, type Download } from '@/api/client'
+import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
 
@@ -14,7 +15,7 @@ const downloads = ref<Download[]>([])
 const loading = ref(true)
 const copied = ref(false)
 
-const installCommand = 'curl -fsSL https://fxtun.dev/install.sh | sh'
+const installCommand = computed(() => `curl -fsSL https://${getBaseDomain()}/install.sh | sh`)
 
 const osTabs = [
   { key: 'linux' as const, label: 'Linux', osMatch: 'Linux' },
@@ -46,7 +47,7 @@ function formatSize(bytes: number): string {
 
 async function copyInstallCommand() {
   try {
-    await navigator.clipboard.writeText(installCommand)
+    await navigator.clipboard.writeText(installCommand.value)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {

@@ -29,6 +29,7 @@ type ServerConfig struct {
 	Stripe        StripeSettings       `mapstructure:"stripe"`
 	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
+	Telegram      TelegramSettings     `mapstructure:"telegram"`
 }
 
 // ServerSettings contains network settings
@@ -234,6 +235,13 @@ type SMTPSettings struct {
 	BaseURLEN string `mapstructure:"base_url_en"` // Base URL for English emails (e.g. https://fxtun.dev)
 }
 
+// TelegramSettings contains Telegram bot notification configuration
+type TelegramSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	BotToken string `mapstructure:"bot_token"`
+	ChatID   string `mapstructure:"chat_id"`
+}
+
 // LoadServerConfig loads server configuration from file
 func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v := viper.New()
@@ -288,6 +296,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("smtp.port", 587)
 	v.SetDefault("smtp.ssl_port", 465)
 	v.SetDefault("smtp.from_name", "fxTunnel")
+	v.SetDefault("telegram.enabled", false)
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)

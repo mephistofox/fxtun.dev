@@ -35,7 +35,11 @@ export function useSeo(options: SeoOptions = {}) {
 
   const title = computed(() => options.title || (options.titleKey ? te(options.titleKey) : 'fxtun'))
   const description = computed(() => options.description || (options.descriptionKey ? te(options.descriptionKey) : te('seo.defaultDescription')))
-  const image = options.image || 'https://fxtun.dev/og-image.png'
+  // During SSG getDomainLocale() returns null (no window), so use effectiveLocale
+  // which is set from route meta forcedLocale (e.g. 'ru' for /ru/* routes).
+  const domainLocale = import.meta.env.SSR ? effectiveLocale : getDomainLocale()
+  const ogDomain = domainLocale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
+  const image = options.image || `https://${ogDomain}/og-image.png`
 
   const isLangPrefix = computed(() =>
     route.path.startsWith('/ru') || route.path.startsWith('/en')
@@ -54,7 +58,7 @@ export function useSeo(options: SeoOptions = {}) {
     if (isLangPrefix.value) {
       return route.path.startsWith('/ru') ? ruCanonical.value : enCanonical.value
     }
-    const domain = getDomainLocale() === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
+    const domain = domainLocale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
     return `https://${domain}${cleanPath.value}`
   })
 

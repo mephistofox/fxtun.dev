@@ -35,19 +35,9 @@ const publicRoutes: RouteRecordRaw[] = [
     component: () => import('./views/TermsView.vue'),
   },
   {
-    path: '/aup',
-    name: 'aup',
-    component: () => import('./views/AupView.vue'),
-  },
-  {
-    path: '/disclaimer',
-    name: 'disclaimer',
-    component: () => import('./views/DisclaimerView.vue'),
-  },
-  {
-    path: '/abuse',
-    name: 'abuse',
-    component: () => import('./views/AbuseView.vue'),
+    path: '/privacy',
+    name: 'privacy',
+    component: () => import('./views/PrivacyView.vue'),
   },
 ]
 

@@ -12,14 +12,14 @@
       "backToHome": "Back to home"
     },
     "hero": {
-      "badge": "Share · Inspect · Debug",
-      "titleLine1": "Share your localhost",
-      "titleLine2": "with the world",
-      "titleLine3": "",
-      "subtitle": "One command to give anyone access to your local service. Built-in traffic inspector, desktop app, and abuse protection.",
-      "getStarted": "Start Sharing Free",
-      "trustBadge": "Free forever — no credit card, no request limits",
-      "terminalCaption": "This is what working with fxtun actually looks like",
+      "badge": "HTTP · TCP · UDP",
+      "titleLine1": "Your localhost,",
+      "titleLine2": "live",
+      "titleLine3": "in seconds",
+      "subtitle": "One command to expose any local service to the internet. HTTP, TCP, UDP — with a desktop app, traffic inspector, and custom domains.",
+      "getStarted": "Start Tunneling Free",
+      "trustBadge": "Free forever — no credit card required",
+      "terminalCaption": "This is what working with fxTunnel actually looks like",
       "learnMore": "See How It Works",
       "quickStart": "Get started in one command:",
       "copied": "Copied!",
@@ -28,14 +28,14 @@
         "protocolsDesc": "HTTP, TCP, UDP",
         "platforms": "All platforms",
         "platformsDesc": "CLI + Desktop app",
-        "encryption": "Built-in security",
-        "encryptionDesc": "TLS + rate limits"
+        "encryption": "End-to-end",
+        "encryptionDesc": "TLS encryption"
       }
     },
     "features": {
-      "label": "Why fxtun",
-      "title": "Not just port forwarding. A complete dev toolkit.",
-      "subtitle": "Share services, inspect traffic, debug issues — all from one tool.",
+      "label": "Why fxTunnel",
+      "title": "Everything you need to go live",
+      "subtitle": "Not just tunnels. A complete toolkit for exposing, debugging, and managing local services.",
       "inspector": {
         "title": "Traffic Inspector",
         "desc": "Real-time HTTP request/response viewer with filtering and one-click replay. Debug webhooks without leaving the browser.",
@@ -44,16 +44,16 @@
         "highlight3": "Replay requests instantly"
       },
       "protocols": {
-        "title": "Any protocol, any service",
-        "desc": "Web apps, databases, SSH, game servers — share anything over HTTP, TCP, or UDP.",
+        "title": "HTTP, TCP & UDP",
+        "desc": "Three protocols in one service. Web apps, SSH, databases, game servers, DNS — expose anything.",
         "highlight1": "HTTP with custom subdomains",
         "highlight2": "TCP for SSH, databases, APIs",
         "highlight3": "UDP for gaming and real-time"
       },
       "desktopApp": {
         "title": "Desktop App",
-        "desc": "The only sharing platform with a native desktop client. See live services, manage connections visually.",
-        "highlight1": "Visual service management",
+        "desc": "The only tunneling service with a native desktop client. Manage tunnels visually, no terminal needed.",
+        "highlight1": "Visual tunnel management",
         "highlight2": "System tray — always running",
         "highlight3": "Auto-reconnect on disconnect"
       },
@@ -62,8 +62,8 @@
         "short": "Built in Go"
       },
       "security": {
-        "title": "Secure by Default",
-        "short": "TLS + rate limits + monitoring"
+        "title": "Secure",
+        "short": "TLS + 2FA"
       },
       "subdomains": {
         "title": "Custom Domains",
@@ -77,7 +77,7 @@
     "advanced": {
       "label": "Advanced Capabilities",
       "title": "Built for Production",
-      "subtitle": "Advanced features that make fxtun ready for real-world use.",
+      "subtitle": "Advanced features that make fxTunnel ready for real-world use.",
       "customDomains": {
         "title": "Custom Domains",
         "desc": "Bring your own domain with automatic HTTPS. CNAME for subdomains, A record for apex domains — Let's Encrypt certificates provisioned automatically.",
@@ -117,7 +117,7 @@
       },
       "reconnect": {
         "title": "Auto-Reconnect",
-        "desc": "Automatic reconnection on connection loss. Your services stay online 24/7."
+        "desc": "Automatic reconnection on connection loss. Your tunnels stay online 24/7."
       }
     },
     "howItWorks": {
@@ -133,7 +133,7 @@
         "desc": "Create an account and generate an API token."
       },
       "step3": {
-        "title": "Share a Service",
+        "title": "Create a Tunnel",
         "desc": "Run a single command to go live."
       }
     },
@@ -142,68 +142,68 @@
       "title": "Flexible Protocol Support",
       "subtitle": "Whether you need to expose a web app, SSH server, or game server - we've got you covered.",
       "http": {
-        "title": "HTTP Sharing",
+        "title": "HTTP Tunnels",
         "desc": "Expose web applications with custom subdomains. Perfect for webhooks, demos, and development.",
         "feature1": "Custom subdomain support",
         "feature2": "Automatic HTTPS",
         "feature3": "WebSocket support"
       },
       "tcp": {
-        "title": "TCP Forwarding",
+        "title": "TCP Tunnels",
         "desc": "Forward any TCP-based service with dedicated ports. Ideal for SSH, databases, and custom protocols.",
         "feature1": "SSH, databases, APIs",
         "feature2": "Dedicated port allocation",
         "feature3": "Persistent connections"
       },
       "udp": {
-        "title": "UDP Forwarding",
+        "title": "UDP Tunnels",
         "desc": "Support for real-time and gaming applications. Low-latency forwarding for demanding use cases.",
         "feature1": "Game servers, VoIP",
         "feature2": "Low-latency forwarding",
-        "feature3": "DNS forwarding"
+        "feature3": "DNS tunneling"
       }
     },
     "useCases": {
       "label": "Use Cases",
-      "title": "How developers use fxtun",
-      "subtitle": "From webhook testing to client demos — one command away.",
+      "title": "Built for Developers",
+      "subtitle": "From local development to production debugging — one tool for every scenario.",
       "webhooks": {
         "title": "Webhooks",
-        "desc": "Receive Stripe, GitHub, or Twilio callbacks on localhost. No deploy needed.",
-        "command": "fxtun http 3000 --domain stripe-hooks"
+        "desc": "Receive Stripe, GitHub, or Twilio webhooks on localhost. No more deploying to test payment flows.",
+        "command": "fxtunnel http 3000 --domain stripe-hooks"
       },
       "demos": {
-        "title": "Share with clients",
-        "desc": "Send a link to your work-in-progress. No deployment, no staging server.",
-        "command": "fxtun http 5173 --domain demo-v2"
+        "title": "Client Demos",
+        "desc": "Share work in progress with clients or teammates — just send a link. No deployment needed.",
+        "command": "fxtunnel http 5173 --domain demo-v2"
       },
       "ssh": {
-        "title": "Remote Access",
-        "desc": "Access your dev machine or Raspberry Pi from anywhere.",
-        "command": "fxtun tcp 22"
+        "title": "Remote SSH",
+        "desc": "Access your home server or Raspberry Pi from anywhere through a TCP tunnel.",
+        "command": "fxtunnel tcp 22"
       },
       "gameServers": {
         "title": "Game Servers",
-        "desc": "Host and share a game server with friends in seconds.",
-        "command": "fxtun udp 25565"
+        "desc": "Host a Minecraft, Terraria, or any game server and share it with friends via UDP or TCP.",
+        "command": "fxtunnel udp 25565"
       },
       "api": {
-        "title": "Team Collaboration",
-        "desc": "Share your local API with teammates. Test mobile apps against real backends.",
-        "command": "fxtun http 8080 --domain api-dev"
+        "title": "API Development",
+        "desc": "Test mobile apps against your local backend. Share API endpoints with your team instantly.",
+        "command": "fxtunnel http 8080 --domain api-dev"
       },
       "iot": {
-        "title": "IoT & Home Lab",
-        "desc": "Share Home Assistant, cameras, or dashboards from your local network.",
-        "command": "fxtun http 8123 --domain my-home"
+        "title": "IoT & Smart Home",
+        "desc": "Expose Home Assistant, camera feeds, or IoT dashboards securely from your local network.",
+        "command": "fxtunnel http 8123 --domain my-home"
       }
     },
     "comparison": {
-      "label": "Why fxtun",
+      "label": "Why fxTunnel",
       "title": "Compare and Choose",
-      "subtitle": "See how fxtun stacks up against alternatives.",
+      "subtitle": "See how fxTunnel stacks up against alternatives.",
       "feature": "Feature",
-      "fxtunnel": "fxtun",
+      "fxtunnel": "fxTunnel",
       "price": "Price (starter)",
       "freeSubdomain": "Custom subdomain on free",
       "requestLimits": "Request limits",
@@ -213,7 +213,6 @@
       "inspector": "Traffic Inspector",
       "selfHosted": "Self-hostable",
       "customDomains": "Custom domains",
-      "abuseProtection": "Traffic monitoring & abuse protection",
       "yes": "Yes",
       "no": "No",
       "none": "None",
@@ -231,8 +230,7 @@
           "guiClient": "Yes",
           "inspector": "From $5/mo",
           "selfHosted": "Yes",
-          "customDomains": "From $5/mo",
-          "abuseProtection": "Built-in"
+          "customDomains": "From $5/mo"
         },
         "ngrok": {
           "price": "Free / $8/mo",
@@ -243,8 +241,7 @@
           "guiClient": "No",
           "inspector": "$8/mo, 72h retention",
           "selfHosted": "No",
-          "customDomains": "$0.01/hr",
-          "abuseProtection": "No"
+          "customDomains": "$0.01/hr"
         },
         "localhostrun": {
           "price": "Free / $9/mo",
@@ -255,14 +252,13 @@
           "guiClient": "No",
           "inspector": "No",
           "selfHosted": "No",
-          "customDomains": "$9/mo",
-          "abuseProtection": "No"
+          "customDomains": "$9/mo"
         }
       }
     },
     "midCta": {
-      "afterHowItWorks": "Ready to try? Share your first service in under a minute.",
-      "afterUseCases": "Whatever you build — fxtun shares it instantly.",
+      "afterHowItWorks": "Ready to try? Set up your first tunnel in under a minute.",
+      "afterUseCases": "Whatever you build — fxTunnel gets it online instantly.",
       "afterComparison": "See the difference? Start free and upgrade when you need more.",
       "startFree": "Start Free",
       "seePricing": "See Pricing"
@@ -270,7 +266,7 @@
     "download": {
       "badge": "Ready to start?",
       "title": "Ready to Start?",
-      "subtitle": "Create an account and download the client to start sharing.",
+      "subtitle": "Create an account and download the client to begin tunneling.",
       "createAccount": "Create Account",
       "signIn": "Sign In",
       "installCommand": "Quick install",
@@ -290,7 +286,7 @@
       "free": "Free",
       "perMonth": "/mo",
       "selectPlan": "Choose Plan",
-      "tunnels": "live service;;live services",
+      "tunnels": "active tunnel;;active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
       "anySubdomain": "Any subdomain",
       "anySubdomainDesc": "Pick myapp.fxtun.dev — no random URLs",
@@ -303,16 +299,13 @@
       "inspector": "HTTP Inspector",
       "inspectorUnlimited": "HTTP Inspector — unlimited",
       "inspectorDesc": "View and replay requests in real-time",
-      "rateLimitTcp": "TCP conn/min",
-      "rateLimitUdp": "UDP pkt/sec",
-      "rateLimitHttp": "HTTP req/min",
       "unlimited": "Unlimited",
       "noPlans": "No plans available",
       "common": {
         "title": "All plans include",
         "noLimits": "No request or bandwidth limits",
         "noTimeout": "No session timeout",
-        "protocols": "HTTP, TCP & UDP protocols",
+        "protocols": "HTTP, TCP & UDP tunnels",
         "guiCli": "Desktop app & CLI",
         "subdomains": "Custom subdomains for free",
         "tls": "TLS encryption"
@@ -321,72 +314,72 @@
     "faq": {
       "label": "FAQ",
       "title": "Frequently Asked Questions",
-      "subtitle": "Everything you need to know about fxtun.",
+      "subtitle": "Everything you need to know about fxTunnel.",
       "items": [
         {
-          "q": "What is fxtun?",
-          "a": "fxtun is a developer platform for sharing local services securely over the internet. Share web apps, APIs, databases, or any TCP/UDP service — with built-in traffic inspection, a desktop client, and security monitoring. Works like ngrok but with more protocols, a GUI, and free custom subdomains."
+          "q": "What is fxTunnel?",
+          "a": "fxTunnel is a reverse tunneling service that exposes your local servers to the internet via HTTP subdomains, TCP ports, or UDP ports. It works like ngrok but with a desktop GUI client, free custom subdomains, and no session timeouts."
         },
         {
           "q": "What is the best free alternative to ngrok?",
-          "a": "fxtun offers free custom subdomains, unlimited bandwidth, no session timeout, and a desktop GUI client — features that competitors like ngrok charge for. You can use any subdomain you want on the free plan, unlike ngrok which assigns random URLs."
+          "a": "fxTunnel offers free custom subdomains, unlimited bandwidth, no session timeout, and a desktop GUI client — features that competitors like ngrok charge for. You can use any subdomain you want on the free plan, unlike ngrok which assigns random URLs."
         },
         {
-          "q": "What sharing platform has a desktop app?",
-          "a": "fxtun is the only sharing platform with a native cross-platform desktop client. The GUI app runs on Windows, macOS, and Linux, letting you manage services visually without using the terminal."
+          "q": "What tunneling service has a desktop app?",
+          "a": "fxTunnel is the only tunneling service with a native cross-platform desktop client. The GUI app runs on Windows, macOS, and Linux, letting you manage tunnels visually without using the terminal."
         },
         {
-          "q": "Does fxtun support UDP forwarding?",
-          "a": "Yes. fxtun supports HTTP, TCP, and UDP protocols. UDP forwarding is useful for game servers, VoIP, DNS, and other real-time applications. Most competitors only support HTTP and TCP."
+          "q": "Does fxTunnel support UDP tunneling?",
+          "a": "Yes. fxTunnel supports HTTP, TCP, and UDP protocols. UDP tunneling is useful for game servers, VoIP, DNS, and other real-time applications. Most competitors only support HTTP and TCP."
         },
         {
           "q": "How do I test webhooks locally?",
-          "a": "Run 'fxtun http 3000 --subdomain webhooks' to get a public URL like webhooks.fxtun.dev. Point your webhook provider (Stripe, GitHub, Twilio) to this URL, and all requests will be forwarded to your local server on port 3000."
+          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a public URL like webhooks.fxtun.dev. Point your webhook provider (Stripe, GitHub, Twilio) to this URL, and all requests will be forwarded to your local server on port 3000."
         },
         {
-          "q": "Can I use custom domains with fxtun?",
-          "a": "Yes. On paid plans you can bring your own domain with automatic HTTPS via Let's Encrypt. Set up a CNAME record for subdomains or an A record for apex domains, and fxtun handles SSL certificate provisioning automatically."
+          "q": "Can I use custom domains with fxTunnel?",
+          "a": "Yes. On paid plans you can bring your own domain with automatic HTTPS via Let's Encrypt. Set up a CNAME record for subdomains or an A record for apex domains, and fxTunnel handles SSL certificate provisioning automatically."
         },
         {
-          "q": "Does fxtun have bandwidth limits?",
-          "a": "No. There are no bandwidth or request limits on any plan, including free. Your services can handle as much traffic as needed without throttling or caps."
+          "q": "Does fxTunnel have bandwidth limits?",
+          "a": "No. There are no bandwidth or request limits on any plan, including free. Your tunnels can handle as much traffic as needed without throttling or caps."
         },
         {
           "q": "Is there a session timeout?",
-          "a": "No. fxtun services stay open indefinitely. Unlike ngrok's free tier which used to have 2-hour session limits, fxtun keeps your services running 24/7 with automatic reconnection."
+          "a": "No. fxTunnel tunnels stay open indefinitely. Unlike ngrok's free tier which used to have 2-hour session limits, fxTunnel keeps your tunnels running 24/7 with automatic reconnection."
         },
         {
-          "q": "Can I self-host fxtun?",
-          "a": "Yes. fxtun is fully self-hostable. You can run your own server on your infrastructure, giving you complete control over your sharing setup, data, and security."
+          "q": "Can I self-host fxTunnel?",
+          "a": "Yes. fxTunnel is fully self-hostable. You can run your own server on your infrastructure, giving you complete control over your tunneling setup, data, and security."
         },
         {
-          "q": "How much does fxtun cost?",
-          "a": "fxtun has a free plan with 3 services and any subdomain you want. Paid plans start at $5/month for more services, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
+          "q": "How much does fxTunnel cost?",
+          "a": "fxTunnel has a free plan with 3 tunnels and any subdomain you want. Paid plans start at $5/month for more tunnels, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
         },
         {
-          "q": "What's the difference between fxtun and Cloudflare Tunnel?",
-          "a": "Cloudflare Tunnel only supports HTTP and requires the Cloudflare ecosystem. fxtun supports HTTP, TCP, and UDP, has a desktop GUI, doesn't require any ecosystem lock-in, and is self-hostable. Cloudflare Tunnel is free but limited to their platform."
+          "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
+          "a": "Cloudflare Tunnel only supports HTTP and requires the Cloudflare ecosystem. fxTunnel supports HTTP, TCP, and UDP, has a desktop GUI, doesn't require any ecosystem lock-in, and is self-hostable. Cloudflare Tunnel is free but limited to their platform."
         },
         {
           "q": "How do I expose localhost to the internet?",
-          "a": "Install the fxtun client, then run 'fxtun http 3000' to instantly get a public URL for your local server running on port 3000. No configuration needed — just one command."
+          "a": "Install the fxTunnel client, then run 'fxtunnel http 3000' to instantly get a public URL for your local server running on port 3000. No configuration needed — just one command."
         },
         {
-          "q": "Does fxtun support HTTPS?",
-          "a": "Yes. All HTTP services automatically get HTTPS via the server's wildcard TLS certificate. Custom domains also get automatic HTTPS through Let's Encrypt certificate provisioning."
+          "q": "Does fxTunnel support HTTPS?",
+          "a": "Yes. All HTTP tunnels automatically get HTTPS via the server's wildcard TLS certificate. Custom domains also get automatic HTTPS through Let's Encrypt certificate provisioning."
         },
         {
           "q": "What is the traffic inspector?",
-          "a": "The traffic inspector is a real-time HTTP request/response viewer built into fxtun. You can search, filter by method or status, and replay requests with one click — perfect for debugging webhooks and API integrations."
+          "a": "The traffic inspector is a real-time HTTP request/response viewer built into fxTunnel. You can search, filter by method or status, and replay requests with one click — perfect for debugging webhooks and API integrations."
         },
         {
-          "q": "Does fxtun work with WebSockets?",
-          "a": "Yes. fxtun provides full bidirectional WebSocket passthrough with no additional configuration. WebSocket connections are forwarded transparently to your local server."
+          "q": "Does fxTunnel work with WebSockets?",
+          "a": "Yes. fxTunnel provides full bidirectional WebSocket passthrough with no additional configuration. WebSocket connections are forwarded transparently to your local server."
         }
       ]
     },
     "footer": {
-      "tagline": "Secure localhost sharing",
+      "tagline": "Secure tunneling",
       "releases": "Releases",
       "issues": "Issues",
       "rights": "All rights reserved."
@@ -418,7 +411,7 @@
     "subscriptionWarningHint": "If you want to pay for only one month without auto-renewal, disable the toggle below.",
     "recommended": "Popular",
     "month": "mo",
-    "tunnels": "Services",
+    "tunnels": "Tunnels",
     "domains": "Domains",
     "customDomains": "Custom Domains",
     "tokens": "Tokens",
@@ -494,23 +487,23 @@
   },
   "dashboard": {
     "title": "Command Center",
-    "subtitle": "Monitor and manage your services",
+    "subtitle": "Monitor and manage your tunnels",
     "welcome": "Welcome back",
     "welcomeAnon": "Dashboard",
     "statusOnline": "System operational",
-    "noTunnels": "Nothing shared yet",
-    "noTunnelsHint": "Use the CLI to share a service:",
+    "noTunnels": "No active tunnels",
+    "noTunnelsHint": "Use the CLI client to create tunnels:",
     "localPort": "Local port",
-    "closeTunnel": "Stop",
+    "closeTunnel": "Close tunnel",
     "unnamed": "Unnamed",
-    "failedToLoad": "Failed to load services",
-    "failedToClose": "Failed to stop service",
+    "failedToLoad": "Failed to load tunnels",
+    "failedToClose": "Failed to close tunnel",
     "inspect": "Inspect",
     "createdAt": "Created",
     "copyUrl": "Copy URL",
     "urlCopied": "URL copied",
     "stats": {
-      "tunnels": "Live Services",
+      "tunnels": "Active Tunnels",
       "domains": "Subdomains",
       "tokens": "Access Keys",
       "used": "used",
@@ -529,18 +522,18 @@
       "profileDesc": "Account settings"
     },
     "tunnels": {
-      "title": "Active Services",
+      "title": "Active Tunnels",
       "empty": "No active connections",
-      "emptyDesc": "Services will appear here when you connect a client"
+      "emptyDesc": "Tunnels will appear here when you connect a client"
     },
     "cli": {
       "title": "Quick Start",
-      "subtitle": "Three steps to your first service",
+      "subtitle": "Three steps to your first tunnel",
       "step1": "Install the client",
       "step1Desc": "One command for macOS, Linux and Windows",
       "step2": "Authenticate",
       "step2Desc": "Interactive or with API token",
-      "step3": "Share a service",
+      "step3": "Launch a tunnel",
       "step3Desc": "Pick a protocol and port",
       "install": "Install",
       "installDesc": "macOS, Linux, Windows",
@@ -548,9 +541,9 @@
       "authDesc": "Interactive or with --token from Tokens section",
       "authToken": "Project init",
       "authTokenDesc": "Creates a config in current directory",
-      "httpTunnel": "HTTP",
-      "tcpTunnel": "TCP",
-      "udpTunnel": "UDP",
+      "httpTunnel": "HTTP tunnel",
+      "tcpTunnel": "TCP tunnel",
+      "udpTunnel": "UDP tunnel",
       "httpDesc": "Web, API, webhooks",
       "tcpDesc": "SSH, databases, Redis",
       "udpDesc": "DNS, games, VoIP",
@@ -558,11 +551,11 @@
       "domainsDesc": "Reserve subdomains on the server",
       "customDomains": "Custom domains",
       "customDomainsDesc": "Bind your own domains via DNS",
-      "hint": "Download the client from the Downloads page. Log in via fxtun login or create a token in the Tokens section.",
+      "hint": "Download the client from the Downloads page. Log in via fxtunnel login or create a token in the Tokens section.",
       "moreCommands": "More commands in the docs"
     },
     "plan": {
-      "tunnels": "Services",
+      "tunnels": "Tunnels",
       "domains": "Subdomains",
       "tokens": "Tokens",
       "upgrade": "Upgrade Plan",
@@ -630,7 +623,7 @@
     "whatIsToken": "An access key is a password for the client app. It lets you connect to the server without entering your login and password.",
     "howToUse": "How to use",
     "howToUseStep1": "Create a key and copy it",
-    "howToUseStep2": "In CLI run: fxtun login --token your_key",
+    "howToUseStep2": "In CLI run: fxtunnel login --token your_key",
     "howToUseStep3": "Or paste the key into the Token field in the GUI client",
     "createToken": "Create Key",
     "createTitle": "New Access Key",
@@ -642,11 +635,11 @@
     "allowedSubdomainsHint": "Which subdomains this key can use. Asterisk * means any. You can use patterns: dev-*, test-*.",
     "allowedSubdomainsPlaceholder": "* — any subdomains",
     "maxTunnels": "Connection limit",
-    "maxTunnelsHint": "How many services can be shared at the same time with this key.",
+    "maxTunnelsHint": "How many tunnels can be opened at the same time with this key.",
     "subdomains": "Addresses",
     "allSubdomains": "Any",
     "tunnelsLimit": "Limit",
-    "tunnelsCount": "{n} services",
+    "tunnelsCount": "{n} tunnels",
     "created": "Created",
     "lastUsed": "Last used",
     "neverUsed": "never used",
@@ -667,7 +660,7 @@
   },
   "downloads": {
     "title": "Download Client",
-    "subtitle": "Get the fxtun client for your platform",
+    "subtitle": "Get the fxTunnel client for your platform",
     "cliTitle": "CLI Client",
     "cliSubtitle": "Command-line interface for power users",
     "guiTitle": "GUI Client",
@@ -680,7 +673,7 @@
     "tokenHint": "Replace YOUR_TOKEN with your token from the {link} page.",
     "tokenHintLink": "Tokens",
     "step1": "Download and install the client",
-    "step2": "Create a {link} and share your service",
+    "step2": "Create a {link} and run your tunnel",
     "step2TokenLink": "token",
     "failedToLoad": "Failed to load downloads",
     "macGuiComingSoon": "Coming Soon",
@@ -751,11 +744,11 @@
     "failedToCancelSubscription": "Failed to cancel subscription",
     "securitySection": "Security",
     "planAndLimits": "Plan & Limits",
-    "tunnels": "Services",
+    "tunnels": "Tunnels",
     "domains": "Domains",
     "customDomains": "Custom Domains",
     "tokens": "Tokens",
-    "tunnelsPerToken": "Services/Key",
+    "tunnelsPerToken": "Tunnels/Token",
     "inspector": "Inspector",
     "enabled": "Enabled",
     "disabled": "Disabled",
@@ -781,53 +774,50 @@
   "legal": {
     "offer": "Terms of Service",
     "terms": "Terms of Service",
-    "aup": "Acceptable Use",
-    "disclaimer": "Disclaimer",
-    "abuse": "Abuse Contact",
+    "privacy": "Privacy Policy",
     "offerTitle": "Public Offer Agreement",
     "termsTitle": "Terms of Service",
-    "aupTitle": "Acceptable Use Policy",
-    "disclaimerTitle": "TCP & UDP Risk Disclaimer",
-    "abuseTitle": "Abuse Contact",
-    "disclaimerBanner": "TCP and UDP services expose your local services directly to the public internet without built-in access controls. Read this page carefully before using these features.",
+    "privacyTitle": "Privacy Policy",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
   },
   "seo": {
-    "defaultDescription": "Free ngrok alternative. Share your localhost via HTTP, TCP & UDP — with traffic inspector, desktop app, and abuse protection. No request limits.",
+    "defaultDescription": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector.",
     "landing": {
-      "title": "fxtun — Free ngrok Alternative {'|'} Share Localhost Securely",
-      "description": "Free ngrok alternative. Share your localhost via HTTP, TCP & UDP — with traffic inspector, desktop app, abuse protection, and custom domains. No request limits."
+      "title": "fxTunnel — Free ngrok Alternative {'|'} HTTP, TCP & UDP Tunneling",
+      "description": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector. Self-hostable."
     },
     "login": {
-      "title": "Sign In — fxtun",
-      "description": "Sign in to your fxtun account to manage services, domains, and tokens."
+      "title": "Sign In — fxTunnel",
+      "description": "Sign in to your fxTunnel account to manage tunnels, domains, and tokens."
     },
     "register": {
-      "title": "Sign Up — fxtun",
-      "description": "Create a free fxtun account. Get 3 services with custom subdomains, no bandwidth limits, no session timeout."
+      "title": "Sign Up — fxTunnel",
+      "description": "Create a free fxTunnel account. Get 3 tunnels with custom subdomains, no bandwidth limits, no session timeout."
     },
     "offer": {
-      "title": "Public Offer — fxtun",
-      "description": "fxtun public offer agreement and terms of service."
+      "title": "Public Offer — fxTunnel",
+      "description": "fxTunnel public offer agreement and terms of service."
     },
     "terms": {
-      "title": "Terms of Service — fxtun",
-      "description": "fxtun terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
+      "title": "Terms of Service — fxTunnel",
+      "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
     },
-    "aup": {
-      "title": "Acceptable Use Policy — fxtun",
-      "description": "fxtun acceptable use policy. Rules for using sharing services, prohibited activities, and enforcement."
+    "privacy": {
+      "title": "Privacy Policy — fxTunnel",
+      "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Nocodo LTD, Republic of Cyprus."
     },
-    "disclaimer": {
-      "title": "TCP & UDP Risk Disclaimer — fxtun",
-      "description": "Security risks of TCP and UDP forwarding. Understand the dangers of exposing local services to the internet via fxtun."
-    },
-    "abuse": {
-      "title": "Abuse Contact — fxtun",
-      "description": "Report abuse, malicious activity, or illegal content on fxtun infrastructure. Contact information and reporting guidelines."
+    "pricing": {
+      "title": "Pricing Plans — fxTunnel {'|'} Free, Base & Pro",
+      "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels and no limits. Base from $5/mo with custom domains. Pro from $10/mo with 15 tunnels."
     }
+  },
+  "notFound": {
+    "title": "404 — Page Not Found | fxTunnel",
+    "heading": "Page Not Found",
+    "description": "The page you're looking for doesn't exist or has been moved.",
+    "backHome": "Back to Home"
   },
   "admin": {
     "failedToLoad": "Failed to load data",
@@ -928,11 +918,7 @@
       "public": "Public",
       "recommended": "Recommended",
       "isPublic": "Show on Landing",
-      "isRecommended": "Recommended",
-      "rateLimitTcp": "TCP conn/min",
-      "rateLimitUdp": "UDP pkt/sec",
-      "rateLimitHttp": "HTTP req/min",
-      "rateLimitHint": "0 = default, -1 = unlimited"
+      "isRecommended": "Recommended"
     },
     "customDomains": {
       "title": "Custom Domains",
