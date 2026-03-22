@@ -309,6 +309,7 @@ func (s *Scheduler) createAutopayment(sub *database.Subscription, plan *database
 			"subscription_id": fmt.Sprintf("%d", sub.ID),
 			"plan_id":         fmt.Sprintf("%d", plan.ID),
 			"autopayment":     "true",
+			"email":           s.getUserEmail(sub.UserID),
 		},
 	}
 
@@ -521,6 +522,15 @@ func (s *Scheduler) cleanupStalePendingPayments() {
 	if deleted > 0 {
 		s.log.Info().Int64("count", deleted).Msg("Cleaned up stale pending payments")
 	}
+}
+
+// getUserEmail returns the user's email or empty string
+func (s *Scheduler) getUserEmail(userID int64) string {
+	user, err := s.db.Users.GetByID(userID)
+	if err != nil || user == nil {
+		return ""
+	}
+	return user.Email
 }
 
 // RunOnce runs all checks once (useful for testing)

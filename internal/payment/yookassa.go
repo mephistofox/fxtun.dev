@@ -407,6 +407,7 @@ func (y *YooKassa) CreateCheckoutSession(params CheckoutParams) (*CheckoutResult
 			"user_id":         fmt.Sprintf("%d", params.UserID),
 			"subscription_id": fmt.Sprintf("%d", params.SubscriptionID),
 			"plan_id":         fmt.Sprintf("%d", params.PlanID),
+			"email":           params.Email,
 		},
 	}
 
