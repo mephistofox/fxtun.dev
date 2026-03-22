@@ -36,11 +36,15 @@ type StatusResponse struct {
 }
 
 type AddTunnelRequest struct {
-	Type       string `json:"type"`
-	LocalPort  int    `json:"local_port"`
-	RemotePort int    `json:"remote_port,omitempty"`
-	Subdomain  string `json:"subdomain,omitempty"`
-	Name       string `json:"name,omitempty"`
+	Type          string   `json:"type"`
+	LocalPort     int      `json:"local_port"`
+	RemotePort    int      `json:"remote_port,omitempty"`
+	Subdomain     string   `json:"subdomain,omitempty"`
+	Name          string   `json:"name,omitempty"`
+	BasicAuthHash string   `json:"basic_auth_hash,omitempty"`
+	AllowIPs      []string `json:"allow_ips,omitempty"`
+	AutoClose     string   `json:"auto_close,omitempty"`
+	MaxLifetime   string   `json:"max_lifetime,omitempty"`
 }
 
 type API struct {
@@ -98,11 +102,15 @@ func (a *API) handleAddTunnel(w http.ResponseWriter, r *http.Request) {
 		req.Name = fmt.Sprintf("%s-%d", req.Type, req.LocalPort)
 	}
 	info, err := a.mgr.RequestTunnel(config.TunnelConfig{
-		Name:       req.Name,
-		Type:       req.Type,
-		LocalPort:  req.LocalPort,
-		RemotePort: req.RemotePort,
-		Subdomain:  req.Subdomain,
+		Name:          req.Name,
+		Type:          req.Type,
+		LocalPort:     req.LocalPort,
+		RemotePort:    req.RemotePort,
+		Subdomain:     req.Subdomain,
+		BasicAuthHash: req.BasicAuthHash,
+		AllowIPs:      req.AllowIPs,
+		AutoClose:     req.AutoClose,
+		MaxLifetime:   req.MaxLifetime,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

@@ -21,6 +21,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/payment"
 	"github.com/mephistofox/fxtunnel/internal/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server"
+	"github.com/mephistofox/fxtunnel/internal/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 )
 
@@ -135,6 +136,15 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Info().Msg("Database and auth service initialized")
 	}
 
+	// Initialize Telegram notifications
+	var telegramNotifier *telegram.AdminNotifier
+	if cfg.Telegram.Enabled {
+		tgBot := telegram.NewBot(cfg.Telegram.BotToken)
+		telegramNotifier = telegram.NewAdminNotifier(tgBot, cfg.Telegram.ChatID)
+		telegramNotifier.SetLogger(log)
+		log.Info().Msg("Telegram admin notifications enabled")
+	}
+
 	// Create server
 	srv := server.New(cfg, log)
 
@@ -146,6 +156,11 @@ func run(cmd *cobra.Command, args []string) error {
 	// Set auth service for JWT validation
 	if authService != nil {
 		srv.SetAuthService(authService)
+	}
+
+	// Set Telegram notifier on tunnel server
+	if telegramNotifier != nil {
+		srv.SetTelegramNotifier(telegramNotifier)
 	}
 
 	// Initialize custom domains
@@ -180,6 +195,10 @@ func run(cmd *cobra.Command, args []string) error {
 		apiServer.SetVersion(Version)
 		apiServer.SetMinVersion(cfg.Server.MinVersion)
 		apiServer.SetReplayProvider(srv.HTTPRouter())
+
+		if telegramNotifier != nil {
+			apiServer.SetTelegramNotifier(telegramNotifier)
+		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

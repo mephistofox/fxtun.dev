@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
+const domain = computed(() => getBaseDomain())
 
 const copiedIndex = ref<number | null>(null)
 
@@ -12,13 +14,13 @@ function copyCode(code: string, index: number) {
   setTimeout(() => { copiedIndex.value = null }, 2000)
 }
 
-const steps = [
+const steps = computed(() => [
   {
     number: '01',
     icon: 'download',
     titleKey: 'landing.howItWorks.step1.title',
     descKey: 'landing.howItWorks.step1.desc',
-    code: 'curl -fsSL https://fxtun.dev/install.sh | sh',
+    code: `curl -fsSL https://${domain.value}/install.sh | sh`,
   },
   {
     number: '02',
@@ -34,7 +36,7 @@ const steps = [
     descKey: 'landing.howItWorks.step3.desc',
     code: 'fxtun http 3000 --domain myapp',
   },
-]
+])
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
@@ -224,7 +226,7 @@ onUnmounted(() => {
           <div class="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 rounded-full bg-type-http/10 border border-type-http/30 max-w-full overflow-hidden">
             <div class="pulse-indicator flex-shrink-0" style="background: hsl(var(--type-http));" />
             <span class="font-mono text-xs sm:text-sm text-type-http truncate">
-              https://myapp.fxtun.dev
+              https://myapp.{{ domain }}
             </span>
             <span class="text-xs text-muted-foreground flex-shrink-0 hidden sm:inline">→ localhost:3000</span>
           </div>

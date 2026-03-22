@@ -2,6 +2,7 @@ package web
 
 import (
 	"embed"
+	"io"
 	"io/fs"
 	"net/http"
 	"strings"
@@ -50,6 +51,12 @@ func SPAHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		ruDomain := isRuDomain(r.Host)
+
+		// Serve domain-aware sitemap.xml: replace fxtun.dev → fxtun.ru for Russian domain
+		if path == "/sitemap.xml" && ruDomain {
+			serveDomainSitemap(w, filesystem)
+			return
+		}
 
 		// Domain-based root: serve ru.html for fxtun.ru/
 		if path == "/" && ruDomain {
@@ -100,4 +107,26 @@ func SPAHandler() http.Handler {
 		}
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// serveDomainSitemap reads sitemap.xml from the embedded FS, replaces
+// fxtun.dev with fxtun.ru, and writes the result to the response.
+func serveDomainSitemap(w http.ResponseWriter, filesystem http.FileSystem) {
+	f, err := filesystem.Open("/sitemap.xml")
+	if err != nil {
+		http.Error(w, "sitemap not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		http.Error(w, "failed to read sitemap", http.StatusInternalServerError)
+		return
+	}
+
+	replaced := strings.ReplaceAll(string(data), "https://fxtun.dev", "https://fxtun.ru")
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(replaced))
 }

@@ -8,11 +8,23 @@ export default defineConfig({
     vue(),
     Sitemap({
       hostname: "https://fxtun.dev",
-      dynamicRoutes: ["/login", "/register", "/offer", "/terms"],
-      exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*"],
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy"],
+      exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,
-      changefreq: "weekly",
-      priority: 0.7,
+      changefreq: {
+        "/": "weekly",
+        "/pricing": "weekly",
+        "/offer": "monthly",
+        "/terms": "monthly",
+        "/privacy": "monthly",
+      },
+      priority: {
+        "/": 1.0,
+        "/pricing": 0.9,
+        "/offer": 0.5,
+        "/terms": 0.5,
+        "/privacy": 0.5,
+      },
       robots: [{ userAgent: "*", allow: "/" }],
       readable: true,
     }),
@@ -31,7 +43,7 @@ export default defineConfig({
     formatting: "minify",
     beastiesOptions: false,
     includedRoutes() {
-      const pages = ["/", "/login", "/register", "/offer", "/terms"];
+      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
       const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
       return [...pages, ...ruPages, ...enPages];

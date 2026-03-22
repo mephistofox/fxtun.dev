@@ -348,6 +348,20 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 			s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to send payment success email")
 		}
 	}
+
+	// Send Telegram admin notification
+	if s.telegramNotifier != nil {
+		plan, _ := s.db.Plans.GetByID(sub.PlanID)
+		planName := "Unknown"
+		if plan != nil {
+			planName = plan.Name
+		}
+		userName := ""
+		if u, err := s.db.Users.GetByID(sub.UserID); err == nil {
+			userName = u.DisplayName
+		}
+		s.telegramNotifier.NotifyNewSubscription(sub.UserID, userName, planName, pmt.Amount, providerName)
+	}
 }
 
 // handlePaymentWebhook handles YooKassa webhook notifications (POST)
