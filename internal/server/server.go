@@ -97,6 +97,11 @@ type Server struct {
 	db          *database.Database
 	authService *auth.Service
 
+	// Telegram admin notifications
+	telegramNotifier interface {
+		NotifyFirstTunnel(userID int64, displayName, tunnelType, address string, registeredAt time.Time)
+	}
+
 	// Custom domains
 	certManager    *fxtls.CertManager
 	customDomains  map[string]*database.CustomDomain // domain -> entry
@@ -160,6 +165,14 @@ type Tunnel struct {
 	RemotePort int    // For TCP/UDP
 	LocalPort  int
 	Created    time.Time
+
+	// Security features
+	BasicAuthHash string       // bcrypt hash
+	AllowedNets   []*net.IPNet // parsed CIDRs
+	AllowedIPs    []net.IP     // exact IPs (no CIDR)
+	AutoClose     time.Duration // idle timeout
+	MaxLifetime   time.Duration // max tunnel lifetime
+	LastActivity  atomic.Int64  // UnixNano timestamp
 
 	// For TCP/UDP
 	listener net.Listener
@@ -227,6 +240,13 @@ func (s *Server) SetDatabase(db *database.Database) {
 // SetAuthService sets the auth service for JWT validation
 func (s *Server) SetAuthService(authService *auth.Service) {
 	s.authService = authService
+}
+
+// SetTelegramNotifier sets the Telegram admin notifier for first-tunnel notifications.
+func (s *Server) SetTelegramNotifier(n interface {
+	NotifyFirstTunnel(userID int64, displayName, tunnelType, address string, registeredAt time.Time)
+}) {
+	s.telegramNotifier = n
 }
 
 // GetDatabase returns the database
@@ -815,14 +835,49 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	// Register with HTTP router
 	tunnelID := generateID()
 	tunnel := &Tunnel{
-		ID:        tunnelID,
-		ClientID:  c.ID,
-		Type:      protocol.TunnelHTTP,
-		Name:      req.Name,
-		Subdomain: subdomain,
-		LocalPort: req.LocalPort,
-		Created:   time.Now(),
+		ID:            tunnelID,
+		ClientID:      c.ID,
+		Type:          protocol.TunnelHTTP,
+		Name:          req.Name,
+		Subdomain:     subdomain,
+		LocalPort:     req.LocalPort,
+		Created:       time.Now(),
+		BasicAuthHash: req.BasicAuthHash,
 	}
+
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
 
 	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
 
@@ -841,17 +896,22 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	url := fmt.Sprintf("http://%s.%s", subdomain, c.server.cfg.Domain.Base)
 
 	resp := &protocol.TunnelCreatedMessage{
-		Message:    protocol.NewMessage(protocol.MsgTunnelCreated),
-		TunnelID:   tunnelID,
-		TunnelType: protocol.TunnelHTTP,
-		Name:       req.Name,
-		URL:        url,
-		Subdomain:  subdomain,
+		Message:          protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:         tunnelID,
+		TunnelType:       protocol.TunnelHTTP,
+		Name:             req.Name,
+		URL:              url,
+		Subdomain:        subdomain,
+		BasicAuthEnabled: tunnel.BasicAuthHash != "",
+		AllowIPsCount:    len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:        req.AutoClose,
+		MaxLifetime:      req.MaxLifetime,
 	}
 	resp.RequestID = req.RequestID
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Str("url", url).Msg("HTTP tunnel created")
+	c.notifyFirstTunnel("HTTP", url)
 }
 
 func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
@@ -873,6 +933,43 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 		listener:   listener,
 	}
 
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
@@ -885,17 +982,21 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	remoteAddr := fmt.Sprintf("%s:%d", c.server.cfg.Domain.Base, port)
 
 	resp := &protocol.TunnelCreatedMessage{
-		Message:    protocol.NewMessage(protocol.MsgTunnelCreated),
-		TunnelID:   tunnelID,
-		TunnelType: protocol.TunnelTCP,
-		Name:       req.Name,
-		RemotePort: port,
-		RemoteAddr: remoteAddr,
+		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:      tunnelID,
+		TunnelType:    protocol.TunnelTCP,
+		Name:          req.Name,
+		RemotePort:    port,
+		RemoteAddr:    remoteAddr,
+		AllowIPsCount: len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:     req.AutoClose,
+		MaxLifetime:   req.MaxLifetime,
 	}
 	resp.RequestID = req.RequestID
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("TCP tunnel created")
+	c.notifyFirstTunnel("TCP", remoteAddr)
 }
 
 func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
@@ -917,6 +1018,43 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 		udpConn:    udpConn,
 	}
 
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
 	c.TunnelsMu.Lock()
 	c.Tunnels[tunnelID] = tunnel
 	c.TunnelsMu.Unlock()
@@ -929,17 +1067,21 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	remoteAddr := fmt.Sprintf("%s:%d", c.server.cfg.Domain.Base, port)
 
 	resp := &protocol.TunnelCreatedMessage{
-		Message:    protocol.NewMessage(protocol.MsgTunnelCreated),
-		TunnelID:   tunnelID,
-		TunnelType: protocol.TunnelUDP,
-		Name:       req.Name,
-		RemotePort: port,
-		RemoteAddr: remoteAddr,
+		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:      tunnelID,
+		TunnelType:    protocol.TunnelUDP,
+		Name:          req.Name,
+		RemotePort:    port,
+		RemoteAddr:    remoteAddr,
+		AllowIPsCount: len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:     req.AutoClose,
+		MaxLifetime:   req.MaxLifetime,
 	}
 	resp.RequestID = req.RequestID
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("UDP tunnel created")
+	c.notifyFirstTunnel("UDP", remoteAddr)
 }
 
 func (c *Client) handleTunnelClose(data []byte) {
@@ -1046,6 +1188,28 @@ func (c *Client) sendTunnelError(requestID, tunnelID, code, message string) {
 	}
 	msg.RequestID = requestID
 	_ = c.sendControl(msg)
+}
+
+// notifyFirstTunnel checks if this is the user's first-ever tunnel and notifies admin.
+func (c *Client) notifyFirstTunnel(tunnelType, address string) {
+	if c.server.telegramNotifier == nil || c.server.db == nil || c.UserID <= 0 {
+		return
+	}
+
+	isFirst, err := c.server.db.Users.SetFirstTunnelAt(c.UserID)
+	if err != nil {
+		c.log.Error().Err(err).Msg("Failed to check first tunnel")
+		return
+	}
+	if !isFirst {
+		return
+	}
+
+	user, err := c.server.db.Users.GetByID(c.UserID)
+	if err != nil {
+		return
+	}
+	c.server.telegramNotifier.NotifyFirstTunnel(c.UserID, user.DisplayName, tunnelType, address, user.CreatedAt)
 }
 
 // Close closes the client connection

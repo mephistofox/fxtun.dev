@@ -137,11 +137,15 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 				return
 			}
 
-			// Rate limit check
-			if !m.server.monitor.AllowUDPPacket(tunnel.ID, addr.String(), n) {
+			// Enforce IP allowlist
+			if !isIPAllowed(addr.IP, tunnel) {
+				m.log.Warn().Str("remote_addr", addr.String()).
+					Str("tunnel_id", tunnel.ID).Msg("UDP packet blocked by IP allowlist")
 				continue
 			}
-			m.server.monitor.RecordUDPBytes(tunnel.ID, int64(n), 0)
+
+			// Update LastActivity timestamp for auto-close tracking
+			tunnel.LastActivity.Store(time.Now().UnixNano())
 
 			// Use string key to avoid hash collisions
 			addrKey := addr.String()
@@ -206,7 +210,6 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 
 		if addr != nil {
 			_, _ = tunnel.udpConn.WriteToUDP(frame[:length], addr)
-			m.server.monitor.RecordUDPBytes(tunnel.ID, 0, int64(length))
 		}
 		udpFramePool.Put(fp)
 	}

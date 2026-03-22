@@ -125,9 +125,13 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Rate limit check before opening yamux stream
-	if !r.server.monitor.AllowHTTPRequest(tunnel.ID, req.RemoteAddr) {
-		http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+	// IP Allowlist check (before auth to reduce load)
+	if !checkIPAllowlist(w, req, tunnel) {
+		return
+	}
+
+	// Basic Auth check
+	if !checkBasicAuth(w, req, tunnel) {
 		return
 	}
 
@@ -260,6 +264,9 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			Int("buffer_len", inspectBuf.Len()).
 			Msg("Exchange captured in inspect buffer")
 	}
+
+	// Update LastActivity timestamp for auto-close tracking
+	tunnel.LastActivity.Store(time.Now().UnixNano())
 
 	r.log.Debug().
 		Str("trace_id", traceID).
@@ -536,6 +543,9 @@ func (r *HTTPRouter) ReplayRequest(subdomain string, req *http.Request) (*inspec
 		return nil, fmt.Errorf("client not connected for tunnel: %s", tunnel.ID)
 	}
 
+	// Note: Basic Auth check is intentionally skipped for replay requests.
+	// Replay is an operator-only feature accessed through the inspect UI,
+	// which requires authenticated API access.
 	stream, err := client.OpenStream()
 	if err != nil {
 		return nil, fmt.Errorf("open stream: %w", err)

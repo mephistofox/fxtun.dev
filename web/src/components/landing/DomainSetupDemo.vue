@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
+const domain = computed(() => getBaseDomain())
 
 // Phases: 'typing' → 'dns' → 'verifying' → 'issuing' → 'done' → pause → restart
 type Phase = 'typing' | 'dns' | 'verifying' | 'issuing' | 'done'
@@ -69,7 +71,7 @@ function animateVerify() {
 }
 
 const dnsRecords = computed(() => [
-  { type: 'CNAME', name: typedDomain.value || '...', value: 'tunnel.fxtun.dev' },
+  { type: 'CNAME', name: typedDomain.value || '...', value: `tunnel.${domain.value}` },
 ])
 
 onMounted(() => {

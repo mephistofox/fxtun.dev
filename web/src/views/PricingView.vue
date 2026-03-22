@@ -7,7 +7,7 @@ import LandingFooter from '@/components/landing/LandingFooter.vue'
 
 const { t } = useI18n()
 
-useSeo({ titleKey: 'landing.pricing.title', descriptionKey: 'landing.pricing.subtitle' })
+useSeo({ titleKey: 'seo.pricing.title', descriptionKey: 'seo.pricing.description' })
 </script>
 
 <template>

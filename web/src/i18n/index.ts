@@ -44,9 +44,8 @@ const cspMessageCompiler: MessageCompiler = (message) => {
 export function getDomainLocale(): 'en' | 'ru' | null {
   if (import.meta.env.SSR) return null
   const host = window.location.hostname
-  if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
   if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
-  if (host === 'mfdev.ru' || host.endsWith('.mfdev.ru')) return 'en' // legacy domain
+  if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
   return null
 }
 
@@ -76,7 +75,9 @@ if (!import.meta.env.SSR) {
 
 export function getBlogUrl(): string {
   if (import.meta.env.SSR) return '/blog'
-  return `${window.location.protocol}//${window.location.hostname}/blog`
+  const locale = getLocale()
+  const domain = locale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
+  return `${window.location.protocol}//${domain}/blog`
 }
 
 export function setLocale(locale: 'en' | 'ru') {
@@ -89,4 +90,8 @@ export function setLocale(locale: 'en' | 'ru') {
 export function getLocale(): 'en' | 'ru' {
   // @ts-expect-error vue-i18n composition api
   return i18n.global.locale.value as 'en' | 'ru'
+}
+
+export function getBaseDomain(): string {
+  return getLocale() === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/email"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/payment"
+	"github.com/mephistofox/fxtunnel/internal/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
 	"github.com/mephistofox/fxtunnel/internal/web"
 )
@@ -87,6 +88,7 @@ type Server struct {
 	customDomainManager  CustomDomainManager
 	replayProvider       ReplayProvider
 	notifier             *email.Notifier
+	telegramNotifier     *telegram.AdminNotifier
 	paymentProviders     *payment.Registry
 	router               chi.Router
 	httpServer     *http.Server
@@ -132,6 +134,11 @@ func (s *Server) SetReplayProvider(rp ReplayProvider) {
 // SetNotifier sets the email notifier for payment notifications.
 func (s *Server) SetNotifier(n *email.Notifier) {
 	s.notifier = n
+}
+
+// SetTelegramNotifier sets the Telegram admin notifier.
+func (s *Server) SetTelegramNotifier(n *telegram.AdminNotifier) {
+	s.telegramNotifier = n
 }
 
 // SetPaymentProviders sets the payment provider registry.

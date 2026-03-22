@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,17 @@ func newUpCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "up",
 		Short: "Start tunnel daemon in background",
-		RunE:  runUp,
+		Long: `Start the tunnel daemon in the background.
+
+The daemon reads tunnels from the config file (fxtunnel.yaml or ~/.fxtunnel/client.yaml)
+and maintains persistent connections with automatic reconnect.
+
+Use --foreground to run in the foreground (useful for systemd or debugging).
+
+Examples:
+  fxtunnel up                   Start daemon using config file
+  fxtunnel up --foreground      Run in foreground (no detach)`,
+		RunE: runUp,
 	}
 	cmd.Flags().BoolVar(&daemonForeground, "foreground", false, "Run in foreground instead of detaching")
 	return cmd
@@ -33,7 +44,9 @@ func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show daemon status and active tunnels",
-		RunE:  runStatus,
+		Long: `Show the running daemon's status including PID, server address, uptime,
+and a list of all active tunnels with their public URLs.`,
+		RunE: runStatus,
 	}
 }
 
@@ -41,7 +54,10 @@ func newDownCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "down",
 		Short: "Stop the tunnel daemon",
-		RunE:  runDown,
+		Long: `Stop the tunnel daemon and close all active tunnels.
+
+Sends a graceful shutdown request and waits for the daemon to fully stop.`,
+		RunE: runDown,
 	}
 }
 
@@ -72,6 +88,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 
 		attr := &os.ProcAttr{
 			Files: []*os.File{devNull, devNull, devNull},
+			Sys:   &syscall.SysProcAttr{Setsid: true},
 		}
 
 		proc, err := os.StartProcess(exe, newArgs, attr)
@@ -195,7 +212,15 @@ func runDown(cmd *cobra.Command, args []string) error {
 	}
 	resp.Body.Close()
 
-	fmt.Println("Daemon stopped.")
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(300 * time.Millisecond)
+		if _, ok := daemon.IsDaemonRunning(statePath); !ok {
+			fmt.Println("Daemon stopped.")
+			return nil
+		}
+	}
+	fmt.Fprintln(os.Stderr, "Warning: daemon may still be shutting down.")
 	return nil
 }
 
@@ -236,11 +261,15 @@ func addTunnelToDaemon(tunnelCfg config.TunnelConfig) bool {
 	}
 
 	req := daemon.AddTunnelRequest{
-		Type:       tunnelCfg.Type,
-		LocalPort:  tunnelCfg.LocalPort,
-		RemotePort: tunnelCfg.RemotePort,
-		Subdomain:  tunnelCfg.Subdomain,
-		Name:       tunnelCfg.Name,
+		Type:          tunnelCfg.Type,
+		LocalPort:     tunnelCfg.LocalPort,
+		RemotePort:    tunnelCfg.RemotePort,
+		Subdomain:     tunnelCfg.Subdomain,
+		Name:          tunnelCfg.Name,
+		BasicAuthHash: tunnelCfg.BasicAuthHash,
+		AllowIPs:      tunnelCfg.AllowIPs,
+		AutoClose:     tunnelCfg.AutoClose,
+		MaxLifetime:   tunnelCfg.MaxLifetime,
 	}
 
 	body, err := json.Marshal(req)

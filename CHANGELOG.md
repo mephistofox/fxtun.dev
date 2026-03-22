@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/mephistofox/fxTunnel/compare/v3.6.0...v3.7.0) (2026-02-16)
+
+
+### Features
+
+* **client:** resolve website URL dynamically from install origin ([0371148](https://github.com/mephistofox/fxTunnel/commit/037114820e62f867b1d37eb9eca966bdb4749634))
+
+
+### Bug Fixes
+
+* **oauth:** fetch GitHub email from /user/emails for private email users ([f0748b8](https://github.com/mephistofox/fxTunnel/commit/f0748b84307e11a7a14bb88a9d657568ad037ce4))
+
 ## [3.6.0](https://github.com/mephistofox/fxTunnel/compare/v3.5.0...v3.6.0) (2026-02-16)
 
 
