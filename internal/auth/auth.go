@@ -443,15 +443,19 @@ type OAuthUserInfo struct {
 	AvatarURL   string
 }
 
-// RegisterOrLoginOAuth authenticates a user via OAuth, creating the account if needed
-func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+// RegisterOrLoginOAuth authenticates a user via OAuth, creating the account if needed.
+// The returned bool indicates whether a new user was created (true) or an existing user logged in (false).
+func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, bool, error) {
+	var isNew bool
+
 	// Try to find existing user by GitHub ID
 	user, err := s.db.Users.GetByGitHubID(info.GitHubID)
 	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
-		return nil, nil, fmt.Errorf("get user by github id: %w", err)
+		return nil, nil, false, fmt.Errorf("get user by github id: %w", err)
 	}
 
 	if user == nil {
+		isNew = true
 		// Create new OAuth user
 		var oauthPlanID int64
 		if dp, err := s.db.Plans.GetDefault(); err == nil {
@@ -467,7 +471,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 			PlanID:      oauthPlanID,
 		}
 		if err := s.db.Users.CreateOAuth(user); err != nil {
-			return nil, nil, fmt.Errorf("create oauth user: %w", err)
+			return nil, nil, false, fmt.Errorf("create oauth user: %w", err)
 		}
 
 		_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
@@ -479,7 +483,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 	}
 
 	if !user.IsActive {
-		return nil, nil, ErrUserNotActive
+		return nil, nil, false, ErrUserNotActive
 	}
 
 	// Update email from OAuth if user has no email
@@ -497,7 +501,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 	// Generate tokens
 	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate tokens: %w", err)
+		return nil, nil, false, fmt.Errorf("generate tokens: %w", err)
 	}
 
 	// Create session
@@ -509,7 +513,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
 	if err := s.db.Sessions.Create(session); err != nil {
-		return nil, nil, fmt.Errorf("create session: %w", err)
+		return nil, nil, false, fmt.Errorf("create session: %w", err)
 	}
 
 	// Update last login
@@ -522,7 +526,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 
 	s.log.Info().Int64("user_id", user.ID).Int64("github_id", info.GitHubID).Msg("OAuth user logged in")
 
-	return user, tokenPair, nil
+	return user, tokenPair, isNew, nil
 }
 
 // LinkGitHub links a GitHub account to an existing user
@@ -538,15 +542,19 @@ type GoogleOAuthUserInfo struct {
 	AvatarURL   string
 }
 
-// RegisterOrLoginGoogleOAuth authenticates a user via Google OAuth, creating the account if needed
-func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, error) {
+// RegisterOrLoginGoogleOAuth authenticates a user via Google OAuth, creating the account if needed.
+// The returned bool indicates whether a new user was created (true) or an existing user logged in (false).
+func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, bool, error) {
+	var isNew bool
+
 	// Try to find existing user by Google ID
 	user, err := s.db.Users.GetByGoogleID(info.GoogleID)
 	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
-		return nil, nil, fmt.Errorf("get user by google id: %w", err)
+		return nil, nil, false, fmt.Errorf("get user by google id: %w", err)
 	}
 
 	if user == nil {
+		isNew = true
 		// Create new OAuth user
 		var googlePlanID int64
 		if dp, err := s.db.Plans.GetDefault(); err == nil {
@@ -562,7 +570,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 			PlanID:      googlePlanID,
 		}
 		if err := s.db.Users.CreateOAuth(user); err != nil {
-			return nil, nil, fmt.Errorf("create oauth user: %w", err)
+			return nil, nil, false, fmt.Errorf("create oauth user: %w", err)
 		}
 
 		_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
@@ -574,7 +582,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 	}
 
 	if !user.IsActive {
-		return nil, nil, ErrUserNotActive
+		return nil, nil, false, ErrUserNotActive
 	}
 
 	// Update email from OAuth if user has no email
@@ -592,7 +600,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 	// Generate tokens
 	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate tokens: %w", err)
+		return nil, nil, false, fmt.Errorf("generate tokens: %w", err)
 	}
 
 	// Create session
@@ -604,7 +612,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
 	if err := s.db.Sessions.Create(session); err != nil {
-		return nil, nil, fmt.Errorf("create session: %w", err)
+		return nil, nil, false, fmt.Errorf("create session: %w", err)
 	}
 
 	// Update last login
@@ -617,7 +625,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 
 	s.log.Info().Int64("user_id", user.ID).Str("google_id", info.GoogleID).Msg("Google OAuth user logged in")
 
-	return user, tokenPair, nil
+	return user, tokenPair, isNew, nil
 }
 
 // LinkGoogle links a Google account to an existing user

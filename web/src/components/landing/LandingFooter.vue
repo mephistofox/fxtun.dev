@@ -27,13 +27,13 @@ const blogUrl = computed(() => getBlogUrl())
             </svg>
           </div>
           <div>
-            <span class="font-display font-semibold text-lg">fxtun</span>
+            <span class="font-display font-semibold text-lg">fxTunnel</span>
             <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Secure tunneling' }}</p>
           </div>
         </div>
 
         <!-- Links -->
-        <div class="flex items-center gap-6 flex-wrap justify-center">
+        <div class="flex items-center gap-6">
           <RouterLink
             v-if="showOffer"
             to="/offer"
@@ -49,22 +49,10 @@ const blogUrl = computed(() => getBlogUrl())
             {{ t('legal.terms') }}
           </RouterLink>
           <RouterLink
-            to="/aup"
+            to="/privacy"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            {{ t('legal.aup') }}
-          </RouterLink>
-          <RouterLink
-            to="/disclaimer"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {{ t('legal.disclaimer') }}
-          </RouterLink>
-          <RouterLink
-            to="/abuse"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {{ t('legal.abuse') }}
+            {{ t('legal.privacy') }}
           </RouterLink>
           <a
             :href="blogUrl"
@@ -76,7 +64,7 @@ const blogUrl = computed(() => getBlogUrl())
 
         <!-- Copyright -->
         <p class="text-sm text-muted-foreground">
-          © {{ currentYear }} fxtun. {{ t('landing.footer.rights') }}
+          © {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}
         </p>
       </div>
     </div>

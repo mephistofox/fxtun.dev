@@ -32,7 +32,9 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-const isRuDomain = computed(() => typeof window !== 'undefined' && window.location.hostname.endsWith('fxtun.ru'))
+const isRuDomain = computed(() =>
+  !import.meta.env.SSR && window.location.hostname.endsWith('fxtun.ru')
+)
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {
@@ -42,12 +44,6 @@ function selectPlan(planId: number) {
 
 function displayLimit(val: number): string {
   return val < 0 ? t('landing.pricing.unlimited') : String(val)
-}
-
-function formatRateLimit(value: number, defaultVal: number, unit: string): string {
-  if (value < 0) return t('landing.pricing.unlimited') || 'Unlimited'
-  const v = value === 0 ? defaultVal : value
-  return v.toLocaleString() + '/' + unit
 }
 
 // Format price using backend-calculated values
@@ -279,30 +275,6 @@ onMounted(async () => {
                 <span :class="!plan.inspector_enabled ? 'text-muted-foreground/50' : ''">
                   {{ plan.inspector_enabled ? t('landing.pricing.inspectorUnlimited') : t('landing.pricing.inspector') }}
                 </span>
-              </li>
-
-              <!-- Rate Limit TCP -->
-              <li class="flex items-start gap-2">
-                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                </svg>
-                <span>{{ t('landing.pricing.rateLimitTcp') }}: <strong>{{ formatRateLimit(plan.rate_limit_tcp, 1800, 'min') }}</strong></span>
-              </li>
-
-              <!-- Rate Limit UDP -->
-              <li class="flex items-start gap-2">
-                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                </svg>
-                <span>{{ t('landing.pricing.rateLimitUdp') }}: <strong>{{ formatRateLimit(plan.rate_limit_udp, 10000, 'sec') }}</strong></span>
-              </li>
-
-              <!-- Rate Limit HTTP -->
-              <li class="flex items-start gap-2">
-                <svg class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
-                </svg>
-                <span>{{ t('landing.pricing.rateLimitHttp') }}: <strong>{{ formatRateLimit(plan.rate_limit_http, 3600, 'min') }}</strong></span>
               </li>
             </ul>
 

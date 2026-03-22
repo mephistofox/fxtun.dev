@@ -19,7 +19,8 @@ type User struct {
 	GoogleID     *string    `json:"google_id,omitempty"`
 	Email        string     `json:"email,omitempty"`
 	AvatarURL    string     `json:"avatar_url,omitempty"`
-	PlanID       int64      `json:"plan_id"`
+	PlanID        int64      `json:"plan_id"`
+	FirstTunnelAt *time.Time `json:"first_tunnel_at,omitempty"`
 }
 
 // Plan represents a subscription plan

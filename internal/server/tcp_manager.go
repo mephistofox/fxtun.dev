@@ -95,12 +95,15 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	defer m.server.activeConns.Done()
 	defer conn.Close()
 
-	// Rate limit check before opening yamux stream
-	if !m.server.monitor.AllowTCPConnection(tunnel.ID, conn.RemoteAddr().String()) {
-		return
+	// Enforce IP allowlist
+	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+	if clientIP := net.ParseIP(host); clientIP != nil {
+		if !isIPAllowed(clientIP, tunnel) {
+			m.log.Warn().Str("remote_addr", conn.RemoteAddr().String()).
+				Str("tunnel_id", tunnel.ID).Msg("TCP connection blocked by IP allowlist")
+			return
+		}
 	}
-
-	start := time.Now()
 
 	tuneTCPConn(conn)
 
@@ -141,7 +144,8 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 	_ = stream.Close()
 	<-done
 
-	m.server.monitor.RecordTCPConnectionDone(tunnel.ID, time.Since(start), 0, 0)
+	// Update LastActivity timestamp for auto-close tracking
+	tunnel.LastActivity.Store(time.Now().UnixNano())
 
 	m.log.Debug().
 		Str("tunnel_id", tunnel.ID).
