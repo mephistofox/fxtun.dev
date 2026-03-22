@@ -368,6 +368,7 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	s.log.Info().
 		Str("remote_addr", r.RemoteAddr).
+		Str("x_real_ip", r.Header.Get("X-Real-IP")).
 		Str("method", r.Method).
 		Msg("YooKassa webhook received")
 
@@ -376,12 +377,16 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify IP using original TCP remote address (before RealIP middleware).
-	// This prevents X-Forwarded-For header spoofing to bypass IP verification.
+	// Verify IP using the client IP resolved by RealIP middleware.
+	// Behind a trusted reverse proxy (nginx), r.RemoteAddr is set from
+	// X-Real-IP header which nginx populates from PROXY protocol.
 	if !s.cfg.YooKassa.TestMode {
-		originalIP := getOriginalRemoteAddr(r)
-		if !payment.IsYooKassaIP(originalIP) {
-			s.log.Warn().Str("ip", originalIP).Str("remote_addr", r.RemoteAddr).Msg("Webhook from unauthorized IP")
+		if !payment.IsYooKassaIP(r.RemoteAddr) {
+			s.log.Warn().
+				Str("remote_addr", r.RemoteAddr).
+				Str("x_real_ip", r.Header.Get("X-Real-IP")).
+				Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
+				Msg("Webhook from unauthorized IP")
 			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
