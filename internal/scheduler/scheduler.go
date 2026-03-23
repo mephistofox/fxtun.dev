@@ -183,8 +183,8 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Skip subscriptions managed by Stripe - renewals are handled by Stripe Billing webhooks
-		if sub.StripeSubscriptionID != nil && *sub.StripeSubscriptionID != "" {
+		// Skip subscriptions managed by Creem - renewals are handled by Creem webhooks
+		if sub.CreemSubscriptionID != nil && *sub.CreemSubscriptionID != "" {
 			continue
 		}
 

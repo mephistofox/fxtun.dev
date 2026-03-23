@@ -242,7 +242,7 @@ func (s *Server) setupRoutes() {
 		// Payment callbacks (public, from YooKassa)
 		r.Route("/payments", func(r chi.Router) {
 			r.Post("/webhook", s.handlePaymentWebhook)        // YooKassa webhook
-			r.Post("/webhook/stripe", s.handleStripeWebhook)   // Stripe webhook
+			r.Post("/webhook/creem", s.handleCreemWebhook)     // Creem webhook
 			r.Get("/success", s.handlePaymentSuccess)          // Return URL redirect
 			r.Get("/fail", s.handlePaymentFail)                // Fail redirect
 		})

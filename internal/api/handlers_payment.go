@@ -83,7 +83,7 @@ func (s *Server) isPaymentEnabledForDomain(host string) (bool, string) {
 	}
 
 	// Default: enabled if any provider is enabled
-	return s.cfg.YooKassa.Enabled || s.cfg.Stripe.Enabled, "payments are not enabled"
+	return s.cfg.YooKassa.Enabled || s.cfg.Creem.Enabled, "payments are not enabled"
 }
 
 // getPaymentProvider resolves the payment provider for the given host
@@ -189,9 +189,9 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stripe Billing manages renewal itself, so always mark as recurring
+	// Creem manages subscriptions itself, so always mark as recurring
 	recurring := req.Recurring
-	if provider.Name() == "stripe" {
+	if provider.Name() == "creem" {
 		recurring = true
 	}
 
@@ -221,7 +221,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	providerName := provider.Name()
 
 	switch providerName {
-	case "stripe":
+	case "creem":
 		amount = plan.Price // USD
 		currency = "USD"
 	default: // yookassa
@@ -247,6 +247,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 
 	// Create checkout session via provider
 	result, err := provider.CreateCheckoutSession(payment.CheckoutParams{
+		ProductID:      plan.CreemProductID,
 		InvoiceID:      invoiceID,
 		UserID:         user.ID,
 		SubscriptionID: sub.ID,
@@ -271,11 +272,11 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		s.log.Error().Err(err).Msg("Failed to update payment with provider data")
 	}
 
-	// For Stripe: save customer ID on subscription
-	if providerName == "stripe" && result.ProviderCustomerID != "" {
-		sub.StripeCustomerID = &result.ProviderCustomerID
+	// For Creem: save customer ID on subscription
+	if providerName == "creem" && result.ProviderCustomerID != "" {
+		sub.CreemCustomerID = &result.ProviderCustomerID
 		if err := s.db.Subscriptions.Update(sub); err != nil {
-			s.log.Error().Err(err).Msg("Failed to save Stripe customer ID")
+			s.log.Error().Err(err).Msg("Failed to save Creem customer ID")
 		}
 	}
 
@@ -799,16 +800,16 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	// Clear payment method to prevent autopayments
 	sub.YooKassaPaymentMethodID = nil
 
-	// Cancel Stripe subscription if applicable
-	if sub.StripeSubscriptionID != nil && *sub.StripeSubscriptionID != "" {
+	// Cancel Creem subscription if applicable
+	if sub.CreemSubscriptionID != nil && *sub.CreemSubscriptionID != "" {
 		if provider, err := s.getPaymentProvider(r.Host); err == nil {
-			if cancelErr := provider.CancelSubscription(*sub.StripeSubscriptionID); cancelErr != nil {
-				s.log.Error().Err(cancelErr).Msg("Failed to cancel Stripe subscription")
+			if cancelErr := provider.CancelSubscription(*sub.CreemSubscriptionID); cancelErr != nil {
+				s.log.Error().Err(cancelErr).Msg("Failed to cancel Creem subscription")
 				s.respondError(w, http.StatusInternalServerError, "failed to cancel subscription")
 				return
 			}
 		}
-		sub.StripeSubscriptionID = nil
+		sub.CreemSubscriptionID = nil
 	}
 
 	if err := s.db.Subscriptions.Update(sub); err != nil {
@@ -930,28 +931,26 @@ func (s *Server) handleGetPayments(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleStripeWebhook handles Stripe webhook notifications
-func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
-	s.log.Info().
-		Str("remote_addr", r.RemoteAddr).
-		Msg("Stripe webhook received")
+// handleCreemWebhook handles Creem webhook notifications
+func (s *Server) handleCreemWebhook(w http.ResponseWriter, r *http.Request) {
+	s.log.Info().Msg("Creem webhook received")
 
-	if !s.cfg.Stripe.Enabled {
-		http.Error(w, "stripe payments disabled", http.StatusServiceUnavailable)
+	if !s.cfg.Creem.Enabled {
+		http.Error(w, "creem payments disabled", http.StatusServiceUnavailable)
 		return
 	}
 
-	provider, err := s.paymentProviders.Get("stripe")
+	provider, err := s.paymentProviders.Get("creem")
 	if err != nil {
-		s.log.Error().Err(err).Msg("Stripe provider not registered")
-		http.Error(w, "stripe not configured", http.StatusInternalServerError)
+		s.log.Error().Err(err).Msg("Creem provider not registered")
+		http.Error(w, "creem not configured", http.StatusInternalServerError)
 		return
 	}
 
 	events, err := provider.HandleWebhook(r)
 	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to handle Stripe webhook")
-		http.Error(w, "webhook processing failed", http.StatusBadRequest)
+		s.log.Error().Err(err).Msg("Failed to handle Creem webhook")
+		http.Error(w, "webhook error", http.StatusBadRequest)
 		return
 	}
 
@@ -959,34 +958,33 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		s.log.Info().
 			Str("type", string(evt.Type)).
 			Int64("invoice_id", evt.InvoiceID).
-			Str("provider_payment_id", evt.ProviderPaymentID).
-			Msg("Stripe webhook event")
+			Msg("Creem webhook event")
 
 		switch evt.Type {
 		case payment.WebhookEventPaymentSucceeded:
-			s.handleStripePaymentSucceeded(evt)
+			s.handleCreemPaymentSucceeded(evt)
 		case payment.WebhookEventSubscriptionRenewed:
-			s.handleStripeSubscriptionRenewed(evt)
+			s.handleCreemSubscriptionRenewed(evt)
 		case payment.WebhookEventPaymentFailed:
-			s.handleStripePaymentFailed(evt)
+			s.handleCreemPaymentFailed(evt)
 		case payment.WebhookEventSubscriptionDeleted:
-			s.handleStripeSubscriptionDeleted(evt)
+			s.handleCreemSubscriptionDeleted(evt)
 		}
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
-// handleStripePaymentSucceeded handles checkout.session.completed from Stripe
-func (s *Server) handleStripePaymentSucceeded(evt payment.WebhookEvent) {
+// handleCreemPaymentSucceeded handles payment succeeded event from Creem
+func (s *Server) handleCreemPaymentSucceeded(evt payment.WebhookEvent) {
 	if evt.InvoiceID == 0 {
-		s.log.Warn().Str("payment_id", evt.ProviderPaymentID).Msg("No invoice_id in Stripe event")
+		s.log.Warn().Str("payment_id", evt.ProviderPaymentID).Msg("No invoice_id in Creem event")
 		return
 	}
 
 	pmt, err := s.db.Payments.GetByInvoiceID(evt.InvoiceID)
 	if err != nil || pmt == nil {
-		s.log.Error().Err(err).Int64("invoice_id", evt.InvoiceID).Msg("Payment not found for Stripe event")
+		s.log.Error().Err(err).Int64("invoice_id", evt.InvoiceID).Msg("Payment not found for Creem event")
 		return
 	}
 
@@ -1004,32 +1002,32 @@ func (s *Server) handleStripePaymentSucceeded(evt payment.WebhookEvent) {
 		return
 	}
 
-	// Activate subscription and save Stripe IDs
+	// Activate subscription and save Creem IDs
 	if pmt.SubscriptionID != nil {
 		sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
 		if err == nil && sub != nil {
 			if evt.ProviderCustomerID != "" {
-				sub.StripeCustomerID = &evt.ProviderCustomerID
+				sub.CreemCustomerID = &evt.ProviderCustomerID
 			}
 			if evt.ProviderSubscriptionID != "" {
-				sub.StripeSubscriptionID = &evt.ProviderSubscriptionID
+				sub.CreemSubscriptionID = &evt.ProviderSubscriptionID
 			}
-			s.activateSubscription(sub, pmt, "stripe")
+			s.activateSubscription(sub, pmt, "creem")
 		}
 	}
 }
 
-// handleStripeSubscriptionRenewed handles invoice.payment_succeeded (renewal) from Stripe
-func (s *Server) handleStripeSubscriptionRenewed(evt payment.WebhookEvent) {
+// handleCreemSubscriptionRenewed handles subscription renewed event from Creem
+func (s *Server) handleCreemSubscriptionRenewed(evt payment.WebhookEvent) {
 	if evt.ProviderSubscriptionID == "" {
-		s.log.Warn().Msg("No subscription ID in Stripe renewal event")
+		s.log.Warn().Msg("No subscription ID in Creem renewal event")
 		return
 	}
 
-	// Find subscription by Stripe subscription ID
-	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	// Find subscription by Creem subscription ID
+	sub, err := s.db.Subscriptions.GetByCreemSubscriptionID(evt.ProviderSubscriptionID)
 	if err != nil || sub == nil {
-		s.log.Error().Err(err).Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for Stripe renewal")
+		s.log.Error().Err(err).Str("creem_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for Creem renewal")
 		return
 	}
 
@@ -1048,57 +1046,57 @@ func (s *Server) handleStripeSubscriptionRenewed(evt payment.WebhookEvent) {
 	s.log.Info().
 		Int64("subscription_id", sub.ID).
 		Int64("user_id", sub.UserID).
-		Str("stripe_subscription_id", evt.ProviderSubscriptionID).
-		Msg("Subscription renewed via Stripe")
+		Str("creem_subscription_id", evt.ProviderSubscriptionID).
+		Msg("Subscription renewed via Creem")
 
 	_ = s.db.Audit.Log(&sub.UserID, "subscription_renewed", map[string]interface{}{
-		"subscription_id":        sub.ID,
-		"stripe_subscription_id": evt.ProviderSubscriptionID,
-		"plan_id":                sub.PlanID,
-		"amount":                 evt.Amount,
+		"subscription_id":       sub.ID,
+		"creem_subscription_id": evt.ProviderSubscriptionID,
+		"plan_id":               sub.PlanID,
+		"amount":                evt.Amount,
 	}, "webhook")
 }
 
-// handleStripePaymentFailed handles invoice.payment_failed from Stripe
-func (s *Server) handleStripePaymentFailed(evt payment.WebhookEvent) {
+// handleCreemPaymentFailed handles payment failed event from Creem
+func (s *Server) handleCreemPaymentFailed(evt payment.WebhookEvent) {
 	if evt.ProviderSubscriptionID == "" {
 		return
 	}
 
-	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	sub, err := s.db.Subscriptions.GetByCreemSubscriptionID(evt.ProviderSubscriptionID)
 	if err != nil || sub == nil {
-		s.log.Warn().Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for failed payment")
+		s.log.Warn().Str("creem_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for failed payment")
 		return
 	}
 
 	s.log.Warn().
 		Int64("subscription_id", sub.ID).
 		Int64("user_id", sub.UserID).
-		Msg("Stripe payment failed")
+		Msg("Creem payment failed")
 
 	_ = s.db.Audit.Log(&sub.UserID, "payment_failed", map[string]interface{}{
-		"subscription_id":        sub.ID,
-		"stripe_subscription_id": evt.ProviderSubscriptionID,
-		"provider":               "stripe",
+		"subscription_id":       sub.ID,
+		"creem_subscription_id": evt.ProviderSubscriptionID,
+		"provider":              "creem",
 	}, "webhook")
 }
 
-// handleStripeSubscriptionDeleted handles customer.subscription.deleted from Stripe
-func (s *Server) handleStripeSubscriptionDeleted(evt payment.WebhookEvent) {
+// handleCreemSubscriptionDeleted handles subscription deleted event from Creem
+func (s *Server) handleCreemSubscriptionDeleted(evt payment.WebhookEvent) {
 	if evt.ProviderSubscriptionID == "" {
 		return
 	}
 
-	sub, err := s.db.Subscriptions.GetByStripeSubscriptionID(evt.ProviderSubscriptionID)
+	sub, err := s.db.Subscriptions.GetByCreemSubscriptionID(evt.ProviderSubscriptionID)
 	if err != nil || sub == nil {
-		s.log.Warn().Str("stripe_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for deletion")
+		s.log.Warn().Str("creem_sub_id", evt.ProviderSubscriptionID).Msg("Subscription not found for deletion")
 		return
 	}
 
 	sub.Status = database.SubscriptionStatusExpired
-	sub.StripeSubscriptionID = nil
+	sub.CreemSubscriptionID = nil
 	if err := s.db.Subscriptions.Update(sub); err != nil {
-		s.log.Error().Err(err).Msg("Failed to update subscription after Stripe deletion")
+		s.log.Error().Err(err).Msg("Failed to update subscription after Creem deletion")
 		return
 	}
 
@@ -1114,11 +1112,11 @@ func (s *Server) handleStripeSubscriptionDeleted(evt payment.WebhookEvent) {
 	s.log.Info().
 		Int64("subscription_id", sub.ID).
 		Int64("user_id", sub.UserID).
-		Msg("Subscription deleted via Stripe webhook")
+		Msg("Subscription deleted via Creem webhook")
 
 	_ = s.db.Audit.Log(&sub.UserID, "subscription_expired", map[string]interface{}{
-		"subscription_id":        sub.ID,
-		"stripe_subscription_id": evt.ProviderSubscriptionID,
-		"reason":                 "stripe_subscription_deleted",
+		"subscription_id":       sub.ID,
+		"creem_subscription_id": evt.ProviderSubscriptionID,
+		"reason":                "creem_subscription_deleted",
 	}, "webhook")
 }
