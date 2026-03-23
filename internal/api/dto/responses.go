@@ -369,7 +369,7 @@ type PaymentDTO struct {
 // currencyForProvider returns the currency used by the given payment provider
 func currencyForProvider(provider string) string {
 	switch provider {
-	case "stripe":
+	case "creem":
 		return "USD"
 	default:
 		return "RUB"
