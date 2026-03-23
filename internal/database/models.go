@@ -38,9 +38,10 @@ type Plan struct {
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
-	RateLimitTCP       int     `json:"rate_limit_tcp"`  // TCP connections per tunnel per minute (0=default, -1=unlimited)
-	RateLimitUDP       int     `json:"rate_limit_udp"`  // UDP packets per tunnel per second (0=default, -1=unlimited)
-	RateLimitHTTP      int     `json:"rate_limit_http"` // HTTP requests per tunnel per minute (0=default, -1=unlimited)
+	RateLimitTCP       int     `json:"rate_limit_tcp"`        // TCP connections per tunnel per minute (0=default, -1=unlimited)
+	RateLimitUDP       int     `json:"rate_limit_udp"`        // UDP packets per tunnel per second (0=default, -1=unlimited)
+	RateLimitHTTP      int     `json:"rate_limit_http"`       // HTTP requests per tunnel per minute (0=default, -1=unlimited)
+	CreemProductID     string  `json:"creem_product_id,omitempty"`
 }
 
 // ReservedDomain represents a subdomain reserved by a user
@@ -252,8 +253,8 @@ type Subscription struct {
 	CurrentPeriodStart       *time.Time         `json:"current_period_start,omitempty"`
 	CurrentPeriodEnd         *time.Time         `json:"current_period_end,omitempty"`
 	YooKassaPaymentMethodID  *string            `json:"yookassa_payment_method_id,omitempty"`
-	StripeCustomerID         *string            `json:"stripe_customer_id,omitempty"`
-	StripeSubscriptionID     *string            `json:"stripe_subscription_id,omitempty"`
+	CreemCustomerID          *string            `json:"creem_customer_id,omitempty"`
+	CreemSubscriptionID      *string            `json:"creem_subscription_id,omitempty"`
 	CreatedAt                time.Time          `json:"created_at"`
 	UpdatedAt                time.Time          `json:"updated_at"`
 }

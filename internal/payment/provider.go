@@ -4,6 +4,7 @@ import "net/http"
 
 // CheckoutParams contains parameters for creating a checkout session
 type CheckoutParams struct {
+	ProductID      string // Creem product ID (from plans.creem_product_id)
 	InvoiceID      int64
 	UserID         int64
 	SubscriptionID int64
@@ -20,8 +21,8 @@ type CheckoutParams struct {
 type CheckoutResult struct {
 	PaymentURL             string            // URL to redirect user to
 	ProviderPaymentID      string            // Provider-specific payment ID
-	ProviderCustomerID     string            // Provider-specific customer ID (Stripe only)
-	ProviderSubscriptionID string            // Provider-specific subscription ID (Stripe only)
+	ProviderCustomerID     string            // Provider-specific customer ID
+	ProviderSubscriptionID string            // Provider-specific subscription ID
 	Metadata               map[string]string // Additional provider-specific data
 }
 
