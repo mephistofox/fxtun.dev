@@ -26,7 +26,7 @@ type ServerConfig struct {
 	CustomDomains CustomDomainSettings `mapstructure:"custom_domains"`
 	OAuth         OAuthSettings        `mapstructure:"oauth"`
 	YooKassa      YooKassaSettings     `mapstructure:"yookassa"`
-	Stripe        StripeSettings       `mapstructure:"stripe"`
+	Creem         CreemSettings         `mapstructure:"creem"`
 	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
@@ -199,10 +199,10 @@ type YooKassaSettings struct {
 	ReturnURL string `mapstructure:"return_url"`
 }
 
-// StripeSettings contains Stripe payment configuration
-type StripeSettings struct {
+// CreemSettings contains Creem.io payment configuration
+type CreemSettings struct {
 	Enabled       bool   `mapstructure:"enabled"`
-	SecretKey     string `mapstructure:"secret_key"`
+	APIKey        string `mapstructure:"api_key"`
 	WebhookSecret string `mapstructure:"webhook_secret"`
 	TestMode      bool   `mapstructure:"test_mode"`
 	SuccessURL    string `mapstructure:"success_url"`
@@ -290,8 +290,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("inspect.max_body_size", 262144)
 	v.SetDefault("yookassa.enabled", false)
 	v.SetDefault("yookassa.test_mode", false)
-	v.SetDefault("stripe.enabled", false)
-	v.SetDefault("stripe.test_mode", false)
+	v.SetDefault("creem.enabled", false)
+	v.SetDefault("creem.test_mode", false)
 	v.SetDefault("smtp.enabled", false)
 	v.SetDefault("smtp.port", 587)
 	v.SetDefault("smtp.ssl_port", 465)
