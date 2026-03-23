@@ -94,6 +94,24 @@ totp:
   # Auto-generated if empty (TOTP secrets will be lost on restart!)
   encryption_key: ""
 
+# Creem.io payment settings (international payments)
+creem:
+  # Enable Creem.io payment integration
+  enabled: false
+
+  # Creem API key (from https://creem.io dashboard)
+  api_key: ""
+
+  # Webhook secret for verifying Creem webhook signatures
+  webhook_secret: ""
+
+  # Enable test mode (uses Creem sandbox)
+  test_mode: false
+
+  # Redirect URLs after payment
+  success_url: "https://tunnel.example.com/payments/success"
+  cancel_url: "https://tunnel.example.com/payments/fail"
+
 # Client downloads settings
 downloads:
   # Enable client downloads via web panel
