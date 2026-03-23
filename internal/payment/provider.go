@@ -56,7 +56,7 @@ type WebhookEvent struct {
 
 // Provider defines the interface for payment providers
 type Provider interface {
-	// Name returns the provider name (e.g., "yookassa", "stripe")
+	// Name returns the provider name (e.g., "yookassa", "creem")
 	Name() string
 
 	// CreateCheckoutSession creates a new checkout/payment session

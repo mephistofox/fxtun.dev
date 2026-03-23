@@ -210,7 +210,7 @@ func TestAdminNotifier_NotifyNewSubscription(t *testing.T) {
 	bot.apiURL = srv.URL
 
 	notifier := NewAdminNotifier(bot, "12345")
-	notifier.NotifyNewSubscription(7, "Alice", "Pro", 9.99, "stripe")
+	notifier.NotifyNewSubscription(7, "Alice", "Pro", 9.99, "creem")
 
 	text := getText()
 
@@ -220,7 +220,7 @@ func TestAdminNotifier_NotifyNewSubscription(t *testing.T) {
 		"ID: 7",
 		"Pro",
 		"9.99",
-		"stripe",
+		"creem",
 	}
 	for _, c := range checks {
 		if !strings.Contains(text, c) {
