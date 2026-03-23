@@ -18,7 +18,7 @@ const lines = computed<TerminalLine[]>(() => [
   { type: 'url', text: `https://myapp.${domain.value} → localhost:3000`, delay: 200 },
   { type: 'output', text: '', delay: 400 },
   { type: 'info', text: 'GET  /api/health          200  12ms', delay: 800 },
-  { type: 'info', text: 'POST /api/webhooks/stripe  200  45ms', delay: 600 },
+  { type: 'info', text: 'POST /api/webhooks/creem   200  45ms', delay: 600 },
   { type: 'info', text: 'GET  /dashboard            200   8ms', delay: 500 },
 ])
 
