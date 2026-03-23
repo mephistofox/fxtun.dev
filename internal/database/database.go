@@ -139,6 +139,7 @@ func (d *Database) migrate() error {
 		migrationAddPlanBandwidth,
 		migrationAddStripeSupport,
 		migrationAddFirstTunnelAt,
+		migrationAddCreemSupport,
 	}
 
 	// Bootstrap: if users table exists but schema_migrations is empty,
@@ -544,4 +545,10 @@ UPDATE payments SET provider_data = yookassa_data WHERE yookassa_data IS NOT NUL
 
 const migrationAddFirstTunnelAt = `
 ALTER TABLE users ADD COLUMN first_tunnel_at DATETIME;
+`
+
+const migrationAddCreemSupport = `
+ALTER TABLE plans ADD COLUMN creem_product_id TEXT DEFAULT '';
+ALTER TABLE subscriptions ADD COLUMN creem_customer_id TEXT;
+ALTER TABLE subscriptions ADD COLUMN creem_subscription_id TEXT;
 `
