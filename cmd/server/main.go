@@ -269,20 +269,20 @@ func run(cmd *cobra.Command, args []string) error {
 			})
 			providers.Register(yookassa)
 		}
-		if cfg.Stripe.Enabled {
-			stripeProvider := payment.NewStripe(payment.StripeConfig{
-				SecretKey:     cfg.Stripe.SecretKey,
-				WebhookSecret: cfg.Stripe.WebhookSecret,
-				TestMode:      cfg.Stripe.TestMode,
-				SuccessURL:    cfg.Stripe.SuccessURL,
-				CancelURL:     cfg.Stripe.CancelURL,
+		if cfg.Creem.Enabled {
+			creemProvider := payment.NewCreem(payment.CreemConfig{
+				APIKey:        cfg.Creem.APIKey,
+				WebhookSecret: cfg.Creem.WebhookSecret,
+				TestMode:      cfg.Creem.TestMode,
+				SuccessURL:    cfg.Creem.SuccessURL,
+				CancelURL:     cfg.Creem.CancelURL,
 			})
-			providers.Register(stripeProvider)
+			providers.Register(creemProvider)
 		}
 		apiServer.SetPaymentProviders(providers)
 
 		// Start subscription scheduler if payments are enabled
-		if cfg.YooKassa.Enabled || cfg.Stripe.Enabled {
+		if cfg.YooKassa.Enabled || cfg.Creem.Enabled {
 			subscriptionScheduler := scheduler.New(db, cfg, providers, log)
 
 			// Register event handler for logging

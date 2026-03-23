@@ -33,15 +33,15 @@ func NewNotifier(email *Service, db *database.Database, baseURL, baseURLEN, supp
 }
 
 // detectLang determines the email language from the subscription's payment provider.
-// Stripe subscriptions → English, everything else → Russian.
+// Creem subscriptions → English, everything else → Russian.
 func detectLang(sub *database.Subscription) string {
 	if sub == nil {
 		return "ru"
 	}
-	if sub.StripeSubscriptionID != nil && *sub.StripeSubscriptionID != "" {
+	if sub.CreemSubscriptionID != nil && *sub.CreemSubscriptionID != "" {
 		return "en"
 	}
-	if sub.StripeCustomerID != nil && *sub.StripeCustomerID != "" {
+	if sub.CreemCustomerID != nil && *sub.CreemCustomerID != "" {
 		return "en"
 	}
 	return "ru"
@@ -49,7 +49,7 @@ func detectLang(sub *database.Subscription) string {
 
 // detectLangByProvider returns the language for a given payment provider name.
 func detectLangByProvider(provider string) string {
-	if provider == "stripe" {
+	if provider == "creem" {
 		return "en"
 	}
 	return "ru"
