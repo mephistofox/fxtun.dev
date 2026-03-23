@@ -32,6 +32,7 @@ const defaultForm = {
   rate_limit_tcp: 0,
   rate_limit_udp: 0,
   rate_limit_http: 0,
+  creem_product_id: '',
 }
 
 const form = ref({ ...defaultForm })
@@ -134,6 +135,7 @@ function startEdit(plan: Plan) {
     rate_limit_tcp: plan.rate_limit_tcp,
     rate_limit_udp: plan.rate_limit_udp,
     rate_limit_http: plan.rate_limit_http,
+    creem_product_id: plan.creem_product_id || '',
   }
 }
 
@@ -320,6 +322,15 @@ onMounted(loadPlans)
               </div>
             </div>
 
+            <!-- Creem Product ID -->
+            <div v-if="plan.creem_product_id" class="mb-4">
+              <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                <span class="text-xs text-muted-foreground">{{ t('admin.plans.creemProductId') }}</span>
+                <span class="text-xs font-mono text-foreground ml-auto truncate max-w-[140px]" :title="plan.creem_product_id">{{ plan.creem_product_id }}</span>
+              </div>
+            </div>
+
             <!-- Actions -->
             <div class="flex items-center gap-2 pt-3 border-t border-border">
               <Button variant="outline" size="xs" @click="startEdit(plan)" class="flex-1">
@@ -406,6 +417,13 @@ onMounted(loadPlans)
                 </div>
               </div>
               <p class="text-xs text-muted-foreground">{{ t('admin.plans.rateLimitHint') }}</p>
+
+              <!-- Creem Product ID -->
+              <div class="space-y-1">
+                <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.creemProductId') }}</label>
+                <Input v-model="form.creem_product_id" placeholder="prod_xxx" />
+                <p class="text-xs text-muted-foreground">{{ t('admin.plans.creemProductIdHint') }}</p>
+              </div>
 
               <!-- Visibility settings -->
               <div class="grid grid-cols-2 gap-2">
@@ -512,6 +530,13 @@ onMounted(loadPlans)
                   </div>
                 </div>
                 <p class="text-xs text-muted-foreground">{{ t('admin.plans.rateLimitHint') }}</p>
+
+                <!-- Creem Product ID -->
+                <div class="space-y-1">
+                  <label class="text-xs font-medium text-muted-foreground">{{ t('admin.plans.creemProductId') }}</label>
+                  <Input v-model="form.creem_product_id" placeholder="prod_xxx" />
+                  <p class="text-xs text-muted-foreground">{{ t('admin.plans.creemProductIdHint') }}</p>
+                </div>
 
                 <!-- Visibility settings -->
                 <div class="grid grid-cols-2 gap-3">

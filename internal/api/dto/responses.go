@@ -39,6 +39,7 @@ type PlanDTO struct {
 	RateLimitTCP       int     `json:"rate_limit_tcp"`
 	RateLimitUDP       int     `json:"rate_limit_udp"`
 	RateLimitHTTP      int     `json:"rate_limit_http"`
+	CreemProductID     string  `json:"creem_product_id"`
 }
 
 // PlanFromModel converts a database Plan to PlanDTO
@@ -64,6 +65,7 @@ func PlanFromModel(p *database.Plan) *PlanDTO {
 		RateLimitTCP:       p.RateLimitTCP,
 		RateLimitUDP:       p.RateLimitUDP,
 		RateLimitHTTP:      p.RateLimitHTTP,
+		CreemProductID:     p.CreemProductID,
 	}
 }
 
