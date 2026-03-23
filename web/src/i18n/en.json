@@ -918,7 +918,14 @@
       "public": "Public",
       "recommended": "Recommended",
       "isPublic": "Show on Landing",
-      "isRecommended": "Recommended"
+      "isRecommended": "Recommended",
+      "rateLimitTcp": "TCP Limit",
+      "rateLimitUdp": "UDP Limit",
+      "rateLimitHttp": "HTTP Limit",
+      "rateLimitHint": "0 = default, -1 = unlimited, >0 = limit per minute",
+      "free": "Free",
+      "creemProductId": "Creem Product ID",
+      "creemProductIdHint": "Product ID from Creem.io dashboard for international payments"
     },
     "customDomains": {
       "title": "Custom Domains",
