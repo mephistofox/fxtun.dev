@@ -918,7 +918,14 @@
       "public": "Публичный",
       "recommended": "Рекомендуемый",
       "isPublic": "Показать на лендинге",
-      "isRecommended": "Рекомендуемый"
+      "isRecommended": "Рекомендуемый",
+      "rateLimitTcp": "TCP лимит",
+      "rateLimitUdp": "UDP лимит",
+      "rateLimitHttp": "HTTP лимит",
+      "rateLimitHint": "0 = по умолчанию, -1 = безлимит, >0 = лимит в минуту",
+      "free": "Бесплатный",
+      "creemProductId": "Creem Product ID",
+      "creemProductIdHint": "ID продукта из Creem.io для международных платежей"
     },
     "customDomains": {
       "title": "Кастомные домены",
