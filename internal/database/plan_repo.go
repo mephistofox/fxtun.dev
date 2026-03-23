@@ -34,11 +34,12 @@ func (r *PlanRepository) scanPlan(row interface{ Scan(dest ...any) error }) (*Pl
 		&plan.RateLimitTCP,
 		&plan.RateLimitUDP,
 		&plan.RateLimitHTTP,
+		&plan.CreemProductID,
 	)
 	return plan, err
 }
 
-const planColumns = `id, slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended, rate_limit_tcp, rate_limit_udp, rate_limit_http`
+const planColumns = `id, slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended, rate_limit_tcp, rate_limit_udp, rate_limit_http, creem_product_id`
 
 // GetByID retrieves a plan by ID
 func (r *PlanRepository) GetByID(id int64) (*Plan, error) {
@@ -83,8 +84,8 @@ func (r *PlanRepository) List() ([]*Plan, error) {
 // Create creates a new plan
 func (r *PlanRepository) Create(plan *Plan) error {
 	query := `
-		INSERT INTO plans (slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended, rate_limit_tcp, rate_limit_udp, rate_limit_http)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO plans (slug, name, price, max_tunnels, max_domains, max_custom_domains, max_tokens, max_tunnels_per_token, bandwidth_mbps, inspector_enabled, is_public, is_recommended, rate_limit_tcp, rate_limit_udp, rate_limit_http, creem_product_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	result, err := r.db.Exec(query,
 		plan.Slug,
@@ -102,6 +103,7 @@ func (r *PlanRepository) Create(plan *Plan) error {
 		plan.RateLimitTCP,
 		plan.RateLimitUDP,
 		plan.RateLimitHTTP,
+		plan.CreemProductID,
 	)
 	if err != nil {
 		return fmt.Errorf("create plan: %w", err)
@@ -121,7 +123,7 @@ func (r *PlanRepository) Update(plan *Plan) error {
 		UPDATE plans SET slug = ?, name = ?, price = ?, max_tunnels = ?, max_domains = ?,
 		max_custom_domains = ?, max_tokens = ?, max_tunnels_per_token = ?, bandwidth_mbps = ?,
 		inspector_enabled = ?, is_public = ?, is_recommended = ?,
-		rate_limit_tcp = ?, rate_limit_udp = ?, rate_limit_http = ?
+		rate_limit_tcp = ?, rate_limit_udp = ?, rate_limit_http = ?, creem_product_id = ?
 		WHERE id = ?
 	`
 	result, err := r.db.Exec(query,
@@ -140,6 +142,7 @@ func (r *PlanRepository) Update(plan *Plan) error {
 		plan.RateLimitTCP,
 		plan.RateLimitUDP,
 		plan.RateLimitHTTP,
+		plan.CreemProductID,
 		plan.ID,
 	)
 	if err != nil {
