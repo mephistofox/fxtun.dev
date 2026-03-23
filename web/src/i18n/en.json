@@ -170,7 +170,7 @@
       "webhooks": {
         "title": "Webhooks",
         "desc": "Receive Stripe, GitHub, or Twilio webhooks on localhost. No more deploying to test payment flows.",
-        "command": "fxtunnel http 3000 --domain stripe-hooks"
+        "command": "fxtunnel http 3000 --domain payment-hooks"
       },
       "demos": {
         "title": "Client Demos",

@@ -136,7 +136,7 @@ const lastUpdated = '17.02.2026'
 
           <h3>2.2. Платёжные данные</h3>
           <p>
-            Для обработки платежей мы используем сторонних платёжных провайдеров (Stripe, ЮKassa).
+            Для обработки платежей мы используем сторонних платёжных провайдеров (Creem, ЮKassa).
             Мы <strong>не</strong> храним номера банковских карт, CVV-коды или полные платёжные реквизиты.
             Мы сохраняем только:
           </p>
@@ -205,7 +205,7 @@ const lastUpdated = '17.02.2026'
             </thead>
             <tbody>
               <tr>
-                <td class="pr-4 py-2">Stripe</td>
+                <td class="pr-4 py-2">Creem</td>
                 <td class="pr-4 py-2">Обработка платежей (международных)</td>
                 <td class="py-2">Имя, email, способ оплаты</td>
               </tr>
@@ -281,7 +281,7 @@ const lastUpdated = '17.02.2026'
           <h3>9.2. Трансграничная передача данных</h3>
           <p>
             Данные туннелей обрабатываются на серверах в Европе. Платёжные данные, обрабатываемые
-            Stripe, могут передаваться в США в рамках Соглашения об обработке данных и
+            Creem, могут передаваться за пределы ЕС в рамках Соглашения об обработке данных и
             соответствующих гарантий.
           </p>
 
@@ -367,7 +367,7 @@ const lastUpdated = '17.02.2026'
 
           <h3>2.2. Payment Information</h3>
           <p>
-            We use third-party payment processors (Stripe, YooKassa) to handle payments.
+            We use third-party payment processors (Creem, YooKassa) to handle payments.
             We do <strong>not</strong> store your credit card numbers, CVVs, or full payment details.
             We only retain:
           </p>
@@ -436,7 +436,7 @@ const lastUpdated = '17.02.2026'
             </thead>
             <tbody>
               <tr>
-                <td class="pr-4 py-2">Stripe</td>
+                <td class="pr-4 py-2">Creem</td>
                 <td class="pr-4 py-2">Payment processing (international)</td>
                 <td class="py-2">Name, email, payment method</td>
               </tr>
@@ -512,7 +512,7 @@ const lastUpdated = '17.02.2026'
           <h3>9.2. Cross-Border Data Transfers</h3>
           <p>
             Tunnel data is processed on servers located in Europe. Payment data processed by
-            Stripe may be transferred to the US under a Data Processing Agreement and
+            Creem may be transferred outside the EU under a Data Processing Agreement and
             appropriate safeguards.
           </p>
 

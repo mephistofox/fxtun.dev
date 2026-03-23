@@ -88,7 +88,7 @@ onMounted(() => {
           <p class="text-muted-foreground mt-2">{{ t('checkout.subtitle') }}</p>
         </div>
 
-        <!-- Subscription Warning (YooKassa only — Stripe always manages renewals) -->
+        <!-- Subscription Warning (YooKassa only — Creem always manages renewals) -->
       <div v-if="isRuDomain" class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
         <div class="flex items-start gap-3">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,7 +169,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Recurring toggle (YooKassa only — Stripe handles renewals automatically) -->
+      <!-- Recurring toggle (YooKassa only — Creem handles renewals automatically) -->
       <Card v-if="selectedPlan && isRuDomain" class="p-6 mt-6 opacity-50">
         <div class="flex items-center justify-between">
           <div>
@@ -217,7 +217,7 @@ onMounted(() => {
             <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
           </template>
           <template v-else>
-            <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Stripe</a>
+            <a href="https://creem.io" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Creem</a>
           </template>
         </p>
       </Card>
