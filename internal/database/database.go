@@ -138,6 +138,7 @@ func (d *Database) migrate() error {
 		migrationAddInspectHostUserIndex,
 		migrationAddPlanBandwidth,
 		migrationAddStripeSupport,
+		migrationAddPlanRateLimits,
 		migrationAddFirstTunnelAt,
 		migrationAddCreemSupport,
 	}
@@ -541,6 +542,12 @@ ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT;
 ALTER TABLE payments ADD COLUMN provider TEXT NOT NULL DEFAULT 'yookassa';
 ALTER TABLE payments ADD COLUMN provider_data TEXT;
 UPDATE payments SET provider_data = yookassa_data WHERE yookassa_data IS NOT NULL AND yookassa_data != '';
+`
+
+const migrationAddPlanRateLimits = `
+ALTER TABLE plans ADD COLUMN rate_limit_tcp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN rate_limit_udp INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN rate_limit_http INTEGER NOT NULL DEFAULT 0;
 `
 
 const migrationAddFirstTunnelAt = `
