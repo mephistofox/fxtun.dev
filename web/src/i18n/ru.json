@@ -170,7 +170,7 @@
       "webhooks": {
         "title": "Вебхуки",
         "desc": "Принимайте вебхуки Stripe, GitHub или Twilio на localhost. Больше не нужно деплоить для тестирования оплаты.",
-        "command": "fxtunnel http 3000 --domain stripe-hooks"
+        "command": "fxtunnel http 3000 --domain payment-hooks"
       },
       "demos": {
         "title": "Демо для клиентов",

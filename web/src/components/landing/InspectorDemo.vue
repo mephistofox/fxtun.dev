@@ -22,9 +22,9 @@ interface MockExchange {
 
 const mockPool: Omit<MockExchange, 'id' | 'timestamp' | 'isReplay'>[] = [
   {
-    method: 'POST', path: '/api/webhooks/stripe', status: 200, durationMs: 23,
-    reqHeaders: { 'Content-Type': 'application/json', 'Stripe-Signature': 'whsec_t2Lk9x...mN3Q' },
-    reqBody: '{\n  "type": "checkout.session.completed",\n  "data": {\n    "object": {\n      "id": "cs_live_a1B2c3",\n      "amount_total": 2500,\n      "currency": "usd"\n    }\n  }\n}',
+    method: 'POST', path: '/api/webhooks/creem', status: 200, durationMs: 23,
+    reqHeaders: { 'Content-Type': 'application/json', 'Creem-Signature': 'whsec_t2Lk9x...mN3Q' },
+    reqBody: '{\n  "event_type": "checkout.completed",\n  "data": {\n    "object": {\n      "id": "ch_live_a1B2c3",\n      "amount": 2500,\n      "currency": "usd"\n    }\n  }\n}',
     resHeaders: { 'Content-Type': 'application/json', 'X-Request-Id': 'req_8kL2mN' },
     resBody: '{ "received": true }'
   },
