@@ -509,11 +509,11 @@ func (s *Scheduler) downgradeToFreePlan(userID int64) error {
 	return s.db.Users.Update(user)
 }
 
-// cleanupStalePendingPayments deletes pending payments older than 72 hours.
-// Uses 72h window because YooKassa can retry webhooks for up to 24h,
-// and users may delay completing payment.
+// cleanupStalePendingPayments expires pending payments older than 1 hour.
+// Checkout sessions (Creem ~30min, YooKassa ~1h) expire quickly,
+// so pending records should be cleaned up to unblock users.
 func (s *Scheduler) cleanupStalePendingPayments() {
-	deleted, err := s.db.Payments.DeleteStalePending(72 * time.Hour)
+	deleted, err := s.db.Payments.DeleteStalePending(1 * time.Hour)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to cleanup stale pending payments")
 		return
