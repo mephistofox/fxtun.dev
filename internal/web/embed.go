@@ -58,6 +58,12 @@ func SPAHandler() http.Handler {
 			return
 		}
 
+		// Serve domain-aware robots.txt: keep only sitemaps for the current domain
+		if path == "/robots.txt" {
+			serveDomainRobots(w, r, filesystem)
+			return
+		}
+
 		// Domain-based root: serve ru.html for fxtun.ru/
 		if path == "/" && ruDomain {
 			if f, err := filesystem.Open("/ru.html"); err == nil {
@@ -159,4 +165,34 @@ func serveDomainSitemap(w http.ResponseWriter, filesystem http.FileSystem) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(replaced))
+}
+
+// serveDomainRobots reads robots.txt from the embedded FS and filters
+// sitemap references to only include the current domain's sitemaps.
+func serveDomainRobots(w http.ResponseWriter, r *http.Request, filesystem http.FileSystem) {
+	f, err := filesystem.Open("/robots.txt")
+	if err != nil {
+		http.Error(w, "robots.txt not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		http.Error(w, "failed to read robots.txt", http.StatusInternalServerError)
+		return
+	}
+
+	content := string(data)
+	if isRuDomain(r.Host) {
+		content = strings.ReplaceAll(content, "Sitemap: https://fxtun.dev/sitemap.xml\n", "")
+		content = strings.ReplaceAll(content, "Sitemap: https://fxtun.dev/blog/sitemap.xml\n", "")
+	} else {
+		content = strings.ReplaceAll(content, "Sitemap: https://fxtun.ru/sitemap.xml\n", "")
+		content = strings.ReplaceAll(content, "Sitemap: https://fxtun.ru/blog/sitemap.xml\n", "")
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(content))
 }
