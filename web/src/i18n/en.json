@@ -222,15 +222,15 @@
       "cfEcosystem": "CF ecosystem only",
       "values": {
         "fxtunnel": {
-          "price": "Free / $5/mo",
+          "price": "Free / from $2.50/mo",
           "freeSubdomain": "Any you choose",
           "requestLimits": "Unlimited",
           "sessionTimeout": "Unlimited",
           "protocols": "HTTP + TCP + UDP",
           "guiClient": "Yes",
-          "inspector": "From $5/mo",
+          "inspector": "From $2.50/mo",
           "selfHosted": "Yes",
-          "customDomains": "From $5/mo"
+          "customDomains": "From $2.50/mo"
         },
         "ngrok": {
           "price": "Free / $8/mo",
@@ -354,7 +354,7 @@
         },
         {
           "q": "How much does fxTunnel cost?",
-          "a": "fxTunnel has a free plan with 3 tunnels and any subdomain you want. Paid plans start at $5/month for more tunnels, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
+          "a": "fxTunnel has a free plan with 1 tunnel and any subdomain you want. Paid plans start at $2.50/month for more tunnels, reserved subdomains, custom domains, and the traffic inspector. There are no hidden fees."
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
@@ -794,7 +794,7 @@
     },
     "register": {
       "title": "Sign Up — fxTunnel",
-      "description": "Create a free fxTunnel account. Get 3 tunnels with custom subdomains, no bandwidth limits, no session timeout."
+      "description": "Create a free fxTunnel account. Get 1 tunnel with custom subdomain, no session timeout."
     },
     "offer": {
       "title": "Public Offer — fxTunnel",
@@ -810,7 +810,7 @@
     },
     "pricing": {
       "title": "Pricing Plans — fxTunnel {'|'} Free, Base & Pro",
-      "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels and no limits. Base from $5/mo with custom domains. Pro from $10/mo with 15 tunnels."
+      "description": "Compare fxTunnel pricing plans. Free plan with 1 tunnel. Starter from $2.50/mo. Base from $5/mo with custom domains. Pro from $7.50/mo with 15 tunnels."
     }
   },
   "notFound": {
