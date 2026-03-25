@@ -26,7 +26,6 @@ export default defineConfig({
         "/privacy": 0.5,
       },
       robots: [{ userAgent: "*", allow: "/" }],
-      readable: true,
     }),
   ],
   resolve: {
@@ -41,7 +40,7 @@ export default defineConfig({
   ssgOptions: {
     script: "async",
     formatting: "minify",
-    beastiesOptions: false,
+    beastiesOptions: {},
     includedRoutes() {
       const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
