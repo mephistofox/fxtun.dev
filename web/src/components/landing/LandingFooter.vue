@@ -33,7 +33,28 @@ const blogUrl = computed(() => getBlogUrl())
         </div>
 
         <!-- Links -->
-        <div class="flex items-center gap-6">
+        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <RouterLink to="/about" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('about.navTitle') }}
+          </RouterLink>
+          <RouterLink to="/pricing" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('landing.nav.pricing') }}
+          </RouterLink>
+          <RouterLink to="/compare/ngrok" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            vs ngrok
+          </RouterLink>
+          <RouterLink to="/compare/cloudflare" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            vs Cloudflare
+          </RouterLink>
+          <RouterLink to="/compare/tuna" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            vs tuna.am
+          </RouterLink>
+          <RouterLink to="/compare/xtunnel" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            vs xTunnel
+          </RouterLink>
+          <a :href="blogUrl" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('landing.nav.blog') }}
+          </a>
           <RouterLink
             v-if="showOffer"
             to="/offer"
@@ -48,18 +69,9 @@ const blogUrl = computed(() => getBlogUrl())
           >
             {{ t('legal.terms') }}
           </RouterLink>
-          <RouterLink
-            to="/privacy"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <RouterLink to="/privacy" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {{ t('legal.privacy') }}
           </RouterLink>
-          <a
-            :href="blogUrl"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {{ t('landing.nav.blog') }}
-          </a>
         </div>
 
         <!-- Copyright -->
