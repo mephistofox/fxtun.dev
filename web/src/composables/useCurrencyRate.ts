@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { getLocale } from '@/i18n'
 
-const FALLBACK_RATE = 75 // Fallback rate if API fails
+const FALLBACK_RATE = 80 // Fallback rate if API fails
 
 const usdToRubRate = ref<number | null>(null)
 const isLoading = ref(false)

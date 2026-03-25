@@ -30,6 +30,7 @@ type ServerConfig struct {
 	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
+	ExchangeRate  float64              `mapstructure:"exchange_rate"`
 }
 
 // ServerSettings contains network settings
@@ -297,6 +298,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("smtp.ssl_port", 465)
 	v.SetDefault("smtp.from_name", "fxTunnel")
 	v.SetDefault("telegram.enabled", false)
+	v.SetDefault("exchange_rate", 80.0)
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)
