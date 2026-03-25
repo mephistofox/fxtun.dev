@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "bash scripts/fetch-plans.sh",
     "build": "vue-tsc && vite-ssg build",
     "preview": "vite preview"
   },
