@@ -50,7 +50,7 @@ function displayLimit(val: number): string {
 function formatPrice(plan: Plan): string {
   if (plan.price === 0) return ''
   if (isRuDomain.value) {
-    const priceRub = plan.price_rub ?? plan.price * 75
+    const priceRub = plan.price_rub ?? plan.price * 80
     return `${Math.round(priceRub)} ₽`
   }
   return `$${plan.price}`
@@ -73,9 +73,9 @@ const commonFeatures = [
 if (import.meta.env.SSR) {
   plans.value = [
     { id: 1, slug: 'free', name: 'Free', price: 0, price_rub: 0, max_tunnels: 3, max_domains: 0, max_custom_domains: 0, max_tokens: 1, max_tunnels_per_token: 3, inspector_enabled: false, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 2, slug: 'base', name: 'Base', price: 5, price_rub: 385, max_tunnels: 5, max_domains: 5, max_custom_domains: 1, max_tokens: 5, max_tunnels_per_token: 5, inspector_enabled: true, is_recommended: true, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 3, slug: 'pro', name: 'Pro', price: 10, price_rub: 770, max_tunnels: 15, max_domains: 15, max_custom_domains: 5, max_tokens: 10, max_tunnels_per_token: 15, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 4, slug: 'business', name: 'Business', price: 15, price_rub: 1155, max_tunnels: 50, max_domains: 50, max_custom_domains: 50, max_tokens: 50, max_tunnels_per_token: 50, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
+    { id: 2, slug: 'base', name: 'Base', price: 5, price_rub: 400, max_tunnels: 5, max_domains: 5, max_custom_domains: 1, max_tokens: 5, max_tunnels_per_token: 5, inspector_enabled: true, is_recommended: true, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
+    { id: 3, slug: 'pro', name: 'Pro', price: 10, price_rub: 800, max_tunnels: 15, max_domains: 15, max_custom_domains: 5, max_tokens: 10, max_tunnels_per_token: 15, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
+    { id: 4, slug: 'business', name: 'Business', price: 15, price_rub: 1200, max_tunnels: 50, max_domains: 50, max_custom_domains: 50, max_tokens: 50, max_tunnels_per_token: 50, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
   ] as Plan[]
   loading.value = false
 }

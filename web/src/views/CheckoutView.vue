@@ -65,7 +65,7 @@ async function handleCheckout() {
 // Format price based on domain (fxtun.ru = RUB, fxtun.dev = USD)
 function formatPrice(plan: Plan) {
   if (isRuDomain.value) {
-    const priceRub = plan.price_rub ?? plan.price * 75
+    const priceRub = plan.price_rub ?? plan.price * 80
     return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(priceRub)
   }
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(plan.price)

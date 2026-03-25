@@ -237,9 +237,9 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 		}()
 
-		// Initialize exchange rate service
-		exchange.New(log)
-		log.Info().Msg("Exchange rate service initialized")
+		// Initialize exchange rate from config
+		exchange.Init(cfg.ExchangeRate)
+		log.Info().Float64("rate", cfg.ExchangeRate).Msg("Exchange rate initialized")
 
 		// Initialize email service
 		var emailService *email.Service
