@@ -15,7 +15,12 @@ const downloads = ref<Download[]>([])
 const loading = ref(true)
 const copied = ref(false)
 
-const installCommand = computed(() => `curl -fsSL https://${getBaseDomain()}/install.sh | sh`)
+const installCommand = computed(() => {
+  if (activeOS.value === 'windows') {
+    return `irm https://${getBaseDomain()}/install.ps1 | iex`
+  }
+  return `curl -fsSL https://${getBaseDomain()}/install.sh | sh`
+})
 
 const osTabs = [
   { key: 'linux' as const, label: 'Linux', osMatch: 'Linux' },
