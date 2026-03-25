@@ -62,11 +62,9 @@ export function useSeo(options: SeoOptions = {}) {
     return `https://${domain}${cleanPath.value}`
   })
 
-  // Show hreflang on non-prefixed routes AND on /ru, /en root landing pages.
-  // /ru is served as fxtun.ru root via domain-based pre-rendering, so it needs hreflang.
-  const showHreflang = computed(() =>
-    !isLangPrefix.value || route.path === '/ru' || route.path === '/en'
-  )
+  // Show hreflang on all routes — every page needs bidirectional hreflang
+  // for correct language targeting between fxtun.ru (ru) and fxtun.dev (en).
+  const showHreflang = computed(() => true)
 
   useHead({
     htmlAttrs: { lang: effectiveLocale },
