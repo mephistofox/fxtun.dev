@@ -39,6 +39,31 @@ const publicRoutes: RouteRecordRaw[] = [
     name: 'privacy',
     component: () => import('./views/PrivacyView.vue'),
   },
+  {
+    path: '/about',
+    name: 'about',
+    component: () => import('./views/AboutView.vue'),
+  },
+  {
+    path: '/compare/ngrok',
+    name: 'compare-ngrok',
+    component: () => import('./views/CompareNgrokView.vue'),
+  },
+  {
+    path: '/compare/cloudflare',
+    name: 'compare-cloudflare',
+    component: () => import('./views/CompareCloudflareView.vue'),
+  },
+  {
+    path: '/compare/tuna',
+    name: 'compare-tuna',
+    component: () => import('./views/CompareTunaView.vue'),
+  },
+  {
+    path: '/compare/xtunnel',
+    name: 'compare-xtunnel',
+    component: () => import('./views/CompareXtunnelView.vue'),
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
