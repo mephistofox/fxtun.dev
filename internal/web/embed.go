@@ -99,7 +99,12 @@ func SPAHandler() http.Handler {
 			}
 		}
 
-		// Fall back to SPA shell (ru.html for fxtun.ru, index.html for others)
+		// Only serve SPA shell for known client-side routes; return 404 for unknown paths
+		if !isKnownSPARoute(path) {
+			http.NotFound(w, r)
+			return
+		}
+
 		if ruDomain {
 			r.URL.Path = "/ru.html"
 		} else {
@@ -107,6 +112,31 @@ func SPAHandler() http.Handler {
 		}
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// spaRoutePrefixes lists paths that are handled by the Vue SPA router
+// and require the SPA shell (not pre-rendered by SSG).
+var spaRoutePrefixes = []string{
+	"/checkout",
+	"/dashboard",
+	"/inspect/",
+	"/domains",
+	"/tokens",
+	"/downloads",
+	"/profile",
+	"/auth/",
+	"/admin/",
+}
+
+// isKnownSPARoute checks if the path matches a known client-side route
+// that should receive the SPA shell instead of a 404.
+func isKnownSPARoute(path string) bool {
+	for _, prefix := range spaRoutePrefixes {
+		if path == prefix || strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // serveDomainSitemap reads sitemap.xml from the embedded FS, replaces
