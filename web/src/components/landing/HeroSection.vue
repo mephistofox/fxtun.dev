@@ -8,6 +8,7 @@ import TopoBackground from './TopoBackground.vue'
 const { t } = useI18n()
 
 const isVisible = ref(false)
+const isMounted = ref(false)
 const copied = ref(false)
 
 const quickCommand = 'fxtun http 3000'
@@ -19,6 +20,7 @@ function copyCommand() {
 }
 
 onMounted(() => {
+  isMounted.value = true
   setTimeout(() => {
     isVisible.value = true
   }, 100)
@@ -49,7 +51,7 @@ onMounted(() => {
         <!-- Left: Text Content (7 cols) -->
         <div
           class="lg:col-span-7 space-y-8"
-          :class="{ 'opacity-0': !isVisible }"
+          :class="{ 'opacity-0': isMounted && !isVisible }"
           :style="isVisible ? 'animation: fade-in-left 0.8s ease-out forwards' : ''"
         >
           <!-- Badge -->
@@ -97,7 +99,7 @@ onMounted(() => {
             >
               <span class="text-muted-foreground select-none">$</span>
               <span class="text-foreground/90">{{ quickCommand }}</span>
-              <button class="ml-2 text-muted-foreground hover:text-primary transition-colors" :aria-label="t('common.copy')">
+              <button class="ml-2 p-3 -m-3 text-muted-foreground hover:text-primary transition-colors" :aria-label="t('common.copy')">
                 <svg v-if="!copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -184,7 +186,7 @@ onMounted(() => {
         <!-- Right: Terminal Demo (5 cols) -->
         <div
           class="lg:col-span-5 relative"
-          :class="{ 'opacity-0': !isVisible }"
+          :class="{ 'opacity-0': isMounted && !isVisible }"
           :style="isVisible ? 'animation: fade-in-right 0.8s ease-out 0.3s forwards' : ''"
         >
           <!-- Glow effect behind terminal -->
