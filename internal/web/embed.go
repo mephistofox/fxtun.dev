@@ -64,6 +64,13 @@ func SPAHandler() http.Handler {
 			return
 		}
 
+		// Serve Russian llms.txt for fxtun.ru
+		if path == "/llms.txt" && ruDomain {
+			r.URL.Path = "/llms-ru.txt"
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
 		// Domain-based root: serve ru.html for fxtun.ru/
 		if path == "/" && ruDomain {
 			if f, err := filesystem.Open("/ru.html"); err == nil {
