@@ -1,5 +1,6 @@
 import { useHead } from '@unhead/vue'
 import { getDomainLocale, getLocale } from '../i18n'
+import plansCache from '@/data/plans-cache.json'
 
 function getEffectiveLocale(): 'en' | 'ru' {
   if (import.meta.env.SSR) return getLocale()
@@ -17,10 +18,6 @@ const descriptions = {
     website: 'Free ngrok alternative with no request limits and no session timeout. HTTP, TCP & UDP tunneling with desktop app.',
     webpage: 'Free ngrok alternative with no request limits, no session timeout, and free custom subdomains. HTTP, TCP & UDP tunneling with desktop GUI.',
     webpageName: 'fxTunnel — Free ngrok Alternative',
-    offerFree: '3 tunnels, any subdomain, no request limits, no session timeout',
-    offerBase: '5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector',
-    offerPro: '15 tunnels, 15 reserved subdomains, 5 custom domains, traffic inspector',
-    offerBusiness: '50 tunnels, 50 reserved subdomains, 50 custom domains, traffic inspector',
     features: [
       'HTTP tunneling with custom subdomains',
       'TCP port forwarding',
@@ -40,10 +37,6 @@ const descriptions = {
     website: 'Бесплатная альтернатива ngrok без лимитов запросов и таймаута сессий. HTTP, TCP и UDP туннели с десктопным приложением.',
     webpage: 'Бесплатная альтернатива ngrok без лимитов запросов, таймаута сессий и с бесплатными субдоменами. HTTP, TCP и UDP туннели с десктопным GUI.',
     webpageName: 'fxTunnel — Бесплатная альтернатива ngrok',
-    offerFree: '3 туннеля, любой субдомен, без лимитов запросов, без таймаута',
-    offerBase: '5 туннелей, 5 зарезервированных субдоменов, 1 свой домен, инспектор трафика',
-    offerPro: '15 туннелей, 15 зарезервированных субдоменов, 5 своих доменов, инспектор трафика',
-    offerBusiness: '50 туннелей, 50 зарезервированных субдоменов, 50 своих доменов, инспектор трафика',
     features: [
       'HTTP-туннели с субдоменами',
       'Проброс TCP-портов',
@@ -59,10 +52,28 @@ const descriptions = {
   },
 } as const
 
-const pricing = {
-  en: { currency: 'USD', free: '0', base: '5.00', pro: '10.00', business: '15.00' },
-  ru: { currency: 'RUB', free: '0', base: '400', pro: '800', business: '1200' },
-} as const
+// Build schema offers from pre-fetched plans cache
+function buildSchemaOffers(locale: 'en' | 'ru') {
+  const currency = locale === 'ru' ? 'RUB' : 'USD'
+  return plansCache.plans.map((plan) => {
+    const price = locale === 'ru' ? String(plan.price_rub) : String(plan.price)
+    const offer: Record<string, unknown> = {
+      '@type': 'Offer',
+      price,
+      priceCurrency: currency,
+      name: plan.name,
+    }
+    if (plan.price > 0) {
+      offer.priceSpecification = {
+        '@type': 'UnitPriceSpecification',
+        price,
+        priceCurrency: currency,
+        billingDuration: 'P1M',
+      }
+    }
+    return offer
+  })
+}
 
 export function useOrganizationSchema() {
   const locale = getEffectiveLocale()
@@ -94,7 +105,6 @@ export function useSoftwareApplicationSchema() {
   const locale = getEffectiveLocale()
   const baseUrl = getBaseUrl()
   const t = descriptions[locale]
-  const p = pricing[locale]
   useHead({
     script: [
       {
@@ -111,54 +121,7 @@ export function useSoftwareApplicationSchema() {
           url: baseUrl,
           downloadUrl: `${baseUrl}/#download`,
           publisher: { '@id': `${baseUrl}/#organization` },
-          offers: [
-            {
-              '@type': 'Offer',
-              price: p.free,
-              priceCurrency: p.currency,
-              name: 'Free',
-              description: t.offerFree,
-            },
-            {
-              '@type': 'Offer',
-              price: p.base,
-              priceCurrency: p.currency,
-              name: 'Base',
-              priceSpecification: {
-                '@type': 'UnitPriceSpecification',
-                price: p.base,
-                priceCurrency: p.currency,
-                billingDuration: 'P1M',
-              },
-              description: t.offerBase,
-            },
-            {
-              '@type': 'Offer',
-              price: p.pro,
-              priceCurrency: p.currency,
-              name: 'Pro',
-              priceSpecification: {
-                '@type': 'UnitPriceSpecification',
-                price: p.pro,
-                priceCurrency: p.currency,
-                billingDuration: 'P1M',
-              },
-              description: t.offerPro,
-            },
-            {
-              '@type': 'Offer',
-              price: p.business,
-              priceCurrency: p.currency,
-              name: 'Business',
-              priceSpecification: {
-                '@type': 'UnitPriceSpecification',
-                price: p.business,
-                priceCurrency: p.currency,
-                billingDuration: 'P1M',
-              },
-              description: t.offerBusiness,
-            },
-          ],
+          offers: buildSchemaOffers(locale),
           featureList: t.features,
         }),
       },
