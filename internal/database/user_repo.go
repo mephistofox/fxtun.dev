@@ -246,10 +246,10 @@ func (r *UserRepository) List(params UserListParams) ([]*User, int, error) {
 	}
 
 	queryArgs := append(append([]interface{}{}, args...), params.Limit, params.Offset)
-	rows, err := r.db.Query(
-		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
-		FROM users `+where+` ORDER BY created_at DESC LIMIT ? OFFSET ?`, queryArgs...,
-	)
+	//nolint:gosec // where clause built from predefined constants, not user input
+	query := `SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+		FROM users ` + where + ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	rows, err := r.db.Query(query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
 	}
