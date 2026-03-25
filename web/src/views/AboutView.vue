@@ -61,7 +61,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
             <p>{{ t('about.openSourceText') }}</p>
             <p>
               GitHub:
-              <a href="https://github.com/mephistofox/fxTunnel" target="_blank" rel="noopener">github.com/mephistofox/fxTunnel</a>
+              <a href="https://github.com/mephistofox/fxtun.dev" target="_blank" rel="noopener">github.com/mephistofox/fxtun.dev</a>
             </p>
 
             <h2>{{ t('about.contactTitle') }}</h2>
@@ -74,7 +74,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
                   <td>
-                    <a href="https://github.com/mephistofox/fxTunnel/issues" target="_blank" rel="noopener">
+                    <a href="https://github.com/mephistofox/fxtun.dev/issues" target="_blank" rel="noopener">
                       {{ t('about.contactGithubIssues') }}
                     </a>
                   </td>
@@ -111,7 +111,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
             <p>{{ t('about.openSourceText') }}</p>
             <p>
               GitHub:
-              <a href="https://github.com/mephistofox/fxTunnel" target="_blank" rel="noopener">github.com/mephistofox/fxTunnel</a>
+              <a href="https://github.com/mephistofox/fxtun.dev" target="_blank" rel="noopener">github.com/mephistofox/fxtun.dev</a>
             </p>
 
             <h2>{{ t('about.contactTitle') }}</h2>
@@ -124,7 +124,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
                   <td>
-                    <a href="https://github.com/mephistofox/fxTunnel/issues" target="_blank" rel="noopener">
+                    <a href="https://github.com/mephistofox/fxtun.dev/issues" target="_blank" rel="noopener">
                       {{ t('about.contactGithubIssues') }}
                     </a>
                   </td>

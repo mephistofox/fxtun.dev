@@ -838,7 +838,7 @@
     "heroTitle": "About fxTunnel",
     "projectTitle": "About the Project",
     "projectText1": "fxTunnel is an indie project created by a solo developer. The idea was born from frustration with existing solutions: ngrok is expensive and limited, Cloudflare Tunnel locks you into their ecosystem, and none of them offer a desktop GUI or UDP support.",
-    "projectText2": "fxTunnel solves these problems — free custom subdomains, no request or bandwidth limits, no session timeouts, three protocols (HTTP, TCP, UDP), a native desktop app, and full self-hosting capability.",
+    "projectText2": "fxTunnel solves these problems — free custom subdomains, no request or bandwidth limits, no session timeouts, three protocols (HTTP, TCP, UDP), and a native desktop app.",
     "developerTitle": "Developer",
     "developerText1": "Solo developer — fxcode.ru. Specialization: Go, infrastructure, DevOps tools. Building developer tools that solve real problems.",
     "developerGithub": "GitHub",
@@ -851,8 +851,8 @@
       "desktop": "Wails — native desktop app (Go + Vue3)",
       "security": "TLS 1.3, Let's Encrypt — automatic HTTPS"
     },
-    "openSourceTitle": "Open Source & Self-Hosted",
-    "openSourceText": "fxTunnel is fully self-hostable. You can deploy your own server on your infrastructure for complete control over data and security. The source code is available on GitHub.",
+    "openSourceTitle": "Open Source",
+    "openSourceText": "fxTunnel is an open-source project. The source code is available on GitHub — you can review it, report issues, and contribute.",
     "contactTitle": "Contact",
     "contactEmail": "Email",
     "contactGithubIssues": "Bug reports and feature requests"
