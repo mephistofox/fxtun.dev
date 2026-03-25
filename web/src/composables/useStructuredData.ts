@@ -20,6 +20,7 @@ const descriptions = {
     offerFree: '3 tunnels, any subdomain, no request limits, no session timeout',
     offerBase: '5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector',
     offerPro: '15 tunnels, 15 reserved subdomains, 5 custom domains, traffic inspector',
+    offerBusiness: '50 tunnels, 50 reserved subdomains, 50 custom domains, traffic inspector',
     features: [
       'HTTP tunneling with custom subdomains',
       'TCP port forwarding',
@@ -42,6 +43,7 @@ const descriptions = {
     offerFree: '3 туннеля, любой субдомен, без лимитов запросов, без таймаута',
     offerBase: '5 туннелей, 5 зарезервированных субдоменов, 1 свой домен, инспектор трафика',
     offerPro: '15 туннелей, 15 зарезервированных субдоменов, 5 своих доменов, инспектор трафика',
+    offerBusiness: '50 туннелей, 50 зарезервированных субдоменов, 50 своих доменов, инспектор трафика',
     features: [
       'HTTP-туннели с субдоменами',
       'Проброс TCP-портов',
@@ -58,8 +60,8 @@ const descriptions = {
 } as const
 
 const pricing = {
-  en: { currency: 'USD', free: '0', base: '5.00', pro: '10.00' },
-  ru: { currency: 'RUB', free: '0', base: '385', pro: '770' },
+  en: { currency: 'USD', free: '0', base: '5.00', pro: '10.00', business: '15.00' },
+  ru: { currency: 'RUB', free: '0', base: '385', pro: '770', business: '1155' },
 } as const
 
 export function useOrganizationSchema() {
@@ -74,6 +76,7 @@ export function useOrganizationSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'Organization',
+          '@id': `${baseUrl}/#organization`,
           name: 'fxTunnel',
           url: baseUrl,
           logo: `${baseUrl}/og-image.png`,
@@ -100,12 +103,14 @@ export function useSoftwareApplicationSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'SoftwareApplication',
+          '@id': `${baseUrl}/#software`,
           name: 'fxTunnel',
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Windows, macOS, Linux',
           description: t.software,
           url: baseUrl,
           downloadUrl: `${baseUrl}/#download`,
+          publisher: { '@id': `${baseUrl}/#organization` },
           offers: [
             {
               '@type': 'Offer',
@@ -140,6 +145,19 @@ export function useSoftwareApplicationSchema() {
               },
               description: t.offerPro,
             },
+            {
+              '@type': 'Offer',
+              price: p.business,
+              priceCurrency: p.currency,
+              name: 'Business',
+              priceSpecification: {
+                '@type': 'UnitPriceSpecification',
+                price: p.business,
+                priceCurrency: p.currency,
+                billingDuration: 'P1M',
+              },
+              description: t.offerBusiness,
+            },
           ],
           featureList: t.features,
         }),
@@ -160,9 +178,11 @@ export function useWebSiteSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'WebSite',
+          '@id': `${baseUrl}/#website`,
           name: 'fxTunnel',
           url: baseUrl,
           description: t.website,
+          publisher: { '@id': `${baseUrl}/#organization` },
         }),
       },
     ],
@@ -181,17 +201,17 @@ export function useWebPageSchema() {
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'WebPage',
+          '@id': `${baseUrl}/#webpage`,
           name: t.webpageName,
           url: baseUrl,
           description: t.webpage,
+          isPartOf: { '@id': `${baseUrl}/#website` },
+          about: { '@id': `${baseUrl}/#software` },
           speakable: {
             '@type': 'SpeakableSpecification',
             cssSelector: ['.hero-section', '#features', '#faq', '#comparison', '#pricing'],
           },
-          mainEntity: {
-            '@type': 'SoftwareApplication',
-            name: 'fxTunnel',
-          },
+          mainEntity: { '@id': `${baseUrl}/#software` },
         }),
       },
     ],
@@ -199,6 +219,7 @@ export function useWebPageSchema() {
 }
 
 export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) {
+  const baseUrl = getBaseUrl()
   useHead({
     script: [
       {
@@ -207,6 +228,7 @@ export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) 
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
+          '@id': `${baseUrl}/#faq`,
           mainEntity: faqs.map((faq) => ({
             '@type': 'Question',
             name: faq.question,

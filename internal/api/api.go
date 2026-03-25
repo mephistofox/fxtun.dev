@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -366,39 +365,12 @@ func (s *Server) setupRoutes() {
 		})
 	})
 
-	// Serve embedded web UI for all other routes
-	r.Get("/*", s.serveWebUI())
+	// Serve embedded web UI with SSG prerendering and domain-based routing
+	r.Handle("/*", web.SPAHandler())
 
 	s.router = r
 }
 
-// serveWebUI returns a handler that serves the embedded web UI with SPA support
-func (s *Server) serveWebUI() http.HandlerFunc {
-	webFS := web.GetFileSystem()
-	fileServer := http.FileServer(webFS)
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path == "" {
-			path = "index.html"
-		}
-
-		// Try to open the file to check if it exists
-		f, err := webFS.Open(path)
-		if err != nil {
-			// File not found, serve index.html for SPA routing
-			r.URL.Path = "/"
-		} else {
-			stat, _ := f.Stat()
-			_ = f.Close()
-			if stat != nil && stat.IsDir() {
-				r.URL.Path = "/"
-			}
-		}
-
-		fileServer.ServeHTTP(w, r)
-	}
-}
 
 // Start starts the API server
 func (s *Server) Start(ctx context.Context) error {
