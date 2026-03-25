@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -133,6 +134,22 @@ onMounted(() => {
           </table>
         </div>
 
+        <!-- Compare page links -->
+        <div class="hidden md:flex justify-center gap-4 mt-6">
+          <RouterLink to="/compare/ngrok" class="text-sm text-primary hover:underline">
+            {{ t('landing.comparison.detailedCompare') }}: ngrok →
+          </RouterLink>
+          <RouterLink to="/compare/cloudflare" class="text-sm text-primary hover:underline">
+            Cloudflare Tunnel →
+          </RouterLink>
+          <RouterLink to="/compare/tuna" class="text-sm text-primary hover:underline">
+            tuna.am →
+          </RouterLink>
+          <RouterLink to="/compare/xtunnel" class="text-sm text-primary hover:underline">
+            xTunnel →
+          </RouterLink>
+        </div>
+
         <!-- Mobile cards -->
         <div class="md:hidden space-y-3">
           <div
@@ -160,6 +177,22 @@ onMounted(() => {
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Mobile compare links -->
+        <div class="md:hidden flex flex-col gap-2 mt-4">
+          <RouterLink to="/compare/ngrok" class="text-sm text-primary hover:underline">
+            {{ t('landing.comparison.detailedCompare') }}: ngrok →
+          </RouterLink>
+          <RouterLink to="/compare/cloudflare" class="text-sm text-primary hover:underline">
+            Cloudflare Tunnel →
+          </RouterLink>
+          <RouterLink to="/compare/tuna" class="text-sm text-primary hover:underline">
+            tuna.am →
+          </RouterLink>
+          <RouterLink to="/compare/xtunnel" class="text-sm text-primary hover:underline">
+            xTunnel →
+          </RouterLink>
         </div>
       </div>
     </div>

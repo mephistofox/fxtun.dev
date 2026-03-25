@@ -202,6 +202,7 @@
       "label": "Why fxTunnel",
       "title": "Compare and Choose",
       "subtitle": "See how fxTunnel stacks up against alternatives.",
+      "detailedCompare": "Detailed comparison",
       "feature": "Feature",
       "fxtunnel": "fxTunnel",
       "price": "Price (starter)",
@@ -835,6 +836,7 @@
   },
   "about": {
     "title": "About",
+    "navTitle": "About",
     "heroTitle": "About fxTunnel",
     "projectTitle": "About the Project",
     "projectText1": "fxTunnel is an indie project created by a solo developer. The idea was born from frustration with existing solutions: ngrok is expensive and limited, Cloudflare Tunnel locks you into their ecosystem, and none of them offer a desktop GUI or UDP support.",
