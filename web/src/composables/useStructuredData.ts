@@ -61,7 +61,7 @@ const descriptions = {
 
 const pricing = {
   en: { currency: 'USD', free: '0', base: '5.00', pro: '10.00', business: '15.00' },
-  ru: { currency: 'RUB', free: '0', base: '385', pro: '770', business: '1155' },
+  ru: { currency: 'RUB', free: '0', base: '400', pro: '800', business: '1200' },
 } as const
 
 export function useOrganizationSchema() {
