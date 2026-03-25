@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
+import { getDomainLocale } from '@/i18n'
 
 const props = defineProps<{
   compact?: boolean
@@ -10,6 +11,7 @@ const props = defineProps<{
 
 const { t, locale } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 // Russian pluralization: 1 туннель, 2 туннеля, 5 туннелей
 // Uses ;; separator in i18n to avoid vue-i18n pipe interpretation
@@ -32,9 +34,14 @@ const sectionRef = ref<HTMLElement | null>(null)
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-const isRuDomain = computed(() =>
-  !import.meta.env.SSR && window.location.hostname.endsWith('fxtun.ru')
-)
+// SSG-safe locale detection: use route meta forcedLocale during SSG,
+// fall back to domain detection in browser
+const effectiveLocale = computed(() => {
+  if (route.meta.forcedLocale) return route.meta.forcedLocale as string
+  if (import.meta.env.SSR) return locale.value
+  return getDomainLocale() ?? locale.value
+})
+const isRuDomain = computed(() => effectiveLocale.value === 'ru')
 
 // Handle plan selection - save redirect and go to login
 function selectPlan(planId: number) {
