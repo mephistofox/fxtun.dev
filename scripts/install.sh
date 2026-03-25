@@ -2,8 +2,9 @@
 set -e
 
 BINARY_NAME="fxtunnel"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.local/bin"
 BASE_URL="${FXTUNNEL_BASE_URL:-https://fxtun.dev/api/downloads}"
+WEBSITE_URL="${FXTUNNEL_WEBSITE_URL:-https://fxtun.dev}"
 
 main() {
     detect_os
@@ -12,7 +13,14 @@ main() {
 
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         CURRENT_VERSION=$("$BINARY_NAME" version 2>/dev/null || echo "unknown")
-        echo "fxtun is already installed (${CURRENT_VERSION}). Reinstalling..."
+        CURRENT_PATH=$(command -v "$BINARY_NAME" 2>/dev/null || true)
+        echo "fxtun is already installed (${CURRENT_VERSION})."
+        if [ -n "$CURRENT_PATH" ] && [ "$(dirname "$CURRENT_PATH")" != "$INSTALL_DIR" ]; then
+            echo "Note: existing binary is at ${CURRENT_PATH}"
+            echo "New version will be installed to ${INSTALL_DIR}/${BINARY_NAME}"
+            echo "You may want to remove the old binary: rm ${CURRENT_PATH}"
+        fi
+        echo "Reinstalling..."
     fi
 
     echo "Downloading fxtun for ${OS}/${ARCH}..."
@@ -27,15 +35,16 @@ main() {
 
     chmod +x "$TARGET"
 
-    echo "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
-    if [ -w "$INSTALL_DIR" ]; then
-        mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
-        ln -sf "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/fxtun"
-    else
-        sudo mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
-        sudo ln -sf "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/fxtun"
-    fi
+    mkdir -p "$INSTALL_DIR"
 
+    echo "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
+    mv "$TARGET" "${INSTALL_DIR}/${BINARY_NAME}"
+    ln -sf "${INSTALL_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/fxtun"
+    echo "$WEBSITE_URL" > "${INSTALL_DIR}/.fxtunnel-website"
+
+    ensure_path
+
+    echo ""
     echo "fxtun installed successfully!"
     echo "Available as: fxtun, fxtunnel"
     "${INSTALL_DIR}/${BINARY_NAME}" version || true
@@ -94,6 +103,34 @@ download() {
     if [ ! -f "$output" ] || [ ! -s "$output" ]; then
         echo "Error: download failed" >&2
         exit 1
+    fi
+}
+
+ensure_path() {
+    case ":$PATH:" in
+        *":$INSTALL_DIR:"*) return ;;
+    esac
+
+    ADDED=0
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile"; do
+        if [ -f "$rc" ]; then
+            if ! grep -q '\.local/bin' "$rc" 2>/dev/null; then
+                echo '' >> "$rc"
+                echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+                ADDED=1
+            fi
+        fi
+    done
+
+    if [ "$ADDED" = "1" ]; then
+        echo ""
+        echo "Added ~/.local/bin to PATH. Restart your terminal or run:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    elif ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
+        echo ""
+        echo "Warning: $INSTALL_DIR is not in your PATH."
+        echo "Add this to your shell config:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
     fi
 }
 
