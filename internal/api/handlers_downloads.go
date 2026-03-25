@@ -17,7 +17,11 @@ import (
 //go:embed install.sh
 var installScriptTmpl string
 
+//go:embed install.ps1
+var installPS1Tmpl string
+
 var installTmpl = template.Must(template.New("install").Parse(installScriptTmpl))
+var installPS1 = template.Must(template.New("installps1").Parse(installPS1Tmpl))
 
 // Platform information for downloads
 type platformInfo struct {
@@ -171,5 +175,28 @@ func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := installTmpl.Execute(w, data); err != nil {
 		s.log.Error().Err(err).Msg("failed to execute install script template")
+	}
+}
+
+// handleInstallPS1 serves a PowerShell install script for Windows
+func (s *Server) handleInstallPS1(w http.ResponseWriter, r *http.Request) {
+	domain := requestHost(r)
+	if domain == "" {
+		domain = s.baseDomain
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(http.StatusOK)
+
+	data := struct {
+		BaseURL    string
+		WebsiteURL string
+	}{
+		BaseURL:    fmt.Sprintf("https://%s/api/downloads", domain),
+		WebsiteURL: fmt.Sprintf("https://%s", domain),
+	}
+	if err := installPS1.Execute(w, data); err != nil {
+		s.log.Error().Err(err).Msg("failed to execute PowerShell install script template")
 	}
 }

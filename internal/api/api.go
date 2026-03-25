@@ -197,6 +197,7 @@ func (s *Server) setupRoutes() {
 	// Health check
 	r.Get("/health", s.handleHealth)
 	r.Get("/install.sh", s.handleInstallScript)
+	r.Get("/install.ps1", s.handleInstallPS1)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.MiddlewareWithDB(s.authService, s.db))
 		r.Use(auth.AdminMiddleware)
@@ -338,6 +339,7 @@ func (s *Server) setupRoutes() {
 
 				r.Get("/stats", s.handleGetStats)
 				r.Get("/users", s.handleListUsers)
+				r.Get("/users/{id}", s.handleGetUserDetail)
 				r.Put("/users/{id}", s.handleUpdateUser)
 				r.Delete("/users/{id}", s.handleDeleteUser)
 				r.Get("/audit-logs", s.handleListAuditLogs)
