@@ -142,6 +142,23 @@ func (r *SubscriptionRepository) GetPendingByUserID(userID int64) (*Subscription
 	return sub, nil
 }
 
+// ListByUserID retrieves all subscriptions for a user (all statuses)
+func (r *SubscriptionRepository) ListByUserID(userID int64) ([]*Subscription, error) {
+	rows, err := r.db.Query(`
+		SELECT id, user_id, plan_id, next_plan_id, status, recurring,
+		       current_period_start, current_period_end, yookassa_payment_method_id,
+		       creem_customer_id, creem_subscription_id, created_at, updated_at
+		FROM subscriptions
+		WHERE user_id = ?
+		ORDER BY created_at DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list subscriptions by user id: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanMultiple(rows)
+}
+
 // Delete deletes a subscription by ID
 func (r *SubscriptionRepository) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM subscriptions WHERE id = ?`, id)

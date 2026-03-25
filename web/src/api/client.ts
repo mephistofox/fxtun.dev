@@ -246,6 +246,9 @@ export interface AdminUser {
   plan?: Plan
   created_at: string
   last_login_at?: string
+  avatar_url?: string
+  github_id?: string
+  google_id?: string
 }
 
 export interface AuditLog {
@@ -335,15 +338,53 @@ export interface AdminPaymentsResponse {
   limit: number
 }
 
+export interface UserStats {
+  total: number
+  active: number
+  blocked: number
+  admins: number
+}
+
+export interface TunnelHistoryEntry {
+  id: number
+  bundle_name?: string
+  tunnel_type: string
+  local_port: number
+  remote_addr?: string
+  url?: string
+  connected_at: string
+  disconnected_at?: string
+  bytes_sent: number
+  bytes_received: number
+}
+
+export interface TunnelHistoryStats {
+  total_connections: number
+  total_bytes_sent: number
+  total_bytes_received: number
+}
+
+export interface AdminUserDetail {
+  user: AdminUser
+  payments: Payment[]
+  subscriptions: AdminSubscription[]
+  tunnel_history: TunnelHistoryEntry[]
+  tunnel_stats: TunnelHistoryStats | null
+  token_count: number
+  domain_count: number
+}
+
 export const adminApi = {
   // Stats
   getStats: () => api.get<AdminStats>('/admin/stats'),
 
   // Users
-  listUsers: (page = 1, limit = 20) =>
-    api.get<{ users: AdminUser[]; total: number; page: number; limit: number }>('/admin/users', {
-      params: { page, limit },
+  listUsers: (page = 1, limit = 20, filter = 'all', search = '') =>
+    api.get<{ users: AdminUser[]; total: number; page: number; limit: number; stats: UserStats }>('/admin/users', {
+      params: { page, limit, filter, search },
     }),
+  getUserDetail: (id: number) =>
+    api.get<AdminUserDetail>(`/admin/users/${id}`),
   updateUser: (id: number, data: { is_admin?: boolean; is_active?: boolean; plan_id?: number }) =>
     api.put<AdminUser>(`/admin/users/${id}`, data),
   deleteUser: (id: number) => api.delete(`/admin/users/${id}`),

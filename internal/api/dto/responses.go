@@ -459,6 +459,38 @@ type AdminPaymentsListResponse struct {
 	Limit    int                `json:"limit"`
 }
 
+// AdminUserDetailResponse represents detailed user info for admin
+type AdminUserDetailResponse struct {
+	User          *UserDTO                `json:"user"`
+	Payments      []*PaymentDTO           `json:"payments"`
+	Subscriptions []*AdminSubscriptionDTO `json:"subscriptions"`
+	TunnelHistory []*TunnelHistoryDTO     `json:"tunnel_history"`
+	TunnelStats   *TunnelHistoryStatsDTO  `json:"tunnel_stats"`
+	TokenCount    int                     `json:"token_count"`
+	DomainCount   int                     `json:"domain_count"`
+}
+
+// TunnelHistoryDTO represents a tunnel history entry
+type TunnelHistoryDTO struct {
+	ID             int64      `json:"id"`
+	BundleName     string     `json:"bundle_name,omitempty"`
+	TunnelType     string     `json:"tunnel_type"`
+	LocalPort      int        `json:"local_port"`
+	RemoteAddr     string     `json:"remote_addr,omitempty"`
+	URL            string     `json:"url,omitempty"`
+	ConnectedAt    time.Time  `json:"connected_at"`
+	DisconnectedAt *time.Time `json:"disconnected_at,omitempty"`
+	BytesSent      int64      `json:"bytes_sent"`
+	BytesReceived  int64      `json:"bytes_received"`
+}
+
+// TunnelHistoryStatsDTO represents tunnel history stats
+type TunnelHistoryStatsDTO struct {
+	TotalConnections   int   `json:"total_connections"`
+	TotalBytesSent     int64 `json:"total_bytes_sent"`
+	TotalBytesReceived int64 `json:"total_bytes_received"`
+}
+
 // ReplayResponse represents the result of a replay operation
 type ReplayResponse struct {
 	StatusCode      int                 `json:"status_code"`

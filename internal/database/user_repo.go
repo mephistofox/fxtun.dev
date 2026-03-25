@@ -13,6 +13,22 @@ var (
 	ErrUserAlreadyExists = errors.New("user already exists")
 )
 
+// UserListParams holds filter/search/pagination params for listing users.
+type UserListParams struct {
+	Filter string // "all", "active", "blocked", "admins"
+	Search string // free-text search across email, phone, display_name
+	Limit  int
+	Offset int
+}
+
+// UserStats holds aggregate counts across all users (respecting search filter).
+type UserStats struct {
+	Total   int `json:"total"`
+	Active  int `json:"active"`
+	Blocked int `json:"blocked"`
+	Admins  int `json:"admins"`
+}
+
 // UserRepository handles user database operations
 type UserRepository struct {
 	db *sql.DB
@@ -202,17 +218,37 @@ func (r *UserRepository) Delete(id int64) error {
 	return nil
 }
 
-// List returns all users with pagination
-func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
-	countQuery := `SELECT COUNT(*) FROM users`
+// List returns users with filtering, search, and pagination
+func (r *UserRepository) List(params UserListParams) ([]*User, int, error) {
+	where := "WHERE 1=1"
+	var args []interface{}
+
+	switch params.Filter {
+	case "active":
+		where += " AND is_active = 1"
+	case "blocked":
+		where += " AND is_active = 0"
+	case "admins":
+		where += " AND is_admin = 1"
+	}
+
+	if params.Search != "" {
+		search := "%" + strings.ToLower(params.Search) + "%"
+		where += " AND (LOWER(email) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(display_name) LIKE ?)"
+		args = append(args, search, search, search)
+	}
+
 	var total int
-	if err := r.db.QueryRow(countQuery).Scan(&total); err != nil {
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM users "+where, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
 	}
 
+	queryArgs := append(append([]interface{}{}, args...), params.Limit, params.Offset)
 	rows, err := r.db.Query(
 		`SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
-		FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?`, limit, offset,
+		FROM users `+where+` ORDER BY created_at DESC LIMIT ? OFFSET ?`, queryArgs...,
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
@@ -229,6 +265,31 @@ func (r *UserRepository) List(limit, offset int) ([]*User, int, error) {
 	}
 
 	return users, total, nil
+}
+
+// Stats returns aggregate user counts, optionally scoped by search term.
+func (r *UserRepository) Stats(search string) (*UserStats, error) {
+	where := "WHERE 1=1"
+	var args []interface{}
+
+	if search != "" {
+		s := "%" + strings.ToLower(search) + "%"
+		where += " AND (LOWER(email) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(display_name) LIKE ?)"
+		args = append(args, s, s, s)
+	}
+
+	query := `SELECT
+		COUNT(*) AS total,
+		SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active,
+		SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) AS blocked,
+		SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END) AS admins
+	FROM users ` + where
+
+	stats := &UserStats{}
+	if err := r.db.QueryRow(query, args...).Scan(&stats.Total, &stats.Active, &stats.Blocked, &stats.Admins); err != nil {
+		return nil, fmt.Errorf("user stats: %w", err)
+	}
+	return stats, nil
 }
 
 // GetByIDs retrieves multiple users by their IDs
