@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
 import { getDomainLocale } from '@/i18n'
+import plansCache from '@/data/plans-cache.json'
 
 const props = defineProps<{
   compact?: boolean
@@ -76,14 +77,9 @@ const commonFeatures = [
   { key: 'tls', icon: 'lock' },
 ]
 
-// SSG fallback: pre-render with static plan data so crawlers see pricing cards
-if (import.meta.env.SSR) {
-  plans.value = [
-    { id: 1, slug: 'free', name: 'Free', price: 0, price_rub: 0, max_tunnels: 3, max_domains: 0, max_custom_domains: 0, max_tokens: 1, max_tunnels_per_token: 3, inspector_enabled: false, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 2, slug: 'base', name: 'Base', price: 5, price_rub: 400, max_tunnels: 5, max_domains: 5, max_custom_domains: 1, max_tokens: 5, max_tunnels_per_token: 5, inspector_enabled: true, is_recommended: true, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 3, slug: 'pro', name: 'Pro', price: 10, price_rub: 800, max_tunnels: 15, max_domains: 15, max_custom_domains: 5, max_tokens: 10, max_tunnels_per_token: 15, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-    { id: 4, slug: 'business', name: 'Business', price: 15, price_rub: 1200, max_tunnels: 50, max_domains: 50, max_custom_domains: 50, max_tokens: 50, max_tunnels_per_token: 50, inspector_enabled: true, is_recommended: false, rate_limit_tcp: 0, rate_limit_udp: 0, rate_limit_http: 0, creem_product_id: '' },
-  ] as Plan[]
+// SSG fallback: use pre-fetched plans cache so crawlers see pricing cards
+if (import.meta.env.SSR && plansCache.plans.length > 0) {
+  plans.value = plansCache.plans as Plan[]
   loading.value = false
 }
 
