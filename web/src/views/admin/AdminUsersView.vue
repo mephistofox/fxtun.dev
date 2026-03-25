@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
-import { adminApi, type AdminUser, type Plan } from '@/api/client'
+import { adminApi, type AdminUser, type Plan, type UserStats } from '@/api/client'
 
 const { t, locale } = useI18n()
+const router = useRouter()
 
 const users = ref<AdminUser[]>([])
 const plans = ref<Plan[]>([])
@@ -17,6 +19,7 @@ const successMsg = ref('')
 const total = ref(0)
 const page = ref(1)
 const limit = 20
+const stats = ref<UserStats>({ total: 0, active: 0, blocked: 0, admins: 0 })
 
 const search = ref('')
 const activeFilter = ref<'all' | 'active' | 'blocked' | 'admins'>('all')
@@ -52,36 +55,11 @@ function getPlanForUser(user: AdminUser): Plan | undefined {
   return plans.value.find(p => p.id === user.plan_id)
 }
 
-const filteredUsers = computed(() => {
-  let result = users.value
-
-  // Filter by tab
-  if (activeFilter.value === 'active') {
-    result = result.filter(u => u.is_active)
-  } else if (activeFilter.value === 'blocked') {
-    result = result.filter(u => !u.is_active)
-  } else if (activeFilter.value === 'admins') {
-    result = result.filter(u => u.is_admin)
-  }
-
-  // Filter by search
-  const q = search.value.toLowerCase().trim()
-  if (q) {
-    result = result.filter(u =>
-      (u.email && u.email.toLowerCase().includes(q)) ||
-      u.phone.toLowerCase().includes(q) ||
-      (u.display_name && u.display_name.toLowerCase().includes(q))
-    )
-  }
-
-  return result
-})
-
 const filterTabs = computed(() => [
-  { key: 'all' as const, label: t('admin.filterAll'), count: users.value.length },
-  { key: 'active' as const, label: t('admin.users.active'), count: users.value.filter(u => u.is_active).length },
-  { key: 'blocked' as const, label: t('admin.users.blocked'), count: users.value.filter(u => !u.is_active).length },
-  { key: 'admins' as const, label: t('admin.users.admin'), count: users.value.filter(u => u.is_admin).length },
+  { key: 'all' as const, label: t('admin.filterAll'), count: stats.value.total },
+  { key: 'active' as const, label: t('admin.users.active'), count: stats.value.active },
+  { key: 'blocked' as const, label: t('admin.users.blocked'), count: stats.value.blocked },
+  { key: 'admins' as const, label: t('admin.users.admin'), count: stats.value.admins },
 ])
 
 const paginationFrom = computed(() => (page.value - 1) * limit + 1)
@@ -90,10 +68,16 @@ const paginationTo = computed(() => Math.min(page.value * limit, total.value))
 async function loadUsers() {
   loading.value = true
   error.value = ''
+  clearConfirm()
+  resetPasswordUserId.value = null
+  mergeUserId.value = null
   try {
-    const response = await adminApi.listUsers(page.value, limit)
+    const response = await adminApi.listUsers(page.value, limit, activeFilter.value, search.value)
     users.value = response.data.users || []
     total.value = response.data.total
+    if (response.data.stats) {
+      stats.value = response.data.stats
+    }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
     error.value = err.response?.data?.error || t('admin.failedToLoad')
@@ -101,6 +85,22 @@ async function loadUsers() {
     loading.value = false
   }
 }
+
+// Debounced search
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    loadUsers()
+  }, 300)
+})
+
+// Filter change → reload from server
+watch(activeFilter, () => {
+  page.value = 1
+  loadUsers()
+})
 
 function showSuccess(msg: string) {
   successMsg.value = msg
@@ -233,6 +233,10 @@ function closePlanDropdown(e: MouseEvent) {
   }
 }
 
+function goToUser(userId: number) {
+  router.push({ name: 'admin-user-detail', params: { id: userId } })
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(locale.value === 'ru' ? 'ru-RU' : 'en-US', {
     year: 'numeric',
@@ -266,6 +270,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', closePlanDropdown)
   if (confirmTimer) clearTimeout(confirmTimer)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 
@@ -330,7 +335,7 @@ onUnmounted(() => {
       <div v-if="loading" class="text-center py-12 text-muted-foreground text-sm">{{ t('common.loading') }}</div>
 
       <!-- Empty state -->
-      <div v-else-if="filteredUsers.length === 0" class="text-center py-12">
+      <div v-else-if="users.length === 0" class="text-center py-12">
         <p class="text-muted-foreground text-sm">{{ search || activeFilter !== 'all' ? t('admin.noResults') : t('admin.users.noUsers') }}</p>
       </div>
 
@@ -340,6 +345,7 @@ onUnmounted(() => {
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b bg-muted/30">
+                <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">ID</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.email') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.name') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.status') }}</th>
@@ -350,10 +356,17 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <template v-for="user in filteredUsers" :key="user.id">
+              <template v-for="user in users" :key="user.id">
                 <tr class="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                  <!-- Phone -->
-                  <td class="px-3 py-2.5 font-mono text-xs whitespace-nowrap">{{ user.email || user.phone }}</td>
+                  <!-- ID -->
+                  <td class="px-3 py-2.5 font-mono text-xs text-muted-foreground">{{ user.id }}</td>
+
+                  <!-- Email/Phone — clickable link to detail -->
+                  <td class="px-3 py-2.5 font-mono text-xs whitespace-nowrap">
+                    <button @click="goToUser(user.id)" class="text-primary hover:underline cursor-pointer text-left">
+                      {{ user.email || user.phone }}
+                    </button>
+                  </td>
 
                   <!-- Name -->
                   <td class="px-3 py-2.5 whitespace-nowrap">
@@ -499,7 +512,7 @@ onUnmounted(() => {
 
                 <!-- Inline: Reset Password -->
                 <tr v-if="resetPasswordUserId === user.id" class="border-b border-border/50 bg-muted/10">
-                  <td colspan="7" class="px-3 py-2">
+                  <td colspan="8" class="px-3 py-2">
                     <div class="flex items-center gap-2 max-w-md">
                       <span class="text-xs text-muted-foreground whitespace-nowrap">{{ t('admin.users.resetPassword') }}:</span>
                       <Input
@@ -517,7 +530,7 @@ onUnmounted(() => {
 
                 <!-- Inline: Merge -->
                 <tr v-if="mergeUserId === user.id" class="border-b border-border/50 bg-muted/10">
-                  <td colspan="7" class="px-3 py-2">
+                  <td colspan="8" class="px-3 py-2">
                     <div class="flex items-center gap-2 max-w-md">
                       <span class="text-xs text-muted-foreground whitespace-nowrap">{{ t('admin.users.merge') }}:</span>
                       <Input

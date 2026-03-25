@@ -131,12 +131,12 @@ func TestUserRepo_List(t *testing.T) {
 	createTestUser(t, db, "+2222222222")
 	createTestUser(t, db, "+3333333333")
 
-	users, total, err := db.Users.List(2, 0)
+	users, total, err := db.Users.List(UserListParams{Limit: 2, Offset: 0})
 	require.NoError(t, err)
 	assert.Equal(t, 3, total)
 	assert.Len(t, users, 2)
 
-	users2, total2, err := db.Users.List(2, 2)
+	users2, total2, err := db.Users.List(UserListParams{Limit: 2, Offset: 2})
 	require.NoError(t, err)
 	assert.Equal(t, 3, total2)
 	assert.Len(t, users2, 1)

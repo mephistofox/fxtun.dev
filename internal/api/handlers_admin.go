@@ -31,9 +31,8 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleListUsers returns a list of all users
+// handleListUsers returns a list of all users with server-side filtering, search, and stats
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
-	// Parse pagination
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
 		page = 1
@@ -44,19 +43,31 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	offset := (page - 1) * limit
 
-	users, total, err := s.db.Users.List(limit, offset)
+	filter := r.URL.Query().Get("filter")
+	if filter != "active" && filter != "blocked" && filter != "admins" {
+		filter = "all"
+	}
+	search := r.URL.Query().Get("search")
+
+	users, total, err := s.db.Users.List(database.UserListParams{
+		Filter: filter,
+		Search: search,
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to list users")
 		s.respondError(w, http.StatusInternalServerError, "failed to list users")
 		return
 	}
 
+	stats, _ := s.db.Users.Stats(search)
+
 	userDTOs := make([]*dto.UserDTO, len(users))
 	for i, u := range users {
 		userDTOs[i] = dto.UserFromModel(u)
 	}
 
-	// Load plans for users
 	plans, _ := s.db.Plans.List()
 	planMap := make(map[int64]*database.Plan)
 	for _, p := range plans {
@@ -73,6 +84,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		"total": total,
 		"page":  page,
 		"limit": limit,
+		"stats": stats,
 	})
 }
 
@@ -210,12 +222,6 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		s.respondError(w, http.StatusBadRequest, "invalid user id")
-		return
-	}
-
-	// Prevent self-modification of admin status
-	if id == currentUser.ID {
-		s.respondError(w, http.StatusForbidden, "cannot modify your own account")
 		return
 	}
 
@@ -890,5 +896,110 @@ func (s *Server) handleAdminExtendSubscription(w http.ResponseWriter, r *http.Re
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
 		Success: true,
 		Message: "subscription extended",
+	})
+}
+
+// handleGetUserDetail returns detailed user info with payments, subscriptions, and tunnel history
+func (s *Server) handleGetUserDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	userDTO := dto.UserFromModel(user)
+	if plan, err := s.db.Plans.GetByID(user.PlanID); err == nil {
+		userDTO.Plan = dto.PlanFromModel(plan)
+	}
+
+	// Payments (last 50)
+	payments, _, _ := s.db.Payments.GetByUserID(id, 50, 0)
+	paymentDTOs := make([]*dto.PaymentDTO, 0, len(payments))
+	for _, p := range payments {
+		paymentDTOs = append(paymentDTOs, dto.PaymentFromModel(p))
+	}
+
+	// Subscriptions (all)
+	subs, _ := s.db.Subscriptions.ListByUserID(id)
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+	subDTOs := make([]*dto.AdminSubscriptionDTO, 0, len(subs))
+	for _, sub := range subs {
+		subDTO := &dto.AdminSubscriptionDTO{
+			ID:                 sub.ID,
+			UserID:             sub.UserID,
+			PlanID:             sub.PlanID,
+			Status:             string(sub.Status),
+			Recurring:          sub.Recurring,
+			CurrentPeriodStart: sub.CurrentPeriodStart,
+			CurrentPeriodEnd:   sub.CurrentPeriodEnd,
+			CreatedAt:          sub.CreatedAt,
+		}
+		if plan, ok := planMap[sub.PlanID]; ok {
+			subDTO.Plan = dto.PlanFromModel(plan)
+		}
+		subDTOs = append(subDTOs, subDTO)
+	}
+
+	// Tunnel history (last 50)
+	history, _ := s.db.UserHistory.GetByUserID(id, 50, 0)
+	historyDTOs := make([]*dto.TunnelHistoryDTO, 0, len(history))
+	for _, h := range history {
+		historyDTOs = append(historyDTOs, &dto.TunnelHistoryDTO{
+			ID:             h.ID,
+			BundleName:     h.BundleName,
+			TunnelType:     h.TunnelType,
+			LocalPort:      h.LocalPort,
+			RemoteAddr:     h.RemoteAddr,
+			URL:            h.URL,
+			ConnectedAt:    h.ConnectedAt,
+			DisconnectedAt: h.DisconnectedAt,
+			BytesSent:      h.BytesSent,
+			BytesReceived:  h.BytesReceived,
+		})
+	}
+
+	// Tunnel stats
+	var tunnelStats *dto.TunnelHistoryStatsDTO
+	if stats, err := s.db.UserHistory.GetStats(id); err == nil {
+		tunnelStats = &dto.TunnelHistoryStatsDTO{
+			TotalConnections:   stats.TotalConnections,
+			TotalBytesSent:     stats.TotalBytesSent,
+			TotalBytesReceived: stats.TotalBytesReceived,
+		}
+	}
+
+	// Counts
+	tokenCount := 0
+	if tokens, err := s.db.Tokens.GetByUserID(id); err == nil {
+		tokenCount = len(tokens)
+	}
+	domainCount := 0
+	if domains, err := s.db.Domains.GetByUserID(id); err == nil {
+		domainCount = len(domains)
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminUserDetailResponse{
+		User:          userDTO,
+		Payments:      paymentDTOs,
+		Subscriptions: subDTOs,
+		TunnelHistory: historyDTOs,
+		TunnelStats:   tunnelStats,
+		TokenCount:    tokenCount,
+		DomainCount:   domainCount,
 	})
 }
