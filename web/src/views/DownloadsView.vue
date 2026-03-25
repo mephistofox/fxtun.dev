@@ -96,7 +96,7 @@ const quickStartCommands = computed(() => ({
     run: 'fxtunnel http 3000 --token YOUR_TOKEN'
   },
   windows: {
-    install: `curl -fsSL https://${serverHost}/install.sh | sh`,
+    install: `irm https://${serverHost}/install.ps1 | iex`,
     run: 'fxtunnel.exe http 3000 --token YOUR_TOKEN'
   }
 }))
