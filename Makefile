@@ -1,4 +1,4 @@
-.PHONY: all build server client clean install test fmt lint web build-clients build-all gui gui-dev gui-all wails-install sync-public
+.PHONY: all build server client clean install test fmt lint web build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
 
 BINARY_SERVER=fxtunnel-server
 BINARY_CLIENT=fxtunnel
@@ -101,6 +101,11 @@ gui-all: gui-frontend
 	$(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 	mv build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
 	@echo "GUI builds complete in downloads/ (macOS builds require building on macOS)"
+
+# Submit URLs to IndexNow (Yandex + Bing)
+indexnow:
+	@bash scripts/indexnow.sh fxtun.ru
+	@bash scripts/indexnow.sh fxtun.dev
 
 # Sync cleaned copy to public GitHub repo
 sync-public:
