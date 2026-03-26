@@ -359,7 +359,7 @@
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
-          "a": "Cloudflare Tunnel only supports HTTP and requires the Cloudflare ecosystem. fxTunnel supports HTTP, TCP, and UDP, has a desktop GUI, doesn't require any ecosystem lock-in, and is self-hostable. Cloudflare Tunnel is free but limited to their platform."
+          "a": "Cloudflare Tunnel supports HTTP and TCP, but not UDP, and requires the Cloudflare ecosystem. fxTunnel supports HTTP, TCP, and UDP, has a desktop GUI, doesn't require any ecosystem lock-in, and is self-hostable. Cloudflare Tunnel is free but limited to their platform."
         },
         {
           "q": "How do I expose localhost to the internet?",
@@ -906,7 +906,7 @@
       "table": {
         "price": { "label": "Price", "fxtunnel": "Free / from $2.50/mo", "competitor": "Free (with CF account)" },
         "ecosystem": { "label": "Ecosystem lock-in", "fxtunnel": "None", "competitor": "Cloudflare required" },
-        "protocols": { "label": "Protocols", "fxtunnel": "HTTP + TCP + UDP", "competitor": "HTTP only" },
+        "protocols": { "label": "Protocols", "fxtunnel": "HTTP + TCP + UDP", "competitor": "HTTP + TCP" },
         "gui": { "label": "Desktop GUI", "fxtunnel": "Yes", "competitor": "No" },
         "inspector": { "label": "Traffic inspector", "fxtunnel": "From $2.50/mo", "competitor": "No" },
         "selfHosted": { "label": "Self-hosted", "fxtunnel": "Yes", "competitor": "No" },
@@ -919,7 +919,7 @@
         "pricingTitle": "Pricing & Independence",
         "pricingText": "Cloudflare Tunnel is free, but it requires a Cloudflare account and your domain must be managed through Cloudflare DNS. fxTunnel is also free to start, and you keep full independence — no ecosystem lock-in, no mandatory DNS migration. Use any domain registrar you prefer.",
         "protocolsTitle": "Protocol Support",
-        "protocolsText": "Cloudflare Tunnel only supports HTTP traffic. fxTunnel supports HTTP, TCP, and UDP. Need to expose an SSH server, a database, a game server, or a DNS service? fxTunnel handles all three protocols with dedicated port allocation for TCP and UDP.",
+        "protocolsText": "Cloudflare Tunnel supports HTTP and TCP traffic, but not UDP. fxTunnel supports all three protocols: HTTP, TCP, and UDP. Need to expose a game server, DNS, or another UDP service? Only fxTunnel handles UDP with dedicated port allocation.",
         "independenceTitle": "No Ecosystem Lock-In",
         "independenceText": "With Cloudflare Tunnel, your domain DNS must be on Cloudflare, your traffic routes through their network, and you depend on their platform. fxTunnel is fully independent — use any DNS provider, any domain registrar, and optionally self-host for complete control.",
         "guiTitle": "Desktop GUI Client",
@@ -928,8 +928,8 @@
         "selfHostedText": "fxTunnel can be deployed on your own infrastructure. Run your own tunneling server with SQLite, manage users, and keep all data on your servers. Cloudflare Tunnel has no self-hosted option — you always depend on Cloudflare's infrastructure."
       },
       "faq": [
-        { "q": "Why choose fxTunnel over Cloudflare Tunnel?", "a": "If you need TCP or UDP tunneling, don't want to migrate DNS to Cloudflare, want a desktop GUI, or need traffic inspection — fxTunnel is the better choice. Cloudflare Tunnel is great if you're already in the Cloudflare ecosystem and only need HTTP." },
-        { "q": "Is Cloudflare Tunnel really free?", "a": "Yes, but with strings attached. Your domain must use Cloudflare DNS, you're locked into their ecosystem, and you only get HTTP support. fxTunnel's free plan gives you HTTP, TCP, UDP, any subdomain, and no ecosystem requirements." },
+        { "q": "Why choose fxTunnel over Cloudflare Tunnel?", "a": "If you need UDP tunneling, don't want to migrate DNS to Cloudflare, want a desktop GUI, or need traffic inspection — fxTunnel is the better choice. Cloudflare Tunnel supports HTTP and TCP but not UDP, and locks you into the Cloudflare ecosystem." },
+        { "q": "Is Cloudflare Tunnel really free?", "a": "Yes, but with strings attached. Your domain must use Cloudflare DNS, you're locked into their ecosystem, and you only get HTTP and TCP support (no UDP). fxTunnel's free plan gives you HTTP, TCP, UDP, any subdomain, and no ecosystem requirements." },
         { "q": "Can fxTunnel handle the same traffic as Cloudflare?", "a": "For development, staging, and small-to-medium production workloads — absolutely. fxTunnel has no bandwidth limits. For large enterprise deployments needing global CDN, Cloudflare may be more suitable, but fxTunnel can be self-hosted and scaled." },
         { "q": "Does fxTunnel support Cloudflare-managed domains?", "a": "Yes. You can use fxTunnel with any domain, including those on Cloudflare DNS. Just point a CNAME record to your fxTunnel address. Unlike Cloudflare Tunnel, fxTunnel doesn't require Cloudflare DNS — it works with any provider." }
       ]
@@ -1016,7 +1016,7 @@
       { "q": "Can I cancel my subscription anytime?", "a": "Yes. You can cancel at any time from your profile. Your paid features remain active until the end of the billing period. No cancellation fees." },
       { "q": "Is there a free trial for paid plans?", "a": "There is no trial period, but the Free plan is available indefinitely. You can start with Free and upgrade when you need more tunnels, reserved subdomains, or the traffic inspector." },
       { "q": "What happens if I downgrade my plan?", "a": "When you downgrade, the new plan takes effect at the end of your current billing period. Excess reserved subdomains and custom domains will be released automatically." },
-      { "q": "Do you offer refunds?", "a": "Yes. Full refund before the paid period starts, proportional refund after. Refunds are processed within 14 business days via the original payment method. Contact support@nocodo.tech." }
+      { "q": "Do you offer refunds?", "a": "Yes. Full refund before the paid period starts, proportional refund after. Refunds are processed within 14 business days via the original payment method. Contact support@fxtun.ru." }
     ]
   },
   "pricingPage": {

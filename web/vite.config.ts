@@ -50,7 +50,7 @@ export default defineConfig({
   ssgOptions: {
     script: "async",
     formatting: "minify",
-    beastiesOptions: {},
+    beastiesOptions: { fonts: false, preloadFonts: false },
     includedRoutes() {
       const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);

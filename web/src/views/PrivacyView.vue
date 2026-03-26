@@ -111,8 +111,8 @@ const lastUpdated = '17.02.2026'
         <template v-if="locale === 'ru'">
           <h2>1. Введение</h2>
           <p>
-            Настоящая Политика конфиденциальности описывает, как <strong>Nocodo LTD</strong>
-            (далее «Компания», «мы», «нас» или «наш»), зарегистрированная в Республике Кипр,
+            Настоящая Политика конфиденциальности описывает, как <strong>ИП Наводнюк А.И.</strong>
+            (далее «Компания», «мы», «нас» или «наш»),
             собирает, использует, раскрывает и защищает информацию пользователей сервиса fxTunnel
             (далее «Сервис»), включая веб-сайт <a href="https://fxtun.ru">fxtun.ru</a>,
             десктопные приложения, инструменты
@@ -244,7 +244,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             Вы можете запросить полное удаление данных, обратившись по адресу
-            <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>7. Безопасность данных</h2>
@@ -268,7 +268,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             Для реализации своих прав обратитесь по адресу
-            <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>9. Положения для резидентов ЕС (GDPR)</h2>
@@ -317,23 +317,19 @@ const lastUpdated = '17.02.2026'
             <tbody>
               <tr>
                 <td class="font-medium pr-4 py-1">Компания:</td>
-                <td>Nocodo LTD</td>
+                <td>ИП Наводнюк А.И.</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Юрисдикция:</td>
-                <td>Республика Кипр</td>
+                <td>Российская Федерация</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Сайт:</td>
-                <td><a href="https://nocodo.tech">nocodo.tech</a></td>
+                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@nocodo.tech">support@nocodo.tech</a></td>
-              </tr>
-              <tr>
-                <td class="font-medium pr-4 py-1">Сервис:</td>
-                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
+                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
               </tr>
             </tbody>
           </table>
@@ -475,7 +471,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             You may request full data deletion by contacting
-            <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>7. Data Security</h2>
@@ -499,7 +495,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             To exercise your rights, contact
-            <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>9. EU-Specific Provisions (GDPR)</h2>
@@ -560,7 +556,7 @@ const lastUpdated = '17.02.2026'
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@nocodo.tech">support@nocodo.tech</a></td>
+                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Service:</td>

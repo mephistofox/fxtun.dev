@@ -2,6 +2,7 @@
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSeo } from '@/composables/useSeo'
+import { useSubpageSchema } from '@/composables/useStructuredData'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 
 const props = defineProps<{
@@ -11,9 +12,20 @@ const props = defineProps<{
 
 const { t } = useI18n()
 
+const seoKey = `compare${props.competitorSlug.charAt(0).toUpperCase() + props.competitorSlug.slice(1).replace(/-./g, m => m[1].toUpperCase())}`
+
 useSeo({
-  titleKey: `seo.compare${props.competitorSlug.charAt(0).toUpperCase() + props.competitorSlug.slice(1).replace(/-./g, m => m[1].toUpperCase())}.title`,
-  descriptionKey: `seo.compare${props.competitorSlug.charAt(0).toUpperCase() + props.competitorSlug.slice(1).replace(/-./g, m => m[1].toUpperCase())}.description`,
+  titleKey: `seo.${seoKey}.title`,
+  descriptionKey: `seo.${seoKey}.description`,
+})
+
+useSubpageSchema({
+  path: `/compare/${props.competitorSlug}`,
+  name: t(`seo.${seoKey}.title`),
+  description: t(`seo.${seoKey}.description`),
+  breadcrumbs: [
+    { name: t('compare.breadcrumbCompare', 'Compare'), path: `/compare/${props.competitorSlug}` },
+  ],
 })
 </script>
 
