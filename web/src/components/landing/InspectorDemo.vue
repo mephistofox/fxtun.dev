@@ -395,7 +395,7 @@ onUnmounted(() => {
                   :disabled="replayingId !== null"
                   class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-primary/15 text-primary border border-primary/20 hover:bg-primary/25 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg aria-hidden="true" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z" />
                   </svg>
                   {{ t('landing.advanced.inspector.demo.send') }}
@@ -417,7 +417,7 @@ onUnmounted(() => {
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  <svg v-else class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg aria-hidden="true" v-else class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z" />
                   </svg>
                   {{ t('landing.advanced.inspector.demo.replay') }}
@@ -426,7 +426,7 @@ onUnmounted(() => {
                   @click="openEditor"
                   class="flex-1 py-1.5 rounded-md text-[10px] font-medium bg-foreground/[0.04] text-foreground/60 border border-border/40 hover:bg-foreground/[0.08] transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg aria-hidden="true" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   {{ t('landing.advanced.inspector.demo.editReplay') }}

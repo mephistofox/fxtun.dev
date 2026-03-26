@@ -165,7 +165,7 @@ onMounted(() => {
                 class="flex items-start gap-3"
               >
                 <div :class="`w-5 h-5 rounded-full bg-${currentProtocol.color}/20 flex items-center justify-center flex-shrink-0 mt-0.5`">
-                  <svg :class="`h-3 w-3 text-${currentProtocol.color}`" viewBox="0 0 20 20" fill="currentColor">
+                  <svg aria-hidden="true" :class="`h-3 w-3 text-${currentProtocol.color}`" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
                   </svg>
                 </div>
@@ -207,7 +207,7 @@ onMounted(() => {
                   <span class="text-foreground/90 ml-2">{{ currentProtocol.command }}</span>
                 </div>
                 <button class="absolute top-3 right-3 p-2 rounded-md bg-surface/50 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" :aria-label="t('common.copy')">
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <svg aria-hidden="true" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                   </svg>
                 </button>
