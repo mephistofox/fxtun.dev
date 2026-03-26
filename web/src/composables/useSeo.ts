@@ -39,7 +39,7 @@ export function useSeo(options: SeoOptions = {}) {
   // which is set from route meta forcedLocale (e.g. 'ru' for /ru/* routes).
   const domainLocale = import.meta.env.SSR ? effectiveLocale : getDomainLocale()
   const ogDomain = domainLocale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
-  const image = options.image || `https://${ogDomain}/og-image.png`
+  const image = options.image || `https://${ogDomain}/og-image.jpg`
 
   const isLangPrefix = computed(() =>
     route.path.startsWith('/ru') || route.path.startsWith('/en')
@@ -78,15 +78,18 @@ export function useSeo(options: SeoOptions = {}) {
     ]),
   })
 
+  const keywords = computed(() => te('seo.defaultKeywords'))
+
   useSeoMeta({
     title,
     description,
+    keywords,
     ogTitle: title,
     ogDescription: description,
     ogImage: image,
     ogImageWidth: 1200,
     ogImageHeight: 630,
-    ogImageType: 'image/png',
+    ogImageType: 'image/jpeg',
     ogImageAlt: title,
     ogUrl: canonical,
     ogType: options.type || 'website',

@@ -90,7 +90,7 @@ export function useOrganizationSchema() {
           '@id': `${baseUrl}/#organization`,
           name: 'fxTunnel',
           url: baseUrl,
-          logo: `${baseUrl}/og-image.png`,
+          logo: `${baseUrl}/og-image.jpg`,
           sameAs: [
             'https://github.com/mephistofox/fxtun.dev',
           ],
