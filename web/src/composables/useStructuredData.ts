@@ -118,8 +118,9 @@ export function useSoftwareApplicationSchema() {
           applicationCategory: 'DeveloperApplication',
           operatingSystem: 'Windows, macOS, Linux',
           description: t.software,
+          inLanguage: locale,
           url: baseUrl,
-          downloadUrl: `${baseUrl}/#download`,
+          downloadUrl: `${baseUrl}/downloads`,
           publisher: { '@id': `${baseUrl}/#organization` },
           offers: buildSchemaOffers(locale),
           featureList: t.features,
@@ -145,6 +146,7 @@ export function useWebSiteSchema() {
           name: 'fxTunnel',
           url: baseUrl,
           description: t.website,
+          inLanguage: locale,
           publisher: { '@id': `${baseUrl}/#organization` },
         }),
       },
@@ -168,6 +170,7 @@ export function useWebPageSchema() {
           name: t.webpageName,
           url: baseUrl,
           description: t.webpage,
+          inLanguage: locale,
           isPartOf: { '@id': `${baseUrl}/#website` },
           about: { '@id': `${baseUrl}/#software` },
           speakable: {
@@ -181,17 +184,19 @@ export function useWebPageSchema() {
   })
 }
 
-export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) {
+export function useFaqSchema(faqs: Array<{ question: string; answer: string }>, idSuffix = '') {
+  const locale = getEffectiveLocale()
   const baseUrl = getBaseUrl()
   useHead({
     script: [
       {
-        id: 'ld-faq',
+        id: `ld-faq${idSuffix}`,
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
-          '@id': `${baseUrl}/#faq`,
+          '@id': `${baseUrl}/#faq${idSuffix}`,
+          inLanguage: locale,
           mainEntity: faqs.map((faq) => ({
             '@type': 'Question',
             name: faq.question,
@@ -204,4 +209,58 @@ export function useFaqSchema(faqs: Array<{ question: string; answer: string }>) 
       },
     ],
   })
+}
+
+export function useSubpageSchema(options: {
+  path: string
+  name: string
+  description: string
+  pageType?: 'WebPage' | 'AboutPage'
+  breadcrumbs?: Array<{ name: string; path: string }>
+}) {
+  const locale = getEffectiveLocale()
+  const baseUrl = getBaseUrl()
+  const pageUrl = `${baseUrl}${options.path}`
+
+  const schemas: Array<{ id: string; type: string; innerHTML: string }> = []
+
+  // WebPage / AboutPage
+  schemas.push({
+    id: 'ld-subpage',
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': options.pageType || 'WebPage',
+      '@id': `${pageUrl}/#webpage`,
+      name: options.name,
+      url: pageUrl,
+      description: options.description,
+      inLanguage: locale,
+      isPartOf: { '@id': `${baseUrl}/#website` },
+    }),
+  })
+
+  // BreadcrumbList
+  if (options.breadcrumbs && options.breadcrumbs.length > 0) {
+    const items = [
+      { name: 'fxTunnel', path: '/' },
+      ...options.breadcrumbs,
+    ]
+    schemas.push({
+      id: 'ld-breadcrumb',
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: items.map((item, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: item.name,
+          item: `${baseUrl}${item.path}`,
+        })),
+      }),
+    })
+  }
+
+  useHead({ script: schemas })
 }

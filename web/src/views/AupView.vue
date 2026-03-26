@@ -214,7 +214,7 @@ const lastUpdated = '18.02.2026'
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Email:</td>
-              <td><a href="mailto:abuse@fxtun.dev">abuse@fxtun.dev</a></td>
+              <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Website:</td>

@@ -131,12 +131,13 @@ onMounted(async () => {
           <span class="text-sm font-medium text-primary">{{ t('landing.pricing.label') }}</span>
         </div>
 
-        <h2
+        <component
+          :is="compact ? 'h1' : 'h2'"
           class="text-display-lg font-display mb-6 reveal reveal-delay-1"
           :class="{ 'visible': isVisible }"
         >
           {{ t('landing.pricing.title') }}
-        </h2>
+        </component>
 
         <p
           class="text-xl text-muted-foreground reveal reveal-delay-2"

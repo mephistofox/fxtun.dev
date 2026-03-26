@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ComparePageLayout from '@/components/landing/ComparePageLayout.vue'
+import { useFaqSchema } from '@/composables/useStructuredData'
 
 const { t, tm } = useI18n()
 
@@ -17,6 +18,7 @@ interface FaqItem {
 }
 
 const faqItems = computed(() => tm('compare.tuna.faq') as FaqItem[])
+useFaqSchema(faqItems.value.map(item => ({ question: item.q, answer: item.a })), '-tuna')
 
 const openFaqIndex = ref<number | null>(null)
 
