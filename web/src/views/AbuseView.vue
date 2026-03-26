@@ -113,8 +113,8 @@ function cycleTheme() {
         <h2>1. How to Report</h2>
         <p>Send an email to:</p>
         <div class="my-4 p-4 rounded-lg border border-border bg-surface/50">
-          <a href="mailto:abuse@fxtun.dev" class="text-lg font-mono font-semibold text-primary">
-            abuse@fxtun.dev
+          <a href="mailto:support@fxtun.ru" class="text-lg font-mono font-semibold text-primary">
+            support@fxtun.ru
           </a>
         </div>
 
@@ -148,7 +148,7 @@ function cycleTheme() {
         <h2>5. Legal & Law Enforcement</h2>
         <p>
           For legal requests, subpoenas, or law enforcement inquiries, please contact us at
-          <a href="mailto:abuse@fxtun.dev">abuse@fxtun.dev</a>.
+          <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
         </p>
         <table class="w-full">
           <tbody>

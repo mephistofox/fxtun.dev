@@ -189,7 +189,7 @@ const lastUpdated = '04.02.2026'
           </ul>
           <p>
             Для оформления возврата свяжитесь с нами:
-            <a href="mailto:Mephistofox@ya.ru">Mephistofox@ya.ru</a> или
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a> или
             <a href="https://t.me/mephistofx">@mephistofx</a> в Telegram.
           </p>
 
@@ -261,7 +261,7 @@ const lastUpdated = '04.02.2026'
             <tbody>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:Mephistofox@ya.ru">Mephistofox@ya.ru</a></td>
+                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Telegram:</td>
@@ -316,7 +316,7 @@ const lastUpdated = '04.02.2026'
           </ul>
           <p>
             For refunds, contact us:
-            <a href="mailto:Mephistofox@ya.ru">Mephistofox@ya.ru</a> or
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a> or
             <a href="https://t.me/mephistofx">@mephistofx</a> on Telegram.
           </p>
 
@@ -349,7 +349,7 @@ const lastUpdated = '04.02.2026'
             <tbody>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:Mephistofox@ya.ru">Mephistofox@ya.ru</a></td>
+                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Telegram:</td>

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
+import { useSubpageSchema, useFaqSchema } from '@/composables/useStructuredData'
 import { getDomainLocale } from '@/i18n'
 import PricingSection from '@/components/landing/PricingSection.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
@@ -11,6 +12,15 @@ const { t, tm, locale } = useI18n()
 const route = useRoute()
 
 useSeo({ titleKey: 'seo.pricing.title', descriptionKey: 'seo.pricing.description' })
+
+useSubpageSchema({
+  path: '/pricing',
+  name: t('seo.pricing.title'),
+  description: t('seo.pricing.description'),
+  breadcrumbs: [
+    { name: t('landing.pricing.title'), path: '/pricing' },
+  ],
+})
 
 const effectiveLocale = computed(() => {
   if (route.meta.forcedLocale) return route.meta.forcedLocale as string
@@ -125,6 +135,8 @@ interface FaqItem {
 }
 
 const faqItems = computed(() => tm('pricingFaq.items') as FaqItem[])
+useFaqSchema(faqItems.value.map(item => ({ question: item.q, answer: item.a })), '-pricing')
+
 const openFaqIndex = ref<number | null>(null)
 
 function toggleFaq(index: number) {

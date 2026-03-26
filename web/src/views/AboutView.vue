@@ -2,11 +2,22 @@
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSeo } from '@/composables/useSeo'
+import { useSubpageSchema } from '@/composables/useStructuredData'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 
 const { t, locale } = useI18n()
 
 useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
+
+useSubpageSchema({
+  path: '/about',
+  name: t('seo.about.title'),
+  description: t('seo.about.description'),
+  pageType: 'AboutPage',
+  breadcrumbs: [
+    { name: t('nav.about', 'About'), path: '/about' },
+  ],
+})
 </script>
 
 <template>
@@ -69,7 +80,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
               <tbody>
                 <tr>
                   <td class="font-medium pr-4 py-1">{{ t('about.contactEmail') }}:</td>
-                  <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
+                  <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
                 </tr>
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
@@ -119,7 +130,7 @@ useSeo({ titleKey: 'seo.about.title', descriptionKey: 'seo.about.description' })
               <tbody>
                 <tr>
                   <td class="font-medium pr-4 py-1">{{ t('about.contactEmail') }}:</td>
-                  <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
+                  <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
                 </tr>
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
