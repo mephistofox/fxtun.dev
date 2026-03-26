@@ -80,7 +80,7 @@ onMounted(loadDetail)
       <!-- Header -->
       <div class="flex items-center gap-3">
         <Button variant="ghost" size="sm" @click="router.push({ name: 'admin-users' })">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           {{ t('admin.userDetail.back') }}
         </Button>
       </div>
@@ -100,7 +100,7 @@ onMounted(loadDetail)
               <!-- Avatar -->
               <div class="w-14 h-14 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                 <img v-if="detail.user.avatar_url" :src="detail.user.avatar_url" class="w-full h-full object-cover" />
-                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <svg aria-hidden="true" v-else xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </div>
               <div>
                 <h1 class="text-xl font-bold text-foreground">{{ detail.user.display_name || detail.user.email || detail.user.phone }}</h1>
