@@ -62,7 +62,7 @@ onMounted(async () => {
     <Card variant="glass" class="w-full max-w-md p-8 animate-fade-in-up text-center">
       <div v-if="loading" class="space-y-4">
         <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
         </div>
@@ -71,7 +71,7 @@ onMounted(async () => {
 
       <div v-else class="space-y-4">
         <div class="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mx-auto">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="15" y1="9" x2="9" y2="15" />
             <line x1="9" y1="9" x2="15" y2="15" />

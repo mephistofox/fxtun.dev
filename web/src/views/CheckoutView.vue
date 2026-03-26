@@ -91,7 +91,7 @@ onMounted(() => {
         <!-- Subscription Warning (YooKassa only — Creem always manages renewals) -->
       <div v-if="isRuDomain" class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
         <div class="flex items-start gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
             <path d="M12 9v4"/>
             <path d="M12 17h.01"/>
@@ -161,7 +161,7 @@ onMounted(() => {
               class="w-5 h-5 rounded-full border-2 mx-auto flex items-center justify-center"
               :class="selectedPlanId === plan.id ? 'border-primary bg-primary' : 'border-muted-foreground'"
             >
-              <svg v-if="selectedPlanId === plan.id" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <svg aria-hidden="true" v-if="selectedPlanId === plan.id" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
