@@ -87,7 +87,7 @@ onUnmounted(() => {
   <div class="rounded-xl border border-border bg-code overflow-hidden font-mono text-xs select-none h-[360px] flex flex-col shadow-2xl">
     <!-- Toolbar -->
     <div class="flex items-center gap-2.5 px-3 py-2 border-b border-border/70 bg-code-header">
-      <svg class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg aria-hidden="true" class="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10" />
         <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       </svg>
@@ -121,7 +121,7 @@ onUnmounted(() => {
             class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors duration-300"
             :class="phase !== 'typing' && phase !== 'dns' ? 'bg-emerald-500/20 text-emerald-400' : 'border border-primary/40 text-primary'"
           >
-            <svg v-if="phase !== 'typing' && phase !== 'dns'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <svg aria-hidden="true" v-if="phase !== 'typing' && phase !== 'dns'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <path d="M5 13l4 4L19 7" />
             </svg>
             <span v-else>1</span>
@@ -154,7 +154,7 @@ onUnmounted(() => {
             class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors duration-300"
             :class="phase === 'issuing' || phase === 'done' ? 'bg-emerald-500/20 text-emerald-400' : phase === 'verifying' ? 'border border-amber-500/40 text-amber-400' : 'border border-border/50 text-muted-foreground/50'"
           >
-            <svg v-if="phase === 'issuing' || phase === 'done'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <svg aria-hidden="true" v-if="phase === 'issuing' || phase === 'done'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <path d="M5 13l4 4L19 7" />
             </svg>
             <svg
@@ -196,7 +196,7 @@ onUnmounted(() => {
             class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors duration-300"
             :class="phase === 'done' ? 'bg-emerald-500/20 text-emerald-400' : phase === 'issuing' ? 'border border-amber-500/40 text-amber-400' : 'border border-border/50 text-muted-foreground/50'"
           >
-            <svg v-if="phase === 'done'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <svg aria-hidden="true" v-if="phase === 'done'" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <path d="M5 13l4 4L19 7" />
             </svg>
             <svg
@@ -223,7 +223,7 @@ onUnmounted(() => {
         <Transition name="fade-up">
           <div v-if="phase === 'done'" class="ml-7 space-y-2">
             <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <svg class="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg aria-hidden="true" class="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>

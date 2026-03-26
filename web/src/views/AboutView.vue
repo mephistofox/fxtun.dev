@@ -27,7 +27,7 @@ useSubpageSchema({
       <div class="container mx-auto px-4 flex items-center justify-between h-16">
         <RouterLink to="/" class="about-nav-brand">
           <div class="about-nav-logo">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
@@ -50,6 +50,9 @@ useSubpageSchema({
             <h2>{{ t('about.projectTitle') }}</h2>
             <p>{{ t('about.projectText1') }}</p>
             <p>{{ t('about.projectText2') }}</p>
+
+            <h2>{{ t('about.missionTitle') }}</h2>
+            <p>{{ t('about.missionText') }}</p>
 
             <h2>{{ t('about.developerTitle') }}</h2>
             <p>{{ t('about.developerText1') }}</p>
@@ -100,6 +103,9 @@ useSubpageSchema({
             <h2>{{ t('about.projectTitle') }}</h2>
             <p>{{ t('about.projectText1') }}</p>
             <p>{{ t('about.projectText2') }}</p>
+
+            <h2>{{ t('about.missionTitle') }}</h2>
+            <p>{{ t('about.missionText') }}</p>
 
             <h2>{{ t('about.developerTitle') }}</h2>
             <p>{{ t('about.developerText1') }}</p>

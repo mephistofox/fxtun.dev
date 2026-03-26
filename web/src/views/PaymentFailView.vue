@@ -14,7 +14,7 @@ const { t } = useI18n()
     <div class="max-w-md mx-auto mt-12">
       <Card class="p-8 text-center">
         <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-destructive/20 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10" />
             <path d="m15 9-6 6" />
             <path d="m9 9 6 6" />
