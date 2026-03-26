@@ -116,9 +116,9 @@ const lastUpdated = '13.02.2026'
             десктопные приложения, инструменты командной строки и все связанные API.
           </p>
           <p>
-            Сервис управляется компанией <strong>Nocodo LTD</strong>, зарегистрированной
-            в Республике Кипр (далее «Компания», «мы», «нас» или «наш»).
-            Сайт компании: <a href="https://nocodo.tech">nocodo.tech</a>.
+            Сервис управляется <strong>ИП Наводнюк А.И.</strong>
+            (далее «Компания», «мы», «нас» или «наш»).
+            Сайт: <a href="https://fxtun.ru">fxtun.ru</a>.
           </p>
           <p>
             Создавая аккаунт или используя Сервис, вы («Пользователь») соглашаетесь
@@ -157,7 +157,7 @@ const lastUpdated = '13.02.2026'
           <p>
             Вы несёте полную ответственность за все действия, совершённые через ваш аккаунт.
             При подозрении на несанкционированный доступ немедленно свяжитесь с нами:
-            <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>5. Бесплатный и платные тарифы</h2>
@@ -198,7 +198,7 @@ const lastUpdated = '13.02.2026'
           <h2>7. Интеллектуальная собственность</h2>
           <p>
             Сервис, включая программное обеспечение, дизайн, логотипы, документацию и всю связанную
-            интеллектуальную собственность, принадлежит Nocodo LTD или её лицензиарам. Настоящие Условия
+            интеллектуальную собственность, принадлежит ИП Наводнюк А.И. или его лицензиарам. Настоящие Условия
             не предоставляют вам никаких прав на Сервис, кроме ограниченного права использования.
           </p>
           <p>
@@ -226,7 +226,7 @@ const lastUpdated = '13.02.2026'
           <p>
             Данные аккаунта хранятся в течение срока действия аккаунта плюс 12 месяцев после удаления.
             Метаданные подключений хранятся до 90 дней. Вы можете запросить полное удаление данных,
-            обратившись по адресу <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            обратившись по адресу <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
           <h3>8.4. Содержимое трафика</h3>
           <p>
@@ -258,7 +258,7 @@ const lastUpdated = '13.02.2026'
           </ul>
           <p>
             Возвраты осуществляются на исходный способ оплаты в течение 14 рабочих дней.
-            Для оформления возврата обратитесь по адресу <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+            Для оформления возврата обратитесь по адресу <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
           </p>
 
           <h2>10. Доступность Сервиса и SLA</h2>
@@ -276,7 +276,7 @@ const lastUpdated = '13.02.2026'
 
           <h2>11. Ограничение ответственности</h2>
           <p>
-            В максимальной степени, допускаемой применимым законодательством, Nocodo LTD не несёт
+            В максимальной степени, допускаемой применимым законодательством, ИП Наводнюк А.И. не несёт
             ответственности за любые косвенные, случайные, специальные, штрафные убытки, включая,
             но не ограничиваясь, упущенную выгоду, потерю данных, деловых возможностей или репутации,
             возникшие в связи с использованием Сервиса.
@@ -288,8 +288,8 @@ const lastUpdated = '13.02.2026'
 
           <h2>12. Возмещение убытков</h2>
           <p>
-            Вы обязуетесь возместить и оградить Nocodo LTD, её должностных лиц, директоров,
-            сотрудников и агентов от любых претензий, убытков, потерь, обязательств и расходов
+            Вы обязуетесь возместить и оградить ИП Наводнюк А.И. от любых претензий,
+            убытков, потерь, обязательств и расходов
             (включая разумные судебные издержки), возникших из-за использования вами Сервиса
             или нарушения настоящих Условий.
           </p>
@@ -317,12 +317,12 @@ const lastUpdated = '13.02.2026'
           <h2>15. Применимое право и разрешение споров</h2>
           <p>
             Настоящие Условия регулируются и толкуются в соответствии с законодательством
-            Республики Кипр без учёта коллизионных норм.
+            Российской Федерации.
           </p>
           <p>
             Любые споры, возникающие из настоящих Условий или Сервиса, должны сначала разрешаться
             путём добросовестных переговоров. Если спор не разрешён в течение 30 дней,
-            он передаётся на рассмотрение в суды Республики Кипр.
+            он передаётся на рассмотрение в суды Российской Федерации.
           </p>
 
           <h2>16. Делимость положений</h2>
@@ -336,23 +336,19 @@ const lastUpdated = '13.02.2026'
             <tbody>
               <tr>
                 <td class="font-medium pr-4 py-1">Компания:</td>
-                <td>Nocodo LTD</td>
+                <td>ИП Наводнюк А.И.</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Юрисдикция:</td>
-                <td>Республика Кипр</td>
+                <td>Российская Федерация</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Сайт:</td>
-                <td><a href="https://nocodo.tech">nocodo.tech</a></td>
+                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@nocodo.tech">support@nocodo.tech</a></td>
-              </tr>
-              <tr>
-                <td class="font-medium pr-4 py-1">Сервис:</td>
-                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
+                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
               </tr>
             </tbody>
           </table>
@@ -407,7 +403,7 @@ const lastUpdated = '13.02.2026'
         <p>
           You are solely responsible for all activity that occurs under your account. You must
           notify us immediately at
-          <a href="mailto:support@nocodo.tech">support@nocodo.tech</a> if you suspect
+          <a href="mailto:support@fxtun.ru">support@fxtun.ru</a> if you suspect
           unauthorized access to your account.
         </p>
 
@@ -479,7 +475,7 @@ const lastUpdated = '13.02.2026'
         <p>
           We retain your account data for the duration of your account plus 12 months after
           deletion. Connection metadata is retained for up to 90 days. You may request full
-          data deletion by contacting <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+          data deletion by contacting <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
         </p>
         <h3>8.4. Traffic Content</h3>
         <p>
@@ -512,7 +508,7 @@ const lastUpdated = '13.02.2026'
         </ul>
         <p>
           Refunds are issued to the original payment method within 14 business days.
-          To request a refund, contact <a href="mailto:support@nocodo.tech">support@nocodo.tech</a>.
+          To request a refund, contact <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
         </p>
 
         <h2>10. Service Availability and SLA</h2>
@@ -602,7 +598,7 @@ const lastUpdated = '13.02.2026'
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Email:</td>
-              <td><a href="mailto:support@nocodo.tech">support@nocodo.tech</a></td>
+              <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Service:</td>
