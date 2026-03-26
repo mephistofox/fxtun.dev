@@ -52,9 +52,25 @@ func SPAHandler() http.Handler {
 		path := r.URL.Path
 		ruDomain := isRuDomain(r.Host)
 
-		// Serve domain-aware sitemap.xml: replace fxtun.dev → fxtun.ru for Russian domain
-		if path == "/sitemap.xml" && ruDomain {
-			serveDomainSitemap(w, filesystem)
+		// Redirect redundant locale prefixes:
+		// fxtun.ru/ru/* → fxtun.ru/* (already Russian)
+		// fxtun.dev/en/* → fxtun.dev/* (already English)
+		if (ruDomain && strings.HasPrefix(path, "/ru")) || (!ruDomain && strings.HasPrefix(path, "/en")) {
+			prefix := "/ru"
+			if !ruDomain {
+				prefix = "/en"
+			}
+			newPath := strings.TrimPrefix(path, prefix)
+			if newPath == "" {
+				newPath = "/"
+			}
+			http.Redirect(w, r, newPath, http.StatusMovedPermanently)
+			return
+		}
+
+		// Serve domain-aware sitemap.xml with hreflang links
+		if path == "/sitemap.xml" {
+			serveDomainSitemap(w, filesystem, ruDomain)
 			return
 		}
 
@@ -152,9 +168,10 @@ func isKnownSPARoute(path string) bool {
 	return false
 }
 
-// serveDomainSitemap reads sitemap.xml from the embedded FS, replaces
-// fxtun.dev with fxtun.ru, and writes the result to the response.
-func serveDomainSitemap(w http.ResponseWriter, filesystem http.FileSystem) {
+// serveDomainSitemap reads sitemap.xml from the embedded FS, injects
+// hreflang xhtml:link alternate entries for ru/en/x-default, and for
+// fxtun.ru replaces <loc> URLs from fxtun.dev to fxtun.ru.
+func serveDomainSitemap(w http.ResponseWriter, filesystem http.FileSystem, ruDomain bool) {
 	f, err := filesystem.Open("/sitemap.xml")
 	if err != nil {
 		http.Error(w, "sitemap not found", http.StatusNotFound)
@@ -168,10 +185,60 @@ func serveDomainSitemap(w http.ResponseWriter, filesystem http.FileSystem) {
 		return
 	}
 
-	replaced := strings.ReplaceAll(string(data), "https://fxtun.dev", "https://fxtun.ru")
+	content := string(data)
+
+	// Inject hreflang links: for each <loc>https://fxtun.dev/path</loc>,
+	// add xhtml:link alternates before </url>.
+	var result strings.Builder
+	result.Grow(len(content) * 2)
+
+	remaining := content
+	for {
+		urlEnd := strings.Index(remaining, "</url>")
+		if urlEnd == -1 {
+			result.WriteString(remaining)
+			break
+		}
+
+		// Extract the chunk up to </url>
+		chunk := remaining[:urlEnd]
+
+		// Find <loc>...</loc> within this chunk
+		locStart := strings.Index(chunk, "<loc>")
+		locEnd := strings.Index(chunk, "</loc>")
+		if locStart != -1 && locEnd != -1 {
+			loc := chunk[locStart+5 : locEnd]
+			// Extract path from URL (e.g. https://fxtun.dev/pricing → /pricing)
+			path := strings.TrimPrefix(loc, "https://fxtun.dev")
+			if path == "" {
+				path = "/"
+			}
+
+			enURL := "https://fxtun.dev" + path
+			ruURL := "https://fxtun.ru" + path
+
+			// For fxtun.ru, replace the <loc> URL
+			if ruDomain {
+				chunk = strings.Replace(chunk, loc, ruURL, 1)
+			}
+
+			hreflang := `<xhtml:link rel="alternate" hreflang="en" href="` + enURL + `"/>` +
+				`<xhtml:link rel="alternate" hreflang="ru" href="` + ruURL + `"/>` +
+				`<xhtml:link rel="alternate" hreflang="x-default" href="` + enURL + `"/>`
+
+			result.WriteString(chunk)
+			result.WriteString(hreflang)
+		} else {
+			result.WriteString(chunk)
+		}
+
+		result.WriteString("</url>")
+		remaining = remaining[urlEnd+6:]
+	}
+
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(replaced))
+	_, _ = w.Write([]byte(result.String()))
 }
 
 // serveDomainRobots reads robots.txt from the embedded FS and filters
