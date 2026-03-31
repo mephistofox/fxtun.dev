@@ -11,6 +11,7 @@ jobs:
     outputs:
       server: ${{ steps.changes.outputs.server }}
       web: ${{ steps.changes.outputs.web }}
+      clients: ${{ steps.changes.outputs.clients }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,27 +21,31 @@ jobs:
       - name: Detect changes
         id: changes
         run: |
-          # On workflow_dispatch, deploy everything
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "server=true" >> $GITHUB_OUTPUT
             echo "web=true" >> $GITHUB_OUTPUT
+            echo "clients=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           CHANGED=$(git diff --name-only HEAD~1 HEAD)
 
-          # Server: Go code or configs changed
-          if echo "$CHANGED" | grep -qE '^(cmd/|internal/|go\.(mod|sum)|Makefile)'; then
+          if echo "$CHANGED" | grep -qE '^(cmd/server|internal/server|internal/(config|protocol|inspect)|go\.(mod|sum))'; then
             echo "server=true" >> $GITHUB_OUTPUT
           else
             echo "server=false" >> $GITHUB_OUTPUT
           fi
 
-          # Web: frontend code changed
           if echo "$CHANGED" | grep -qE '^web/'; then
             echo "web=true" >> $GITHUB_OUTPUT
           else
             echo "web=false" >> $GITHUB_OUTPUT
+          fi
+
+          if echo "$CHANGED" | grep -qE '^(cmd/client|internal/client|internal/(config|protocol|inspect)|go\.(mod|sum))'; then
+            echo "clients=true" >> $GITHUB_OUTPUT
+          else
+            echo "clients=false" >> $GITHUB_OUTPUT
           fi
 
   deploy-server:
@@ -124,15 +129,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Build frontend
-        run: cd web && npm install --legacy-peer-deps && npm run build
+        run: cd web && pnpm install && pnpm run build
 
       - name: Setup SSH
         run: |
@@ -149,4 +159,59 @@ jobs:
         run: |
           ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /var/www/fxtunnel"
           rsync -az --delete -e "ssh -i $SSH_KEY" web/dist/ ${SSH_USER}@${SSH_HOST}:/var/www/fxtunnel/
-          echo "Frontend deployed to /var/www/fxtunnel/"
+          echo "Frontend deployed"
+
+  build-clients:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.clients == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")-staging
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build CLI clients
+        run: |
+          mkdir -p clients
+          LDFLAGS="-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')"
+
+          CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags "$LDFLAGS" -o clients/fxtunnel-linux-amd64       ./cmd/client
+          CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -ldflags "$LDFLAGS" -o clients/fxtunnel-linux-arm64       ./cmd/client
+          CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -ldflags "$LDFLAGS" -o clients/fxtunnel-darwin-amd64      ./cmd/client
+          CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -ldflags "$LDFLAGS" -o clients/fxtunnel-darwin-arm64      ./cmd/client
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o clients/fxtunnel-windows-amd64.exe ./cmd/client
+
+          ls -lh clients/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy clients
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+        run: |
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /root/fxtunnel/downloads"
+          rsync -az -e "ssh -i $SSH_KEY" clients/ ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/downloads/
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "chmod +x /root/fxtunnel/downloads/*"
+          echo "Clients deployed"

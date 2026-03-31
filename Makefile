@@ -47,7 +47,7 @@ deps:
 
 # Build Vue3 server web frontend (standalone, deployed via nginx/CDN)
 web:
-	cd web && npm install && npm run build
+	cd web && pnpm install && pnpm run build
 
 # Build client binaries for all platforms (for downloads)
 build-clients:
@@ -77,7 +77,7 @@ wails-install:
 
 # Build GUI frontend (Vue3)
 gui-frontend:
-	cd gui/frontend && npm install && npm run build
+	cd gui/frontend && pnpm install && pnpm run build
 
 # Development mode for GUI (hot reload)
 gui-dev:
