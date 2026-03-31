@@ -3,14 +3,14 @@
   "name": "fxTunnel",
   "outputfilename": "fxtunnel-gui",
   "build:tags": "webkit2_41",
-  "frontend:dir": "gui",
+  "frontend:dir": "frontend",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "wailsjsdir": "./gui/src/wailsjs",
-  "assetdir": "./gui/dist",
-  "reloaddirs": "./internal",
+  "wailsjsdir": "./frontend/src/wailsjs",
+  "assetdir": "./frontend/dist",
+  "reloaddirs": "../internal",
   "author": {
     "name": "fxTunnel",
     "email": "noreply@fxtunnel.local"
