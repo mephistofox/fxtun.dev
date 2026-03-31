@@ -10,7 +10,7 @@ import Card from '@/components/ui/Card.vue'
 const themeStore = useThemeStore()
 const { t, locale } = useI18n()
 
-useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description' })
+useSeo({ titleKey: 'seo.login.title', descriptionKey: 'seo.login.description', robots: 'noindex, nofollow' })
 
 const showOffer = computed(() => locale.value === 'ru')
 

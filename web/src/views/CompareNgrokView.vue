@@ -70,6 +70,16 @@ const sectionKeys = [
               {{ t(`compare.ngrok.sections.${key}Text`) }}
             </p>
           </div>
+
+          <!-- Verdict -->
+          <div class="compare-verdict mt-12 border-l-4 border-primary rounded-r-lg bg-primary/5 p-6">
+            <h2 class="text-2xl font-display font-semibold mb-4">
+              {{ t('compare.ngrok.sections.verdictTitle') }}
+            </h2>
+            <p class="text-muted-foreground leading-relaxed">
+              {{ t('compare.ngrok.sections.verdictText') }}
+            </p>
+          </div>
         </div>
       </section>
     </template>

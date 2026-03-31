@@ -55,6 +55,7 @@ const descriptions = {
 // Build schema offers from pre-fetched plans cache
 function buildSchemaOffers(locale: 'en' | 'ru') {
   const currency = locale === 'ru' ? 'RUB' : 'USD'
+  const baseUrl = locale === 'ru' ? 'https://fxtun.ru' : 'https://fxtun.dev'
   return plansCache.plans.map((plan) => {
     const price = locale === 'ru' ? String(plan.price_rub) : String(plan.price)
     const offer: Record<string, unknown> = {
@@ -62,6 +63,8 @@ function buildSchemaOffers(locale: 'en' | 'ru') {
       price,
       priceCurrency: currency,
       name: plan.name,
+      url: `${baseUrl}/pricing`,
+      availability: 'https://schema.org/InStock',
     }
     if (plan.price > 0) {
       offer.priceSpecification = {
@@ -90,11 +93,23 @@ export function useOrganizationSchema() {
           '@id': `${baseUrl}/#organization`,
           name: 'fxTunnel',
           url: baseUrl,
-          logo: `${baseUrl}/og-image.jpg`,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${baseUrl}/og-image.jpg`,
+            width: 1200,
+            height: 630,
+          },
           sameAs: [
             'https://github.com/mephistofox/fxtun.dev',
           ],
           description: t.organization,
+          foundingDate: '2025-12-01',
+          contactPoint: {
+            '@type': 'ContactPoint',
+            email: 'support@fxtun.ru',
+            contactType: 'customer support',
+            availableLanguage: ['ru', 'en'],
+          },
         }),
       },
     ],
@@ -122,6 +137,8 @@ export function useSoftwareApplicationSchema() {
           url: baseUrl,
           downloadUrl: `${baseUrl}/downloads`,
           publisher: { '@id': `${baseUrl}/#organization` },
+          datePublished: '2025-12-01',
+          dateModified: '2026-03-27',
           offers: buildSchemaOffers(locale),
           featureList: t.features,
         }),
@@ -154,7 +171,7 @@ export function useWebSiteSchema() {
   })
 }
 
-export function useWebPageSchema() {
+export function useWebPageSchema(options?: { dateModified?: string }) {
   const locale = getEffectiveLocale()
   const baseUrl = getBaseUrl()
   const t = descriptions[locale]
@@ -171,6 +188,7 @@ export function useWebPageSchema() {
           url: baseUrl,
           description: t.webpage,
           inLanguage: locale,
+          dateModified: options?.dateModified || '2026-03-27',
           isPartOf: { '@id': `${baseUrl}/#website` },
           about: { '@id': `${baseUrl}/#software` },
           speakable: {
@@ -211,11 +229,36 @@ export function useFaqSchema(faqs: Array<{ question: string; answer: string }>, 
   })
 }
 
+export function useProductSchema() {
+  const locale = getEffectiveLocale()
+  const baseUrl = getBaseUrl()
+  const t = descriptions[locale]
+  useHead({
+    script: [
+      {
+        id: 'ld-product',
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          '@id': `${baseUrl}/pricing/#product`,
+          name: 'fxTunnel',
+          description: t.software,
+          brand: { '@id': `${baseUrl}/#organization` },
+          category: 'Developer Tools',
+          offers: buildSchemaOffers(locale),
+        }),
+      },
+    ],
+  })
+}
+
 export function useSubpageSchema(options: {
   path: string
   name: string
   description: string
   pageType?: 'WebPage' | 'AboutPage'
+  dateModified?: string
   breadcrumbs?: Array<{ name: string; path: string }>
 }) {
   const locale = getEffectiveLocale()
@@ -236,6 +279,7 @@ export function useSubpageSchema(options: {
       url: pageUrl,
       description: options.description,
       inLanguage: locale,
+      dateModified: options.dateModified || '2026-03-27',
       isPartOf: { '@id': `${baseUrl}/#website` },
     }),
   })

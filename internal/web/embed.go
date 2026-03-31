@@ -52,6 +52,13 @@ func SPAHandler() http.Handler {
 		path := r.URL.Path
 		ruDomain := isRuDomain(r.Host)
 
+		// Normalize trailing slash: /pricing/ → 301 → /pricing
+		// Exclude root "/" and /blog/ (served by nginx with trailing slash convention)
+		if path != "/" && strings.HasSuffix(path, "/") && !strings.HasPrefix(path, "/blog") {
+			http.Redirect(w, r, strings.TrimRight(path, "/"), http.StatusMovedPermanently)
+			return
+		}
+
 		// Redirect redundant locale prefixes:
 		// fxtun.ru/ru/* → fxtun.ru/* (already Russian)
 		// fxtun.dev/en/* → fxtun.dev/* (already English)
@@ -65,6 +72,26 @@ func SPAHandler() http.Handler {
 				newPath = "/"
 			}
 			http.Redirect(w, r, newPath, http.StatusMovedPermanently)
+			return
+		}
+
+		// Cross-domain locale redirects:
+		// fxtun.ru/en/* → fxtun.dev/* (wrong language for this domain)
+		// fxtun.dev/ru/* → fxtun.ru/* (wrong language for this domain)
+		if ruDomain && strings.HasPrefix(path, "/en") {
+			newPath := strings.TrimPrefix(path, "/en")
+			if newPath == "" {
+				newPath = "/"
+			}
+			http.Redirect(w, r, "https://fxtun.dev"+newPath, http.StatusMovedPermanently)
+			return
+		}
+		if !ruDomain && strings.HasPrefix(path, "/ru") {
+			newPath := strings.TrimPrefix(path, "/ru")
+			if newPath == "" {
+				newPath = "/"
+			}
+			http.Redirect(w, r, "https://fxtun.ru"+newPath, http.StatusMovedPermanently)
 			return
 		}
 
@@ -83,6 +110,11 @@ func SPAHandler() http.Handler {
 		// Serve Russian llms.txt for fxtun.ru
 		if path == "/llms.txt" && ruDomain {
 			r.URL.Path = "/llms-ru.txt"
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		if path == "/llms-full.txt" && ruDomain {
+			r.URL.Path = "/llms-full-ru.txt"
 			fileServer.ServeHTTP(w, r)
 			return
 		}
@@ -151,7 +183,7 @@ var spaRoutePrefixes = []string{
 	"/inspect/",
 	"/domains",
 	"/tokens",
-	"/downloads",
+	"/downloads/files",
 	"/profile",
 	"/auth/",
 	"/admin/",
