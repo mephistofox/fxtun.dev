@@ -1,0 +1,86 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")-staging
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build server
+        env:
+          CGO_ENABLED: 1
+        run: |
+          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -o fxtunnel-server ./cmd/server
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to staging
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          DEPLOY_PATH: /root/fxtunnel
+        run: |
+          scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/fxtunnel-server.new
+
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} << 'EOF'
+            cd /root/fxtunnel
+
+            if [ -f fxtunnel-server ]; then
+              cp fxtunnel-server fxtunnel-server.backup
+            fi
+
+            mv fxtunnel-server.new fxtunnel-server
+            chmod +x fxtunnel-server
+
+            systemctl stop fxtunnel || true
+            systemctl start fxtunnel
+
+            sleep 3
+            if systemctl is-active --quiet fxtunnel; then
+              echo "Deploy successful!"
+              rm -f fxtunnel-server.backup
+            else
+              echo "Failed! Rolling back..."
+              journalctl -u fxtunnel --no-pager -n 30
+              mv fxtunnel-server.backup fxtunnel-server
+              systemctl start fxtunnel
+              exit 1
+            fi
+          EOF
+
+      - name: Verify
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+        run: |
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "systemctl status fxtunnel --no-pager"
