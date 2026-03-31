@@ -31,73 +31,91 @@ type platformInfo struct {
 	ClientType string // "cli" or "gui"
 }
 
-// CLI client platforms
-var cliPlatforms = map[string]platformInfo{
-	"cli-linux-amd64":   {Filename: "fxtunnel-linux-amd64", OS: "Linux", Arch: "amd64", ClientType: "cli"},
-	"cli-linux-arm64":   {Filename: "fxtunnel-linux-arm64", OS: "Linux", Arch: "arm64", ClientType: "cli"},
-	"cli-darwin-amd64":  {Filename: "fxtunnel-darwin-amd64", OS: "macOS", Arch: "amd64", ClientType: "cli"},
-	"cli-darwin-arm64":  {Filename: "fxtunnel-darwin-arm64", OS: "macOS", Arch: "arm64", ClientType: "cli"},
-	"cli-windows-amd64": {Filename: "fxtunnel-windows-amd64.exe", OS: "Windows", Arch: "amd64", ClientType: "cli"},
+var osNames = map[string]string{
+	"linux": "Linux", "darwin": "macOS", "windows": "Windows",
 }
 
-// GUI client platforms
-var guiPlatforms = map[string]platformInfo{
-	"gui-linux-amd64":   {Filename: "fxtunnel-gui-linux-amd64", OS: "Linux", Arch: "amd64", ClientType: "gui"},
-	"gui-windows-amd64": {Filename: "fxtunnel-gui-windows-amd64.exe", OS: "Windows", Arch: "amd64", ClientType: "gui"},
+// parseBinaryName extracts platform info from binary filename.
+// Patterns: fxtunnel-{os}-{arch}[.exe], fxtunnel-gui-{os}-{arch}[.exe]
+func parseBinaryName(filename string) (platform string, info platformInfo, ok bool) {
+	name := strings.TrimSuffix(filename, ".exe")
+
+	var clientType, remainder string
+	if strings.HasPrefix(name, "fxtunnel-gui-") {
+		clientType = "gui"
+		remainder = strings.TrimPrefix(name, "fxtunnel-gui-")
+	} else if strings.HasPrefix(name, "fxtunnel-") {
+		clientType = "cli"
+		remainder = strings.TrimPrefix(name, "fxtunnel-")
+	} else {
+		return "", platformInfo{}, false
+	}
+
+	parts := strings.SplitN(remainder, "-", 2)
+	if len(parts) != 2 {
+		return "", platformInfo{}, false
+	}
+
+	osKey, arch := parts[0], parts[1]
+	osName, known := osNames[osKey]
+	if !known {
+		return "", platformInfo{}, false
+	}
+
+	platform = clientType + "-" + osKey + "-" + arch
+	return platform, platformInfo{
+		Filename:   filename,
+		OS:         osName,
+		Arch:       arch,
+		ClientType: clientType,
+	}, true
 }
 
-// All platforms combined for download handler
-var platforms = func() map[string]platformInfo {
-	all := make(map[string]platformInfo)
-	for k, v := range cliPlatforms {
-		all[k] = v
+// scanDownloads reads the downloads directory and returns discovered platforms.
+func (s *Server) scanDownloads() (map[string]platformInfo, []*dto.DownloadDTO, []*dto.DownloadDTO) {
+	found := make(map[string]platformInfo)
+	var cliClients, guiClients []*dto.DownloadDTO
+
+	entries, err := os.ReadDir(s.downloadsPath)
+	if err != nil {
+		return found, nil, nil
 	}
-	for k, v := range guiPlatforms {
-		all[k] = v
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		platform, info, ok := parseBinaryName(e.Name())
+		if !ok {
+			continue
+		}
+		fi, err := e.Info()
+		if err != nil {
+			continue
+		}
+		found[platform] = info
+		d := &dto.DownloadDTO{
+			Platform:   platform,
+			OS:         info.OS,
+			Arch:       info.Arch,
+			Size:       fi.Size(),
+			URL:        "/api/downloads/" + platform,
+			ClientType: info.ClientType,
+		}
+		if info.ClientType == "gui" {
+			guiClients = append(guiClients, d)
+		} else {
+			cliClients = append(cliClients, d)
+		}
 	}
-	return all
-}()
+
+	return found, cliClients, guiClients
+}
 
 // handleListDownloads returns a list of available client downloads
 func (s *Server) handleListDownloads(w http.ResponseWriter, r *http.Request) {
-	var cliClients []*dto.DownloadDTO
-	var guiClients []*dto.DownloadDTO
+	_, cliClients, guiClients := s.scanDownloads()
 
-	// Collect CLI clients
-	for platform, info := range cliPlatforms {
-		filePath := filepath.Join(s.downloadsPath, info.Filename)
-		stat, err := os.Stat(filePath)
-		if err != nil {
-			continue // Skip if file doesn't exist
-		}
-		cliClients = append(cliClients, &dto.DownloadDTO{
-			Platform:   platform,
-			OS:         info.OS,
-			Arch:       info.Arch,
-			Size:       stat.Size(),
-			URL:        "/api/downloads/" + platform,
-			ClientType: "cli",
-		})
-	}
-
-	// Collect GUI clients
-	for platform, info := range guiPlatforms {
-		filePath := filepath.Join(s.downloadsPath, info.Filename)
-		stat, err := os.Stat(filePath)
-		if err != nil {
-			continue // Skip if file doesn't exist
-		}
-		guiClients = append(guiClients, &dto.DownloadDTO{
-			Platform:   platform,
-			OS:         info.OS,
-			Arch:       info.Arch,
-			Size:       stat.Size(),
-			URL:        "/api/downloads/" + platform,
-			ClientType: "gui",
-		})
-	}
-
-	// Combine all for backwards compatibility
 	allClients := append(cliClients, guiClients...)
 
 	s.respondJSON(w, http.StatusOK, dto.DownloadsListResponse{
@@ -111,7 +129,8 @@ func (s *Server) handleListDownloads(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	platform := chi.URLParam(r, "platform")
 
-	info, ok := platforms[platform]
+	found, _, _ := s.scanDownloads()
+	info, ok := found[platform]
 	if !ok {
 		s.respondError(w, http.StatusNotFound, "platform not found")
 		return
