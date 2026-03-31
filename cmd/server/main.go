@@ -12,17 +12,17 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/mephistofox/fxtunnel/internal/api"
-	"github.com/mephistofox/fxtunnel/internal/auth"
+	"github.com/mephistofox/fxtunnel/internal/server/api"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/email"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
-	"github.com/mephistofox/fxtunnel/internal/payment"
-	"github.com/mephistofox/fxtunnel/internal/scheduler"
-	"github.com/mephistofox/fxtunnel/internal/server"
-	"github.com/mephistofox/fxtunnel/internal/telegram"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/email"
+	"github.com/mephistofox/fxtunnel/internal/server/exchange"
+	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
+	server "github.com/mephistofox/fxtunnel/internal/server/core"
+	"github.com/mephistofox/fxtunnel/internal/server/telegram"
+	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
 
 var (
