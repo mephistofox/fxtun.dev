@@ -9,7 +9,7 @@ import Card from '@/components/ui/Card.vue'
 const themeStore = useThemeStore()
 const { t } = useI18n()
 
-useSeo({ titleKey: 'seo.register.title', descriptionKey: 'seo.register.description' })
+useSeo({ titleKey: 'seo.register.title', descriptionKey: 'seo.register.description', robots: 'noindex, nofollow' })
 
 function toggleLocale() {
   const current = getLocale()

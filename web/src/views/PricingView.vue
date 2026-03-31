@@ -3,10 +3,11 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute } from 'vue-router'
 import { useSeo } from '@/composables/useSeo'
-import { useSubpageSchema, useFaqSchema } from '@/composables/useStructuredData'
+import { useSubpageSchema, useFaqSchema, useProductSchema } from '@/composables/useStructuredData'
 import { getDomainLocale } from '@/i18n'
 import PricingSection from '@/components/landing/PricingSection.vue'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
+import Breadcrumbs from '@/components/landing/Breadcrumbs.vue'
 
 const { t, tm, locale } = useI18n()
 const route = useRoute()
@@ -21,6 +22,8 @@ useSubpageSchema({
     { name: t('landing.pricing.title'), path: '/pricing' },
   ],
 })
+
+useProductSchema()
 
 const effectiveLocale = computed(() => {
   if (route.meta.forcedLocale) return route.meta.forcedLocale as string
@@ -166,6 +169,10 @@ function toggleFaq(index: number) {
 
     <!-- Pricing section (reuse landing component) -->
     <main class="pt-16">
+      <Breadcrumbs :items="[{ name: t('landing.pricing.label'), path: '/pricing' }]" />
+      <p class="container mx-auto px-4 text-xs text-muted-foreground/60">
+        {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+      </p>
       <PricingSection compact />
 
       <!-- Feature Comparison Matrix -->
@@ -318,6 +325,54 @@ function toggleFaq(index: number) {
           </div>
         </div>
       </section>
+
+      <!-- Which plan is right for you? -->
+      <section class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+          <h2 class="text-2xl md:text-3xl font-display font-bold text-center mb-12">
+            {{ t('pricingPage.whoIsItForTitle') }}
+          </h2>
+          <div class="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <div
+              v-for="tier in ['free', 'starter', 'base', 'pro']"
+              :key="tier"
+              class="plan-card"
+              :class="{ 'plan-card--recommended': tier === 'base' }"
+            >
+              <h3 class="text-lg font-display font-semibold mb-3">
+                {{ t(`pricingPage.whoIsItFor.${tier}.title`) }}
+              </h3>
+              <p class="text-sm text-muted-foreground leading-relaxed">
+                {{ t(`pricingPage.whoIsItFor.${tier}.text`) }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Subdomains explanation -->
+      <section class="py-16 md:py-24">
+        <div class="container mx-auto px-4 max-w-3xl">
+          <h2 class="text-2xl md:text-3xl font-display font-bold text-center mb-8">
+            {{ t('pricingPage.subdomainTitle') }}
+          </h2>
+          <p class="text-muted-foreground leading-relaxed">
+            {{ t('pricingPage.subdomainText') }}
+          </p>
+        </div>
+      </section>
+
+      <!-- Common features -->
+      <section class="py-16 md:py-24">
+        <div class="container mx-auto px-4 max-w-3xl">
+          <h2 class="text-2xl md:text-3xl font-display font-bold text-center mb-8">
+            {{ t('pricingPage.commonFeaturesTitle') }}
+          </h2>
+          <p class="text-muted-foreground leading-relaxed">
+            {{ t('pricingPage.commonFeaturesText') }}
+          </p>
+        </div>
+      </section>
     </main>
 
     <!-- Footer -->
@@ -391,6 +446,23 @@ function toggleFaq(index: number) {
 }
 
 .matrix-recommended {
+  background: hsl(var(--primary) / 0.05);
+}
+
+/* Plan cards */
+.plan-card {
+  @apply p-6 rounded-xl;
+  background: hsl(var(--surface) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.5);
+  transition: border-color 0.2s ease;
+}
+
+.plan-card:hover {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.plan-card--recommended {
+  border-color: hsl(var(--primary) / 0.4);
   background: hsl(var(--primary) / 0.05);
 }
 

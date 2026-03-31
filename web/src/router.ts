@@ -64,6 +64,11 @@ const publicRoutes: RouteRecordRaw[] = [
     name: 'compare-xtunnel',
     component: () => import('./views/CompareXtunnelView.vue'),
   },
+  {
+    path: '/downloads',
+    name: 'downloads',
+    component: () => import('./views/DownloadsPublicView.vue'),
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
@@ -133,8 +138,8 @@ export const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/downloads',
-    name: 'downloads',
+    path: '/downloads/files',
+    name: 'downloads-files',
     component: () => import('./views/DownloadsView.vue'),
     meta: { requiresAuth: true },
   },

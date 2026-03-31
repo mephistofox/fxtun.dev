@@ -68,6 +68,12 @@ onMounted(() => {
         >
           {{ t('landing.faq.subtitle') }}
         </p>
+        <p
+          class="text-xs text-muted-foreground/60 mt-3 reveal reveal-delay-2"
+          :class="{ 'visible': isVisible }"
+        >
+          {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+        </p>
       </div>
 
       <!-- FAQ accordion -->
