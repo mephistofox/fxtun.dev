@@ -94,39 +94,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy server
+      - name: Deploy server (blue-green)
         env:
           SSH_KEY: ~/.ssh/deploy_key
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
         run: |
           scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/fxtunnel-server.new
-
-          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} << 'EOF'
-            cd /root/fxtunnel
-
-            if [ -f fxtunnel-server ]; then
-              cp fxtunnel-server fxtunnel-server.backup
-            fi
-
-            mv fxtunnel-server.new fxtunnel-server
-            chmod +x fxtunnel-server
-
-            systemctl stop fxtunnel || true
-            systemctl start fxtunnel
-
-            sleep 3
-            if systemctl is-active --quiet fxtunnel; then
-              echo "Server deploy successful!"
-              rm -f fxtunnel-server.backup
-            else
-              echo "Failed! Rolling back..."
-              journalctl -u fxtunnel --no-pager -n 30
-              mv fxtunnel-server.backup fxtunnel-server
-              systemctl start fxtunnel
-              exit 1
-            fi
-          EOF
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "/root/fxtunnel/deploy.sh"
 
   deploy-web:
     needs: detect-changes
