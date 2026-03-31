@@ -110,11 +110,21 @@ const hasDownloads = computed(() =>
   cliDownloads.value.length > 0 || guiDownloads.value.length > 0
 )
 
-// macOS GUI placeholder cards
-const macGuiPlaceholders = [
-  { os: 'macOS', arch: 'ARM64', label: 'Apple Silicon' },
-  { os: 'macOS', arch: 'AMD64', label: 'Intel' },
+// Expected GUI platforms — show "Coming Soon" only for those missing from API
+const expectedGuiPlatforms = [
+  { os: 'macOS', arch: 'arm64', label: 'Apple Silicon' },
+  { os: 'macOS', arch: 'amd64', label: 'Intel' },
+  { os: 'Linux', arch: 'amd64', label: '' },
+  { os: 'Windows', arch: 'amd64', label: '' },
 ]
+
+const missingGuiPlatforms = computed(() =>
+  expectedGuiPlatforms.filter(
+    (exp) => !guiDownloads.value.some(
+      (d) => d.os === exp.os && d.arch.toLowerCase() === exp.arch
+    )
+  )
+)
 
 onMounted(loadDownloads)
 </script>
@@ -161,7 +171,7 @@ onMounted(loadDownloads)
         <!-- ========== TABS ========== -->
         <div class="dl-tabs">
           <button
-            v-if="guiDownloads.length > 0 || macGuiPlaceholders.length > 0"
+            v-if="guiDownloads.length > 0 || missingGuiPlatforms.length > 0"
             @click="activeTab = 'gui'"
             :class="['dl-tab', activeTab === 'gui' && 'dl-tab-active']"
           >
@@ -241,11 +251,11 @@ onMounted(loadDownloads)
               </div>
             </div>
 
-            <!-- macOS GUI placeholder cards -->
-            <template v-if="activeTab === 'gui'">
+            <!-- Placeholder cards for missing platforms -->
+            <template v-if="activeTab === 'gui' && missingGuiPlatforms.length > 0">
               <div
-                v-for="ph in macGuiPlaceholders"
-                :key="ph.label"
+                v-for="ph in missingGuiPlatforms"
+                :key="`${ph.os}-${ph.arch}`"
                 class="dl-card dl-card-disabled"
               >
                 <div class="dl-card-inner">
@@ -257,21 +267,22 @@ onMounted(loadDownloads)
 
                   <div class="dl-card-platform-icon dl-card-platform-icon-dim">
                     <svg
+                      v-if="getPlatformIcon(ph.os)"
                       xmlns="http://www.w3.org/2000/svg"
                       class="h-8 w-8"
                       viewBox="0 0 24 24"
-                      :fill="'#' + siApple.hex"
+                      :fill="'#' + getPlatformIcon(ph.os)!.hex"
                       style="opacity: 0.35"
                     >
-                      <path :d="siApple.path" />
+                      <path :d="getPlatformIcon(ph.os)!.path" />
                     </svg>
                   </div>
 
                   <div class="dl-card-info">
                     <h3 class="dl-card-os dl-card-os-dim">{{ ph.os }}</h3>
                     <div class="dl-card-badges">
-                      <span class="dl-card-arch dl-card-arch-dim">{{ ph.arch }}</span>
-                      <span class="dl-card-size">{{ ph.label }}</span>
+                      <span class="dl-card-arch dl-card-arch-dim">{{ ph.arch.toUpperCase() }}</span>
+                      <span v-if="ph.label" class="dl-card-size">{{ ph.label }}</span>
                     </div>
                   </div>
 
