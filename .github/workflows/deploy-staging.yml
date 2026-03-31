@@ -12,6 +12,7 @@ jobs:
       server: ${{ steps.changes.outputs.server }}
       web: ${{ steps.changes.outputs.web }}
       clients: ${{ steps.changes.outputs.clients }}
+      gui: ${{ steps.changes.outputs.gui }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,6 +26,7 @@ jobs:
             echo "server=true" >> $GITHUB_OUTPUT
             echo "web=true" >> $GITHUB_OUTPUT
             echo "clients=true" >> $GITHUB_OUTPUT
+            echo "gui=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -46,6 +48,12 @@ jobs:
             echo "clients=true" >> $GITHUB_OUTPUT
           else
             echo "clients=false" >> $GITHUB_OUTPUT
+          fi
+
+          if echo "$CHANGED" | grep -qE '^(gui/|internal/client|internal/(config|protocol|inspect)|go\.(mod|sum))'; then
+            echo "gui=true" >> $GITHUB_OUTPUT
+          else
+            echo "gui=false" >> $GITHUB_OUTPUT
           fi
 
   deploy-server:
@@ -215,3 +223,104 @@ jobs:
           rsync -az -e "ssh -i $SSH_KEY" clients/ ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/downloads/
           ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "chmod +x /root/fxtunnel/downloads/*"
           echo "Clients deployed"
+
+  build-gui:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.gui == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            artifact: fxtunnel-gui-linux-amd64
+            wails_tags: "-tags webkit2_41"
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            artifact: fxtunnel-gui-windows-amd64.exe
+            wails_tags: ""
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            artifact: fxtunnel-gui-darwin-arm64
+            wails_tags: ""
+    runs-on: ${{ matrix.os }}
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")-staging
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build GUI
+        shell: bash
+        run: |
+          cd gui/frontend && pnpm install && cd ../..
+          cd gui && wails build ${{ matrix.wails_tags }} -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -o ${{ matrix.artifact }} && cd ..
+          ls -la gui/build/bin/
+
+      - name: Collect artifact
+        shell: bash
+        run: |
+          if [ -f "gui/build/bin/${{ matrix.artifact }}" ]; then
+            cp gui/build/bin/${{ matrix.artifact }} .
+          elif [ -d "gui/build/bin/${{ matrix.artifact }}.app" ]; then
+            cp "gui/build/bin/${{ matrix.artifact }}.app/Contents/MacOS/"* ./${{ matrix.artifact }}
+          else
+            find gui/build/bin -type f | head -1 | xargs -I {} cp {} ${{ matrix.artifact }}
+          fi
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy GUI client
+        shell: bash
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+        run: |
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /root/fxtunnel/downloads"
+          scp -i $SSH_KEY ${{ matrix.artifact }} ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/downloads/
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "chmod +x /root/fxtunnel/downloads/${{ matrix.artifact }}"
+          echo "GUI ${{ matrix.artifact }} deployed"
