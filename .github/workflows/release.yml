@@ -95,6 +95,12 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      - name: Setup pnpm
+        if: matrix.type == 'gui'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         if: matrix.type == 'gui'
         uses: actions/setup-node@v4
@@ -143,7 +149,7 @@ jobs:
       - name: Build GUI (Linux)
         if: matrix.type == 'gui' && matrix.os == 'ubuntu-latest'
         run: |
-          cd gui/frontend && npm install && cd ../..
+          cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -tags webkit2_41 -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }} && cd ..
@@ -154,7 +160,7 @@ jobs:
         if: matrix.type == 'gui' && matrix.os == 'windows-latest'
         shell: bash
         run: |
-          cd gui/frontend && npm install && cd ../..
+          cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }} && cd ..
@@ -164,7 +170,7 @@ jobs:
       - name: Build GUI (macOS)
         if: matrix.type == 'gui' && matrix.os == 'macos-latest'
         run: |
-          cd gui/frontend && npm install && cd ../..
+          cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
             -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             -o ${{ matrix.artifact }} && cd ..
