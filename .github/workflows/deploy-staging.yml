@@ -220,6 +220,11 @@ jobs:
             goarch: arm64
             artifact: fxtunnel-gui-darwin-arm64
             wails_tags: ""
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            artifact: fxtunnel-gui-darwin-amd64
+            wails_tags: ""
     runs-on: ${{ matrix.os }}
     environment: staging
     steps:
