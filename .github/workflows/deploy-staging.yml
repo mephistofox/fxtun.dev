@@ -6,7 +6,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.changes.outputs.server }}
+      web: ${{ steps.changes.outputs.web }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: changes
+        run: |
+          # On workflow_dispatch, deploy everything
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "server=true" >> $GITHUB_OUTPUT
+            echo "web=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+
+          # Server: Go code or configs changed
+          if echo "$CHANGED" | grep -qE '^(cmd/|internal/|go\.(mod|sum)|Makefile)'; then
+            echo "server=true" >> $GITHUB_OUTPUT
+          else
+            echo "server=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Web: frontend code changed
+          if echo "$CHANGED" | grep -qE '^web/'; then
+            echo "web=true" >> $GITHUB_OUTPUT
+          else
+            echo "web=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-server:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -42,14 +81,13 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to staging
+      - name: Deploy server
         env:
           SSH_KEY: ~/.ssh/deploy_key
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
-          DEPLOY_PATH: /root/fxtunnel
         run: |
-          scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/fxtunnel-server.new
+          scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/fxtunnel-server.new
 
           ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} << 'EOF'
             cd /root/fxtunnel
@@ -66,7 +104,7 @@ jobs:
 
             sleep 3
             if systemctl is-active --quiet fxtunnel; then
-              echo "Deploy successful!"
+              echo "Server deploy successful!"
               rm -f fxtunnel-server.backup
             else
               echo "Failed! Rolling back..."
@@ -77,10 +115,38 @@ jobs:
             fi
           EOF
 
-      - name: Verify
+  deploy-web:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build frontend
+        run: cd web && npm ci && npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy frontend
         env:
           SSH_KEY: ~/.ssh/deploy_key
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
         run: |
-          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "systemctl status fxtunnel --no-pager"
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /var/www/fxtunnel"
+          rsync -az --delete -e "ssh -i $SSH_KEY" web/dist/ ${SSH_USER}@${SSH_HOST}:/var/www/fxtunnel/
+          echo "Frontend deployed to /var/www/fxtunnel/"
