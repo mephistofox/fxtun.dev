@@ -19,9 +19,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
+	client "github.com/mephistofox/fxtunnel/internal/client/core"
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
+	"github.com/mephistofox/fxtunnel/internal/client/keyring"
 )
 
 const defaultControlPort = "4443"

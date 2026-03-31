@@ -21,11 +21,9 @@ client:
 
 clean:
 	rm -rf bin/
-	rm -rf build/
 	rm -rf downloads/
 	rm -rf web/dist/
-	rm -rf gui/dist/
-	rm -rf internal/web/dist/
+	rm -rf gui/frontend/dist/
 
 install: build
 	cp bin/$(BINARY_SERVER) /usr/local/bin/
@@ -47,11 +45,9 @@ deps:
 	go mod download
 	go mod tidy
 
-# Build Vue3 server web frontend
+# Build Vue3 server web frontend (standalone, deployed via nginx/CDN)
 web:
 	cd web && npm install && npm run build
-	rm -rf internal/web/dist
-	cp -r web/dist internal/web/dist
 
 # Build client binaries for all platforms (for downloads)
 build-clients:
@@ -63,8 +59,8 @@ build-clients:
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o downloads/fxtunnel-darwin-arm64 ./cmd/client
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o downloads/fxtunnel-windows-amd64.exe ./cmd/client
 
-# Build everything: web frontend, client binaries for all platforms, server
-build-all: web build-clients server
+# Build everything: client binaries for all platforms, server
+build-all: build-clients server
 	@echo "Build complete!"
 	@echo "Server binary: bin/$(BINARY_SERVER)"
 	@echo "Client binaries: downloads/"
@@ -81,25 +77,25 @@ wails-install:
 
 # Build GUI frontend (Vue3)
 gui-frontend:
-	cd gui && npm install && npm run build
+	cd gui/frontend && npm install && npm run build
 
 # Development mode for GUI (hot reload)
 gui-dev:
-	wails dev -tags webkit2_41 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) dev -tags webkit2_41 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
 # Build GUI client for current platform
 gui: gui-frontend
 	@mkdir -p bin
-	$(WAILS) build -o $(BINARY_GUI) -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) build -o $(BINARY_GUI) -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
 # Build GUI client for all platforms (macOS requires building on macOS)
 gui-all: gui-frontend
 	@rm -rf downloads/fxtunnel-gui-*
 	@mkdir -p downloads
-	$(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
-	mv build/bin/$(BINARY_GUI)-linux-amd64 downloads/
-	$(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
-	mv build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
+	cd gui && $(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	mv gui/build/bin/$(BINARY_GUI)-linux-amd64 downloads/
+	cd gui && $(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	mv gui/build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
 	@echo "GUI builds complete in downloads/ (macOS builds require building on macOS)"
 
 # Submit URLs to IndexNow (Yandex + Bing)

@@ -1,0 +1,1005 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
+	"github.com/mephistofox/fxtunnel/internal/server/database"
+)
+
+// handleGetStats returns server statistics
+func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
+	var stats Stats
+	if s.tunnelProvider != nil {
+		stats = s.tunnelProvider.GetStats()
+	}
+
+	totalUsers, _ := s.db.Users.Count()
+
+	s.respondJSON(w, http.StatusOK, dto.StatsResponse{
+		ActiveClients: stats.ActiveClients,
+		ActiveTunnels: stats.ActiveTunnels,
+		HTTPTunnels:   stats.HTTPTunnels,
+		TCPTunnels:    stats.TCPTunnels,
+		UDPTunnels:    stats.UDPTunnels,
+		TotalUsers:    totalUsers,
+	})
+}
+
+// handleListUsers returns a list of all users with server-side filtering, search, and stats
+func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	filter := r.URL.Query().Get("filter")
+	if filter != "active" && filter != "blocked" && filter != "admins" {
+		filter = "all"
+	}
+	search := r.URL.Query().Get("search")
+
+	users, total, err := s.db.Users.List(database.UserListParams{
+		Filter: filter,
+		Search: search,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list users")
+		s.respondError(w, http.StatusInternalServerError, "failed to list users")
+		return
+	}
+
+	stats, _ := s.db.Users.Stats(search)
+
+	userDTOs := make([]*dto.UserDTO, len(users))
+	for i, u := range users {
+		userDTOs[i] = dto.UserFromModel(u)
+	}
+
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+	for i, u := range users {
+		if p, ok := planMap[u.PlanID]; ok {
+			userDTOs[i].Plan = dto.PlanFromModel(p)
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"users": userDTOs,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+		"stats": stats,
+	})
+}
+
+// handleListAuditLogs returns a list of audit logs
+func (s *Server) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	// Parse optional user_id filter
+	userIDStr := r.URL.Query().Get("user_id")
+
+	var logs []*database.AuditLog
+	var total int
+	var err error
+
+	if userIDStr != "" {
+		userID, parseErr := strconv.ParseInt(userIDStr, 10, 64)
+		if parseErr != nil {
+			s.respondError(w, http.StatusBadRequest, "invalid user_id")
+			return
+		}
+		logs, total, err = s.db.Audit.GetByUserID(userID, limit, offset)
+	} else {
+		logs, total, err = s.db.Audit.List(limit, offset)
+	}
+
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list audit logs")
+		s.respondError(w, http.StatusInternalServerError, "failed to list audit logs")
+		return
+	}
+
+	// Batch fetch users for logs
+	userIDs := make([]int64, 0)
+	for _, log := range logs {
+		if log.UserID != nil {
+			userIDs = append(userIDs, *log.UserID)
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
+	logDTOs := make([]*dto.AuditLogDTO, len(logs))
+	for i, log := range logs {
+		var userPhone string
+		if log.UserID != nil {
+			if user, ok := usersMap[*log.UserID]; ok {
+				userPhone = user.Phone
+			}
+		}
+		logDTOs[i] = dto.AuditLogFromModel(log, userPhone)
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AuditLogsListResponse{
+		Logs:  logDTOs,
+		Total: total,
+	})
+}
+
+// handleListAllTunnels returns all active tunnels for admin
+func (s *Server) handleListAllTunnels(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelProvider == nil {
+		s.respondJSON(w, http.StatusOK, dto.AdminTunnelsListResponse{
+			Tunnels: []*dto.AdminTunnelDTO{},
+			Total:   0,
+		})
+		return
+	}
+
+	// Get all tunnels (userID 0 means all users)
+	tunnels := s.tunnelProvider.GetAllTunnels()
+
+	// Batch fetch users for tunnels
+	userIDs := make([]int64, 0)
+	for _, t := range tunnels {
+		if t.UserID > 0 {
+			userIDs = append(userIDs, t.UserID)
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
+	tunnelDTOs := make([]*dto.AdminTunnelDTO, len(tunnels))
+	for i, t := range tunnels {
+		var userPhone string
+		if t.UserID > 0 {
+			if user, ok := usersMap[t.UserID]; ok {
+				userPhone = user.Phone
+			}
+		}
+
+		url := ""
+		if t.Type == "http" && t.Subdomain != "" {
+			url = "https://" + t.Subdomain + "." + s.baseDomain
+		} else if t.RemotePort > 0 {
+			url = t.Type + "://" + s.baseDomain + ":" + strconv.Itoa(t.RemotePort)
+		}
+
+		tunnelDTOs[i] = &dto.AdminTunnelDTO{
+			ID:         t.ID,
+			Type:       t.Type,
+			Name:       t.Name,
+			Subdomain:  t.Subdomain,
+			RemotePort: t.RemotePort,
+			LocalPort:  t.LocalPort,
+			URL:        url,
+			ClientID:   t.ClientID,
+			UserID:     t.UserID,
+			UserPhone:  userPhone,
+			CreatedAt:  t.CreatedAt,
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminTunnelsListResponse{
+		Tunnels: tunnelDTOs,
+		Total:   len(tunnelDTOs),
+	})
+}
+
+// handleUpdateUser updates a user's admin status or active status
+func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	var req dto.UpdateUserRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	// Update fields
+	if req.IsAdmin != nil {
+		user.IsAdmin = *req.IsAdmin
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+	if req.PlanID != nil {
+		user.PlanID = *req.PlanID
+	}
+
+	if err := s.db.Users.Update(user); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update user")
+		s.respondError(w, http.StatusInternalServerError, "failed to update user")
+		return
+	}
+
+	// Log audit
+	ipAddress := auth.GetClientIP(r)
+	details := map[string]interface{}{
+		"target_user_id": id,
+	}
+	if req.IsAdmin != nil {
+		details["is_admin"] = *req.IsAdmin
+	}
+	if req.IsActive != nil {
+		details["is_active"] = *req.IsActive
+	}
+	if req.PlanID != nil {
+		details["plan_id"] = *req.PlanID
+	}
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserUpdated, details, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.UserFromModel(user))
+}
+
+// handleDeleteUser deletes a user
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	// Prevent self-deletion
+	if id == currentUser.ID {
+		s.respondError(w, http.StatusForbidden, "cannot delete your own account")
+		return
+	}
+
+	// Get user info before deletion for audit
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	if err := s.db.Users.Delete(id); err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to delete user")
+		s.respondError(w, http.StatusInternalServerError, "failed to delete user")
+		return
+	}
+
+	// Log audit
+	ipAddress := auth.GetClientIP(r)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUserDeleted, map[string]interface{}{
+		"deleted_user_id":    id,
+		"deleted_user_email": user.Email,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "user deleted successfully",
+	})
+}
+
+// handleMergeUsers merges two users (admin only)
+func (s *Server) handleMergeUsers(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req dto.MergeUsersRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.PrimaryUserID == 0 || req.SecondaryUserID == 0 {
+		s.respondError(w, http.StatusBadRequest, "both primary_user_id and secondary_user_id are required")
+		return
+	}
+
+	if req.PrimaryUserID == req.SecondaryUserID {
+		s.respondError(w, http.StatusBadRequest, "cannot merge a user with itself")
+		return
+	}
+
+	if req.PrimaryUserID == currentUser.ID || req.SecondaryUserID == currentUser.ID {
+		s.respondError(w, http.StatusForbidden, "cannot merge your own account")
+		return
+	}
+
+	// Verify both users exist
+	primaryUser, err := s.db.Users.GetByID(req.PrimaryUserID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "primary user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get primary user")
+		return
+	}
+
+	secondaryUser, err := s.db.Users.GetByID(req.SecondaryUserID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "secondary user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get secondary user")
+		return
+	}
+
+	if err := s.db.Users.MergeUsers(req.PrimaryUserID, req.SecondaryUserID); err != nil {
+		s.log.Error().Err(err).Int64("primary", req.PrimaryUserID).Int64("secondary", req.SecondaryUserID).Msg("Failed to merge users")
+		s.respondError(w, http.StatusInternalServerError, "failed to merge users")
+		return
+	}
+
+	ipAddress := auth.GetClientIP(r)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUsersMerged, map[string]interface{}{
+		"primary_user_id":    req.PrimaryUserID,
+		"primary_email":      primaryUser.Email,
+		"secondary_user_id":  req.SecondaryUserID,
+		"secondary_email":    secondaryUser.Email,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "users merged successfully",
+	})
+}
+
+// handleAdminResetPassword resets a user's password (admin only)
+func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	var req dto.ResetPasswordRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		s.respondError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+
+	// Verify user exists
+	_, err = s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	if err := s.db.Users.UpdatePassword(id, hash); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to reset password")
+		return
+	}
+
+	// Invalidate all existing sessions for the user
+	_ = s.db.Sessions.DeleteByUserID(id)
+
+	ipAddress := auth.GetClientIP(r)
+	_ = s.db.Audit.Log(&currentUser.ID, database.ActionPasswordReset, map[string]interface{}{
+		"target_user_id": id,
+	}, ipAddress)
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "password reset successfully",
+	})
+}
+
+// handleAdminCloseTunnel closes any tunnel (admin only)
+func (s *Server) handleAdminCloseTunnel(w http.ResponseWriter, r *http.Request) {
+	tunnelID := chi.URLParam(r, "id")
+	if tunnelID == "" {
+		s.respondError(w, http.StatusBadRequest, "tunnel id required")
+		return
+	}
+
+	if s.tunnelProvider == nil {
+		s.respondError(w, http.StatusServiceUnavailable, "tunnel provider not available")
+		return
+	}
+
+	// Admin can close any tunnel (userID 0 bypasses user check)
+	if err := s.tunnelProvider.AdminCloseTunnel(tunnelID); err != nil {
+		s.respondError(w, http.StatusNotFound, "tunnel not found")
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "tunnel closed",
+	})
+}
+
+// handleListPlans returns all plans
+func (s *Server) handleListPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.db.Plans.List()
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to list plans")
+		return
+	}
+	planDTOs := make([]*dto.PlanDTO, len(plans))
+	for i, p := range plans {
+		planDTOs[i] = dto.PlanFromModel(p)
+	}
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs, "total": len(planDTOs)})
+}
+
+// handleListPublicPlans returns plans visible on landing page (public, no auth required)
+func (s *Server) handleListPublicPlans(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.db.Plans.ListPublic()
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to list plans")
+		return
+	}
+	planDTOs := make([]*dto.PlanDTO, len(plans))
+	for i, p := range plans {
+		planDTOs[i] = dto.PlanFromModel(p)
+	}
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs})
+}
+
+// handleCreatePlan creates a new plan
+func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
+	var req dto.CreatePlanRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Slug == "" || req.Name == "" {
+		s.respondError(w, http.StatusBadRequest, "slug and name are required")
+		return
+	}
+	plan := &database.Plan{
+		Slug: req.Slug, Name: req.Name, Price: req.Price,
+		MaxTunnels: req.MaxTunnels, MaxDomains: req.MaxDomains,
+		MaxCustomDomains: req.MaxCustomDomains, MaxTokens: req.MaxTokens,
+		MaxTunnelsPerToken: req.MaxTunnelsPerToken, BandwidthMbps: req.BandwidthMbps,
+		InspectorEnabled: req.InspectorEnabled,
+		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
+		RateLimitTCP: req.RateLimitTCP, RateLimitUDP: req.RateLimitUDP, RateLimitHTTP: req.RateLimitHTTP,
+		CreemProductID: req.CreemProductID,
+	}
+	if err := s.db.Plans.Create(plan); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create plan")
+		return
+	}
+	s.respondJSON(w, http.StatusCreated, dto.PlanFromModel(plan))
+}
+
+// handleUpdatePlan updates a plan
+func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid plan id")
+		return
+	}
+	plan, err := s.db.Plans.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrPlanNotFound) {
+			s.respondError(w, http.StatusNotFound, "plan not found")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to get plan")
+		return
+	}
+	var req dto.UpdatePlanRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Name != nil {
+		plan.Name = *req.Name
+	}
+	if req.Price != nil {
+		plan.Price = *req.Price
+	}
+	if req.MaxTunnels != nil {
+		plan.MaxTunnels = *req.MaxTunnels
+	}
+	if req.MaxDomains != nil {
+		plan.MaxDomains = *req.MaxDomains
+	}
+	if req.MaxCustomDomains != nil {
+		plan.MaxCustomDomains = *req.MaxCustomDomains
+	}
+	if req.MaxTokens != nil {
+		plan.MaxTokens = *req.MaxTokens
+	}
+	if req.MaxTunnelsPerToken != nil {
+		plan.MaxTunnelsPerToken = *req.MaxTunnelsPerToken
+	}
+	if req.BandwidthMbps != nil {
+		plan.BandwidthMbps = *req.BandwidthMbps
+	}
+	if req.InspectorEnabled != nil {
+		plan.InspectorEnabled = *req.InspectorEnabled
+	}
+	if req.IsPublic != nil {
+		plan.IsPublic = *req.IsPublic
+	}
+	if req.IsRecommended != nil {
+		plan.IsRecommended = *req.IsRecommended
+	}
+	if req.RateLimitTCP != nil {
+		plan.RateLimitTCP = *req.RateLimitTCP
+	}
+	if req.RateLimitUDP != nil {
+		plan.RateLimitUDP = *req.RateLimitUDP
+	}
+	if req.RateLimitHTTP != nil {
+		plan.RateLimitHTTP = *req.RateLimitHTTP
+	}
+	if req.CreemProductID != nil {
+		plan.CreemProductID = *req.CreemProductID
+	}
+	if err := s.db.Plans.Update(plan); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to update plan")
+		return
+	}
+	s.respondJSON(w, http.StatusOK, dto.PlanFromModel(plan))
+}
+
+// handleDeletePlan deletes a plan
+func (s *Server) handleDeletePlan(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid plan id")
+		return
+	}
+	if err := s.db.Plans.Delete(id); err != nil {
+		if errors.Is(err, database.ErrPlanNotFound) {
+			s.respondError(w, http.StatusNotFound, "plan not found")
+			return
+		}
+		if errors.Is(err, database.ErrPlanHasUsers) {
+			s.respondError(w, http.StatusConflict, "cannot delete plan with active users")
+			return
+		}
+		s.respondError(w, http.StatusInternalServerError, "failed to delete plan")
+		return
+	}
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{Success: true, Message: "plan deleted"})
+}
+
+// handleAdminListSubscriptions returns all subscriptions for admin
+func (s *Server) handleAdminListSubscriptions(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	subs, total, err := s.db.Subscriptions.ListAll(limit, offset)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list subscriptions")
+		s.respondError(w, http.StatusInternalServerError, "failed to list subscriptions")
+		return
+	}
+
+	// Batch fetch users and plans
+	userIDs := make([]int64, 0)
+	planIDs := make(map[int64]bool)
+	for _, sub := range subs {
+		userIDs = append(userIDs, sub.UserID)
+		planIDs[sub.PlanID] = true
+		if sub.NextPlanID != nil {
+			planIDs[*sub.NextPlanID] = true
+		}
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+
+	subDTOs := make([]*dto.AdminSubscriptionDTO, len(subs))
+	for i, sub := range subs {
+		var userPhone, userEmail string
+		if user, ok := usersMap[sub.UserID]; ok {
+			userPhone = user.Phone
+			userEmail = user.Email
+		}
+
+		subDTO := &dto.AdminSubscriptionDTO{
+			ID:                 sub.ID,
+			UserID:             sub.UserID,
+			UserPhone:          userPhone,
+			UserEmail:          userEmail,
+			PlanID:             sub.PlanID,
+			Status:             string(sub.Status),
+			Recurring:          sub.Recurring,
+			CurrentPeriodStart: sub.CurrentPeriodStart,
+			CurrentPeriodEnd:   sub.CurrentPeriodEnd,
+			CreatedAt:          sub.CreatedAt,
+		}
+
+		if plan, ok := planMap[sub.PlanID]; ok {
+			subDTO.Plan = dto.PlanFromModel(plan)
+		}
+		if sub.NextPlanID != nil {
+			if plan, ok := planMap[*sub.NextPlanID]; ok {
+				subDTO.NextPlan = dto.PlanFromModel(plan)
+			}
+		}
+
+		subDTOs[i] = subDTO
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminSubscriptionsListResponse{
+		Subscriptions: subDTOs,
+		Total:         total,
+		Page:          page,
+		Limit:         limit,
+	})
+}
+
+// handleAdminListPayments returns all payments for admin
+func (s *Server) handleAdminListPayments(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	payments, total, err := s.db.Payments.ListAll(limit, offset)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list payments")
+		s.respondError(w, http.StatusInternalServerError, "failed to list payments")
+		return
+	}
+
+	// Batch fetch users
+	userIDs := make([]int64, 0)
+	for _, p := range payments {
+		userIDs = append(userIDs, p.UserID)
+	}
+	usersMap, _ := s.db.Users.GetByIDs(userIDs)
+
+	paymentDTOs := make([]*dto.AdminPaymentDTO, len(payments))
+	for i, p := range payments {
+		var userPhone, userEmail string
+		if user, ok := usersMap[p.UserID]; ok {
+			userPhone = user.Phone
+			userEmail = user.Email
+		}
+
+		paymentDTOs[i] = &dto.AdminPaymentDTO{
+			ID:             p.ID,
+			UserID:         p.UserID,
+			UserPhone:      userPhone,
+			UserEmail:      userEmail,
+			SubscriptionID: p.SubscriptionID,
+			InvoiceID:      p.InvoiceID,
+			Amount:         p.Amount,
+			Status:         string(p.Status),
+			IsRecurring:    p.IsRecurring,
+			CreatedAt:      p.CreatedAt,
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminPaymentsListResponse{
+		Payments: paymentDTOs,
+		Total:    total,
+		Page:     page,
+		Limit:    limit,
+	})
+}
+
+// handleAdminCancelSubscription cancels a user's subscription (admin)
+func (s *Server) handleAdminCancelSubscription(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid subscription id")
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByID(id)
+	if err != nil || sub == nil {
+		s.respondError(w, http.StatusNotFound, "subscription not found")
+		return
+	}
+
+	sub.Status = database.SubscriptionStatusCancelled
+	sub.Recurring = false
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to cancel subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to cancel subscription")
+		return
+	}
+
+	// Update user's plan to Free immediately
+	freePlan, err := s.db.Plans.GetDefault()
+	if err == nil && freePlan != nil {
+		if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+			user.PlanID = freePlan.ID
+			if err := s.db.Users.Update(user); err != nil {
+				s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update user plan to free")
+			}
+		}
+	}
+
+	// Log audit
+	_ = s.db.Audit.Log(&currentUser.ID, "admin_subscription_cancelled", map[string]interface{}{
+		"subscription_id": sub.ID,
+		"user_id":         sub.UserID,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "subscription cancelled",
+	})
+}
+
+// handleAdminExtendSubscription extends a subscription period
+func (s *Server) handleAdminExtendSubscription(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid subscription id")
+		return
+	}
+
+	var req dto.ExtendSubscriptionRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Days <= 0 {
+		s.respondError(w, http.StatusBadRequest, "days must be positive")
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByID(id)
+	if err != nil || sub == nil {
+		s.respondError(w, http.StatusNotFound, "subscription not found")
+		return
+	}
+
+	// Extend period
+	now := time.Now()
+	if sub.CurrentPeriodEnd == nil || sub.CurrentPeriodEnd.Before(now) {
+		sub.CurrentPeriodStart = &now
+		newEnd := now.AddDate(0, 0, req.Days)
+		sub.CurrentPeriodEnd = &newEnd
+	} else {
+		newEnd := sub.CurrentPeriodEnd.AddDate(0, 0, req.Days)
+		sub.CurrentPeriodEnd = &newEnd
+	}
+
+	// Reactivate if expired or cancelled
+	if sub.Status == database.SubscriptionStatusExpired || sub.Status == database.SubscriptionStatusCancelled {
+		sub.Status = database.SubscriptionStatusActive
+	}
+
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to extend subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to extend subscription")
+		return
+	}
+
+	// Update user plan
+	if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+		user.PlanID = sub.PlanID
+		_ = s.db.Users.Update(user)
+	}
+
+	// Log audit
+	_ = s.db.Audit.Log(&currentUser.ID, "admin_subscription_extended", map[string]interface{}{
+		"subscription_id": sub.ID,
+		"user_id":         sub.UserID,
+		"days":            req.Days,
+		"new_end":         sub.CurrentPeriodEnd,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "subscription extended",
+	})
+}
+
+// handleGetUserDetail returns detailed user info with payments, subscriptions, and tunnel history
+func (s *Server) handleGetUserDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	user, err := s.db.Users.GetByID(id)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	userDTO := dto.UserFromModel(user)
+	if plan, err := s.db.Plans.GetByID(user.PlanID); err == nil {
+		userDTO.Plan = dto.PlanFromModel(plan)
+	}
+
+	// Payments (last 50)
+	payments, _, _ := s.db.Payments.GetByUserID(id, 50, 0)
+	paymentDTOs := make([]*dto.PaymentDTO, 0, len(payments))
+	for _, p := range payments {
+		paymentDTOs = append(paymentDTOs, dto.PaymentFromModel(p))
+	}
+
+	// Subscriptions (all)
+	subs, _ := s.db.Subscriptions.ListByUserID(id)
+	plans, _ := s.db.Plans.List()
+	planMap := make(map[int64]*database.Plan)
+	for _, p := range plans {
+		planMap[p.ID] = p
+	}
+	subDTOs := make([]*dto.AdminSubscriptionDTO, 0, len(subs))
+	for _, sub := range subs {
+		subDTO := &dto.AdminSubscriptionDTO{
+			ID:                 sub.ID,
+			UserID:             sub.UserID,
+			PlanID:             sub.PlanID,
+			Status:             string(sub.Status),
+			Recurring:          sub.Recurring,
+			CurrentPeriodStart: sub.CurrentPeriodStart,
+			CurrentPeriodEnd:   sub.CurrentPeriodEnd,
+			CreatedAt:          sub.CreatedAt,
+		}
+		if plan, ok := planMap[sub.PlanID]; ok {
+			subDTO.Plan = dto.PlanFromModel(plan)
+		}
+		subDTOs = append(subDTOs, subDTO)
+	}
+
+	// Tunnel history (last 50)
+	history, _ := s.db.UserHistory.GetByUserID(id, 50, 0)
+	historyDTOs := make([]*dto.TunnelHistoryDTO, 0, len(history))
+	for _, h := range history {
+		historyDTOs = append(historyDTOs, &dto.TunnelHistoryDTO{
+			ID:             h.ID,
+			BundleName:     h.BundleName,
+			TunnelType:     h.TunnelType,
+			LocalPort:      h.LocalPort,
+			RemoteAddr:     h.RemoteAddr,
+			URL:            h.URL,
+			ConnectedAt:    h.ConnectedAt,
+			DisconnectedAt: h.DisconnectedAt,
+			BytesSent:      h.BytesSent,
+			BytesReceived:  h.BytesReceived,
+		})
+	}
+
+	// Tunnel stats
+	var tunnelStats *dto.TunnelHistoryStatsDTO
+	if stats, err := s.db.UserHistory.GetStats(id); err == nil {
+		tunnelStats = &dto.TunnelHistoryStatsDTO{
+			TotalConnections:   stats.TotalConnections,
+			TotalBytesSent:     stats.TotalBytesSent,
+			TotalBytesReceived: stats.TotalBytesReceived,
+		}
+	}
+
+	// Counts
+	tokenCount := 0
+	if tokens, err := s.db.Tokens.GetByUserID(id); err == nil {
+		tokenCount = len(tokens)
+	}
+	domainCount := 0
+	if domains, err := s.db.Domains.GetByUserID(id); err == nil {
+		domainCount = len(domains)
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.AdminUserDetailResponse{
+		User:          userDTO,
+		Payments:      paymentDTOs,
+		Subscriptions: subDTOs,
+		TunnelHistory: historyDTOs,
+		TunnelStats:   tunnelStats,
+		TokenCount:    tokenCount,
+		DomainCount:   domainCount,
+	})
+}
