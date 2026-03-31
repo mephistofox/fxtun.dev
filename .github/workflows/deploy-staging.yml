@@ -132,7 +132,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build frontend
-        run: cd web && npm ci --legacy-peer-deps && npm run build
+        run: cd web && npm install --legacy-peer-deps && npm run build
 
       - name: Setup SSH
         run: |
