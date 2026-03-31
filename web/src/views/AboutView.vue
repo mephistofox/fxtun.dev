@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useSeo } from '@/composables/useSeo'
 import { useSubpageSchema } from '@/composables/useStructuredData'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
+import Breadcrumbs from '@/components/landing/Breadcrumbs.vue'
 
 const { t, locale } = useI18n()
 
@@ -42,6 +43,10 @@ useSubpageSchema({
 
     <!-- Content -->
     <main class="pt-16">
+      <Breadcrumbs :items="[{ name: t('about.title'), path: '/about' }]" />
+      <p class="container mx-auto px-4 text-xs text-muted-foreground/60 -mt-1 mb-2">
+        {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+      </p>
       <div class="container mx-auto px-4 py-16 max-w-4xl">
         <div class="prose prose-neutral dark:prose-invert max-w-none">
           <template v-if="locale === 'ru'">
@@ -51,8 +56,14 @@ useSubpageSchema({
             <p>{{ t('about.projectText1') }}</p>
             <p>{{ t('about.projectText2') }}</p>
 
+            <h2>{{ t('about.whyTitle') }}</h2>
+            <p>{{ t('about.whyText') }}</p>
+
             <h2>{{ t('about.missionTitle') }}</h2>
             <p>{{ t('about.missionText') }}</p>
+
+            <h2>{{ t('about.historyTitle') }}</h2>
+            <p>{{ t('about.historyText') }}</p>
 
             <h2>{{ t('about.developerTitle') }}</h2>
             <p>{{ t('about.developerText1') }}</p>
@@ -62,6 +73,7 @@ useSubpageSchema({
             </p>
 
             <h2>{{ t('about.techTitle') }}</h2>
+            <p>{{ t('about.techText') }}</p>
             <ul>
               <li><strong>Go 1.24+</strong> — {{ t('about.techItems.backend') }}</li>
               <li><strong>Vue 3 + TypeScript</strong> — {{ t('about.techItems.frontend') }}</li>
@@ -104,8 +116,14 @@ useSubpageSchema({
             <p>{{ t('about.projectText1') }}</p>
             <p>{{ t('about.projectText2') }}</p>
 
+            <h2>{{ t('about.whyTitle') }}</h2>
+            <p>{{ t('about.whyText') }}</p>
+
             <h2>{{ t('about.missionTitle') }}</h2>
             <p>{{ t('about.missionText') }}</p>
+
+            <h2>{{ t('about.historyTitle') }}</h2>
+            <p>{{ t('about.historyText') }}</p>
 
             <h2>{{ t('about.developerTitle') }}</h2>
             <p>{{ t('about.developerText1') }}</p>
@@ -115,6 +133,7 @@ useSubpageSchema({
             </p>
 
             <h2>{{ t('about.techTitle') }}</h2>
+            <p>{{ t('about.techText') }}</p>
             <ul>
               <li><strong>Go 1.24+</strong> — {{ t('about.techItems.backend') }}</li>
               <li><strong>Vue 3 + TypeScript</strong> — {{ t('about.techItems.frontend') }}</li>

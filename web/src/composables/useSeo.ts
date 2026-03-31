@@ -11,21 +11,24 @@ interface SeoOptions {
   description?: string
   image?: string
   type?: 'website' | 'article'
+  robots?: string
 }
 
 export function useSeo(options: SeoOptions = {}) {
   const { t, locale } = useI18n()
   const route = useRoute()
 
-  // Effective locale: forcedLocale from route meta takes priority
-  const effectiveLocale = (route.meta.forcedLocale as 'en' | 'ru') ?? locale.value
+  // Effective locale: forcedLocale from route meta takes priority.
+  // During SSG, default to 'en' for non-prefixed routes (used by fxtun.dev)
+  // to prevent state leaks from shared i18n instance across renders.
+  const effectiveLocale = (route.meta.forcedLocale as 'en' | 'ru') ??
+    (import.meta.env.SSR ? 'en' : locale.value)
 
-  // Apply forcedLocale globally (for component body rendering)
-  if (route.meta.forcedLocale) {
-    locale.value = effectiveLocale
-    // @ts-expect-error vue-i18n composition api
-    i18n.global.locale.value = effectiveLocale
-  }
+  // Always sync i18n state for current route (prevents SSG state leaks
+  // where /ru route sets global locale to 'ru' and non-prefixed routes inherit it)
+  locale.value = effectiveLocale
+  // @ts-expect-error vue-i18n composition api
+  i18n.global.locale.value = effectiveLocale
 
   // Helper: translate with explicit locale (bypasses reactive locale for SSG)
   // @ts-expect-error vue-i18n message schema
@@ -84,6 +87,7 @@ export function useSeo(options: SeoOptions = {}) {
     title,
     description,
     keywords,
+    ...(options.robots ? { robots: options.robots } : {}),
     ogTitle: title,
     ogDescription: description,
     ogImage: image,

@@ -9,6 +9,8 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0d1117" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="dns-prefetch" href="https://mc.yandex.ru" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
     <meta name="description" content="Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector. Self-hostable." />
     <meta name="keywords" content="" />
     <title>fxTunnel — Free ngrok Alternative | HTTP, TCP & UDP Tunneling</title>
@@ -37,7 +39,7 @@
     <script src="/analytics.js" defer></script>
   </head>
   <body>
-    <script src="/theme-init.js"></script>
+    <script>(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()</script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
     <!-- Yandex.Metrika noscript (fxtun.ru only) -->

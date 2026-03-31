@@ -29,7 +29,7 @@ const navigation = [
   { key: 'dashboard', path: '/', icon: 'layout-dashboard' },
   { key: 'domains', path: '/domains', icon: 'globe' },
   { key: 'tokens', path: '/tokens', icon: 'key' },
-  { key: 'downloads', path: '/downloads', icon: 'download' },
+  { key: 'downloads', path: '/downloads/files', icon: 'download' },
   { key: 'profile', path: '/profile', icon: 'user' },
 ]
 

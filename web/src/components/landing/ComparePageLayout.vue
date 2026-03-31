@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useSeo } from '@/composables/useSeo'
 import { useSubpageSchema } from '@/composables/useStructuredData'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
+import Breadcrumbs from '@/components/landing/Breadcrumbs.vue'
 
 const props = defineProps<{
   competitorName: string
@@ -11,6 +12,14 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+
+const allCompetitors = [
+  { slug: 'ngrok', name: 'ngrok' },
+  { slug: 'cloudflare', name: 'Cloudflare Tunnel' },
+  { slug: 'tuna', name: 'tuna.am' },
+  { slug: 'xtunnel', name: 'xTunnel' },
+]
+const otherCompetitors = allCompetitors.filter(c => c.slug !== props.competitorSlug)
 
 const seoKey = `compare${props.competitorSlug.charAt(0).toUpperCase() + props.competitorSlug.slice(1).replace(/-./g, m => m[1].toUpperCase())}`
 
@@ -23,6 +32,7 @@ useSubpageSchema({
   path: `/compare/${props.competitorSlug}`,
   name: t(`seo.${seoKey}.title`),
   description: t(`seo.${seoKey}.description`),
+  dateModified: '2026-03-27',
   breadcrumbs: [
     { name: t('compare.breadcrumbCompare', 'Compare'), path: `/compare/${props.competitorSlug}` },
   ],
@@ -49,14 +59,25 @@ useSubpageSchema({
       </div>
     </nav>
 
+    <!-- Breadcrumbs -->
+    <div class="pt-16">
+      <Breadcrumbs :items="[
+        { name: t('common.breadcrumbCompare'), path: `/compare/${competitorSlug}` },
+        { name: t(`compare.${competitorSlug}.title`), path: `/compare/${competitorSlug}` },
+      ]" />
+    </div>
+
     <!-- Hero -->
-    <section class="pt-32 pb-16">
+    <section class="pt-8 pb-16">
       <div class="container mx-auto px-4 text-center">
         <h1 class="text-4xl md:text-5xl font-display font-bold mb-4">
           {{ t(`compare.${competitorSlug}.title`) }}
         </h1>
         <p class="text-xl text-muted-foreground max-w-2xl mx-auto">
           {{ t('compare.heroSubtitle') }}
+        </p>
+        <p class="mt-3 text-sm text-muted-foreground/60">
+          {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
         </p>
       </div>
     </section>
@@ -80,6 +101,26 @@ useSubpageSchema({
           <RouterLink to="/register" class="compare-cta-button">
             {{ t('compare.ctaButton') }}
           </RouterLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- See Also -->
+    <section class="py-12">
+      <div class="container mx-auto px-4">
+        <div class="max-w-4xl mx-auto">
+          <h2 class="text-xl font-display font-semibold mb-6 text-center">{{ t('compare.seeAlsoTitle') }}</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <RouterLink
+              v-for="c in otherCompetitors"
+              :key="c.slug"
+              :to="'/compare/' + c.slug"
+              class="compare-see-also-card"
+            >
+              <span class="text-sm font-medium">fxTunnel vs {{ c.name }}</span>
+              <svg aria-hidden="true" class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </RouterLink>
+          </div>
         </div>
       </div>
     </section>
@@ -149,5 +190,16 @@ useSubpageSchema({
 .compare-cta-button:hover {
   opacity: 0.9;
   box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+}
+
+.compare-see-also-card {
+  @apply flex items-center justify-between px-5 py-4 rounded-xl transition-all duration-200;
+  background: hsl(var(--surface) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.4);
+}
+
+.compare-see-also-card:hover {
+  border-color: hsl(var(--primary) / 0.4);
+  background: hsl(var(--surface) / 0.8);
 }
 </style>
