@@ -298,13 +298,21 @@ jobs:
       - name: Collect artifact
         shell: bash
         run: |
+          # Find the actual binary (Wails on macOS puts it in .app bundle)
           if [ -f "gui/build/bin/${{ matrix.artifact }}" ]; then
             cp gui/build/bin/${{ matrix.artifact }} .
-          elif [ -d "gui/build/bin/${{ matrix.artifact }}.app" ]; then
-            cp "gui/build/bin/${{ matrix.artifact }}.app/Contents/MacOS/"* ./${{ matrix.artifact }}
           else
-            find gui/build/bin -type f | head -1 | xargs -I {} cp {} ${{ matrix.artifact }}
+            # Search for real binary (>1MB) in build output
+            FOUND=$(find gui/build/bin -type f -size +1M | head -1)
+            if [ -n "$FOUND" ]; then
+              cp "$FOUND" ./${{ matrix.artifact }}
+            else
+              echo "ERROR: could not find built binary"
+              find gui/build/bin -type f -ls
+              exit 1
+            fi
           fi
+          ls -lh ${{ matrix.artifact }}
 
       - name: Setup SSH
         shell: bash
