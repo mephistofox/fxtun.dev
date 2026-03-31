@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -88,7 +87,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 
 		attr := &os.ProcAttr{
 			Files: []*os.File{devNull, devNull, devNull},
-			Sys:   &syscall.SysProcAttr{Setsid: true},
+			Sys:   daemonSysProcAttr(),
 		}
 
 		proc, err := os.StartProcess(exe, newArgs, attr)
