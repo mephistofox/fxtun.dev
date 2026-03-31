@@ -16,10 +16,10 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/mephistofox/fxtunnel/internal/gui"
+	"github.com/mephistofox/fxtunnel/internal/client/gui"
 )
 
-//go:embed all:gui/dist
+//go:embed all:frontend/dist
 var assets embed.FS
 
 //go:embed build/appicon.png
