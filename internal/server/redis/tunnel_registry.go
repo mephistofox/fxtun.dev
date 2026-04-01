@@ -33,17 +33,18 @@ func (t *TunnelRegistry) Register(entry store.TunnelEntry) error {
 	infoKey := t.c.Key("tunnel", "info", entry.TunnelID)
 	userSetKey := t.c.Key("tunnel", "user", strconv.FormatInt(entry.UserID, 10))
 
+	entry.ServerID = t.serverID
 	fields := tunnelToMap(entry)
 
 	pipe := rdb.Pipeline()
 	pipe.HSet(ctx, infoKey, fields)
-	pipe.ExpireAt(ctx, infoKey, time.Now().Add(tunnelTTL))
+	pipe.Expire(ctx, infoKey, tunnelTTL)
 	pipe.SAdd(ctx, userSetKey, entry.TunnelID)
 
 	if entry.Subdomain != "" {
 		subKey := t.c.Key("tunnel", "sub", entry.Subdomain)
 		pipe.HSet(ctx, subKey, fields)
-		pipe.ExpireAt(ctx, subKey, time.Now().Add(tunnelTTL))
+		pipe.Expire(ctx, subKey, tunnelTTL)
 	}
 
 	_, err := pipe.Exec(ctx)

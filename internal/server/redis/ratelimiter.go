@@ -31,8 +31,7 @@ func (r *RateLimiter) Allow(ip string) bool {
 
 	count, err := rdb.Incr(ctx, key).Result()
 	if err != nil {
-		// On Redis error, allow the request (fail open)
-		return true
+		return false // fail closed on Redis error
 	}
 
 	if count == 1 {

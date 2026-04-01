@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"time"
 
+	goredis "github.com/redis/go-redis/v9"
+
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
@@ -81,23 +83,24 @@ func (d *DeviceStore) Get(id string) *store.DeviceSession {
 	}
 }
 
+// authorizeScript atomically checks key existence and sets status+token.
+var authorizeScript = goredis.NewScript(`
+if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
+redis.call('HSET', KEYS[1], 'status', ARGV[1], 'token', ARGV[2])
+return 1
+`)
+
 // Authorize marks a device session as authorized with the given token.
 // Returns false if the session no longer exists.
 func (d *DeviceStore) Authorize(id, token string) bool {
 	ctx := context.Background()
 	key := d.c.Key("device", id)
 
-	exists, err := d.c.RDB().Exists(ctx, key).Result()
-	if err != nil || exists == 0 {
+	result, err := authorizeScript.Run(ctx, d.c.RDB(), []string{key}, "authorized", token).Int()
+	if err != nil {
 		return false
 	}
-
-	err = d.c.RDB().HSet(ctx, key, map[string]interface{}{
-		"status": "authorized",
-		"token":  token,
-	}).Err()
-
-	return err == nil
+	return result == 1
 }
 
 // Delete removes a device session.
