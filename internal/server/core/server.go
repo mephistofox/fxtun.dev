@@ -23,6 +23,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/monitor"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
 
@@ -101,6 +102,9 @@ type Server struct {
 	telegramNotifier interface {
 		NotifyFirstTunnel(userID int64, displayName, tunnelType, address string, registeredAt time.Time)
 	}
+
+	// Cross-server tunnel registry (optional)
+	tunnelRegistry store.TunnelRegistry
 
 	// Custom domains
 	certManager    *fxtls.CertManager
@@ -240,6 +244,16 @@ func (s *Server) SetDatabase(db *database.Database) {
 // SetAuthService sets the auth service for JWT validation
 func (s *Server) SetAuthService(authService *auth.Service) {
 	s.authService = authService
+}
+
+// SetTunnelRegistry sets the cross-server tunnel discovery registry.
+func (s *Server) SetTunnelRegistry(r store.TunnelRegistry) {
+	s.tunnelRegistry = r
+}
+
+// TunnelRegistry returns the tunnel registry (may be nil).
+func (s *Server) TunnelRegistry() store.TunnelRegistry {
+	return s.tunnelRegistry
 }
 
 // SetTelegramNotifier sets the Telegram admin notifier for first-tunnel notifications.

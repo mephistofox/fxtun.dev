@@ -10,6 +10,7 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
 const (
@@ -47,7 +48,7 @@ func (s *Server) handleGitHubAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry := &oauthStateEntry{Purpose: oauthPurposeLogin}
+	entry := &store.OAuthStateEntry{Purpose: "login"}
 	if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
 		if isLocalhostURI(desktopRedirect) {
 			entry.DesktopRedirect = desktopRedirect
@@ -83,8 +84,8 @@ func (s *Server) handleGitHubLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := s.oauthStore.CreateState(&oauthStateEntry{
-		Purpose: oauthPurposeLink,
+	state, err := s.oauthStore.CreateState(&store.OAuthStateEntry{
+		Purpose: "link",
 		UserID:  user.ID,
 	})
 	if err != nil {
@@ -143,7 +144,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Account linking flow
-	if stateEntry.Purpose == oauthPurposeLink {
+	if stateEntry.Purpose == "link" {
 		s.handleGitHubLinkCallback(w, r, stateEntry.UserID, ghUser)
 		return
 	}
@@ -346,7 +347,7 @@ func (s *Server) handleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry := &oauthStateEntry{Purpose: oauthPurposeLogin}
+	entry := &store.OAuthStateEntry{Purpose: "login"}
 	if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
 		if isLocalhostURI(desktopRedirect) {
 			entry.DesktopRedirect = desktopRedirect
@@ -383,8 +384,8 @@ func (s *Server) handleGoogleLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := s.oauthStore.CreateState(&oauthStateEntry{
-		Purpose: oauthPurposeLink,
+	state, err := s.oauthStore.CreateState(&store.OAuthStateEntry{
+		Purpose: "link",
 		UserID:  user.ID,
 	})
 	if err != nil {
@@ -437,7 +438,7 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Account linking flow
-	if stateEntry.Purpose == oauthPurposeLink {
+	if stateEntry.Purpose == "link" {
 		s.handleGoogleLinkCallback(w, r, stateEntry.UserID, gUser)
 		return
 	}

@@ -99,7 +99,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 			},
 		},
 		Database: config.DatabaseSettings{
-			Path: dbPath,
+			DSN: dbPath,
 		},
 		TOTP: config.TOTPSettings{
 			Enabled:       true,
