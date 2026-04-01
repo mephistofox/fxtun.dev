@@ -16,17 +16,24 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
 // CertManager manages TLS certificates with ACME and in-memory caching.
 type CertManager struct {
-	cfg     config.TLSSettings
-	db      *database.Database
-	log     zerolog.Logger
-	cache   map[string]*tls.Certificate
-	mu      sync.RWMutex
-	acmeMgr *autocert.Manager
-	stopCh  chan struct{}
+	cfg        config.TLSSettings
+	db         *database.Database
+	log        zerolog.Logger
+	cache      map[string]*tls.Certificate
+	mu         sync.RWMutex
+	acmeMgr    *autocert.Manager
+	redisCache store.TLSCache
+	stopCh     chan struct{}
+}
+
+// SetRedisCache sets an optional L2 Redis cache between memory and DB.
+func (cm *CertManager) SetRedisCache(c store.TLSCache) {
+	cm.redisCache = c
 }
 
 // NewCertManager creates a new certificate manager.
@@ -82,6 +89,7 @@ func (cm *CertManager) LoadFromDB() error {
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
 
+	// L1: local memory cache
 	cm.mu.RLock()
 	cert, ok := cm.cache[name]
 	cm.mu.RUnlock()
@@ -89,6 +97,21 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 		return cert, nil
 	}
 
+	// L2: Redis shared cache
+	if cm.redisCache != nil {
+		certPEM, keyPEM, err := cm.redisCache.Get(name)
+		if err == nil {
+			tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+			if err == nil {
+				cm.mu.Lock()
+				cm.cache[name] = &tlsCert
+				cm.mu.Unlock()
+				return &tlsCert, nil
+			}
+		}
+	}
+
+	// L3: database
 	dbCert, err := cm.db.TLSCerts.GetByDomain(name)
 	if err == nil {
 		tlsCert, err := tls.X509KeyPair(dbCert.CertPEM, dbCert.KeyPEM)
@@ -96,6 +119,9 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 			cm.mu.Lock()
 			cm.cache[name] = &tlsCert
 			cm.mu.Unlock()
+			if cm.redisCache != nil {
+				_ = cm.redisCache.Put(name, dbCert.CertPEM, dbCert.KeyPEM, dbCert.ExpiresAt)
+			}
 			return &tlsCert, nil
 		}
 		cm.log.Warn().Str("domain", name).Err(err).Msg("Failed to parse cached certificate, falling back to ACME")
@@ -120,6 +146,9 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 		cm.mu.Lock()
 		cm.cache[name] = acmeCert
 		cm.mu.Unlock()
+		if cm.redisCache != nil {
+			_ = cm.redisCache.Put(name, certPEM, keyPEM, expiresAt)
+		}
 		cm.log.Info().Str("domain", name).Time("expires", expiresAt).Msg("TLS certificate obtained on-demand")
 	}
 
