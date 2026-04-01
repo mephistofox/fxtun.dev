@@ -15,12 +15,13 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/api"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	server "github.com/mephistofox/fxtunnel/internal/server/core"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
 	"github.com/mephistofox/fxtunnel/internal/server/exchange"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
 	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
-	server "github.com/mephistofox/fxtunnel/internal/server/core"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
@@ -136,6 +137,22 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Info().Msg("Database and auth service initialized")
 	}
 
+	// Initialize Redis if enabled
+	var redisClient *fxredis.Client
+	if cfg.Redis.Enabled {
+		redisClient, err = fxredis.New(cfg.Redis, log)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to connect to Redis")
+		}
+		defer redisClient.Close()
+
+		// Override session store with Redis
+		if authService != nil {
+			authService.SetSessionStore(fxredis.NewSessionStore(redisClient))
+			log.Info().Msg("Redis session store enabled")
+		}
+	}
+
 	// Initialize Telegram notifications
 	var telegramNotifier *telegram.AdminNotifier
 	if cfg.Telegram.Enabled {
@@ -158,6 +175,13 @@ func run(cmd *cobra.Command, args []string) error {
 		srv.SetAuthService(authService)
 	}
 
+	// Set tunnel registry and TLS cache if Redis enabled
+	if redisClient != nil {
+		hostname, _ := os.Hostname()
+		srv.SetTunnelRegistry(fxredis.NewTunnelRegistry(redisClient, hostname))
+		log.Info().Str("server_id", hostname).Msg("Redis tunnel registry enabled")
+	}
+
 	// Set Telegram notifier on tunnel server
 	if telegramNotifier != nil {
 		srv.SetTelegramNotifier(telegramNotifier)
@@ -167,6 +191,13 @@ func run(cmd *cobra.Command, args []string) error {
 	if cfg.CustomDomains.Enabled && db != nil {
 		if err := srv.InitCustomDomains(); err != nil {
 			log.Error().Err(err).Msg("Failed to initialize custom domains")
+		}
+		// Set Redis TLS cache if available
+		if redisClient != nil {
+			if cm := srv.CertManager(); cm != nil {
+				cm.SetRedisCache(fxredis.NewTLSCache(redisClient))
+				log.Info().Msg("Redis TLS certificate cache enabled")
+			}
 		}
 	}
 
@@ -191,7 +222,15 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		srv.InspectManager().SetStore(db.Exchanges)
 
-		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log)
+		var apiOpts []api.Option
+		if redisClient != nil {
+			apiOpts = append(apiOpts,
+				api.WithDeviceStore(fxredis.NewDeviceStore(redisClient)),
+				api.WithOAuthStore(fxredis.NewOAuthStore(redisClient)),
+			)
+		}
+
+		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log, apiOpts...)
 		apiServer.SetVersion(Version)
 		apiServer.SetMinVersion(cfg.Server.MinVersion)
 		apiServer.SetReplayProvider(srv.HTTPRouter())
@@ -213,7 +252,7 @@ func run(cmd *cobra.Command, args []string) error {
 			Int("port", cfg.Web.Port).
 			Msg("Web panel API started")
 
-		// Start expired session cleanup
+		// Start periodic cleanup
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
@@ -222,10 +261,13 @@ func run(cmd *cobra.Command, args []string) error {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					if deleted, err := db.Sessions.DeleteExpired(); err != nil {
-						log.Error().Err(err).Msg("Failed to cleanup expired sessions")
-					} else if deleted > 0 {
-						log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+					// Session cleanup only needed when Redis is not handling TTL
+					if redisClient == nil {
+						if deleted, err := db.Sessions.DeleteExpired(); err != nil {
+							log.Error().Err(err).Msg("Failed to cleanup expired sessions")
+						} else if deleted > 0 {
+							log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+						}
 					}
 					// Cleanup old inspect exchanges (24h TTL)
 					if deleted, err := db.Exchanges.DeleteOlderThan(time.Now().Add(-24 * time.Hour)); err != nil {

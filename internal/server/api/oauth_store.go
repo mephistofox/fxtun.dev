@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
 const (
@@ -13,41 +15,38 @@ const (
 	oauthCleanupInterval = 1 * time.Minute
 )
 
-type oauthPurpose string
-
 const (
-	oauthPurposeLogin oauthPurpose = "login"
-	oauthPurposeLink  oauthPurpose = "link"
+	oauthPurposeLogin = "login"
+	oauthPurposeLink  = "link"
 )
 
-type oauthStateEntry struct {
-	Purpose         oauthPurpose
-	UserID          int64
-	DesktopRedirect string
-	CreatedAt       time.Time
+type oauthStateInternal struct {
+	entry     *store.OAuthStateEntry
+	createdAt time.Time
 }
 
-type oauthCodeEntry struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int64
-	CreatedAt    time.Time
+type oauthCodeInternal struct {
+	entry     *store.OAuthCodeEntry
+	createdAt time.Time
 }
 
-type oauthStore struct {
+// memoryOAuthStore is the in-memory implementation of store.OAuthStore.
+type memoryOAuthStore struct {
 	mu     sync.Mutex
-	states map[string]*oauthStateEntry
-	codes  map[string]*oauthCodeEntry
+	states map[string]*oauthStateInternal
+	codes  map[string]*oauthCodeInternal
 }
 
-func newOAuthStore() *oauthStore {
-	return &oauthStore{
-		states: make(map[string]*oauthStateEntry),
-		codes:  make(map[string]*oauthCodeEntry),
+var _ store.OAuthStore = (*memoryOAuthStore)(nil)
+
+func newOAuthStore() *memoryOAuthStore {
+	return &memoryOAuthStore{
+		states: make(map[string]*oauthStateInternal),
+		codes:  make(map[string]*oauthCodeInternal),
 	}
 }
 
-func (s *oauthStore) generateNonce() (string, error) {
+func (s *memoryOAuthStore) generateNonce() (string, error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
@@ -56,50 +55,51 @@ func (s *oauthStore) generateNonce() (string, error) {
 }
 
 // CreateState stores an OAuth state entry and returns its nonce.
-func (s *oauthStore) CreateState(entry *oauthStateEntry) (string, error) {
+func (s *memoryOAuthStore) CreateState(entry *store.OAuthStateEntry) (string, error) {
 	nonce, err := s.generateNonce()
 	if err != nil {
 		return "", err
 	}
-	entry.CreatedAt = time.Now()
 
 	s.mu.Lock()
-	s.states[nonce] = entry
+	s.states[nonce] = &oauthStateInternal{entry: entry, createdAt: time.Now()}
 	s.mu.Unlock()
 
 	return nonce, nil
 }
 
 // ConsumeState retrieves and deletes the state entry for the given nonce.
-func (s *oauthStore) ConsumeState(nonce string) *oauthStateEntry {
+func (s *memoryOAuthStore) ConsumeState(nonce string) *store.OAuthStateEntry {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entry, ok := s.states[nonce]
+	internal, ok := s.states[nonce]
 	if !ok {
 		return nil
 	}
 	delete(s.states, nonce)
 
-	if time.Since(entry.CreatedAt) > oauthStateTTL {
+	if time.Since(internal.createdAt) > oauthStateTTL {
 		return nil
 	}
-	return entry
+	return internal.entry
 }
 
 // CreateCode stores a one-time authorization code that can be exchanged for tokens.
-func (s *oauthStore) CreateCode(accessToken, refreshToken string, expiresIn int64) (string, error) {
+func (s *memoryOAuthStore) CreateCode(accessToken, refreshToken string, expiresIn int64) (string, error) {
 	code, err := s.generateNonce()
 	if err != nil {
 		return "", err
 	}
 
 	s.mu.Lock()
-	s.codes[code] = &oauthCodeEntry{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresIn:    expiresIn,
-		CreatedAt:    time.Now(),
+	s.codes[code] = &oauthCodeInternal{
+		entry: &store.OAuthCodeEntry{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    expiresIn,
+		},
+		createdAt: time.Now(),
 	}
 	s.mu.Unlock()
 
@@ -107,24 +107,24 @@ func (s *oauthStore) CreateCode(accessToken, refreshToken string, expiresIn int6
 }
 
 // ExchangeCode retrieves and deletes the code entry (one-time use).
-func (s *oauthStore) ExchangeCode(code string) *oauthCodeEntry {
+func (s *memoryOAuthStore) ExchangeCode(code string) *store.OAuthCodeEntry {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entry, ok := s.codes[code]
+	internal, ok := s.codes[code]
 	if !ok {
 		return nil
 	}
 	delete(s.codes, code)
 
-	if time.Since(entry.CreatedAt) > oauthCodeTTL {
+	if time.Since(internal.createdAt) > oauthCodeTTL {
 		return nil
 	}
-	return entry
+	return internal.entry
 }
 
 // Cleanup removes expired entries periodically.
-func (s *oauthStore) Cleanup(stopCh <-chan struct{}) {
+func (s *memoryOAuthStore) Cleanup(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(oauthCleanupInterval)
 	defer ticker.Stop()
 
@@ -133,13 +133,13 @@ func (s *oauthStore) Cleanup(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			s.mu.Lock()
 			now := time.Now()
-			for id, entry := range s.states {
-				if now.Sub(entry.CreatedAt) > oauthStateTTL*2 {
+			for id, internal := range s.states {
+				if now.Sub(internal.createdAt) > oauthStateTTL*2 {
 					delete(s.states, id)
 				}
 			}
-			for id, entry := range s.codes {
-				if now.Sub(entry.CreatedAt) > oauthCodeTTL*2 {
+			for id, internal := range s.codes {
+				if now.Sub(internal.createdAt) > oauthCodeTTL*2 {
 					delete(s.codes, id)
 				}
 			}
