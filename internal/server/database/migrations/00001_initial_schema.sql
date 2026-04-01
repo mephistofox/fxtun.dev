@@ -24,7 +24,7 @@ CREATE TABLE plans (
 -- Users
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    phone VARCHAR(20),
+    phone VARCHAR(255),
     password_hash VARCHAR(255) NOT NULL DEFAULT '',
     display_name VARCHAR(100),
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
