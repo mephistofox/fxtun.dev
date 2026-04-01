@@ -94,7 +94,7 @@ type RateLimitConfig struct {
 
 // DatabaseSettings contains database configuration
 type DatabaseSettings struct {
-	Path string `mapstructure:"path"`
+	DSN string `mapstructure:"dsn"`
 }
 
 // TOTPSettings contains TOTP 2FA configuration
@@ -277,7 +277,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("logging.format", "console")
 	v.SetDefault("web.enabled", false)
 	v.SetDefault("web.port", 8081)
-	v.SetDefault("database.path", "./data/fxtunnel.db")
+	v.SetDefault("database.dsn", "postgres://fxtunnel:fxtunnel@localhost:5432/fxtunnel?sslmode=disable")
 	v.SetDefault("totp.enabled", true)
 	v.SetDefault("totp.issuer", "fxTunnel")
 	v.SetDefault("totp.encryption_key", "")

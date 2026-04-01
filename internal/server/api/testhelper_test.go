@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -167,7 +168,7 @@ func (env *testEnv) createTestAdmin(t *testing.T, phone, password, displayName s
 	tu := env.createTestUser(t, phone, password, displayName)
 
 	// Promote to admin directly in the database
-	_, err := env.DB.DB().Exec("UPDATE users SET is_admin = 1 WHERE id = ?", tu.User.ID)
+	_, err := env.DB.Pool().Exec(context.Background(), "UPDATE users SET is_admin = TRUE WHERE id = $1", tu.User.ID)
 	if err != nil {
 		t.Fatalf("failed to promote user to admin: %v", err)
 	}
