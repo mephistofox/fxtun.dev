@@ -95,9 +95,9 @@ func run(cmd *cobra.Command, args []string) error {
 	var apiServer *api.Server
 
 	if cfg.Web.Enabled {
-		log.Info().Str("path", cfg.Database.Path).Msg("Initializing database")
+		log.Info().Str("dsn", cfg.Database.DSN).Msg("Initializing database")
 
-		db, err = database.New(cfg.Database.Path, log)
+		db, err = database.New(cfg.Database.DSN, log)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to initialize database")
 		}

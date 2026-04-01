@@ -224,6 +224,13 @@ type UserHistoryEntry struct {
 	BytesReceived  int64      `json:"bytes_received"`
 }
 
+// HistoryStats represents aggregated history statistics
+type HistoryStats struct {
+	TotalConnections   int   `json:"total_connections"`
+	TotalBytesSent     int64 `json:"total_bytes_sent"`
+	TotalBytesReceived int64 `json:"total_bytes_received"`
+}
+
 // UserSetting represents a user setting key-value pair
 type UserSetting struct {
 	UserID    int64     `json:"user_id"`
