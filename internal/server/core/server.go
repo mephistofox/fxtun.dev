@@ -925,6 +925,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Str("url", url).Msg("HTTP tunnel created")
+	c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("HTTP", url)
 }
 
@@ -1010,6 +1011,7 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("TCP tunnel created")
+	c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("TCP", remoteAddr)
 }
 
@@ -1095,6 +1097,7 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("UDP tunnel created")
+	c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("UDP", remoteAddr)
 }
 
@@ -1135,6 +1138,11 @@ func (c *Client) closeTunnel(tunnelID string) {
 
 	c.server.monitor.RemoveTunnel(tunnelID)
 
+	// Remove from cross-server registry
+	if c.server.tunnelRegistry != nil {
+		_ = c.server.tunnelRegistry.Unregister(tunnelID)
+	}
+
 	switch tunnel.Type {
 	case protocol.TunnelHTTP:
 		c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
@@ -1156,6 +1164,54 @@ func (c *Client) closeTunnel(tunnelID string) {
 	_ = c.sendControl(resp)
 
 	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel closed")
+}
+
+// registerTunnelInRegistry registers the tunnel in the cross-server Redis registry
+// and starts a heartbeat goroutine that refreshes the TTL every 30 seconds.
+func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) {
+	reg := c.server.tunnelRegistry
+	if reg == nil {
+		return
+	}
+
+	entry := store.TunnelEntry{
+		TunnelID:   tunnel.ID,
+		Type:       string(tunnel.Type),
+		Name:       tunnel.Name,
+		Subdomain:  tunnel.Subdomain,
+		RemotePort: tunnel.RemotePort,
+		LocalPort:  tunnel.LocalPort,
+		ClientID:   c.ID,
+		UserID:     c.UserID,
+		ServerID:   "", // set by registry
+		CreatedAt:  tunnel.Created,
+	}
+
+	if err := reg.Register(entry); err != nil {
+		c.log.Warn().Err(err).Str("tunnel_id", tunnel.ID).Msg("Failed to register tunnel in Redis")
+		return
+	}
+
+	// Heartbeat goroutine — refreshes TTL every 30s, stops when client context is done
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				return
+			case <-ticker.C:
+				// Check if tunnel still exists
+				c.TunnelsMu.RLock()
+				_, exists := c.Tunnels[tunnel.ID]
+				c.TunnelsMu.RUnlock()
+				if !exists {
+					return
+				}
+				_ = reg.Heartbeat(tunnel.ID)
+			}
+		}
+	}()
 }
 
 func (c *Client) handleConnectionAccept(data []byte) {
