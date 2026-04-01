@@ -19,6 +19,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/email"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
@@ -95,13 +96,29 @@ type Server struct {
 	downloadsPath  string
 	version        string
 	minVersion     string
-	deviceStore    *deviceStore
-	oauthStore     *oauthStore
+	deviceStore    store.DeviceStore
+	oauthStore     store.OAuthStore
 	shutdownCh     chan struct{}
 }
 
+// Option configures the API server.
+type Option func(*Server)
+
+// WithDeviceStore overrides the default in-memory device store.
+func WithDeviceStore(ds store.DeviceStore) Option {
+	return func(s *Server) { s.deviceStore = ds }
+}
+
+// WithOAuthStore overrides the default in-memory OAuth store.
+func WithOAuthStore(os store.OAuthStore) Option {
+	return func(s *Server) { s.oauthStore = os }
+}
+
 // New creates a new API server
-func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger) *Server {
+func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger, opts ...Option) *Server {
+	memDevice := newDeviceStore()
+	memOAuth := newOAuthStore()
+
 	s := &Server{
 		cfg:                  cfg,
 		db:                   db,
@@ -112,13 +129,22 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		log:            log.With().Str("component", "api").Logger(),
 		baseDomain:     cfg.Domain.Base,
 		downloadsPath:  cfg.Downloads.Path,
-		deviceStore:    newDeviceStore(),
-		oauthStore:     newOAuthStore(),
+		deviceStore:    memDevice,
+		oauthStore:     memOAuth,
 		shutdownCh:     make(chan struct{}),
 	}
 
-	go s.deviceStore.Cleanup(s.shutdownCh)
-	go s.oauthStore.Cleanup(s.shutdownCh)
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	// Start cleanup goroutines only for in-memory stores
+	if s.deviceStore == memDevice {
+		go memDevice.Cleanup(s.shutdownCh)
+	}
+	if s.oauthStore == memOAuth {
+		go memOAuth.Cleanup(s.shutdownCh)
+	}
 
 	s.setupRoutes()
 	return s

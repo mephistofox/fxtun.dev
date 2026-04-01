@@ -5,8 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"golang.org/x/time/rate"
 )
+
+// Compile-time check that ipRateLimiter implements store.RateChecker.
+var _ store.RateChecker = (*ipRateLimiter)(nil)
 
 type limiterEntry struct {
 	limiter  *rate.Limiter
@@ -47,6 +51,11 @@ func (rl *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
 	return entry.limiter
 }
 
+// Allow implements store.RateChecker.
+func (rl *ipRateLimiter) Allow(ip string) bool {
+	return rl.getLimiter(ip).Allow()
+}
+
 // cleanup removes stale limiters periodically based on TTL
 func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration) {
 	go func() {
@@ -70,14 +79,13 @@ func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration)
 	}()
 }
 
-func rateLimitMiddleware(rl *ipRateLimiter) func(http.Handler) http.Handler {
+func rateLimitMiddleware(rl store.RateChecker) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Use original TCP remote address to prevent X-Forwarded-For bypass
 			ip := getOriginalRemoteAddr(r)
 
-			limiter := rl.getLimiter(ip)
-			if !limiter.Allow() {
+			if !rl.Allow(ip) {
 				http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
 				return
 			}

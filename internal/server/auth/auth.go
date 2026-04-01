@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/rs/zerolog"
 )
 
@@ -27,22 +28,29 @@ func MaskPhone(phone string) string {
 
 // Service handles authentication operations
 type Service struct {
-	db          *database.Database
-	jwt         *JWTManager
-	totp        *TOTPManager
-	log         zerolog.Logger
-	maxDomains  int
+	db           *database.Database
+	sessions     store.SessionStore
+	jwt          *JWTManager
+	totp         *TOTPManager
+	log          zerolog.Logger
+	maxDomains   int
 }
 
 // NewService creates a new auth service
 func NewService(db *database.Database, jwtSecret string, accessTTL, refreshTTL time.Duration, totpIssuer string, totpKey []byte, maxDomains int, log zerolog.Logger) *Service {
 	return &Service{
 		db:         db,
+		sessions:   db.Sessions,
 		jwt:        NewJWTManager(jwtSecret, accessTTL, refreshTTL),
 		totp:       NewTOTPManager(totpIssuer, totpKey),
 		log:        log.With().Str("component", "auth").Logger(),
 		maxDomains: maxDomains,
 	}
+}
+
+// SetSessionStore overrides the default session store (e.g. with Redis).
+func (s *Service) SetSessionStore(ss store.SessionStore) {
+	s.sessions = ss
 }
 
 // Register creates a new user account
@@ -88,7 +96,7 @@ func (s *Service) Register(phone, password, displayName, ipAddress string) (*dat
 		RefreshTokenHash: refreshTokenHash,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
-	if err := s.db.Sessions.Create(session); err != nil {
+	if err := s.sessions.Create(session); err != nil {
 		return nil, nil, fmt.Errorf("create session: %w", err)
 	}
 
@@ -182,7 +190,7 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 		IPAddress:        ipAddress,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
-	if err := s.db.Sessions.Create(session); err != nil {
+	if err := s.sessions.Create(session); err != nil {
 		return nil, nil, fmt.Errorf("create session: %w", err)
 	}
 
@@ -204,7 +212,7 @@ func (s *Service) Logout(refreshToken string, ipAddress string, userID int64) er
 	tokenHash := HashToken(refreshToken)
 
 	// Verify the session belongs to the authenticated user
-	session, err := s.db.Sessions.GetByTokenHash(tokenHash)
+	session, err := s.sessions.GetByTokenHash(tokenHash)
 	if err != nil {
 		return fmt.Errorf("get session: %w", err)
 	}
@@ -212,7 +220,7 @@ func (s *Service) Logout(refreshToken string, ipAddress string, userID int64) er
 		return fmt.Errorf("session does not belong to user")
 	}
 
-	if err := s.db.Sessions.Delete(session.ID); err != nil {
+	if err := s.sessions.DeleteByTokenHash(tokenHash); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 
@@ -227,7 +235,7 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 	tokenHash := HashToken(refreshToken)
 
 	// Get session
-	session, err := s.db.Sessions.GetByTokenHash(tokenHash)
+	session, err := s.sessions.GetByTokenHash(tokenHash)
 	if err != nil {
 		if errors.Is(err, database.ErrSessionNotFound) {
 			return nil, nil, ErrInvalidToken
@@ -237,7 +245,7 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 
 	// Check if session is expired
 	if session.IsExpired() {
-		_ = s.db.Sessions.Delete(session.ID)
+		_ = s.sessions.DeleteByTokenHash(tokenHash)
 		return nil, nil, ErrTokenExpired
 	}
 
@@ -253,7 +261,7 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 	}
 
 	// Delete old session
-	_ = s.db.Sessions.Delete(session.ID)
+	_ = s.sessions.DeleteByTokenHash(tokenHash)
 
 	// Generate new tokens
 	tokenPair, newRefreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
@@ -269,7 +277,7 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 		IPAddress:        ipAddress,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
-	if err := s.db.Sessions.Create(newSession); err != nil {
+	if err := s.sessions.Create(newSession); err != nil {
 		return nil, nil, fmt.Errorf("create session: %w", err)
 	}
 
@@ -305,7 +313,7 @@ func (s *Service) ChangePassword(userID int64, oldPassword, newPassword, ipAddre
 	}
 
 	// Invalidate all sessions
-	_ = s.db.Sessions.DeleteByUserID(userID)
+	_ = s.sessions.DeleteByUserID(userID)
 
 	// Log audit
 	_ = s.db.Audit.Log(&userID, database.ActionPasswordChange, nil, ipAddress)
@@ -512,7 +520,7 @@ func (s *Service) RegisterOrLoginOAuth(info *OAuthUserInfo, userAgent, ipAddress
 		IPAddress:        ipAddress,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
-	if err := s.db.Sessions.Create(session); err != nil {
+	if err := s.sessions.Create(session); err != nil {
 		return nil, nil, false, fmt.Errorf("create session: %w", err)
 	}
 
@@ -611,7 +619,7 @@ func (s *Service) RegisterOrLoginGoogleOAuth(info *GoogleOAuthUserInfo, userAgen
 		IPAddress:        ipAddress,
 		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
 	}
-	if err := s.db.Sessions.Create(session); err != nil {
+	if err := s.sessions.Create(session); err != nil {
 		return nil, nil, false, fmt.Errorf("create session: %w", err)
 	}
 

@@ -45,7 +45,7 @@ func (s *Server) handleDevicePoll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := dto.DevicePollResponse{
-		Status: string(session.Status),
+		Status: session.Status,
 	}
 	if session.Status == deviceStatusAuthorized {
 		resp.Token = session.Token

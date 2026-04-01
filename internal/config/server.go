@@ -31,6 +31,19 @@ type ServerConfig struct {
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
 	ExchangeRate  float64              `mapstructure:"exchange_rate"`
+	Redis         RedisSettings        `mapstructure:"redis"`
+}
+
+// RedisSettings contains Redis cache configuration
+type RedisSettings struct {
+	Enabled        bool     `mapstructure:"enabled"`
+	Addr           string   `mapstructure:"addr"`
+	Password       string   `mapstructure:"password"`
+	DB             int      `mapstructure:"db"`
+	KeyPrefix      string   `mapstructure:"key_prefix"`
+	SentinelEnabled bool    `mapstructure:"sentinel_enabled"`
+	SentinelMaster string   `mapstructure:"sentinel_master"`
+	SentinelAddrs  []string `mapstructure:"sentinel_addrs"`
 }
 
 // ServerSettings contains network settings
@@ -299,6 +312,13 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("smtp.from_name", "fxTunnel")
 	v.SetDefault("telegram.enabled", false)
 	v.SetDefault("exchange_rate", 80.0)
+	v.SetDefault("redis.enabled", false)
+	v.SetDefault("redis.addr", "localhost:6379")
+	v.SetDefault("redis.password", "")
+	v.SetDefault("redis.db", 0)
+	v.SetDefault("redis.key_prefix", "fxt:")
+	v.SetDefault("redis.sentinel_enabled", false)
+	v.SetDefault("redis.sentinel_master", "fxtunnel-master")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)

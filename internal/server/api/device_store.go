@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
 const (
@@ -12,40 +14,34 @@ const (
 	deviceCleanupInterval = 1 * time.Minute
 )
 
-type deviceSessionStatus string
-
 const (
-	deviceStatusPending    deviceSessionStatus = "pending"
-	deviceStatusAuthorized deviceSessionStatus = "authorized"
-	deviceStatusExpired    deviceSessionStatus = "expired"
+	deviceStatusPending    = "pending"
+	deviceStatusAuthorized = "authorized"
+	deviceStatusExpired    = "expired"
 )
 
-type deviceSession struct {
-	ID        string
-	Status    deviceSessionStatus
-	Token     string
-	CreatedAt time.Time
-}
-
-type deviceStore struct {
+// memoryDeviceStore is the in-memory implementation of store.DeviceStore.
+type memoryDeviceStore struct {
 	mu       sync.RWMutex
-	sessions map[string]*deviceSession
+	sessions map[string]*store.DeviceSession
 }
 
-func newDeviceStore() *deviceStore {
-	return &deviceStore{
-		sessions: make(map[string]*deviceSession),
+var _ store.DeviceStore = (*memoryDeviceStore)(nil)
+
+func newDeviceStore() *memoryDeviceStore {
+	return &memoryDeviceStore{
+		sessions: make(map[string]*store.DeviceSession),
 	}
 }
 
-func (ds *deviceStore) Create() (*deviceSession, error) {
+func (ds *memoryDeviceStore) Create() (*store.DeviceSession, error) {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
 		return nil, err
 	}
 	id := hex.EncodeToString(bytes)
 
-	session := &deviceSession{
+	session := &store.DeviceSession{
 		ID:        id,
 		Status:    deviceStatusPending,
 		CreatedAt: time.Now(),
@@ -58,7 +54,7 @@ func (ds *deviceStore) Create() (*deviceSession, error) {
 	return session, nil
 }
 
-func (ds *deviceStore) Get(id string) *deviceSession {
+func (ds *memoryDeviceStore) Get(id string) *store.DeviceSession {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
@@ -67,12 +63,12 @@ func (ds *deviceStore) Get(id string) *deviceSession {
 		return nil
 	}
 	if time.Since(s.CreatedAt) > deviceSessionTTL {
-		return &deviceSession{ID: id, Status: deviceStatusExpired}
+		return &store.DeviceSession{ID: id, Status: deviceStatusExpired}
 	}
 	return s
 }
 
-func (ds *deviceStore) Authorize(id, token string) bool {
+func (ds *memoryDeviceStore) Authorize(id, token string) bool {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
@@ -85,13 +81,13 @@ func (ds *deviceStore) Authorize(id, token string) bool {
 	return true
 }
 
-func (ds *deviceStore) Delete(id string) {
+func (ds *memoryDeviceStore) Delete(id string) {
 	ds.mu.Lock()
 	delete(ds.sessions, id)
 	ds.mu.Unlock()
 }
 
-func (ds *deviceStore) Cleanup(stopCh <-chan struct{}) {
+func (ds *memoryDeviceStore) Cleanup(stopCh <-chan struct{}) {
 	ticker := time.NewTicker(deviceCleanupInterval)
 	defer ticker.Stop()
 
