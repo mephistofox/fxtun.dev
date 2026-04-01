@@ -100,7 +100,7 @@ jobs:
           SSH_USER: ${{ secrets.STAGING_SSH_USER }}
           SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
         run: |
-          scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/fxtunnel-server.new
+          scp -i $SSH_KEY fxtunnel-server ${SSH_USER}@${SSH_HOST}:/root/fxtunnel/bin/fxtunnel-server.new
           ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "/root/fxtunnel/deploy.sh"
 
   deploy-web:
