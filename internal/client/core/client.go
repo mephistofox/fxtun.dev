@@ -78,9 +78,10 @@ type Client struct {
 	controlCodec  *protocol.Codec
 
 	// Multi-session pool: additional data connections for parallelism
-	dataSessions []*yamux.Session
-	dataConns    []net.Conn
-	dataSessionMu sync.Mutex
+	dataSessions    []*yamux.Session
+	dataConns       []net.Conn
+	dataSessionMu   sync.Mutex
+	maxDataSessions int // server-enforced limit (0 = use default)
 
 	clientID      string
 	sessionID     string
@@ -333,6 +334,13 @@ func (c *Client) authenticate() error {
 	c.clientID = result.ClientID
 	c.sessionID = result.SessionID
 	c.sessionSecret = result.SessionSecret
+
+	// Apply server-enforced data session limit
+	if result.MaxDataSessions > 0 {
+		c.maxDataSessions = result.MaxDataSessions
+	} else {
+		c.maxDataSessions = dataConnectionCount // fallback to default 15
+	}
 
 	if result.Capabilities != nil {
 		c.log.Debug().
@@ -1272,7 +1280,7 @@ func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
 
 func (c *Client) openDataConnections() {
 	var wg sync.WaitGroup
-	for i := 0; i < dataConnectionCount; i++ {
+	for i := 0; i < c.maxDataSessions; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()

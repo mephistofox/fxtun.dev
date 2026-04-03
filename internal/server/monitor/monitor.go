@@ -64,14 +64,23 @@ func (m *Monitor) getMetrics(tunnelID string) *TunnelMetrics {
 	return v.(*TunnelMetrics)
 }
 
-// AllowTCPConnection checks rate limit and records the connection.
-// Returns true if the connection should proceed. Fail-open for unknown tunnels.
-func (m *Monitor) AllowTCPConnection(tunnelID, remoteAddr string) bool {
-	metrics := m.getMetrics(tunnelID)
-	if metrics == nil {
-		return true
+// getOrCreateMetrics returns metrics for the tunnel, creating with defaults if not registered.
+// This ensures fail-closed behavior: unknown tunnels get default rate limits instead of unlimited.
+func (m *Monitor) getOrCreateMetrics(tunnelID, tunnelType string) *TunnelMetrics {
+	v, ok := m.tunnels.Load(tunnelID)
+	if ok {
+		return v.(*TunnelMetrics)
 	}
-	if !metrics.AllowConnection() {
+	metrics := NewTunnelMetrics(tunnelID, tunnelType, TunnelLimits{}) // 0 values → defaults
+	actual, _ := m.tunnels.LoadOrStore(tunnelID, metrics)
+	return actual.(*TunnelMetrics)
+}
+
+// AllowTCPConnection checks tunnel-level and per-IP rate limits.
+// Fail-closed: unknown tunnels get default rate limits.
+func (m *Monitor) AllowTCPConnection(tunnelID, remoteAddr string) bool {
+	metrics := m.getOrCreateMetrics(tunnelID, "tcp")
+	if !metrics.AllowConnectionFromIP(remoteAddr) {
 		m.log.Warn().Str("tunnel", tunnelID).Str("remote", remoteAddr).Msg("TCP connection rate limited")
 		return false
 	}
@@ -79,26 +88,22 @@ func (m *Monitor) AllowTCPConnection(tunnelID, remoteAddr string) bool {
 	return true
 }
 
-// AllowUDPPacket checks rate limit for a UDP packet.
+// AllowUDPPacket checks tunnel-level and per-IP rate limits for a UDP packet.
+// Fail-closed: unknown tunnels get default rate limits.
 func (m *Monitor) AllowUDPPacket(tunnelID, remoteAddr string, size int) bool {
-	metrics := m.getMetrics(tunnelID)
-	if metrics == nil {
-		return true
-	}
-	if !metrics.AllowConnection() {
+	metrics := m.getOrCreateMetrics(tunnelID, "udp")
+	if !metrics.AllowConnectionFromIP(remoteAddr) {
 		return false
 	}
 	metrics.RecordConnection(remoteAddr)
 	return true
 }
 
-// AllowHTTPRequest checks rate limit for an HTTP request.
+// AllowHTTPRequest checks tunnel-level and per-IP rate limits for an HTTP request.
+// Fail-closed: unknown tunnels get default rate limits.
 func (m *Monitor) AllowHTTPRequest(tunnelID, remoteAddr string) bool {
-	metrics := m.getMetrics(tunnelID)
-	if metrics == nil {
-		return true
-	}
-	if !metrics.AllowConnection() {
+	metrics := m.getOrCreateMetrics(tunnelID, "http")
+	if !metrics.AllowConnectionFromIP(remoteAddr) {
 		m.log.Warn().Str("tunnel", tunnelID).Str("remote", remoteAddr).Msg("HTTP request rate limited")
 		return false
 	}
@@ -154,6 +159,8 @@ func (m *Monitor) runDetection() {
 				m.alertFn(alert)
 			}
 		}
+		// Cleanup stale per-IP rate limiters
+		metrics.CleanupIPLimiters()
 		return true
 	})
 }

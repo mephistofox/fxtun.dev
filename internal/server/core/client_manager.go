@@ -19,11 +19,12 @@ import (
 
 // ClientManager manages connected clients and user-client mappings.
 type ClientManager struct {
-	clients       map[string]*Client
-	clientsMu     sync.RWMutex
-	userClients   map[int64][]string // userID -> clientIDs
-	userClientsMu sync.RWMutex
-	log           zerolog.Logger
+	clients        map[string]*Client
+	clientsMu      sync.RWMutex
+	userClients    map[int64][]string // userID -> clientIDs
+	userClientsMu  sync.RWMutex
+	tunnelCreateMu sync.Map // int64(userID) -> *sync.Mutex — serializes tunnel creation per user
+	log            zerolog.Logger
 }
 
 // NewClientManager creates a new ClientManager.
@@ -208,6 +209,14 @@ func (cm *ClientManager) CloseTunnelByID(tunnelID string, userID int64) error {
 	}
 
 	return fmt.Errorf("tunnel not found")
+}
+
+// GetTunnelCreateMu returns a per-user mutex for serializing tunnel creation.
+// This prevents race conditions where concurrent requests from the same user
+// bypass tunnel count limits.
+func (cm *ClientManager) GetTunnelCreateMu(userID int64) *sync.Mutex {
+	v, _ := cm.tunnelCreateMu.LoadOrStore(userID, &sync.Mutex{})
+	return v.(*sync.Mutex)
 }
 
 // CountTunnelsByUserID returns total tunnel count across all sessions for a user.

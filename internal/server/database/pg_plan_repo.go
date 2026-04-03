@@ -32,6 +32,7 @@ func sqlcPlanToDomain(p sqlc.Plan) *Plan {
 		RateLimitUDP:       int(p.RateLimitUdp),
 		RateLimitHTTP:      int(p.RateLimitHttp),
 		CreemProductID:     p.CreemProductID,
+		MaxDataSessions:    int(p.MaxDataSessions),
 	}
 }
 
@@ -94,6 +95,7 @@ func (r *PlanRepository) Create(plan *Plan) error {
 		RateLimitUdp:       int32(plan.RateLimitUDP),
 		RateLimitHttp:      int32(plan.RateLimitHTTP),
 		CreemProductID:     plan.CreemProductID,
+		MaxDataSessions:    int32(plan.MaxDataSessions),
 	})
 	if err != nil {
 		return fmt.Errorf("create plan: %w", err)
@@ -122,6 +124,7 @@ func (r *PlanRepository) Update(plan *Plan) error {
 		RateLimitUdp:       int32(plan.RateLimitUDP),
 		RateLimitHttp:      int32(plan.RateLimitHTTP),
 		CreemProductID:     plan.CreemProductID,
+		MaxDataSessions:    int32(plan.MaxDataSessions),
 	})
 	if err != nil {
 		return fmt.Errorf("update plan: %w", err)

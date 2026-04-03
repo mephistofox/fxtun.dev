@@ -144,6 +144,11 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 				continue
 			}
 
+			// Rate limiting (tunnel-level + per-IP)
+			if !m.server.monitor.AllowUDPPacket(tunnel.ID, addr.String(), n) {
+				continue
+			}
+
 			// Update LastActivity timestamp for auto-close tracking
 			tunnel.LastActivity.Store(time.Now().UnixNano())
 

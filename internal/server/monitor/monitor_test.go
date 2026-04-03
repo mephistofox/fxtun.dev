@@ -14,22 +14,26 @@ func TestMonitor_AllowTCPConnection(t *testing.T) {
 
 	mon.RegisterTunnel("t1", "tcp", TunnelLimits{TCPConnPerMin: 5})
 
+	// Use different IPs to avoid per-IP rate limiting
 	for i := 0; i < 5; i++ {
-		if !mon.AllowTCPConnection("t1", "1.2.3.4:1000") {
+		addr := fmt.Sprintf("10.0.0.%d:1000", i)
+		if !mon.AllowTCPConnection("t1", addr) {
 			t.Fatalf("connection %d should be allowed", i)
 		}
 	}
-	if mon.AllowTCPConnection("t1", "1.2.3.4:1000") {
+	if mon.AllowTCPConnection("t1", "10.0.0.100:1000") {
 		t.Fatal("should be denied over limit")
 	}
 }
 
-func TestMonitor_UnregisteredTunnelAllowed(t *testing.T) {
+func TestMonitor_UnregisteredTunnelDefaultLimits(t *testing.T) {
 	mon := New(DefaultConfig(), nil)
 	defer mon.Stop()
 
+	// Unknown tunnels now get default rate limits (fail-closed).
+	// Default TCP limit is 1800/min, so first request should succeed.
 	if !mon.AllowTCPConnection("unknown", "1.2.3.4:1000") {
-		t.Fatal("unknown tunnel should be allowed (fail-open)")
+		t.Fatal("unknown tunnel should be allowed with default limits")
 	}
 }
 
@@ -39,15 +43,15 @@ func TestMonitor_RemoveTunnel(t *testing.T) {
 	defer mon.Stop()
 
 	mon.RegisterTunnel("t1", "tcp", TunnelLimits{TCPConnPerMin: 2})
-	mon.AllowTCPConnection("t1", "x")
-	mon.AllowTCPConnection("t1", "x")
-	if mon.AllowTCPConnection("t1", "x") {
+	mon.AllowTCPConnection("t1", "10.0.0.1:1")
+	mon.AllowTCPConnection("t1", "10.0.0.2:1")
+	if mon.AllowTCPConnection("t1", "10.0.0.3:1") {
 		t.Fatal("should be denied")
 	}
 
 	mon.RemoveTunnel("t1")
 	mon.RegisterTunnel("t1", "tcp", TunnelLimits{TCPConnPerMin: 2})
-	if !mon.AllowTCPConnection("t1", "x") {
+	if !mon.AllowTCPConnection("t1", "10.0.0.4:1") {
 		t.Fatal("should be allowed after re-register")
 	}
 }
@@ -95,12 +99,14 @@ func TestMonitor_AllowUDPPacket(t *testing.T) {
 	defer mon.Stop()
 
 	mon.RegisterTunnel("u1", "udp", TunnelLimits{UDPPacketsPerSec: 3})
+	// Use different IPs to avoid per-IP rate limiting
 	for i := 0; i < 3; i++ {
-		if !mon.AllowUDPPacket("u1", "1.2.3.4:53", 64) {
+		addr := fmt.Sprintf("10.0.0.%d:53", i)
+		if !mon.AllowUDPPacket("u1", addr, 64) {
 			t.Fatalf("packet %d should be allowed", i)
 		}
 	}
-	if mon.AllowUDPPacket("u1", "1.2.3.4:53", 64) {
+	if mon.AllowUDPPacket("u1", "10.0.0.100:53", 64) {
 		t.Fatal("should be denied over limit")
 	}
 }
@@ -110,12 +116,36 @@ func TestMonitor_AllowHTTPRequest(t *testing.T) {
 	defer mon.Stop()
 
 	mon.RegisterTunnel("h1", "http", TunnelLimits{HTTPReqPerMin: 3})
+	// Use different IPs to avoid per-IP rate limiting
 	for i := 0; i < 3; i++ {
-		if !mon.AllowHTTPRequest("h1", "1.2.3.4:80") {
+		addr := fmt.Sprintf("10.0.0.%d:80", i)
+		if !mon.AllowHTTPRequest("h1", addr) {
 			t.Fatalf("request %d should be allowed", i)
 		}
 	}
-	if mon.AllowHTTPRequest("h1", "1.2.3.4:80") {
+	if mon.AllowHTTPRequest("h1", "10.0.0.100:80") {
 		t.Fatal("should be denied over limit")
+	}
+}
+
+func TestMonitor_PerIPRateLimiting(t *testing.T) {
+	mon := New(DefaultConfig(), nil)
+	defer mon.Stop()
+
+	// Tunnel limit 100/min, per-IP should be 10/min (100/10)
+	mon.RegisterTunnel("t1", "tcp", TunnelLimits{TCPConnPerMin: 100})
+
+	// Single IP should hit per-IP limit before tunnel limit
+	allowed := 0
+	for i := 0; i < 20; i++ {
+		if mon.AllowTCPConnection("t1", "10.0.0.1:1234") {
+			allowed++
+		}
+	}
+	if allowed >= 20 {
+		t.Fatalf("per-IP limiting should cap single IP, got %d allowed", allowed)
+	}
+	if allowed != 10 {
+		t.Fatalf("per-IP limit should be 10 (100/10), got %d allowed", allowed)
 	}
 }
