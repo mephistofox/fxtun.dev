@@ -105,6 +105,7 @@ type Plan struct {
 	RateLimitUdp       int32   `json:"rate_limit_udp"`
 	RateLimitHttp      int32   `json:"rate_limit_http"`
 	CreemProductID     string  `json:"creem_product_id"`
+	MaxDataSessions    int32   `json:"max_data_sessions"`
 }
 
 type ReservedDomain struct {

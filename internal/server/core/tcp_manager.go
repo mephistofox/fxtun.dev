@@ -105,6 +105,11 @@ func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Cli
 		}
 	}
 
+	// Rate limiting (tunnel-level + per-IP)
+	if !m.server.monitor.AllowTCPConnection(tunnel.ID, conn.RemoteAddr().String()) {
+		return
+	}
+
 	tuneTCPConn(conn)
 
 	// Open stream to client

@@ -33,6 +33,12 @@ type TunnelMetrics struct {
 	uniqueIPs map[string]struct{}
 	ipMu      sync.Mutex
 
+	// Per-source-IP rate limiting
+	ipLimiters   map[string]*SlidingWindow
+	ipLimitersMu sync.Mutex
+	perIPLimit   int64
+	perIPWindow  time.Duration
+
 	totalConns atomic.Int64
 	shortConns atomic.Int64
 	bytesIn    atomic.Int64
@@ -56,11 +62,20 @@ func NewTunnelMetrics(tunnelID, tunnelType string, limits TunnelLimits) *TunnelM
 		window = time.Minute
 	}
 
+	// Per-IP limit: 1/10 of tunnel limit, minimum 1
+	perIPLimit := limit / 10
+	if perIPLimit < 1 && limit > 0 {
+		perIPLimit = 1
+	}
+
 	return &TunnelMetrics{
 		TunnelID:    tunnelID,
 		TunnelType:  tunnelType,
 		rateLimiter: NewSlidingWindow(limit, window),
 		uniqueIPs:   make(map[string]struct{}),
+		ipLimiters:  make(map[string]*SlidingWindow),
+		perIPLimit:  perIPLimit,
+		perIPWindow: window,
 	}
 }
 
@@ -81,6 +96,50 @@ func (m *TunnelMetrics) AllowConnection() bool {
 		return false
 	}
 	return true
+}
+
+// AllowConnectionFromIP checks both tunnel-level and per-source-IP rate limits.
+func (m *TunnelMetrics) AllowConnectionFromIP(remoteAddr string) bool {
+	// Tunnel-level check
+	if !m.rateLimiter.Allow() {
+		m.denied.Add(1)
+		return false
+	}
+
+	// Per-IP check (skip if unlimited)
+	if m.perIPLimit <= 0 {
+		return true
+	}
+
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+
+	m.ipLimitersMu.Lock()
+	limiter, ok := m.ipLimiters[host]
+	if !ok {
+		limiter = NewSlidingWindow(m.perIPLimit, m.perIPWindow)
+		m.ipLimiters[host] = limiter
+	}
+	m.ipLimitersMu.Unlock()
+
+	if !limiter.Allow() {
+		m.denied.Add(1)
+		return false
+	}
+	return true
+}
+
+// CleanupIPLimiters removes IP limiters with no active events.
+func (m *TunnelMetrics) CleanupIPLimiters() {
+	m.ipLimitersMu.Lock()
+	defer m.ipLimitersMu.Unlock()
+	for ip, lim := range m.ipLimiters {
+		if lim.Count() == 0 {
+			delete(m.ipLimiters, ip)
+		}
+	}
 }
 
 func (m *TunnelMetrics) RecordConnection(remoteAddr string) {

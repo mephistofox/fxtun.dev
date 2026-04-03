@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -24,6 +25,18 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 	if s.db != nil {
 		tokenHash := hashToken(authMsg.Token)
 		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
+		if err != nil && !errors.Is(err, database.ErrTokenNotFound) {
+			// Real database error → fail-closed, do not fall through to other auth methods
+			log.Error().Err(err).Msg("Database error during token authentication")
+			result := &protocol.AuthResultMessage{
+				Message: protocol.NewMessage(protocol.MsgAuthResult),
+				Success: false,
+				Error:   "internal error",
+				Code:    protocol.ErrCodeInternalError,
+			}
+			_ = codec.Encode(result)
+			return nil, fmt.Errorf("database error during auth: %w", err)
+		}
 		if err == nil && apiToken != nil {
 			// Check IP whitelist
 			if !apiToken.IsIPAllowed(conn.RemoteAddr().String()) {
@@ -57,15 +70,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 			// Send success
 			result := &protocol.AuthResultMessage{
-				Message:       protocol.NewMessage(protocol.MsgAuthResult),
-				Success:       true,
-				ClientID:      client.ID,
-				MaxTunnels:    maxTunnels,
-				ServerName:    s.cfg.Domain.Base,
-				SessionID:     client.ID,
-				SessionSecret: client.SessionSecret,
-				MinVersion:    s.cfg.Server.MinVersion,
-				Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
+				Message:         protocol.NewMessage(protocol.MsgAuthResult),
+				Success:         true,
+				ClientID:        client.ID,
+				MaxTunnels:      maxTunnels,
+				MaxDataSessions: effectiveMaxDataSessions(client.Plan),
+				ServerName:      s.cfg.Domain.Base,
+				SessionID:       client.ID,
+				SessionSecret:   client.SessionSecret,
+				MinVersion:      s.cfg.Server.MinVersion,
+				Capabilities:    buildCapabilities(client.Plan, client.IsAdmin),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -92,8 +106,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 				_ = codec.Encode(result)
 				return nil, fmt.Errorf("token expired")
 			}
-			// Other JWT errors - continue to legacy token check
-			log.Debug().Err(err).Msg("JWT validation failed, trying legacy tokens")
+			// JWT validation failed → fail-closed, do not fall through to legacy tokens
+			log.Warn().Err(err).Msg("JWT validation failed")
+			result := &protocol.AuthResultMessage{
+				Message: protocol.NewMessage(protocol.MsgAuthResult),
+				Success: false,
+				Error:   "invalid token",
+				Code:    protocol.ErrCodeAuthFailed,
+			}
+			_ = codec.Encode(result)
+			return nil, fmt.Errorf("JWT validation failed: %w", err)
 		} else if claims != nil {
 			// Valid JWT - create client for user
 			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
@@ -112,15 +134,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 			// Send success
 			result := &protocol.AuthResultMessage{
-				Message:       protocol.NewMessage(protocol.MsgAuthResult),
-				Success:       true,
-				ClientID:      client.ID,
-				MaxTunnels:    maxTunnels,
-				ServerName:    s.cfg.Domain.Base,
-				SessionID:     client.ID,
-				SessionSecret: client.SessionSecret,
-				MinVersion:    s.cfg.Server.MinVersion,
-				Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
+				Message:         protocol.NewMessage(protocol.MsgAuthResult),
+				Success:         true,
+				ClientID:        client.ID,
+				MaxTunnels:      maxTunnels,
+				MaxDataSessions: effectiveMaxDataSessions(client.Plan),
+				ServerName:      s.cfg.Domain.Base,
+				SessionID:       client.ID,
+				SessionSecret:   client.SessionSecret,
+				MinVersion:      s.cfg.Server.MinVersion,
+				Capabilities:    buildCapabilities(client.Plan, client.IsAdmin),
 			}
 			if err := codec.Encode(result); err != nil {
 				client.Close()
@@ -151,15 +174,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 
 		// Send success
 		result := &protocol.AuthResultMessage{
-			Message:       protocol.NewMessage(protocol.MsgAuthResult),
-			Success:       true,
-			ClientID:      client.ID,
-			MaxTunnels:    tokenCfg.MaxTunnels,
-			ServerName:    s.cfg.Domain.Base,
-			SessionID:     client.ID,
-			SessionSecret: client.SessionSecret,
-			MinVersion:    s.cfg.Server.MinVersion,
-			Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
+			Message:         protocol.NewMessage(protocol.MsgAuthResult),
+			Success:         true,
+			ClientID:        client.ID,
+			MaxTunnels:      tokenCfg.MaxTunnels,
+			MaxDataSessions: effectiveMaxDataSessions(client.Plan),
+			ServerName:      s.cfg.Domain.Base,
+			SessionID:       client.ID,
+			SessionSecret:   client.SessionSecret,
+			MinVersion:      s.cfg.Server.MinVersion,
+			Capabilities:    buildCapabilities(client.Plan, client.IsAdmin),
 		}
 		if err := codec.Encode(result); err != nil {
 			client.Close()
@@ -174,15 +198,16 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 	client.SessionSecret = generateSessionSecret()
 
 	result := &protocol.AuthResultMessage{
-		Message:       protocol.NewMessage(protocol.MsgAuthResult),
-		Success:       true,
-		ClientID:      client.ID,
-		MaxTunnels:    10, // Default limit
-		ServerName:    s.cfg.Domain.Base,
-		SessionID:     client.ID,
-		SessionSecret: client.SessionSecret,
-		MinVersion:    s.cfg.Server.MinVersion,
-		Capabilities:  buildCapabilities(client.Plan, client.IsAdmin),
+		Message:         protocol.NewMessage(protocol.MsgAuthResult),
+		Success:         true,
+		ClientID:        client.ID,
+		MaxTunnels:      10, // Default limit
+		MaxDataSessions: effectiveMaxDataSessions(client.Plan),
+		ServerName:      s.cfg.Domain.Base,
+		SessionID:       client.ID,
+		SessionSecret:   client.SessionSecret,
+		MinVersion:      s.cfg.Server.MinVersion,
+		Capabilities:    buildCapabilities(client.Plan, client.IsAdmin),
 	}
 	if err := codec.Encode(result); err != nil {
 		client.Close()
@@ -325,6 +350,23 @@ func isJWT(token string) bool {
 func hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+const defaultMaxDataSessions = 8
+
+// effectiveMaxDataSessions returns the max data sessions from plan.
+// Returns 0 for unlimited (admin), defaultMaxDataSessions if no plan.
+func effectiveMaxDataSessions(plan *database.Plan) int {
+	if plan == nil {
+		return defaultMaxDataSessions
+	}
+	if IsUnlimited(plan.MaxDataSessions) {
+		return 0 // 0 = unlimited for client
+	}
+	if plan.MaxDataSessions > 0 {
+		return plan.MaxDataSessions
+	}
+	return defaultMaxDataSessions
 }
 
 // buildCapabilities creates ClientCapabilities from the user's plan.

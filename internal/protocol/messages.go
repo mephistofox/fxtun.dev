@@ -86,9 +86,10 @@ type AuthResultMessage struct {
 	MaxTunnels    int                 `json:"max_tunnels,omitempty"`
 	ServerName    string              `json:"server_name,omitempty"`
 	SessionID     string              `json:"session_id,omitempty"`
-	SessionSecret string              `json:"session_secret,omitempty"`
-	MinVersion    string              `json:"min_version,omitempty"`
-	Capabilities  *ClientCapabilities `json:"capabilities,omitempty"`
+	SessionSecret   string              `json:"session_secret,omitempty"`
+	MinVersion      string              `json:"min_version,omitempty"`
+	Capabilities    *ClientCapabilities `json:"capabilities,omitempty"`
+	MaxDataSessions int                 `json:"max_data_sessions,omitempty"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel
