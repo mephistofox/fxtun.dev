@@ -42,6 +42,7 @@ type Plan struct {
 	RateLimitUDP       int     `json:"rate_limit_udp"`        // UDP packets per tunnel per second (0=default, -1=unlimited)
 	RateLimitHTTP      int     `json:"rate_limit_http"`       // HTTP requests per tunnel per minute (0=default, -1=unlimited)
 	CreemProductID     string  `json:"creem_product_id,omitempty"`
+	MaxDataSessions    int     `json:"max_data_sessions"`     // Max data sessions per client (0=default(8), -1=unlimited)
 }
 
 // ReservedDomain represents a subdomain reserved by a user
