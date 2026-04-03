@@ -19,10 +19,11 @@ func TestIntegration_PlanLimitsEnforced(t *testing.T) {
 	// Admin: unlimited
 	mon.RegisterTunnel("admin-tunnel", "tcp", TunnelLimits{TCPConnPerMin: -1})
 
-	// Free plan: 300 allowed, then denied
+	// Free plan: 300 allowed, then denied (use different IPs to avoid per-IP limits)
 	allowed := 0
 	for i := 0; i < 400; i++ {
-		if mon.AllowTCPConnection("free-tunnel", "10.0.0.1:1234") {
+		addr := fmt.Sprintf("10.%d.%d.%d:1234", (i>>16)&0xFF, (i>>8)&0xFF, i&0xFF)
+		if mon.AllowTCPConnection("free-tunnel", addr) {
 			allowed++
 		}
 	}
@@ -30,10 +31,11 @@ func TestIntegration_PlanLimitsEnforced(t *testing.T) {
 		t.Fatalf("free plan: expected 300 allowed, got %d", allowed)
 	}
 
-	// Pro plan: 1800 allowed
+	// Pro plan: 1800 allowed (use different IPs)
 	allowed = 0
 	for i := 0; i < 2000; i++ {
-		if mon.AllowTCPConnection("pro-tunnel", "10.0.0.1:1234") {
+		addr := fmt.Sprintf("10.%d.%d.%d:1234", (i>>16)&0xFF, (i>>8)&0xFF, i&0xFF)
+		if mon.AllowTCPConnection("pro-tunnel", addr) {
 			allowed++
 		}
 	}
@@ -41,7 +43,7 @@ func TestIntegration_PlanLimitsEnforced(t *testing.T) {
 		t.Fatalf("pro plan: expected 1800 allowed, got %d", allowed)
 	}
 
-	// Admin: all allowed
+	// Admin: all allowed (use same IP - unlimited means no per-IP either)
 	allowed = 0
 	for i := 0; i < 10000; i++ {
 		if mon.AllowTCPConnection("admin-tunnel", "10.0.0.1:1234") {
@@ -115,7 +117,8 @@ func TestIntegration_UDPAmplificationDetected(t *testing.T) {
 
 	// Simulate DNS amplification: small queries, large responses
 	for i := 0; i < 50; i++ {
-		mon.AllowUDPPacket("dns-tunnel", "10.0.0.1:53", 64)
+		addr := fmt.Sprintf("10.0.0.%d:53", i%250)
+		mon.AllowUDPPacket("dns-tunnel", addr, 64)
 		mon.RecordUDPBytes("dns-tunnel", 64, 0)
 		mon.RecordUDPBytes("dns-tunnel", 0, 4096)
 	}
@@ -171,9 +174,11 @@ func TestIntegration_DefaultLimitsApplied(t *testing.T) {
 	// Plan with 0 = use defaults (TCP: 1800/min)
 	mon.RegisterTunnel("default-tunnel", "tcp", TunnelLimits{})
 
+	// Use different IPs to avoid per-IP limits
 	allowed := 0
 	for i := 0; i < 2000; i++ {
-		if mon.AllowTCPConnection("default-tunnel", "10.0.0.1:1") {
+		addr := fmt.Sprintf("10.%d.%d.%d:1", (i>>16)&0xFF, (i>>8)&0xFF, i&0xFF)
+		if mon.AllowTCPConnection("default-tunnel", addr) {
 			allowed++
 		}
 	}

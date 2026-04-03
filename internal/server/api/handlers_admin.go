@@ -538,7 +538,7 @@ func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 		InspectorEnabled: req.InspectorEnabled,
 		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
 		RateLimitTCP: req.RateLimitTCP, RateLimitUDP: req.RateLimitUDP, RateLimitHTTP: req.RateLimitHTTP,
-		CreemProductID: req.CreemProductID,
+		CreemProductID: req.CreemProductID, MaxDataSessions: req.MaxDataSessions,
 	}
 	if err := s.db.Plans.Create(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to create plan")
@@ -612,6 +612,9 @@ func (s *Server) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.CreemProductID != nil {
 		plan.CreemProductID = *req.CreemProductID
+	}
+	if req.MaxDataSessions != nil {
+		plan.MaxDataSessions = *req.MaxDataSessions
 	}
 	if err := s.db.Plans.Update(plan); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to update plan")

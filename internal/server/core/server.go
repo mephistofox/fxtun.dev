@@ -652,8 +652,28 @@ func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, contro
 		return
 	}
 
-	// Add data session to client
+	// Enforce data session limit
 	client.DataMu.Lock()
+	maxDS := 0 // unlimited by default
+	if client.Plan != nil && !IsUnlimited(client.Plan.MaxDataSessions) {
+		maxDS = client.Plan.MaxDataSessions
+		if maxDS == 0 {
+			maxDS = defaultMaxDataSessions
+		}
+	}
+	if maxDS > 0 && len(client.DataSessions) >= maxDS {
+		client.DataMu.Unlock()
+		log.Warn().Str("client_id", client.ID).Int("current", len(client.DataSessions)).Int("max", maxDS).
+			Msg("Data session limit reached")
+		result := &protocol.JoinSessionResult{
+			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+			Success: false,
+			Error:   "data session limit reached",
+		}
+		_ = codec.Encode(result)
+		session.Close()
+		return
+	}
 	client.DataSessions = append(client.DataSessions, session)
 	client.DataConns = append(client.DataConns, conn)
 	client.DataMu.Unlock()
@@ -750,6 +770,13 @@ func (c *Client) handleTunnelRequest(data []byte) {
 		return
 	}
 	req := parsed.(*protocol.TunnelRequestMessage)
+
+	// Serialize tunnel creation per user to prevent race condition on count check
+	if c.UserID > 0 {
+		mu := c.server.clientMgr.GetTunnelCreateMu(c.UserID)
+		mu.Lock()
+		defer mu.Unlock()
+	}
 
 	// Global limit from plan
 	globalMax := defaultMaxTunnels

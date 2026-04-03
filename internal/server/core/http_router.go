@@ -130,6 +130,12 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Rate limiting (tunnel-level + per-IP)
+	if !r.server.monitor.AllowHTTPRequest(tunnel.ID, req.RemoteAddr) {
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+		return
+	}
+
 	// Basic Auth check
 	if !checkBasicAuth(w, req, tunnel) {
 		return

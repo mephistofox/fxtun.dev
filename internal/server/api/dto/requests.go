@@ -83,6 +83,7 @@ type CreatePlanRequest struct {
 	RateLimitUDP       int     `json:"rate_limit_udp"`
 	RateLimitHTTP      int     `json:"rate_limit_http"`
 	CreemProductID     string  `json:"creem_product_id"`
+	MaxDataSessions    int     `json:"max_data_sessions"`
 }
 
 // UpdatePlanRequest represents a plan update request
@@ -102,6 +103,7 @@ type UpdatePlanRequest struct {
 	RateLimitUDP       *int     `json:"rate_limit_udp,omitempty"`
 	RateLimitHTTP      *int     `json:"rate_limit_http,omitempty"`
 	CreemProductID     *string  `json:"creem_product_id,omitempty"`
+	MaxDataSessions    *int     `json:"max_data_sessions,omitempty"`
 }
 
 // MergeUsersRequest represents a request to merge two users
