@@ -11,6 +11,7 @@ jobs:
     outputs:
       server: ${{ steps.changes.outputs.server }}
       web: ${{ steps.changes.outputs.web }}
+      admin: ${{ steps.changes.outputs.admin }}
       clients: ${{ steps.changes.outputs.clients }}
       gui: ${{ steps.changes.outputs.gui }}
     steps:
@@ -25,6 +26,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "server=true" >> $GITHUB_OUTPUT
             echo "web=true" >> $GITHUB_OUTPUT
+            echo "admin=true" >> $GITHUB_OUTPUT
             echo "clients=true" >> $GITHUB_OUTPUT
             echo "gui=true" >> $GITHUB_OUTPUT
             exit 0
@@ -42,6 +44,12 @@ jobs:
             echo "web=true" >> $GITHUB_OUTPUT
           else
             echo "web=false" >> $GITHUB_OUTPUT
+          fi
+
+          if echo "$CHANGED" | grep -qE '^admin/'; then
+            echo "admin=true" >> $GITHUB_OUTPUT
+          else
+            echo "admin=false" >> $GITHUB_OUTPUT
           fi
 
           if echo "$CHANGED" | grep -qE '^(cmd/client|internal/client|internal/(config|protocol|inspect)|go\.(mod|sum))'; then
@@ -143,6 +151,47 @@ jobs:
           ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /var/www/fxtunnel"
           rsync -az --delete -e "ssh -i $SSH_KEY" web/dist/ ${SSH_USER}@${SSH_HOST}:/var/www/fxtunnel/
           echo "Frontend deployed"
+
+  deploy-admin:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: admin/pnpm-lock.yaml
+
+      - name: Build admin panel
+        run: cd admin && pnpm install && pnpm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy admin panel
+        env:
+          SSH_KEY: ~/.ssh/deploy_key
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+        run: |
+          ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} "mkdir -p /var/www/fxtunnel-admin"
+          rsync -az --delete -e "ssh -i $SSH_KEY" admin/dist/ ${SSH_USER}@${SSH_HOST}:/var/www/fxtunnel-admin/
+          echo "Admin panel deployed"
 
   build-clients:
     needs: detect-changes
