@@ -119,10 +119,24 @@ type Client struct {
 	inspector  *Inspector
 	inspectMgr *inspect.Manager
 
+	// Edge node info (set after redirect)
+	nodeName      string
+	nodeRegion    string
+	redirectCount int
+
 	// Auto-close timers
 	autoCloseTimers   map[string]*autoCloseTimer  // tunnelID -> timer
 	maxLifetimeTimers map[string]*maxLifetimeTimer // tunnelID -> timer
 	timersMu          sync.Mutex
+}
+
+// redirectError indicates the client should reconnect to a different address.
+type redirectError struct {
+	addr string
+}
+
+func (e *redirectError) Error() string {
+	return "redirect to " + e.addr
 }
 
 // ActiveTunnel represents an active tunnel on the client side
@@ -245,6 +259,20 @@ func (c *Client) Connect() error {
 	// Authenticate
 	if err := c.authenticate(); err != nil {
 		c.session.Close()
+		c.conn.Close()
+
+		// Handle edge node redirect: reconnect to the node
+		var rErr *redirectError
+		if errors.As(err, &rErr) {
+			c.redirectCount++
+			if c.redirectCount > 3 {
+				return fmt.Errorf("too many redirects (max 3)")
+			}
+			c.log.Info().Str("addr", rErr.addr).Msg("Reconnecting to edge node")
+			c.cfg.Server.Address = rErr.addr
+			return c.Connect()
+		}
+
 		return fmt.Errorf("authenticate: %w", err)
 	}
 
@@ -333,6 +361,24 @@ func (c *Client) authenticate() error {
 	}
 
 	result := parsed.(*protocol.AuthResultMessage)
+
+	// Handle edge node redirect
+	if result.Code == protocol.ErrCodeRedirect && result.RedirectAddr != "" {
+		c.log.Info().
+			Str("node", result.RedirectNodeID).
+			Str("region", result.RedirectRegion).
+			Str("addr", result.RedirectAddr).
+			Msg("Redirected to edge node")
+		c.nodeName = result.RedirectNodeID
+		c.nodeRegion = result.RedirectRegion
+		c.events.EmitWithPayload(EventRedirected, map[string]interface{}{
+			"node":    result.RedirectNodeID,
+			"region":  result.RedirectRegion,
+			"address": result.RedirectAddr,
+		})
+		return &redirectError{addr: result.RedirectAddr}
+	}
+
 	if !result.Success {
 		// Check if the error is due to an expired token
 		if result.Code == protocol.ErrCodeTokenExpired {
