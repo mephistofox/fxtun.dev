@@ -18,6 +18,7 @@ const (
 	EventTrafficUpdate EventType = "traffic_update"
 	EventError         EventType = "error"
 	EventLog           EventType = "log"
+	EventRedirected    EventType = "redirected"
 )
 
 // Event represents a client event with optional payload

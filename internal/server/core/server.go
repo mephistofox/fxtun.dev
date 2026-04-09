@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -122,6 +124,13 @@ type Server struct {
 	// Cross-server tunnel registry (optional)
 	tunnelRegistry store.TunnelRegistry
 
+	// Edge node system
+	mode         config.ServerMode
+	nodeRegistry store.NodeRegistry
+	hubClient    HubAuthVerifier
+	localNodeID  string
+	proxyPool    *remoteProxyPool
+
 	// Custom domains
 	certManager    *fxtls.CertManager
 	customDomains  map[string]*database.CustomDomain // domain -> entry
@@ -212,6 +221,7 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 		log:           log.With().Str("component", "server").Logger(),
 		clientMgr:     NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains: make(map[string]*database.CustomDomain),
+		proxyPool:     newRemoteProxyPool(),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -274,6 +284,64 @@ func (s *Server) SetTunnelRegistry(r store.TunnelRegistry) {
 // TunnelRegistry returns the tunnel registry (may be nil).
 func (s *Server) TunnelRegistry() store.TunnelRegistry {
 	return s.tunnelRegistry
+}
+
+// HubAuthInfo holds the result of a hub token verification.
+type HubAuthInfo struct {
+	Valid            bool
+	UserID           int64
+	MaxTunnels       int
+	MaxDataSessions  int
+	IsAdmin          bool
+	InspectorEnabled bool
+}
+
+// HubAuthVerifier verifies client tokens against the hub.
+type HubAuthVerifier interface {
+	VerifyClientToken(token string) (*HubAuthInfo, error)
+}
+
+// SetMode sets the server operating mode.
+func (s *Server) SetMode(mode config.ServerMode) {
+	s.mode = mode
+}
+
+// SetNodeRegistry sets the node registry for edge node discovery.
+func (s *Server) SetNodeRegistry(r store.NodeRegistry) {
+	s.nodeRegistry = r
+}
+
+// SetHubClient sets the hub client for node mode auth delegation.
+func (s *Server) SetHubClient(h HubAuthVerifier) {
+	s.hubClient = h
+}
+
+// SetLocalNodeID sets this server's node identifier.
+func (s *Server) SetLocalNodeID(id string) {
+	s.localNodeID = id
+}
+
+// LocalNodeID returns the server's node identifier.
+func (s *Server) LocalNodeID() string {
+	if s.localNodeID != "" {
+		return s.localNodeID
+	}
+	h, _ := os.Hostname()
+	return h
+}
+
+// NodePublicHost returns the public host for tunnel URLs.
+// In node mode, returns the node's public address host.
+// In other modes, returns the base domain.
+func (s *Server) NodePublicHost() string {
+	if s.mode == config.ModeNode && s.cfg.Node.PublicAddr != "" {
+		host, _, err := net.SplitHostPort(s.cfg.Node.PublicAddr)
+		if err == nil {
+			return host
+		}
+		return s.cfg.Node.PublicAddr
+	}
+	return s.cfg.Domain.Base
 }
 
 // SetTelegramNotifier sets the Telegram admin notifier for first-tunnel notifications.
@@ -662,6 +730,11 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		// Authenticate
 		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
 		if err != nil {
+			if errors.Is(err, errRedirected) {
+				// Client was redirected to an edge node — clean up silently
+				session.Close()
+				return
+			}
 			log.Warn().Err(err).Msg("Authentication failed")
 			session.Close()
 			return
@@ -1093,7 +1166,7 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	// Start accepting connections
 	go c.server.tcpManager.AcceptConnections(tunnel, c)
 
-	remoteAddr := fmt.Sprintf("%s:%d", c.server.cfg.Domain.Base, port)
+	remoteAddr := fmt.Sprintf("%s:%d", c.server.NodePublicHost(), port)
 
 	resp := &protocol.TunnelCreatedMessage{
 		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),
@@ -1179,7 +1252,7 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 	// Start handling UDP packets
 	go c.server.udpManager.HandlePackets(tunnel, c)
 
-	remoteAddr := fmt.Sprintf("%s:%d", c.server.cfg.Domain.Base, port)
+	remoteAddr := fmt.Sprintf("%s:%d", c.server.NodePublicHost(), port)
 
 	resp := &protocol.TunnelCreatedMessage{
 		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),

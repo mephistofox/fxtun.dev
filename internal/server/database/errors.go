@@ -34,6 +34,8 @@ var (
 	ErrPlanHasUsers = errors.New("plan has users assigned")
 
 	ErrTLSCertNotFound = errors.New("tls certificate not found")
+
+	ErrEdgeNodeNotFound = errors.New("edge node not found")
 )
 
 // UserListParams holds filter/search/pagination params for listing users.

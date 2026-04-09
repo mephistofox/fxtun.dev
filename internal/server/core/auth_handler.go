@@ -18,9 +18,26 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
+// errRedirected is a sentinel error returned when the client is redirected to a node.
+var errRedirected = errors.New("client redirected to edge node")
+
 func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
+	// Node mode: delegate token verification to hub
+	if s.mode == config.ModeNode && s.hubClient != nil {
+		return s.authenticateViaHub(conn, session, controlStream, codec, authMsg, log)
+	}
+
+	// Hub mode: check if we should redirect to an edge node
+	// We do a lightweight token validation first, then redirect if valid
+	if s.mode == config.ModeHub && s.nodeRegistry != nil {
+		if redirected, err := s.tryRedirectToNode(conn, codec, authMsg, log); redirected {
+			return nil, err
+		}
+	}
+
 	// First, try to authenticate with database token (new system)
 	if s.db != nil {
 		tokenHash := hashToken(authMsg.Token)
@@ -390,4 +407,148 @@ func buildCapabilities(plan *database.Plan, isAdmin bool) *protocol.ClientCapabi
 		caps.InspectorEnabled = true
 	}
 	return caps
+}
+
+// tryRedirectToNode checks if the client should be redirected to an edge node.
+// Returns (true, errRedirected) if redirected, (false, nil) otherwise.
+func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (bool, error) {
+	// Quick token validation: check that token is valid before redirecting
+	tokenValid := false
+	if s.db != nil {
+		tokenHash := hashToken(authMsg.Token)
+		apiToken, err := s.db.Tokens.GetByTokenHash(tokenHash)
+		if err == nil && apiToken != nil && apiToken.IsIPAllowed(conn.RemoteAddr().String()) {
+			tokenValid = true
+		}
+	}
+	if !tokenValid && s.authService != nil && isJWT(authMsg.Token) {
+		_, err := s.authService.ValidateAccessToken(authMsg.Token)
+		if err == nil {
+			tokenValid = true
+		}
+	}
+	if !tokenValid {
+		// Token is invalid — let normal auth flow handle the error
+		return false, nil
+	}
+
+	node := s.selectBestNode()
+	if node == nil {
+		// No nodes available — hub handles the client itself
+		return false, nil
+	}
+
+	result := &protocol.AuthResultMessage{
+		Message:        protocol.NewMessage(protocol.MsgAuthResult),
+		Success:        true,
+		Code:           protocol.ErrCodeRedirect,
+		RedirectAddr:   node.PublicAddr,
+		RedirectNodeID: node.Name,
+		RedirectRegion: node.Region,
+	}
+	if err := codec.Encode(result); err != nil {
+		return false, fmt.Errorf("send redirect: %w", err)
+	}
+
+	log.Info().
+		Str("node", node.Name).
+		Str("region", node.Region).
+		Str("addr", node.PublicAddr).
+		Msg("Redirecting client to edge node")
+
+	return true, errRedirected
+}
+
+// selectBestNode picks the best edge node for a client (least-loaded strategy).
+func (s *Server) selectBestNode() *store.NodeEntry {
+	nodes, err := s.nodeRegistry.ListActiveNodes()
+	if err != nil || len(nodes) == 0 {
+		return nil
+	}
+
+	best := &nodes[0]
+	for i := 1; i < len(nodes); i++ {
+		if nodes[i].TunnelCount < best.TunnelCount {
+			best = &nodes[i]
+		}
+	}
+	return best
+}
+
+// authenticateViaHub delegates client authentication to the hub (used in node mode).
+func (s *Server) authenticateViaHub(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, authMsg *protocol.AuthMessage, log zerolog.Logger) (*Client, error) {
+	info, err := s.hubClient.VerifyClientToken(authMsg.Token)
+	if err != nil {
+		log.Warn().Err(err).Msg("Hub token verification failed")
+		result := &protocol.AuthResultMessage{
+			Message: protocol.NewMessage(protocol.MsgAuthResult),
+			Success: false,
+			Error:   "authentication failed",
+			Code:    protocol.ErrCodeAuthFailed,
+		}
+		_ = codec.Encode(result)
+		return nil, fmt.Errorf("hub auth verification: %w", err)
+	}
+
+	if !info.Valid {
+		result := &protocol.AuthResultMessage{
+			Message: protocol.NewMessage(protocol.MsgAuthResult),
+			Success: false,
+			Error:   "invalid token",
+			Code:    protocol.ErrCodeAuthFailed,
+		}
+		_ = codec.Encode(result)
+		return nil, fmt.Errorf("hub rejected token")
+	}
+
+	clientID := generateID()
+	ctx, cancel := context.WithCancel(s.ctx)
+	client := &Client{
+		ID:           clientID,
+		RemoteAddr:   conn.RemoteAddr().String(),
+		Session:      session,
+		ControlCodec: codec,
+		ControlConn:  controlStream,
+		Tunnels:      make(map[string]*Tunnel),
+		Connected:    time.Now(),
+		UserID:       info.UserID,
+		IsAdmin:      info.IsAdmin,
+		server:       s,
+		conn:         conn,
+		log:          log.With().Str("client_id", clientID).Logger(),
+		ctx:          ctx,
+		cancel:       cancel,
+	}
+	client.lastPing.Store(time.Now().UnixNano())
+	client.SessionSecret = generateSessionSecret()
+	client.SessionSecretExpiry = time.Now().Add(5 * time.Minute)
+
+	maxTunnels := info.MaxTunnels
+	if maxTunnels == 0 {
+		maxTunnels = 10
+	}
+
+	result := &protocol.AuthResultMessage{
+		Message:         protocol.NewMessage(protocol.MsgAuthResult),
+		Success:         true,
+		ClientID:        clientID,
+		MaxTunnels:      maxTunnels,
+		MaxDataSessions: info.MaxDataSessions,
+		ServerName:      s.cfg.Domain.Base,
+		SessionID:       clientID,
+		SessionSecret:   client.SessionSecret,
+		MinVersion:      s.cfg.Server.MinVersion,
+		Capabilities: &protocol.ClientCapabilities{
+			InspectorEnabled: info.InspectorEnabled,
+		},
+	}
+	if err := codec.Encode(result); err != nil {
+		cancel()
+		return nil, fmt.Errorf("send auth result: %w", err)
+	}
+
+	s.clientMgr.addClient(clientID, client)
+	s.clientMgr.linkUserClient(info.UserID, clientID)
+	log.Info().Int64("user_id", info.UserID).Msg("Authenticated via hub")
+	return client, nil
 }

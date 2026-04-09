@@ -109,8 +109,15 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Find tunnel
+	// Find tunnel (local first, then Redis cross-node lookup)
 	tunnel := r.GetTunnel(subdomain)
+	if tunnel == nil && r.server.tunnelRegistry != nil {
+		entry, err := r.server.tunnelRegistry.LookupBySubdomain(subdomain)
+		if err == nil && entry != nil && entry.ServerID != r.server.LocalNodeID() {
+			r.proxyToRemoteNode(w, req, entry)
+			return
+		}
+	}
 	if tunnel == nil {
 		r.log.Debug().Str("subdomain", subdomain).Msg("Tunnel not found")
 		r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")

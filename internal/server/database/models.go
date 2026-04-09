@@ -312,3 +312,21 @@ const (
 	ActionPaymentSuccess        = "payment_success"
 	ActionPaymentFailed         = "payment_failed"
 )
+
+// EdgeNode represents an edge node in the cluster.
+type EdgeNode struct {
+	ID              int64      `json:"id"`
+	NodeID          string     `json:"node_id"`
+	Name            string     `json:"name"`
+	Region          string     `json:"region"`
+	PublicAddr      string     `json:"public_addr"`
+	HTTPAddr        string     `json:"http_addr"`
+	Status          string     `json:"status"`
+	ApprovedAt      *time.Time `json:"approved_at,omitempty"`
+	ApprovedBy      *int64     `json:"approved_by,omitempty"`
+	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty"`
+	Version         string     `json:"version"`
+	Metadata        string     `json:"metadata"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
 	"github.com/mephistofox/fxtunnel/internal/server/exchange"
+	"github.com/mephistofox/fxtunnel/internal/server/hub"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
 	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
@@ -35,6 +36,7 @@ var (
 	configFile string
 	logLevel   string
 	logFormat  string
+	serverMode string
 )
 
 func main() {
@@ -53,6 +55,7 @@ Website: https://fxtun.dev`,
 	rootCmd.Flags().StringVarP(&configFile, "config", "c", "", "Config file path")
 	rootCmd.Flags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.Flags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
+	rootCmd.Flags().StringVar(&serverMode, "mode", "", "Server mode: standalone, hub, node")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -85,10 +88,19 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
+	// Override mode from CLI flag
+	if serverMode != "" {
+		cfg.Mode = config.ServerMode(serverMode)
+	}
+
 	// Override log settings from config if not set via flags
 	if !cmd.Flags().Changed("log-level") && cfg.Logging.Level != "" {
 		log = setupLogging(cfg.Logging.Level, cfg.Logging.Format)
 	}
+
+	log.Info().
+		Str("mode", string(cfg.EffectiveMode())).
+		Msg("Server mode")
 
 	// Initialize database if web panel is enabled
 	var db *database.Database
@@ -177,10 +189,26 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Set tunnel registry and TLS cache if Redis enabled
 	if redisClient != nil {
+		// ServerID determines how other nodes address this server for HTTP proxy
 		hostname, _ := os.Hostname()
-		srv.SetTunnelRegistry(fxredis.NewTunnelRegistry(redisClient, hostname))
-		log.Info().Str("server_id", hostname).Msg("Redis tunnel registry enabled")
+		serverID := hostname
+		if cfg.EffectiveMode() == config.ModeNode && cfg.Node.HTTPAddr != "" {
+			serverID = cfg.Node.HTTPAddr
+		}
+		srv.SetTunnelRegistry(fxredis.NewTunnelRegistry(redisClient, serverID))
+		srv.SetLocalNodeID(serverID)
+		log.Info().Str("server_id", serverID).Msg("Redis tunnel registry enabled")
+
+		// Set node registry for hub and node modes
+		if cfg.EffectiveMode() == config.ModeHub || cfg.EffectiveMode() == config.ModeNode {
+			nodeRegistry := fxredis.NewNodeRegistry(redisClient)
+			srv.SetNodeRegistry(nodeRegistry)
+			log.Info().Msg("Redis node registry enabled")
+		}
 	}
+
+	// Set server mode
+	srv.SetMode(cfg.EffectiveMode())
 
 	// Set Telegram notifier on tunnel server
 	if telegramNotifier != nil {
@@ -211,7 +239,30 @@ func run(cmd *cobra.Command, args []string) error {
 		Int("http_port", cfg.Server.HTTPPort).
 		Str("domain", cfg.Domain.Base).
 		Bool("auth_enabled", cfg.Auth.Enabled).
+		Str("mode", string(cfg.EffectiveMode())).
 		Msg("Server started")
+
+	// Node mode: register with hub and start heartbeat
+	if cfg.EffectiveMode() == config.ModeNode {
+		hubClient := hub.NewClient(cfg.Node.HubURL, cfg.Node.HubToken, log)
+		nodeID, err := hubClient.Register(cfg.Node.Name, cfg.Node.Region, cfg.Node.PublicAddr, cfg.Node.HTTPAddr, Version)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to register with hub (will retry via heartbeat)")
+		} else {
+			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
+		}
+
+		// Set hub client on server for auth delegation
+		srv.SetHubClient(&hubAuthAdapter{client: hubClient})
+
+		// Start heartbeat in background (cancelled on shutdown)
+		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
+		defer heartbeatCancel()
+		go hubClient.StartHeartbeatLoop(heartbeatCtx, 30*time.Second, func() (int, int) {
+			stats := srv.GetStats()
+			return stats.ActiveTunnels, stats.ActiveClients
+		})
+	}
 
 	// Start API server if web panel is enabled
 	if cfg.Web.Enabled && authService != nil {
@@ -228,6 +279,10 @@ func run(cmd *cobra.Command, args []string) error {
 				api.WithDeviceStore(fxredis.NewDeviceStore(redisClient)),
 				api.WithOAuthStore(fxredis.NewOAuthStore(redisClient)),
 			)
+			// Add node registry for hub mode admin endpoints
+			if cfg.EffectiveMode() == config.ModeHub {
+				apiOpts = append(apiOpts, api.WithNodeRegistry(fxredis.NewNodeRegistry(redisClient)))
+			}
 		}
 
 		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log, apiOpts...)
@@ -278,6 +333,32 @@ func run(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}()
+
+		// Start stale-node cleanup for hub mode
+		if cfg.EffectiveMode() == config.ModeHub && redisClient != nil {
+			nodeReg := fxredis.NewNodeRegistry(redisClient)
+			go func() {
+				ticker := time.NewTicker(60 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						stale, err := db.EdgeNodes.ListStaleNodes(3 * time.Minute)
+						if err != nil {
+							log.Error().Err(err).Msg("Failed to list stale nodes")
+							continue
+						}
+						for _, node := range stale {
+							log.Warn().Str("node_id", node.NodeID).Str("name", node.Name).Msg("Disabling stale edge node")
+							_ = db.EdgeNodes.UpdateStatus(node.ID, "disabled", 0)
+							_ = nodeReg.UnregisterNode(node.NodeID)
+						}
+					}
+				}
+			}()
+		}
 
 		// Initialize exchange rate from config
 		exchange.Init(cfg.ExchangeRate)
@@ -498,4 +579,24 @@ func deriveTLSEncryptionKey(totpKey []byte) []byte {
 	h.Write([]byte("fxtunnel-tls-key-encryption:"))
 	h.Write(totpKey)
 	return h.Sum(nil) // 32 bytes
+}
+
+// hubAuthAdapter adapts hub.Client to server.HubAuthVerifier interface.
+type hubAuthAdapter struct {
+	client *hub.Client
+}
+
+func (a *hubAuthAdapter) VerifyClientToken(token string) (*server.HubAuthInfo, error) {
+	info, err := a.client.VerifyClientToken(token)
+	if err != nil {
+		return nil, err
+	}
+	return &server.HubAuthInfo{
+		Valid:            info.Valid,
+		UserID:           info.UserID,
+		MaxTunnels:       info.MaxTunnels,
+		MaxDataSessions:  info.MaxDataSessions,
+		IsAdmin:          info.IsAdmin,
+		InspectorEnabled: info.InspectorEnabled,
+	}, nil
 }

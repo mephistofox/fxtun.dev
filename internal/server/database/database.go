@@ -36,6 +36,7 @@ type Database struct {
 	Subscriptions *SubscriptionRepository
 	Payments      *PaymentRepository
 	Exchanges     *ExchangeRepository
+	EdgeNodes     *EdgeNodeRepository
 }
 
 // New creates a new PostgreSQL database connection pool and initializes repositories.
@@ -77,6 +78,7 @@ func New(dsn string, log zerolog.Logger) (*Database, error) {
 		Subscriptions: &SubscriptionRepository{q: q},
 		Payments:      &PaymentRepository{q: q},
 		Exchanges:     &ExchangeRepository{q: q},
+		EdgeNodes:     &EdgeNodeRepository{pool: pool},
 	}
 
 	lg.Info().Msg("Database initialized")
