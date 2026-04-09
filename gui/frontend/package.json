@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@vueuse/core": "^10.9.0",
-    "vue-i18n": "^9.10.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-vue-next": "^0.359.0",
@@ -19,16 +18,21 @@
     "tailwind-merge": "^2.2.2",
     "tailwindcss-animate": "^1.0.7",
     "vue": "^3.4.21",
+    "vue-i18n": "^9.10.2",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@vitejs/plugin-vue": "^5.0.4",
     "autoprefixer": "^10.4.19",
+    "lightningcss": "^1.32.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.1",
+    "terser": "^5.46.1",
     "typescript": "^5.4.3",
     "vite": "^5.2.6",
+    "vite-plugin-minify": "^2.1.0",
+    "vite-plugin-obfuscator": "^1.0.5",
     "vue-tsc": "^2.0.7"
   }
 }
