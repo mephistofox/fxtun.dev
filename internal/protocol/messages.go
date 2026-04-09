@@ -67,6 +67,7 @@ type AuthMessage struct {
 	Token     string `json:"token"`
 	ClientID  string `json:"client_id,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
+	Version   string `json:"version,omitempty"` // client protocol version
 }
 
 // ClientCapabilities describes features available based on the user's plan.

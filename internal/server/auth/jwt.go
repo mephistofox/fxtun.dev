@@ -1,11 +1,15 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/hkdf"
 )
 
 var (
@@ -29,10 +33,21 @@ type JWTManager struct {
 	issuer          string
 }
 
-// NewJWTManager creates a new JWT manager
+// NewJWTManager creates a new JWT manager.
+// The secret key is derived via HKDF for consistent 32-byte key regardless of input length.
 func NewJWTManager(secretKey string, accessTTL, refreshTTL time.Duration) *JWTManager {
+	raw := []byte(secretKey)
+	if len(raw) < 32 {
+		log.Warn().Int("key_length", len(raw)).Msg("JWT secret key is shorter than 32 bytes, consider using a stronger key")
+	}
+	// Derive 32-byte key with HKDF-SHA256
+	derived := make([]byte, 32)
+	r := hkdf.New(sha256.New, raw, []byte("fxtunnel-jwt-salt"), []byte("auth-signing-key"))
+	if _, err := io.ReadFull(r, derived); err != nil {
+		panic("HKDF key derivation failed: " + err.Error())
+	}
 	return &JWTManager{
-		secretKey:       []byte(secretKey),
+		secretKey:       derived,
 		accessTokenTTL:  accessTTL,
 		refreshTokenTTL: refreshTTL,
 		issuer:          "fxtunnel",
