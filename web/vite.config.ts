@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import Sitemap from "vite-plugin-sitemap";
 import { ViteMinifyPlugin } from "vite-plugin-minify";
-import { viteObfuscateFile } from "vite-plugin-obfuscator";
 import path from "path";
 
 export default defineConfig({
@@ -16,24 +15,6 @@ export default defineConfig({
       removeStyleLinkTypeAttributes: true,
       minifyCSS: true,
       minifyJS: true,
-    }),
-    viteObfuscateFile({
-      compact: true,
-      controlFlowFlattening: true,
-      controlFlowFlatteningThreshold: 0.5,
-      deadCodeInjection: false,
-      debugProtection: false,
-      identifierNamesGenerator: "hexadecimal",
-      renameGlobals: false,
-      selfDefending: false,
-      stringArray: true,
-      stringArrayCallsTransform: true,
-      stringArrayEncoding: ["base64"],
-      stringArrayThreshold: 0.5,
-      splitStrings: true,
-      splitStringsChunkLength: 10,
-      transformObjectKeys: true,
-      unicodeEscapeSequence: false,
     }),
     Sitemap({
       hostname: "https://fxtun.dev",
@@ -76,6 +57,15 @@ export default defineConfig({
       },
     }),
   ],
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_JIT_COMPILATION__: true,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+    __VUE_PROD_DEVTOOLS__: false,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -94,9 +84,6 @@ export default defineConfig({
       },
       mangle: {
         toplevel: true,
-        properties: {
-          regex: /^_/,
-        },
       },
       format: {
         comments: false,
