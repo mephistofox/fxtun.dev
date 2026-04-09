@@ -91,6 +91,11 @@ type AuthResultMessage struct {
 	MinVersion      string              `json:"min_version,omitempty"`
 	Capabilities    *ClientCapabilities `json:"capabilities,omitempty"`
 	MaxDataSessions int                 `json:"max_data_sessions,omitempty"`
+
+	// Edge node redirect: hub tells client to connect to a specific node
+	RedirectAddr   string `json:"redirect_addr,omitempty"`
+	RedirectNodeID string `json:"redirect_node_id,omitempty"`
+	RedirectRegion string `json:"redirect_region,omitempty"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel
@@ -231,4 +236,5 @@ const (
 	ErrCodePermissionDenied = "PERMISSION_DENIED"
 	ErrCodeInternalError    = "INTERNAL_ERROR"
 	ErrCodeProtocolError    = "PROTOCOL_ERROR"
+	ErrCodeRedirect         = "REDIRECT"
 )

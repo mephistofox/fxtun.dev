@@ -98,6 +98,7 @@ type Server struct {
 	minVersion     string
 	deviceStore    store.DeviceStore
 	oauthStore     store.OAuthStore
+	nodeRegistry   store.NodeRegistry
 	shutdownCh     chan struct{}
 }
 
@@ -112,6 +113,11 @@ func WithDeviceStore(ds store.DeviceStore) Option {
 // WithOAuthStore overrides the default in-memory OAuth store.
 func WithOAuthStore(os store.OAuthStore) Option {
 	return func(s *Server) { s.oauthStore = os }
+}
+
+// WithNodeRegistry sets the node registry for edge node management.
+func WithNodeRegistry(nr store.NodeRegistry) Option {
+	return func(s *Server) { s.nodeRegistry = nr }
 }
 
 // New creates a new API server
@@ -272,6 +278,19 @@ func (s *Server) setupRoutes() {
 			r.Get("/fail", s.handlePaymentFail)                // Fail redirect
 		})
 
+		// Edge node API (authenticated with hub_token)
+		if s.cfg.Node.HubToken != "" {
+			r.Route("/nodes", func(r chi.Router) {
+				r.Use(s.nodeTokenMiddleware)
+				r.Post("/register", s.handleNodeRegister)
+				r.Post("/heartbeat", s.handleNodeHeartbeat)
+			})
+			r.Route("/internal", func(r chi.Router) {
+				r.Use(s.nodeTokenMiddleware)
+				r.Post("/auth/verify", s.handleVerifyClientToken)
+			})
+		}
+
 		// SSE inspect stream (no timeout, long-lived connection)
 		r.Group(func(r chi.Router) {
 			r.Use(auth.MiddlewareWithDB(s.authService, s.db))
@@ -386,6 +405,14 @@ func (s *Server) setupRoutes() {
 				r.Post("/subscriptions/{id}/extend", s.handleAdminExtendSubscription)
 
 				r.Get("/payments", s.handleAdminListPayments)
+
+				// Edge node management
+				r.Route("/nodes", func(r chi.Router) {
+					r.Get("/", s.handleListNodes)
+					r.Post("/{id}/approve", s.handleApproveNode)
+					r.Post("/{id}/disable", s.handleDisableNode)
+					r.Delete("/{id}", s.handleDeleteNode)
+				})
 			})
 		})
 	})
