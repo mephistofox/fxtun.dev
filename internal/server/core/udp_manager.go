@@ -171,6 +171,9 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 			binary.BigEndian.PutUint32(frame[2:6], addrHash)
 			copy(frame[udpHeaderSize:], buf[:n])
 
+			// Record incoming bytes for amplification detection
+			m.server.monitor.RecordUDPBytes(tunnel.ID, int64(n), 0)
+
 			_, werr := stream.Write(frame[:frameLen])
 			udpFramePool.Put(fp)
 			if werr != nil {
@@ -215,6 +218,8 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 
 		if addr != nil {
 			_, _ = tunnel.udpConn.WriteToUDP(frame[:length], addr)
+			// Record outgoing bytes for amplification detection
+			m.server.monitor.RecordUDPBytes(tunnel.ID, 0, int64(length))
 		}
 		udpFramePool.Put(fp)
 	}

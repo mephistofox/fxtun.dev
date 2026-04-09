@@ -53,6 +53,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			// Valid DB token found
 			client := s.createClientFromDBToken(conn, session, controlStream, codec, apiToken, log)
 			client.SessionSecret = generateSessionSecret()
+			client.SessionSecretExpiry = time.Now().Add(5 * time.Minute)
 
 			// Update last used
 			if err := s.db.Tokens.UpdateLastUsed(apiToken.ID); err != nil {
@@ -120,6 +121,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 			// Valid JWT - create client for user
 			client := s.createClientFromJWT(conn, session, controlStream, codec, claims, log)
 			client.SessionSecret = generateSessionSecret()
+			client.SessionSecretExpiry = time.Now().Add(5 * time.Minute)
 
 			// Link user to client
 			s.clientMgr.linkUserClient(claims.UserID, client.ID)
@@ -171,6 +173,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 		// Create client with legacy token
 		client := s.createClient(conn, session, controlStream, codec, tokenCfg, log)
 		client.SessionSecret = generateSessionSecret()
+		client.SessionSecretExpiry = time.Now().Add(5 * time.Minute)
 
 		// Send success
 		result := &protocol.AuthResultMessage{
@@ -196,6 +199,7 @@ func (s *Server) authenticate(conn net.Conn, session *yamux.Session, controlStre
 	// No auth required - create client without token
 	client := s.createClient(conn, session, controlStream, codec, nil, log)
 	client.SessionSecret = generateSessionSecret()
+	client.SessionSecretExpiry = time.Now().Add(5 * time.Minute)
 
 	result := &protocol.AuthResultMessage{
 		Message:         protocol.NewMessage(protocol.MsgAuthResult),
@@ -328,7 +332,9 @@ func (s *Server) createClient(conn net.Conn, session *yamux.Session, controlStre
 // generateSessionSecret creates a random secret for session pooling.
 func generateSessionSecret() string {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
 	return hex.EncodeToString(b)
 }
 

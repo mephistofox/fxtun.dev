@@ -70,6 +70,22 @@ const (
 	defaultInspectMaxEntries = 1000
 )
 
+// blockedTCPPorts prevents SSRF via TCP tunnels to sensitive local services.
+// Admin users bypass this check.
+var blockedTCPPorts = map[int]bool{
+	22:    true, // SSH
+	25:    true, // SMTP
+	53:    true, // DNS
+	135:   true, // MSRPC
+	139:   true, // NetBIOS
+	445:   true, // SMB
+	3306:  true, // MySQL
+	5432:  true, // PostgreSQL
+	6379:  true, // Redis
+	11211: true, // Memcached
+	27017: true, // MongoDB
+}
+
 // Server is the main tunnel server
 type Server struct {
 	cfg    *config.ServerConfig
@@ -111,6 +127,9 @@ type Server struct {
 	customDomains  map[string]*database.CustomDomain // domain -> entry
 	customDomainMu sync.RWMutex
 
+	// Auth rate limiting per IP
+	authLimiters sync.Map // remoteIP -> *monitor.SlidingWindow
+
 	// Active connections tracking for graceful drain
 	activeConns sync.WaitGroup
 
@@ -138,7 +157,8 @@ type Client struct {
 	DataConns     []net.Conn // underlying TCP connections for data sessions
 	DataMu        sync.RWMutex
 	sessionIdx    atomic.Uint32 // round-robin counter
-	SessionSecret string        // secret for joining additional connections
+	SessionSecret       string    // secret for joining additional connections
+	SessionSecretExpiry time.Time // secret valid until this time
 
 	// Database integration
 	UserID     int64              // 0 if legacy token
@@ -392,6 +412,9 @@ func (s *Server) Start() error {
 			s.httpsServer = &http.Server{
 				Handler:           s.httpRouter,
 				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      60 * time.Second,
+				IdleTimeout:       120 * time.Second,
 			}
 			s.wg.Add(1)
 			go func() {
@@ -412,6 +435,9 @@ func (s *Server) Start() error {
 	s.httpServer = &http.Server{
 		Handler:           s.httpRouter,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 	s.wg.Add(1)
 	go func() {
@@ -545,6 +571,13 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
 
+	// Auth rate limiting per IP (10 attempts/minute)
+	if !s.allowAuth(remoteAddr) {
+		log.Warn().Msg("Auth rate limited")
+		conn.Close()
+		return
+	}
+
 	// Negotiate compression before yamux
 	rwc, compressed, err := protocol.NegotiateCompression(conn, s.cfg.Server.CompressionEnabled, true)
 	if err != nil {
@@ -608,6 +641,23 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		}
 
 		authMsg := parsed.(*protocol.AuthMessage)
+
+		// Check client version against minimum required
+		if s.cfg.Server.MinVersion != "" && authMsg.Version != "" {
+			if authMsg.Version < s.cfg.Server.MinVersion {
+				log.Warn().Str("client_version", authMsg.Version).Str("min_version", s.cfg.Server.MinVersion).
+					Msg("Client version too old")
+				result := &protocol.AuthResultMessage{
+					Message: protocol.NewMessage(protocol.MsgAuthResult),
+					Success: false,
+					Error:   fmt.Sprintf("client version %s is below minimum %s, please upgrade", authMsg.Version, s.cfg.Server.MinVersion),
+					Code:    protocol.ErrCodeProtocolError,
+				}
+				_ = codec.Encode(result)
+				session.Close()
+				return
+			}
+		}
 
 		// Authenticate
 		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
@@ -699,11 +749,26 @@ func (s *Server) findClientBySecret(clientID, secret string) *Client {
 	if client.SessionSecret == "" || client.SessionSecret != secret {
 		return nil
 	}
+	// Check session secret TTL
+	if !client.SessionSecretExpiry.IsZero() && time.Now().After(client.SessionSecretExpiry) {
+		return nil
+	}
 	return client
 }
 
 func (s *Server) removeClient(clientID string) {
 	s.clientMgr.removeClient(clientID)
+}
+
+const authRateLimitPerMin = 10
+
+func (s *Server) allowAuth(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	v, _ := s.authLimiters.LoadOrStore(host, monitor.NewSlidingWindow(authRateLimitPerMin, time.Minute))
+	return v.(*monitor.SlidingWindow).Allow()
 }
 
 func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bool) {
@@ -957,6 +1022,13 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 }
 
 func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
+	// SSRF prevention: block sensitive ports for non-admin users
+	if req.RemotePort > 0 && !c.IsAdmin && blockedTCPPorts[req.RemotePort] {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable,
+			fmt.Sprintf("port %d is blocked for security reasons", req.RemotePort))
+		return
+	}
+
 	port, listener, err := c.server.tcpManager.AllocatePort(req.RemotePort)
 	if err != nil {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
@@ -1256,6 +1328,9 @@ func (c *Client) keepalive() {
 	ticker := time.NewTicker(keepaliveInterval)
 	defer ticker.Stop()
 
+	tickCount := 0
+	const tokenCheckInterval = 10 // every 10 ticks (~5 min at 30s interval)
+
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -1265,6 +1340,16 @@ func (c *Client) keepalive() {
 				c.log.Warn().Msg("Client timeout, closing")
 				c.Close()
 				return
+			}
+
+			// Periodic token revocation check
+			tickCount++
+			if tickCount%tokenCheckInterval == 0 && c.APITokenID > 0 && c.server.db != nil {
+				if _, err := c.server.db.Tokens.GetByID(c.APITokenID); err != nil {
+					c.log.Warn().Int64("token_id", c.APITokenID).Msg("Token revoked or deleted, closing connection")
+					c.Close()
+					return
+				}
 			}
 		}
 	}
@@ -1369,7 +1454,9 @@ func (c *Client) Close() {
 
 func generateID() string {
 	b := make([]byte, 9) // 9 bytes = 12 base64url chars
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
 	// Base36 encode: lowercase alphanumeric, URL-safe, short
 	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 	out := make([]byte, 12)
@@ -1381,7 +1468,9 @@ func generateID() string {
 
 func generateShortID() string {
 	b := make([]byte, 4)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
 	return hex.EncodeToString(b)
 }
 

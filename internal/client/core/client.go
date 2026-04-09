@@ -55,6 +55,9 @@ const (
 	// dataConnectionCount is the number of additional data connections to open (total = 1 primary + N data).
 	dataConnectionCount = 15
 
+	// maxOverflowGoroutines caps the number of goroutines spawned when the worker pool is full.
+	maxOverflowGoroutines = 1024
+
 	// defaultReconnectInterval is the default base interval for reconnection attempts.
 	defaultReconnectInterval = 5 * time.Second
 
@@ -97,7 +100,10 @@ type Client struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	streamWorkers chan net.Conn // bounded worker pool for incoming streams
+	streamWorkers  chan net.Conn // bounded worker pool for incoming streams
+	overflowCount  atomic.Int32 // current overflow goroutine count
+
+	version string // protocol version sent to server during auth
 
 	closed    atomic.Bool
 	closeOnce sync.Once
@@ -165,6 +171,9 @@ func New(cfg *config.ClientConfig, log zerolog.Logger) *Client {
 		cancel:            cancel,
 	}
 }
+
+// SetVersion sets the client version for protocol negotiation.
+func (c *Client) SetVersion(v string) { c.version = v }
 
 // Events returns the event emitter for subscribing to client events
 func (c *Client) Events() *EventEmitter {
@@ -298,6 +307,7 @@ func (c *Client) authenticate() error {
 		Token:     token,
 		ClientID:  generateID(),
 		UserAgent: "fxtunnel-client/1.0",
+		Version:   c.version,
 	}
 
 	if err := c.controlCodec.Encode(authMsg); err != nil {
@@ -664,8 +674,17 @@ func (c *Client) acceptStreams() {
 		case c.streamWorkers <- stream:
 			// Dispatched to worker pool
 		default:
-			// Pool full, handle in overflow goroutine
-			go c.handleStream(stream)
+			// Pool full — use overflow goroutine with cap
+			if c.overflowCount.Load() >= maxOverflowGoroutines {
+				c.log.Warn().Int32("overflow", c.overflowCount.Load()).Msg("Overflow goroutine limit reached, dropping stream")
+				stream.Close()
+				continue
+			}
+			c.overflowCount.Add(1)
+			go func() {
+				defer c.overflowCount.Add(-1)
+				c.handleStream(stream)
+			}()
 		}
 	}
 }
@@ -688,7 +707,15 @@ func (c *Client) acceptDataStreams(session *yamux.Session) {
 		select {
 		case c.streamWorkers <- stream:
 		default:
-			go c.handleStream(stream)
+			if c.overflowCount.Load() >= maxOverflowGoroutines {
+				stream.Close()
+				continue
+			}
+			c.overflowCount.Add(1)
+			go func() {
+				defer c.overflowCount.Add(-1)
+				c.handleStream(stream)
+			}()
 		}
 	}
 }
