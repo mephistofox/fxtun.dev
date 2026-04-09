@@ -78,9 +78,9 @@ FROM users
 WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_active'))
   AND (sqlc.narg('is_admin')::boolean IS NULL OR is_admin = sqlc.narg('is_admin'))
   AND (sqlc.narg('search')::text IS NULL OR
-       LOWER(email) LIKE sqlc.narg('search') OR
-       LOWER(phone) LIKE sqlc.narg('search') OR
-       LOWER(display_name) LIKE sqlc.narg('search'))
+       LOWER(email) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(phone) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(display_name) LIKE sqlc.narg('search') ESCAPE '\')
 ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: CountUsersFiltered :one
@@ -89,9 +89,9 @@ FROM users
 WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_active'))
   AND (sqlc.narg('is_admin')::boolean IS NULL OR is_admin = sqlc.narg('is_admin'))
   AND (sqlc.narg('search')::text IS NULL OR
-       LOWER(email) LIKE sqlc.narg('search') OR
-       LOWER(phone) LIKE sqlc.narg('search') OR
-       LOWER(display_name) LIKE sqlc.narg('search'));
+       LOWER(email) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(phone) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(display_name) LIKE sqlc.narg('search') ESCAPE '\');
 
 -- name: GetUserStats :one
 SELECT
@@ -101,6 +101,6 @@ SELECT
     COUNT(*) FILTER (WHERE is_admin = TRUE) AS admins
 FROM users
 WHERE (sqlc.narg('search')::text IS NULL OR
-       LOWER(email) LIKE sqlc.narg('search') OR
-       LOWER(phone) LIKE sqlc.narg('search') OR
-       LOWER(display_name) LIKE sqlc.narg('search'));
+       LOWER(email) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(phone) LIKE sqlc.narg('search') ESCAPE '\' OR
+       LOWER(display_name) LIKE sqlc.narg('search') ESCAPE '\');
