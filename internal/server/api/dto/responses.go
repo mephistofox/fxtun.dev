@@ -500,3 +500,34 @@ type ReplayResponse struct {
 	ResponseBody    []byte              `json:"response_body"`
 	ExchangeID      string              `json:"exchange_id"`
 }
+
+// ChartDataPoint represents a single data point for admin charts
+type ChartDataPoint struct {
+	Date  string  `json:"date"`
+	Value float64 `json:"value"`
+}
+
+// ChartDataResponse is the response for admin chart data
+type ChartDataResponse struct {
+	Points []ChartDataPoint `json:"points"`
+	Metric string           `json:"metric"`
+	Period string           `json:"period"`
+}
+
+// BulkOperationResponse represents the result of a bulk operation
+type BulkOperationResponse struct {
+	SuccessCount int      `json:"success_count"`
+	ErrorCount   int      `json:"error_count"`
+	Errors       []string `json:"errors"`
+}
+
+// InviteCodeDTO represents an invite code in API responses
+type InviteCodeDTO struct {
+	ID              int64      `json:"id"`
+	Code            string     `json:"code"`
+	CreatedByUserID *int64     `json:"created_by_user_id,omitempty"`
+	UsedByUserID    *int64     `json:"used_by_user_id,omitempty"`
+	UsedAt          *time.Time `json:"used_at,omitempty"`
+	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+}

@@ -315,6 +315,69 @@ func (r *UserRepository) Delete(id int64) error {
 	return nil
 }
 
+// DeleteTx deletes a user within a transaction.
+func (r *UserRepository) DeleteTx(tx pgx.Tx, id int64) error {
+	ctx := context.Background()
+	_, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete user tx: %w", err)
+	}
+	return nil
+}
+
+// BulkUpdateActive sets is_active for multiple users, excluding the given admin user ID.
+func (r *UserRepository) BulkUpdateActive(userIDs []int64, isActive bool, excludeUserID int64) (int64, error) {
+	ctx := context.Background()
+	query := `UPDATE users SET is_active = $1 WHERE id = ANY($2) AND id != $3`
+	result, err := r.pool.Exec(ctx, query, isActive, userIDs, excludeUserID)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update active: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
+// BulkUpdatePlan sets plan_id for multiple users, excluding the given admin user ID.
+func (r *UserRepository) BulkUpdatePlan(userIDs []int64, planID int64, excludeUserID int64) (int64, error) {
+	ctx := context.Background()
+	query := `UPDATE users SET plan_id = $1 WHERE id = ANY($2) AND id != $3`
+	result, err := r.pool.Exec(ctx, query, planID, userIDs, excludeUserID)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update plan: %w", err)
+	}
+	return result.RowsAffected(), nil
+}
+
+// BulkDelete deletes multiple users in a single transaction, excluding the given admin user ID.
+// Returns the number of successfully deleted users.
+func (r *UserRepository) BulkDelete(userIDs []int64, excludeUserID int64) (int64, []string, error) {
+	ctx := context.Background()
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var successCount int64
+	var errs []string
+	for _, uid := range userIDs {
+		if uid == excludeUserID {
+			errs = append(errs, fmt.Sprintf("user %d: cannot modify your own account", uid))
+			continue
+		}
+		_, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, uid)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("user %d: operation failed", uid))
+			continue
+		}
+		successCount++
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, nil, fmt.Errorf("commit transaction: %w", err)
+	}
+	return successCount, errs, nil
+}
+
 // buildFilterParams converts UserListParams to the sqlc filter/count parameters.
 func buildFilterParams(params UserListParams) (isActive pgtype.Bool, isAdmin pgtype.Bool, search pgtype.Text) {
 	switch params.Filter {
@@ -326,10 +389,20 @@ func buildFilterParams(params UserListParams) (isActive pgtype.Bool, isAdmin pgt
 		isAdmin = pgtype.Bool{Bool: true, Valid: true}
 	}
 	if params.Search != "" {
-		s := "%" + strings.ToLower(params.Search) + "%"
+		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(params.Search))
+		s := "%" + escaped + "%"
 		search = pgtype.Text{String: s, Valid: true}
 	}
 	return
+}
+
+// allowedSortColumns is a whitelist of columns that can be used for sorting users.
+var allowedSortColumns = map[string]string{
+	"created_at":   "created_at",
+	"last_login_at": "last_login_at",
+	"email":        "email",
+	"display_name": "display_name",
+	"id":           "id",
 }
 
 // List returns users with filtering, search, and pagination.
@@ -344,6 +417,14 @@ func (r *UserRepository) List(params UserListParams) ([]*User, int, error) {
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+
+	// If sorting is requested and valid, use raw query with ORDER BY
+	if params.SortBy != "" {
+		col, ok := allowedSortColumns[params.SortBy]
+		if ok {
+			return r.listWithSort(ctx, params, isActive, isAdmin, search, col, int(total))
+		}
 	}
 
 	rows, err := r.q.ListUsersFiltered(ctx, sqlc.ListUsersFilteredParams{
@@ -364,12 +445,52 @@ func (r *UserRepository) List(params UserListParams) ([]*User, int, error) {
 	return users, int(total), nil
 }
 
+// listWithSort performs a raw query with dynamic ORDER BY (whitelisted column).
+func (r *UserRepository) listWithSort(ctx context.Context, params UserListParams, isActive pgtype.Bool, isAdmin pgtype.Bool, search pgtype.Text, sortCol string, total int) ([]*User, int, error) {
+	order := "ASC"
+	if strings.EqualFold(params.Order, "desc") {
+		order = "DESC"
+	}
+
+	//nolint:gosec // sortCol is from allowedSortColumns whitelist, order is hardcoded ASC/DESC
+	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active,
+		created_at, last_login_at, github_id, google_id, email, avatar_url, plan_id, first_tunnel_at
+		FROM users
+		WHERE ($1::boolean IS NULL OR is_active = $1)
+		  AND ($2::boolean IS NULL OR is_admin = $2)
+		  AND ($3::text IS NULL OR LOWER(email) LIKE $3 ESCAPE '\' OR LOWER(phone) LIKE $3 ESCAPE '\' OR LOWER(display_name) LIKE $3 ESCAPE '\')
+		ORDER BY %s %s
+		LIMIT $4 OFFSET $5`, sortCol, order)
+
+	rows, err := r.pool.Query(ctx, query, isActive, isAdmin, search, params.Limit, params.Offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list users sorted: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		var u sqlc.User
+		if err := rows.Scan(
+			&u.ID, &u.Phone, &u.PasswordHash, &u.DisplayName,
+			&u.IsAdmin, &u.IsActive, &u.CreatedAt, &u.LastLoginAt,
+			&u.GithubID, &u.GoogleID, &u.Email, &u.AvatarUrl,
+			&u.PlanID, &u.FirstTunnelAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan sorted user: %w", err)
+		}
+		users = append(users, sqlcUserToDomain(u))
+	}
+	return users, total, rows.Err()
+}
+
 // Stats returns aggregate user counts, optionally scoped by search term.
 func (r *UserRepository) Stats(search string) (*UserStats, error) {
 	ctx := context.Background()
 	var searchParam pgtype.Text
 	if search != "" {
-		s := "%" + strings.ToLower(search) + "%"
+		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(search))
+		s := "%" + escaped + "%"
 		searchParam = pgtype.Text{String: s, Valid: true}
 	}
 
@@ -473,4 +594,30 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 	}
 
 	return tx.Commit(ctx)
+}
+
+// RegistrationsByDay returns user registration counts grouped by day for the given number of days.
+func (r *UserRepository) RegistrationsByDay(days int) ([]DailyStat, error) {
+	ctx := context.Background()
+	query := `SELECT DATE(created_at AT TIME ZONE 'UTC') AS date, COUNT(*)::float8 AS value
+		FROM users
+		WHERE created_at >= NOW() - make_interval(days := $1)
+		GROUP BY DATE(created_at AT TIME ZONE 'UTC')
+		ORDER BY date`
+
+	rows, err := r.pool.Query(ctx, query, days)
+	if err != nil {
+		return nil, fmt.Errorf("registrations by day: %w", err)
+	}
+	defer rows.Close()
+
+	var results []DailyStat
+	for rows.Next() {
+		var item DailyStat
+		if err := rows.Scan(&item.Date, &item.Value); err != nil {
+			return nil, fmt.Errorf("scan registrations by day: %w", err)
+		}
+		results = append(results, item)
+	}
+	return results, rows.Err()
 }

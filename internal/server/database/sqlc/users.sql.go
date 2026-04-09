@@ -28,9 +28,9 @@ FROM users
 WHERE ($1::boolean IS NULL OR is_active = $1)
   AND ($2::boolean IS NULL OR is_admin = $2)
   AND ($3::text IS NULL OR
-       LOWER(email) LIKE $3 OR
-       LOWER(phone) LIKE $3 OR
-       LOWER(display_name) LIKE $3)
+       LOWER(email) LIKE $3 ESCAPE '\' OR
+       LOWER(phone) LIKE $3 ESCAPE '\' OR
+       LOWER(display_name) LIKE $3 ESCAPE '\')
 `
 
 type CountUsersFilteredParams struct {
@@ -272,9 +272,9 @@ SELECT
     COUNT(*) FILTER (WHERE is_admin = TRUE) AS admins
 FROM users
 WHERE ($1::text IS NULL OR
-       LOWER(email) LIKE $1 OR
-       LOWER(phone) LIKE $1 OR
-       LOWER(display_name) LIKE $1)
+       LOWER(email) LIKE $1 ESCAPE '\' OR
+       LOWER(phone) LIKE $1 ESCAPE '\' OR
+       LOWER(display_name) LIKE $1 ESCAPE '\')
 `
 
 type GetUserStatsRow struct {
@@ -390,9 +390,9 @@ FROM users
 WHERE ($3::boolean IS NULL OR is_active = $3)
   AND ($4::boolean IS NULL OR is_admin = $4)
   AND ($5::text IS NULL OR
-       LOWER(email) LIKE $5 OR
-       LOWER(phone) LIKE $5 OR
-       LOWER(display_name) LIKE $5)
+       LOWER(email) LIKE $5 ESCAPE '\' OR
+       LOWER(phone) LIKE $5 ESCAPE '\' OR
+       LOWER(display_name) LIKE $5 ESCAPE '\')
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 

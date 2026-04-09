@@ -5,6 +5,41 @@ import (
 	"time"
 )
 
+// UserListParams holds filter/search/pagination params for listing users.
+type UserListParams struct {
+	Filter string // "all", "active", "blocked", "admins"
+	Search string // free-text search across email, phone, display_name
+	Limit  int
+	Offset int
+	SortBy string // "created_at", "last_login_at", "email", "display_name"
+	Order  string // "asc", "desc"
+}
+
+// UserStats holds aggregate counts across all users (respecting search filter).
+type UserStats struct {
+	Total   int `json:"total"`
+	Active  int `json:"active"`
+	Blocked int `json:"blocked"`
+	Admins  int `json:"admins"`
+}
+
+// DailyStat holds a single date-value pair for time-series chart data.
+type DailyStat struct {
+	Date  time.Time `json:"date"`
+	Value float64   `json:"value"`
+}
+
+// InviteCode represents an invite code in the domain layer.
+type InviteCode struct {
+	ID              int64      `json:"id"`
+	Code            string     `json:"code"`
+	CreatedByUserID *int64     `json:"created_by_user_id,omitempty"`
+	UsedByUserID    *int64     `json:"used_by_user_id,omitempty"`
+	UsedAt          *time.Time `json:"used_at,omitempty"`
+	ExpiresAt       *time.Time `json:"expires_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
 // User represents a registered user
 type User struct {
 	ID           int64      `json:"id"`

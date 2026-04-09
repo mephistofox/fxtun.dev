@@ -1,8 +1,13 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -19,7 +24,10 @@ func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 		stats = s.tunnelProvider.GetStats()
 	}
 
-	totalUsers, _ := s.db.Users.Count()
+	totalUsers, err := s.db.Users.Count()
+	if err != nil {
+		s.log.Error().Err(err).Msg("failed to count users for admin stats")
+	}
 
 	s.respondJSON(w, http.StatusOK, dto.StatsResponse{
 		ActiveClients: stats.ActiveClients,
@@ -49,11 +57,17 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	search := r.URL.Query().Get("search")
 
+	// Sort params (Task 6)
+	sortBy := r.URL.Query().Get("sort_by")
+	order := r.URL.Query().Get("order")
+
 	users, total, err := s.db.Users.List(database.UserListParams{
 		Filter: filter,
 		Search: search,
 		Limit:  limit,
 		Offset: offset,
+		SortBy: sortBy,
+		Order:  order,
 	})
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to list users")
@@ -151,7 +165,7 @@ func (s *Server) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleListAllTunnels returns all active tunnels for admin
+// handleListAllTunnels returns all active tunnels for admin with optional type and user_id filters
 func (s *Server) handleListAllTunnels(w http.ResponseWriter, r *http.Request) {
 	if s.tunnelProvider == nil {
 		s.respondJSON(w, http.StatusOK, dto.AdminTunnelsListResponse{
@@ -161,20 +175,39 @@ func (s *Server) handleListAllTunnels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all tunnels (userID 0 means all users)
+	// Get all tunnels
 	tunnels := s.tunnelProvider.GetAllTunnels()
+
+	// Task 6: Filter in-memory by type and user_id
+	tunnelType := r.URL.Query().Get("type")
+	userIDStr := r.URL.Query().Get("user_id")
+	var filterUserID int64
+	if userIDStr != "" {
+		filterUserID, _ = strconv.ParseInt(userIDStr, 10, 64)
+	}
+
+	var filtered []TunnelInfo
+	for _, t := range tunnels {
+		if tunnelType != "" && t.Type != tunnelType {
+			continue
+		}
+		if userIDStr != "" && t.UserID != filterUserID {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
 
 	// Batch fetch users for tunnels
 	userIDs := make([]int64, 0)
-	for _, t := range tunnels {
+	for _, t := range filtered {
 		if t.UserID > 0 {
 			userIDs = append(userIDs, t.UserID)
 		}
 	}
 	usersMap, _ := s.db.Users.GetByIDs(userIDs)
 
-	tunnelDTOs := make([]*dto.AdminTunnelDTO, len(tunnels))
-	for i, t := range tunnels {
+	tunnelDTOs := make([]*dto.AdminTunnelDTO, len(filtered))
+	for i, t := range filtered {
 		var userPhone string
 		if t.UserID > 0 {
 			if user, ok := usersMap[t.UserID]; ok {
@@ -425,8 +458,8 @@ func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if len(req.NewPassword) < 8 {
-		s.respondError(w, http.StatusBadRequest, "password must be at least 8 characters")
+	if len(req.NewPassword) < 8 || len(req.NewPassword) > 128 {
+		s.respondError(w, http.StatusBadRequest, "password must be between 8 and 128 characters")
 		return
 	}
 
@@ -1005,4 +1038,468 @@ func (s *Server) handleGetUserDetail(w http.ResponseWriter, r *http.Request) {
 		TokenCount:    tokenCount,
 		DomainCount:   domainCount,
 	})
+}
+
+// ==================== Task 1: Chart data endpoint ====================
+
+// handleGetChartData returns time-series data for admin dashboard charts
+func (s *Server) handleGetChartData(w http.ResponseWriter, r *http.Request) {
+	metric := r.URL.Query().Get("metric")
+	period := r.URL.Query().Get("period")
+
+	var days int
+	switch period {
+	case "7d":
+		days = 7
+	case "30d":
+		days = 30
+	default:
+		days = 7
+		period = "7d"
+	}
+
+	var points []dto.ChartDataPoint
+
+	switch metric {
+	case "registrations":
+		data, err := s.db.Users.RegistrationsByDay(days)
+		if err != nil {
+			s.log.Error().Err(err).Msg("Failed to get registration chart data")
+			s.respondError(w, http.StatusInternalServerError, "failed to get registration data")
+			return
+		}
+		for _, d := range data {
+			points = append(points, dto.ChartDataPoint{Date: d.Date.Format("2006-01-02"), Value: d.Value})
+		}
+	case "payments":
+		data, err := s.db.Payments.PaymentsByDay(days)
+		if err != nil {
+			s.log.Error().Err(err).Msg("Failed to get payment chart data")
+			s.respondError(w, http.StatusInternalServerError, "failed to get payment data")
+			return
+		}
+		for _, d := range data {
+			points = append(points, dto.ChartDataPoint{Date: d.Date.Format("2006-01-02"), Value: d.Value})
+		}
+	default:
+		s.respondError(w, http.StatusBadRequest, "invalid metric: use registrations or payments")
+		return
+	}
+
+	if points == nil {
+		points = []dto.ChartDataPoint{}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.ChartDataResponse{
+		Points: points,
+		Metric: metric,
+		Period: period,
+	})
+}
+
+// ==================== Task 2: SSE stream endpoint ====================
+
+// handleAdminStatsStream sends Server-Sent Events with real-time admin stats.
+// Supports ?token= query param for auth since EventSource can't send headers.
+func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) {
+	// Check if user came through normal auth middleware
+	user := auth.GetUserFromContext(r.Context())
+
+	// Fallback: support ?token= query param for EventSource which can't send headers.
+	// Only JWT access tokens are accepted — API tokens (sk_) must NOT be used for web auth.
+	if user == nil {
+		tokenStr := r.URL.Query().Get("token")
+		if tokenStr != "" {
+			claims, err := s.authService.ValidateAccessToken(tokenStr)
+			if err == nil && claims != nil && claims.IsAdmin {
+				user = &auth.AuthenticatedUser{
+					ID:      claims.UserID,
+					Phone:   claims.Phone,
+					IsAdmin: claims.IsAdmin,
+				}
+			}
+		}
+	}
+
+	if user == nil || !user.IsAdmin {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		s.respondError(w, http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	// Send initial ping
+	_, _ = fmt.Fprintf(w, ": ping\n\n")
+	flusher.Flush()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	// Send initial stats immediately
+	s.sendAdminStatsEvent(w, flusher)
+
+	for {
+		select {
+		case <-ticker.C:
+			s.sendAdminStatsEvent(w, flusher)
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+// sendAdminStatsEvent writes a single stats_update SSE event.
+func (s *Server) sendAdminStatsEvent(w http.ResponseWriter, flusher http.Flusher) {
+	var stats Stats
+	if s.tunnelProvider != nil {
+		stats = s.tunnelProvider.GetStats()
+	}
+	totalUsers, err := s.db.Users.Count()
+	if err != nil {
+		s.log.Error().Err(err).Msg("failed to count users for admin stats")
+	}
+
+	data, _ := json.Marshal(dto.StatsResponse{
+		ActiveClients: stats.ActiveClients,
+		ActiveTunnels: stats.ActiveTunnels,
+		HTTPTunnels:   stats.HTTPTunnels,
+		TCPTunnels:    stats.TCPTunnels,
+		UDPTunnels:    stats.UDPTunnels,
+		TotalUsers:    totalUsers,
+	})
+
+	_, _ = fmt.Fprintf(w, "event: stats_update\ndata: %s\n\n", data)
+	flusher.Flush()
+}
+
+// ==================== Task 3: Bulk operations ====================
+
+// handleBulkUsers performs bulk user operations (block/unblock/delete/change_plan)
+func (s *Server) handleBulkUsers(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req dto.BulkUsersRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.UserIDs) == 0 {
+		s.respondError(w, http.StatusBadRequest, "user_ids is required")
+		return
+	}
+	if len(req.UserIDs) > 100 {
+		s.respondError(w, http.StatusBadRequest, "max 100 users per batch")
+		return
+	}
+
+	// Validate action upfront
+	validActions := map[string]bool{"block": true, "unblock": true, "delete": true, "change_plan": true}
+	if !validActions[req.Action] {
+		s.respondError(w, http.StatusBadRequest, "invalid action: use block, unblock, delete, or change_plan")
+		return
+	}
+
+	if req.Action == "change_plan" && req.PlanID == nil {
+		s.respondError(w, http.StatusBadRequest, "plan_id is required for change_plan action")
+		return
+	}
+
+	ipAddress := auth.GetClientIP(r)
+	var successCount int
+	var errs []string
+
+	switch req.Action {
+	case "block":
+		affected, err := s.db.Users.BulkUpdateActive(req.UserIDs, false, currentUser.ID)
+		if err != nil {
+			s.log.Error().Err(err).Msg("bulk block operation failed")
+			s.respondError(w, http.StatusInternalServerError, "bulk operation failed")
+			return
+		}
+		successCount = int(affected)
+
+	case "unblock":
+		affected, err := s.db.Users.BulkUpdateActive(req.UserIDs, true, currentUser.ID)
+		if err != nil {
+			s.log.Error().Err(err).Msg("bulk unblock operation failed")
+			s.respondError(w, http.StatusInternalServerError, "bulk operation failed")
+			return
+		}
+		successCount = int(affected)
+
+	case "change_plan":
+		// Validate plan exists
+		if _, err := s.db.Plans.GetByID(*req.PlanID); err != nil {
+			s.respondError(w, http.StatusBadRequest, "invalid plan_id")
+			return
+		}
+		affected, err := s.db.Users.BulkUpdatePlan(req.UserIDs, *req.PlanID, currentUser.ID)
+		if err != nil {
+			s.log.Error().Err(err).Msg("bulk change_plan operation failed")
+			s.respondError(w, http.StatusInternalServerError, "bulk operation failed")
+			return
+		}
+		successCount = int(affected)
+
+	case "delete":
+		affected, deleteErrs, err := s.db.Users.BulkDelete(req.UserIDs, currentUser.ID)
+		if err != nil {
+			s.log.Error().Err(err).Msg("bulk delete operation failed")
+			s.respondError(w, http.StatusInternalServerError, "bulk operation failed")
+			return
+		}
+		successCount = int(affected)
+		errs = deleteErrs
+	}
+
+	// Log a single audit entry for the bulk action
+	auditAction := database.ActionUserUpdated
+	if req.Action == "delete" {
+		auditAction = database.ActionUserDeleted
+	}
+	_ = s.db.Audit.Log(&currentUser.ID, auditAction, map[string]interface{}{
+		"bulk_action":   req.Action,
+		"target_users":  req.UserIDs,
+		"success_count": successCount,
+	}, ipAddress)
+
+	if errs == nil {
+		errs = []string{}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.BulkOperationResponse{
+		SuccessCount: successCount,
+		ErrorCount:   len(errs),
+		Errors:       errs,
+	})
+}
+
+// handleBulkCloseTunnels closes multiple tunnels at once
+func (s *Server) handleBulkCloseTunnels(w http.ResponseWriter, r *http.Request) {
+	if s.tunnelProvider == nil {
+		s.respondError(w, http.StatusServiceUnavailable, "tunnel provider not available")
+		return
+	}
+
+	var req dto.BulkTunnelsCloseRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.TunnelIDs) == 0 {
+		s.respondError(w, http.StatusBadRequest, "tunnel_ids is required")
+		return
+	}
+
+	if len(req.TunnelIDs) > 100 {
+		s.respondError(w, http.StatusBadRequest, "max 100 tunnels per batch")
+		return
+	}
+
+	var successCount int
+	var errs []string
+
+	for _, tid := range req.TunnelIDs {
+		if err := s.tunnelProvider.AdminCloseTunnel(tid); err != nil {
+			s.log.Error().Err(err).Str("tunnel_id", tid).Msg("bulk close tunnel failed")
+			errs = append(errs, fmt.Sprintf("tunnel %s: operation failed", tid))
+			continue
+		}
+		successCount++
+	}
+
+	if errs == nil {
+		errs = []string{}
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.BulkOperationResponse{
+		SuccessCount: successCount,
+		ErrorCount:   len(errs),
+		Errors:       errs,
+	})
+}
+
+// ==================== Task 4: Settings and system info ====================
+
+// handleGetSettings returns read-only server configuration (no secrets)
+func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	settings := map[string]interface{}{
+		"server": map[string]interface{}{
+			"control_port":        s.cfg.Server.ControlPort,
+			"http_port":           s.cfg.Server.HTTPPort,
+			"tcp_port_range_min":  s.cfg.Server.TCPPortRange.Min,
+			"tcp_port_range_max":  s.cfg.Server.TCPPortRange.Max,
+			"udp_port_range_min":  s.cfg.Server.UDPPortRange.Min,
+			"udp_port_range_max":  s.cfg.Server.UDPPortRange.Max,
+			"compression_enabled": s.cfg.Server.CompressionEnabled,
+		},
+		"web": map[string]interface{}{
+			"port":         s.cfg.Web.Port,
+			"cors_origins": s.cfg.Web.CORSOrigins,
+			"rate_limit": map[string]interface{}{
+				"enabled":        s.cfg.Web.RateLimit.Enabled,
+				"auth_per_min":   s.cfg.Web.RateLimit.AuthPerMin,
+				"global_per_min": s.cfg.Web.RateLimit.GlobalPerMin,
+			},
+		},
+		"domain": map[string]interface{}{
+			"base":     s.cfg.Domain.Base,
+			"aliases":  s.cfg.Domain.Aliases,
+			"wildcard": s.cfg.Domain.Wildcard,
+		},
+		"features": map[string]interface{}{
+			"tls_enabled":           s.cfg.TLS.Enabled,
+			"totp_enabled":          s.cfg.TOTP.Enabled,
+			"custom_domains":        s.cfg.CustomDomains.Enabled,
+			"inspect_enabled":       s.cfg.Inspect.Enabled,
+			"downloads_enabled":     s.cfg.Downloads.Enabled,
+			"oauth_github":          s.cfg.OAuth.GitHub.GetCredentials(s.cfg.Domain.Base) != nil,
+			"oauth_google":          s.cfg.OAuth.Google.ClientID != "",
+			"yookassa_enabled":      s.cfg.YooKassa.Enabled,
+			"creem_enabled":         s.cfg.Creem.Enabled,
+			"smtp_enabled":          s.cfg.SMTP.Enabled,
+			"telegram_enabled":      s.cfg.Telegram.Enabled,
+			"redis_enabled":         s.cfg.Redis.Enabled,
+		},
+		"mode": string(s.cfg.EffectiveMode()),
+	}
+
+	s.respondJSON(w, http.StatusOK, settings)
+}
+
+// handleGetSystemInfo returns runtime system information
+func (s *Server) handleGetSystemInfo(w http.ResponseWriter, r *http.Request) {
+	info := map[string]interface{}{
+		"version":    s.version,
+		"go_version": runtime.Version(),
+		"os":         runtime.GOOS,
+		"arch":       runtime.GOARCH,
+		"num_cpu":    runtime.NumCPU(),
+		"goroutines": runtime.NumGoroutine(),
+	}
+
+	s.respondJSON(w, http.StatusOK, info)
+}
+
+// ==================== Task 5: Invite codes admin ====================
+
+// handleListInviteCodes returns invite codes with pagination
+func (s *Server) handleListInviteCodes(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	codes, total, err := s.db.InviteCodes.List(limit, offset)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to list invite codes")
+		s.respondError(w, http.StatusInternalServerError, "failed to list invite codes")
+		return
+	}
+
+	codeDTOs := make([]*dto.InviteCodeDTO, len(codes))
+	for i, c := range codes {
+		codeDTOs[i] = &dto.InviteCodeDTO{
+			ID:              c.ID,
+			Code:            c.Code,
+			CreatedByUserID: c.CreatedByUserID,
+			UsedByUserID:    c.UsedByUserID,
+			UsedAt:          c.UsedAt,
+			ExpiresAt:       c.ExpiresAt,
+			CreatedAt:       c.CreatedAt,
+		}
+	}
+
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"codes": codeDTOs,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
+// handleCreateInviteCode creates a new invite code
+func (s *Server) handleCreateInviteCode(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req dto.CreateInviteCodeRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Generate random code if not provided
+	code := req.Code
+	if code == "" {
+		code = generateInviteCodeString()
+	}
+
+	inviteCode, err := s.db.InviteCodes.Create(code, currentUser.ID)
+	if err != nil {
+		s.log.Error().Err(err).Str("code_prefix", code[:4]+"...").Msg("Failed to create invite code")
+		s.respondError(w, http.StatusInternalServerError, "failed to create invite code")
+		return
+	}
+
+	s.respondJSON(w, http.StatusCreated, &dto.InviteCodeDTO{
+		ID:              inviteCode.ID,
+		Code:            inviteCode.Code,
+		CreatedByUserID: inviteCode.CreatedByUserID,
+		CreatedAt:       inviteCode.CreatedAt,
+	})
+}
+
+// handleDeleteInviteCode deletes an invite code
+func (s *Server) handleDeleteInviteCode(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if err := s.db.InviteCodes.Delete(id); err != nil {
+		if errors.Is(err, database.ErrInviteCodeNotFound) {
+			s.respondError(w, http.StatusNotFound, "invite code not found")
+			return
+		}
+		s.log.Error().Err(err).Int64("id", id).Msg("Failed to delete invite code")
+		s.respondError(w, http.StatusInternalServerError, "failed to delete invite code")
+		return
+	}
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "invite code deleted",
+	})
+}
+
+// generateInviteCodeString generates a random 8-character hex invite code.
+func generateInviteCodeString() string {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

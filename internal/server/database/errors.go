@@ -36,23 +36,9 @@ var (
 	ErrTLSCertNotFound = errors.New("tls certificate not found")
 
 	ErrEdgeNodeNotFound = errors.New("edge node not found")
+
+	ErrInviteCodeNotFound = errors.New("invite code not found")
 )
-
-// UserListParams holds filter/search/pagination params for listing users.
-type UserListParams struct {
-	Filter string // "all", "active", "blocked", "admins"
-	Search string // free-text search across email, phone, display_name
-	Limit  int
-	Offset int
-}
-
-// UserStats holds aggregate counts across all users (respecting search filter).
-type UserStats struct {
-	Total   int `json:"total"`
-	Active  int `json:"active"`
-	Blocked int `json:"blocked"`
-	Admins  int `json:"admins"`
-}
 
 // notFoundOrError returns the sentinel error if the underlying error is
 // sql.ErrNoRows, otherwise wraps the error with the given context string.
