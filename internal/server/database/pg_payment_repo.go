@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
 )
 
 // PaymentRepository handles payment database operations using PostgreSQL via sqlc.
 type PaymentRepository struct {
-	q *sqlc.Queries
+	q    *sqlc.Queries
+	pool *pgxpool.Pool
 }
 
 // sqlcPaymentToDomain converts a sqlc.Payment to a domain Payment.
@@ -180,4 +182,30 @@ func (r *PaymentRepository) DeleteStalePending(olderThan time.Duration) (int64, 
 		return 0, fmt.Errorf("fail stale pending payments: %w", err)
 	}
 	return count, nil
+}
+
+// PaymentsByDay returns successful payment amounts grouped by day for the given number of days.
+func (r *PaymentRepository) PaymentsByDay(days int) ([]DailyStat, error) {
+	ctx := context.Background()
+	query := `SELECT DATE(created_at AT TIME ZONE 'UTC') AS date, COALESCE(SUM(amount), 0) AS value
+		FROM payments
+		WHERE status = 'success' AND created_at >= NOW() - make_interval(days := $1)
+		GROUP BY DATE(created_at AT TIME ZONE 'UTC')
+		ORDER BY date`
+
+	rows, err := r.pool.Query(ctx, query, days)
+	if err != nil {
+		return nil, fmt.Errorf("payments by day: %w", err)
+	}
+	defer rows.Close()
+
+	var results []DailyStat
+	for rows.Next() {
+		var item DailyStat
+		if err := rows.Scan(&item.Date, &item.Value); err != nil {
+			return nil, fmt.Errorf("scan payments by day: %w", err)
+		}
+		results = append(results, item)
+	}
+	return results, rows.Err()
 }

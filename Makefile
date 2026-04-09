@@ -1,4 +1,4 @@
-.PHONY: all build server client clean install test fmt lint web build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
+.PHONY: all build server client clean install test fmt lint web admin admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
 
 BINARY_SERVER=fxtunnel-server
 BINARY_CLIENT=fxtunnel
@@ -23,6 +23,7 @@ clean:
 	rm -rf bin/
 	rm -rf downloads/
 	rm -rf web/dist/
+	rm -rf admin/dist/
 	rm -rf gui/frontend/dist/
 
 install: build
@@ -48,6 +49,14 @@ deps:
 # Build Vue3 server web frontend (standalone, deployed via nginx/CDN)
 web:
 	cd web && pnpm install && pnpm run build
+
+# Build admin panel (standalone, deployed via nginx/CDN)
+admin:
+	cd admin && pnpm install && pnpm run build
+
+# Development mode for admin panel (hot reload)
+admin-dev:
+	cd admin && pnpm install && pnpm dev
 
 # Build client binaries for all platforms (for downloads)
 build-clients:
@@ -107,8 +116,8 @@ indexnow:
 sync-public:
 	@bash scripts/sync-public.sh
 
-# Full build: server, CLI clients, GUI clients
-build-complete: web server build-clients gui-all
+# Full build: server, CLI clients, GUI clients, admin
+build-complete: web admin server build-clients gui-all
 	@echo "Complete build finished!"
 	@echo "Server: bin/$(BINARY_SERVER)"
 	@echo "CLI clients: downloads/fxtunnel-*"

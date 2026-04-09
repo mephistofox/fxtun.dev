@@ -140,3 +140,20 @@ type ReplayExchangeRequest struct {
 	Headers map[string][]string `json:"headers,omitempty"`
 	Body    *string             `json:"body,omitempty"` // base64-encoded
 }
+
+// BulkUsersRequest is used for bulk user operations
+type BulkUsersRequest struct {
+	Action  string  `json:"action"`   // "block", "unblock", "delete", "change_plan"
+	UserIDs []int64 `json:"user_ids"`
+	PlanID  *int64  `json:"plan_id,omitempty"` // Required for change_plan
+}
+
+// BulkTunnelsCloseRequest is used for bulk tunnel close
+type BulkTunnelsCloseRequest struct {
+	TunnelIDs []string `json:"tunnel_ids"`
+}
+
+// CreateInviteCodeRequest represents a request to create an invite code
+type CreateInviteCodeRequest struct {
+	Code string `json:"code,omitempty"` // Optional, auto-generated if empty
+}

@@ -297,6 +297,13 @@ func (s *Server) setupRoutes() {
 			r.Get("/tunnels/{id}/inspect/stream", s.handleInspectStream)
 		})
 
+		// SSE admin stats stream (no timeout, long-lived connection)
+		// Uses OptionalMiddleware: auth via header if present, otherwise handler falls back to ?token= query param
+		r.Group(func(r chi.Router) {
+			r.Use(auth.OptionalMiddleware(s.authService))
+			r.Get("/admin/stats/stream", s.handleAdminStatsStream)
+		})
+
 		// Protected routes (with timeout)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(30 * time.Second))
@@ -405,6 +412,22 @@ func (s *Server) setupRoutes() {
 				r.Post("/subscriptions/{id}/extend", s.handleAdminExtendSubscription)
 
 				r.Get("/payments", s.handleAdminListPayments)
+
+				// Chart data (Task 1)
+				r.Get("/stats/chart", s.handleGetChartData)
+
+				// Bulk operations (Task 3)
+				r.Post("/users/bulk", s.handleBulkUsers)
+				r.Post("/tunnels/bulk-close", s.handleBulkCloseTunnels)
+
+				// Settings and system info (Task 4)
+				r.Get("/settings", s.handleGetSettings)
+				r.Get("/settings/system-info", s.handleGetSystemInfo)
+
+				// Invite codes (Task 5)
+				r.Get("/invite-codes", s.handleListInviteCodes)
+				r.Post("/invite-codes", s.handleCreateInviteCode)
+				r.Delete("/invite-codes/{id}", s.handleDeleteInviteCode)
 
 				// Edge node management
 				r.Route("/nodes", func(r chi.Router) {
