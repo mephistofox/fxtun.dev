@@ -171,12 +171,19 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if host, _, err := net.SplitHostPort(clientIP); err == nil {
 		clientIP = host
 	}
-	if prior := req.Header.Get("X-Forwarded-For"); prior != "" {
-		clientIP = prior + ", " + clientIP
-	}
+	// Remove pre-existing forwarding headers from untrusted clients to prevent spoofing
+	req.Header.Del("X-Forwarded-For")
+	req.Header.Del("X-Forwarded-Proto")
+	req.Header.Del("X-Forwarded-Host")
+	// Set fresh values
 	req.Header.Set("X-Forwarded-For", clientIP)
 	req.Header.Set("X-Forwarded-Proto", "http")
-	req.Header.Set("X-Forwarded-Host", req.Host)
+	// Sanitize host: strip port, use only hostname
+	forwardedHost := req.Host
+	if h, _, err := net.SplitHostPort(forwardedHost); err == nil {
+		forwardedHost = h
+	}
+	req.Header.Set("X-Forwarded-Host", forwardedHost)
 
 	// WebSocket / HTTP Upgrade: hijack and do bidirectional proxy
 	if isUpgradeRequest(req) {
