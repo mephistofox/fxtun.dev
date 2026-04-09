@@ -1,159 +1,177 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold">Домены</h1>
+    </div>
+
     <!-- Toolbar -->
-    <n-space align="center" justify="space-between">
-      <n-input
-        v-model:value="searchText"
-        placeholder="Search domains..."
-        clearable
-        style="width: 280px"
+    <div class="flex flex-wrap items-center gap-3">
+      <Input
+        v-model="search"
+        placeholder="Поиск по домену, субдомену, пользователю..."
+        class="w-80"
       />
-      <n-pagination
-        v-model:page="currentPage"
-        :page-count="totalPages"
-        :page-slot="7"
-        @update:page="fetchDomains"
-      />
-    </n-space>
+    </div>
 
     <!-- Table -->
-    <n-data-table
+    <DataTable
       :columns="columns"
       :data="filteredDomains"
       :loading="loading"
-      :row-key="(row: CustomDomain) => row.id"
+      row-key="id"
+      empty-text="Нет доменов"
+    >
+      <template #domain="{ value }">
+        <span class="font-mono font-bold text-sm">{{ value }}</span>
+      </template>
+
+      <template #target_subdomain="{ value }">
+        <span class="text-sm">{{ value }}</span>
+      </template>
+
+      <template #user_phone="{ value }">
+        <span class="text-sm">{{ value || '-' }}</span>
+      </template>
+
+      <template #verified="{ value }">
+        <Badge :variant="value ? 'success' : 'warning'">
+          {{ value ? 'Подтверждён' : 'Ожидает' }}
+        </Badge>
+      </template>
+
+      <template #tls_expiry="{ value }">
+        <template v-if="value">
+          <Badge :variant="tlsExpiryBadge(value)">
+            {{ formatDate(value) }}
+          </Badge>
+        </template>
+        <span v-else class="text-sm text-muted-foreground">-</span>
+      </template>
+
+      <template #created_at="{ value }">
+        <span class="text-sm text-muted-foreground">{{ formatDate(value) }}</span>
+      </template>
+
+      <template #actions="{ row }">
+        <Dropdown :items="rowActions" @select="(key) => handleAction(key, row)">
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal class="h-4 w-4" />
+          </Button>
+        </Dropdown>
+      </template>
+    </DataTable>
+
+    <!-- Pagination -->
+    <Pagination
+      v-if="total > pageSize"
+      :page="page"
+      :total="total"
+      :page-size="pageSize"
+      @update:page="(p) => { page = p; fetchDomains() }"
+      @update:page-size="(s) => { pageSize = s; page = 1; fetchDomains() }"
     />
-  </n-space>
+
+    <!-- Delete confirm -->
+    <ConfirmDialog
+      v-model:show="showDeleteConfirm"
+      title="Удалить домен"
+      :message="`Удалить домен «${deletingDomain?.domain || ''}»? Это действие необратимо.`"
+      confirm-text="Удалить"
+      variant="destructive"
+      @confirm="deleteDomain"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useMessage, useDialog, NTag, NButton } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { format, differenceInDays } from 'date-fns'
+import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { CustomDomain } from '@/api/types'
-
-const message = useMessage()
-const dialog = useDialog()
+import { getErrorMessage } from '@/utils/error'
+import { format, differenceInDays } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import { MoreHorizontal } from 'lucide-vue-next'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+import Dropdown from '@/components/ui/Dropdown.vue'
+import Pagination from '@/components/ui/Pagination.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const domains = ref<CustomDomain[]>([])
 const loading = ref(false)
-const currentPage = ref(1)
+const search = ref('')
+const page = ref(1)
+const pageSize = ref(20)
 const total = ref(0)
-const pageSize = 20
-const searchText = ref('')
+const showDeleteConfirm = ref(false)
+const deletingDomain = ref<CustomDomain | null>(null)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const columns: Column[] = [
+  { key: 'domain', title: 'Домен' },
+  { key: 'target_subdomain', title: 'Целевой субдомен' },
+  { key: 'user_phone', title: 'Пользователь' },
+  { key: 'verified', title: 'Статус', width: '130px' },
+  { key: 'tls_expiry', title: 'TLS истекает', width: '150px' },
+  { key: 'created_at', title: 'Создан', width: '160px' },
+  { key: 'actions', title: '', width: '60px', align: 'right' },
+]
+
+const rowActions = [
+  { key: 'delete', label: 'Удалить', destructive: true },
+]
 
 const filteredDomains = computed(() => {
-  if (!searchText.value) return domains.value
-  const q = searchText.value.toLowerCase()
+  if (!search.value) return domains.value
+  const q = search.value.toLowerCase()
   return domains.value.filter(d =>
     d.domain.toLowerCase().includes(q) ||
-    d.target_subdomain?.toLowerCase().includes(q) ||
-    d.user_phone?.toLowerCase().includes(q),
+    d.target_subdomain.toLowerCase().includes(q) ||
+    (d.user_phone?.toLowerCase().includes(q))
   )
 })
 
-const columns: DataTableColumns<CustomDomain> = [
-  {
-    title: 'Domain',
-    key: 'domain',
-    width: 200,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Target',
-    key: 'target_subdomain',
-    width: 180,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'User',
-    key: 'user_phone',
-    width: 140,
-  },
-  {
-    title: 'Status',
-    key: 'verified',
-    width: 100,
-    render(row) {
-      return h(NTag, { type: row.verified ? 'success' : 'warning', size: 'small' }, {
-        default: () => row.verified ? 'Verified' : 'Pending',
-      })
-    },
-  },
-  {
-    title: 'TLS Expiry',
-    key: 'tls_expiry',
-    width: 150,
-    render(row) {
-      if (!row.tls_expiry) return '-'
-      const expiry = new Date(row.tls_expiry)
-      const daysLeft = differenceInDays(expiry, new Date())
-      const text = format(expiry, 'yyyy-MM-dd')
-      if (daysLeft < 7) {
-        return h(NTag, { type: 'error', size: 'small' }, { default: () => `${text} (${daysLeft}d)` })
-      }
-      if (daysLeft < 30) {
-        return h(NTag, { type: 'warning', size: 'small' }, { default: () => `${text} (${daysLeft}d)` })
-      }
-      return text
-    },
-  },
-  {
-    title: 'Created At',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm') : '-'
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 80,
-    render(row) {
-      return h(
-        NButton,
-        { size: 'small', type: 'error', quaternary: true, onClick: () => handleDelete(row) },
-        { default: () => 'Delete' },
-      )
-    },
-  },
-]
+function tlsExpiryBadge(dateStr: string): 'destructive' | 'warning' | 'outline' {
+  const days = differenceInDays(new Date(dateStr), new Date())
+  if (days < 7) return 'destructive'
+  if (days < 30) return 'warning'
+  return 'outline'
+}
 
-function handleDelete(domain: CustomDomain) {
-  dialog.error({
-    title: 'Delete Domain',
-    content: `Permanently delete domain "${domain.domain}"? This cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.deleteCustomDomain(domain.id)
-        message.success('Domain deleted')
-        await fetchDomains()
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { error?: string } }; message?: string }
-        message.error(error.response?.data?.error || error.message || 'Failed to delete domain')
-      }
-    },
-  })
+function formatDate(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru })
+}
+
+function handleAction(key: string, row: CustomDomain) {
+  if (key === 'delete') {
+    deletingDomain.value = row
+    showDeleteConfirm.value = true
+  }
 }
 
 async function fetchDomains() {
   loading.value = true
   try {
-    const { data } = await adminApi.listCustomDomains(currentPage.value, pageSize)
+    const { data } = await adminApi.listCustomDomains(page.value, pageSize.value)
     domains.value = data.domains || []
-    total.value = data.total || 0
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load domains')
+    total.value = data.total
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     loading.value = false
+  }
+}
+
+async function deleteDomain() {
+  if (!deletingDomain.value) return
+  try {
+    await adminApi.deleteCustomDomain(deletingDomain.value.id)
+    await fetchDomains()
+  } catch (err) {
+    console.error(getErrorMessage(err))
   }
 }
 

@@ -1,460 +1,464 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-display font-bold text-foreground">Пользователи</h1>
+        <div v-if="userStats" class="flex gap-2 mt-2">
+          <Badge>Всего: {{ userStats.total }}</Badge>
+          <Badge variant="success">Активные: {{ userStats.active }}</Badge>
+          <Badge variant="destructive">Заблокированные: {{ userStats.blocked }}</Badge>
+          <Badge variant="accent">Админы: {{ userStats.admins }}</Badge>
+        </div>
+      </div>
+    </div>
+
     <!-- Toolbar -->
-    <n-space justify="space-between" align="center" :wrap="false">
-      <n-space align="center" :size="12">
-        <n-input
-          v-model:value="searchQuery"
-          placeholder="Search users..."
-          clearable
-          style="width: 240px"
-          @update:value="handleSearchDebounced"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
-        <n-select
-          v-model:value="filterValue"
-          :options="filterOptions"
-          style="width: 140px"
-          @update:value="fetchUsers"
-        />
-        <n-select
-          v-model:value="sortValue"
-          :options="sortOptions"
-          style="width: 180px"
-          @update:value="fetchUsers"
-        />
-      </n-space>
-      <n-space align="center" :size="8">
-        <n-tag size="small" :bordered="false">Total: {{ userStats.total }}</n-tag>
-        <n-tag size="small" type="success" :bordered="false">Active: {{ userStats.active }}</n-tag>
-        <n-tag size="small" type="error" :bordered="false">Blocked: {{ userStats.blocked }}</n-tag>
-        <n-tag size="small" type="info" :bordered="false">Admins: {{ userStats.admins }}</n-tag>
-      </n-space>
-    </n-space>
+    <div class="flex flex-col sm:flex-row gap-3">
+      <Input
+        v-model="search"
+        placeholder="Поиск по email, телефону, имени..."
+        class="sm:max-w-xs"
+      />
+      <Select
+        v-model="filter"
+        :options="filterOptions"
+        class="sm:w-48"
+      />
+      <Select
+        v-model="sortBy"
+        :options="sortOptions"
+        class="sm:w-52"
+      />
+    </div>
 
-    <!-- Bulk action bar -->
-    <n-card v-if="checkedRowKeys.length > 0" size="small">
-      <n-space align="center" :size="12">
-        <n-text>{{ checkedRowKeys.length }} selected</n-text>
-        <n-button size="small" @click="handleBulk('block')">Block</n-button>
-        <n-button size="small" @click="handleBulk('unblock')">Unblock</n-button>
-        <n-button size="small" @click="showChangePlanDialog = true">Change Plan</n-button>
-        <n-button size="small" type="error" @click="handleBulk('delete')">Delete</n-button>
-      </n-space>
-    </n-card>
+    <!-- Bulk actions bar -->
+    <div
+      v-if="selectedIds.length > 0"
+      class="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3"
+    >
+      <span class="text-sm font-medium text-foreground">Выбрано: {{ selectedIds.length }}</span>
+      <div class="flex gap-2 ml-auto">
+        <Button variant="outline" size="sm" @click="bulkAction('block')">
+          <Ban class="h-4 w-4" /> Заблокировать
+        </Button>
+        <Button variant="outline" size="sm" @click="bulkAction('unblock')">
+          <CheckCircle class="h-4 w-4" /> Разблокировать
+        </Button>
+        <Button variant="outline" size="sm" @click="showBulkPlanChange = true">
+          <CreditCard class="h-4 w-4" /> Сменить тариф
+        </Button>
+        <Button variant="destructive" size="sm" @click="bulkAction('delete')">
+          <Trash2 class="h-4 w-4" /> Удалить
+        </Button>
+      </div>
+    </div>
 
-    <!-- Users table -->
-    <n-data-table
+    <!-- Table -->
+    <DataTable
       :columns="columns"
       :data="users"
       :loading="loading"
-      :bordered="false"
-      :row-key="(row: AdminUser) => row.id"
-      v-model:checked-row-keys="checkedRowKeys"
-      :row-props="rowProps"
-      size="small"
-      :scroll-x="1000"
-    />
+      selectable
+      v-model:selected-keys="selectedIds"
+      row-key="id"
+    >
+      <template #id="{ value }">
+        <span class="font-mono text-xs text-muted-foreground">{{ value }}</span>
+      </template>
+
+      <template #email="{ row }">
+        <div class="min-w-0">
+          <p class="text-sm text-foreground truncate">{{ row.email || row.phone }}</p>
+          <p v-if="row.email && row.phone" class="text-xs text-muted-foreground truncate">{{ row.phone }}</p>
+        </div>
+      </template>
+
+      <template #display_name="{ value }">
+        <span class="text-sm">{{ value || '---' }}</span>
+      </template>
+
+      <template #is_active="{ row }">
+        <Badge :variant="row.is_active ? 'success' : 'destructive'">
+          {{ row.is_active ? 'Активен' : 'Заблокирован' }}
+        </Badge>
+      </template>
+
+      <template #is_admin="{ row }">
+        <Badge v-if="row.is_admin" variant="accent">Админ</Badge>
+      </template>
+
+      <template #plan="{ row }">
+        <Badge variant="outline">{{ row.plan?.name || `#${row.plan_id}` }}</Badge>
+      </template>
+
+      <template #created_at="{ value }">
+        <span class="text-xs text-muted-foreground whitespace-nowrap">{{ formatDate(value) }}</span>
+      </template>
+
+      <template #actions="{ row }">
+        <Dropdown :items="getRowActions(row)" @select="(key) => handleAction(key, row)">
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal class="h-4 w-4" />
+          </Button>
+        </Dropdown>
+      </template>
+    </DataTable>
 
     <!-- Pagination -->
-    <n-space justify="end">
-      <n-pagination
-        v-model:page="currentPage"
-        v-model:page-size="pageSize"
-        :item-count="totalUsers"
-        :page-sizes="[10, 20, 50, 100]"
-        show-size-picker
-        @update:page="fetchUsers"
-        @update:page-size="handlePageSizeChange"
-      />
-    </n-space>
+    <Pagination
+      :page="page"
+      :total="total"
+      :page-size="pageSize"
+      @update:page="(v) => { page = v; loadUsers() }"
+      @update:page-size="(v) => { pageSize = v; page = 1; loadUsers() }"
+    />
 
-    <!-- Change Plan Dialog -->
-    <n-modal v-model:show="showChangePlanDialog" preset="dialog" title="Change Plan">
-      <n-space vertical :size="12">
-        <n-text>Select plan for {{ checkedRowKeys.length }} users:</n-text>
-        <n-select
-          v-model:value="selectedPlanId"
+    <!-- Confirm dialog -->
+    <ConfirmDialog
+      v-model:show="confirmDialog.show"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :variant="confirmDialog.variant"
+      :confirm-text="confirmDialog.confirmText"
+      @confirm="confirmDialog.onConfirm"
+    />
+
+    <!-- Bulk plan change modal -->
+    <Modal v-model:show="showBulkPlanChange" title="Сменить тариф">
+      <div class="space-y-4">
+        <p class="text-sm text-muted-foreground">
+          Выберите новый тариф для {{ selectedIds.length }} пользователей:
+        </p>
+        <Select
+          v-model="bulkPlanId"
           :options="planOptions"
-          placeholder="Select plan"
+          placeholder="Выберите тариф"
         />
-      </n-space>
-      <template #action>
-        <n-button @click="showChangePlanDialog = false">Cancel</n-button>
-        <n-button
-          type="primary"
-          :disabled="selectedPlanId === null"
-          @click="handleChangePlan"
-        >
-          Apply
-        </n-button>
+      </div>
+      <template #footer>
+        <Button variant="ghost" @click="showBulkPlanChange = false">Отмена</Button>
+        <Button :disabled="!bulkPlanId" @click="executeBulkPlanChange">Применить</Button>
       </template>
-    </n-modal>
-  </n-space>
+    </Modal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  NSpace,
-  NInput,
-  NSelect,
-  NTag,
-  NCard,
-  NButton,
-  NText,
-  NDataTable,
-  NPagination,
-  NModal,
-  NIcon,
-  NDropdown,
-  useMessage,
-  useDialog,
-} from 'naive-ui'
-import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
-import { SearchOutline, EllipsisVertical } from '@vicons/ionicons5'
 import { format } from 'date-fns'
-
+import {
+  MoreHorizontal,
+  Ban,
+  CheckCircle,
+  ShieldCheck,
+  ShieldOff,
+  KeyRound,
+  Trash2,
+  CreditCard,
+} from 'lucide-vue-next'
 import { adminApi } from '@/api/client'
+import { useToast } from '@/composables/useToast'
+import { getErrorMessage } from '@/utils/error'
 import type { AdminUser, UserStats, Plan } from '@/api/types'
+import type { Column } from '@/components/ui/DataTable.vue'
+import DataTable from '@/components/ui/DataTable.vue'
+import Pagination from '@/components/ui/Pagination.vue'
+import Input from '@/components/ui/Input.vue'
+import Select from '@/components/ui/Select.vue'
+import Button from '@/components/ui/Button.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Dropdown from '@/components/ui/Dropdown.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import Modal from '@/components/ui/Modal.vue'
 
 const router = useRouter()
-const message = useMessage()
-const dialog = useDialog()
+const toast = useToast()
 
-// State
+// --- State ---
 const users = ref<AdminUser[]>([])
+const userStats = ref<UserStats | null>(null)
 const loading = ref(false)
-const totalUsers = ref(0)
-const currentPage = ref(1)
+const page = ref(1)
 const pageSize = ref(20)
-const searchQuery = ref('')
-const filterValue = ref('all')
-const sortValue = ref('created_desc')
-const checkedRowKeys = ref<DataTableRowKey[]>([])
-const userStats = ref<UserStats>({ total: 0, active: 0, blocked: 0, admins: 0 })
+const total = ref(0)
+const search = ref('')
+const filter = ref<string | number>('all')
+const sortBy = ref<string | number>('newest')
+const selectedIds = ref<(string | number)[]>([])
 
-// Plans for change plan dialog
+// Plans for bulk change
 const plans = ref<Plan[]>([])
-const showChangePlanDialog = ref(false)
-const selectedPlanId = ref<number | null>(null)
+const showBulkPlanChange = ref(false)
+const bulkPlanId = ref<string | number | null>(null)
 
-const planOptions = ref<Array<{ label: string; value: number }>>([])
+const planOptions = ref<{ value: string | number; label: string }[]>([])
 
+// Confirm dialog
+const confirmDialog = ref({
+  show: false,
+  title: '',
+  message: '',
+  variant: 'default' as 'default' | 'destructive',
+  confirmText: 'Подтвердить',
+  onConfirm: () => {},
+})
+
+// --- Options ---
 const filterOptions = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Blocked', value: 'blocked' },
-  { label: 'Admins', value: 'admins' },
+  { value: 'all', label: 'Все' },
+  { value: 'active', label: 'Активные' },
+  { value: 'blocked', label: 'Заблокированные' },
+  { value: 'admins', label: 'Админы' },
 ]
 
 const sortOptions = [
-  { label: 'Created (newest)', value: 'created_desc' },
-  { label: 'Created (oldest)', value: 'created_asc' },
-  { label: 'Last login', value: 'last_login_desc' },
-  { label: 'Email', value: 'email_asc' },
+  { value: 'newest', label: 'По дате (новые)' },
+  { value: 'oldest', label: 'По дате (старые)' },
+  { value: 'email', label: 'По email' },
+  { value: 'name', label: 'По имени' },
 ]
 
-function getSortParams(): { sortBy: string; order: string } {
-  const parts = sortValue.value.split('_')
-  const order = parts.pop() || 'desc'
-  const sortBy = parts.join('_')
-  return { sortBy, order }
-}
+const columns: Column[] = [
+  { key: 'id', title: 'ID', width: '70px' },
+  { key: 'email', title: 'Email/Телефон' },
+  { key: 'display_name', title: 'Имя' },
+  { key: 'is_active', title: 'Статус', width: '120px' },
+  { key: 'is_admin', title: 'Админ', width: '90px' },
+  { key: 'plan', title: 'Тариф', width: '100px' },
+  { key: 'created_at', title: 'Создан', width: '140px' },
+  { key: 'actions', title: '', width: '50px', align: 'center' },
+]
 
-// Debounce
+// --- Debounced search ---
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-function handleSearchDebounced() {
+
+watch(search, () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    currentPage.value = 1
-    fetchUsers()
-  }, 300)
-}
+    page.value = 1
+    loadUsers()
+  }, 400)
+})
 
-function handlePageSizeChange() {
-  currentPage.value = 1
-  fetchUsers()
-}
+watch(filter, () => {
+  page.value = 1
+  loadUsers()
+})
 
-// Fetch users
-async function fetchUsers() {
+watch(sortBy, () => {
+  page.value = 1
+  loadUsers()
+})
+
+// --- Load ---
+async function loadUsers() {
   loading.value = true
   try {
-    const { sortBy, order } = getSortParams()
-    const resp = await adminApi.listUsers(
-      currentPage.value,
-      pageSize.value,
-      filterValue.value,
-      searchQuery.value,
-      sortBy,
-      order,
-    )
-    users.value = resp.data.users || []
-    totalUsers.value = resp.data.total
-    if (resp.data.stats) {
-      userStats.value = resp.data.stats
+    const sortMap: Record<string, { sort_by: string; order: string }> = {
+      newest: { sort_by: 'created_at', order: 'desc' },
+      oldest: { sort_by: 'created_at', order: 'asc' },
+      email: { sort_by: 'email', order: 'asc' },
+      name: { sort_by: 'display_name', order: 'asc' },
     }
-  } catch {
-    message.error('Failed to load users')
+    const sort = sortMap[sortBy.value as string] || sortMap.newest
+    const { data } = await adminApi.listUsers(
+      page.value,
+      pageSize.value,
+      filter.value as string,
+      search.value,
+      sort.sort_by,
+      sort.order,
+    )
+    users.value = data.users ?? []
+    total.value = data.total ?? 0
+    if (data.stats) userStats.value = data.stats
+  } catch (err) {
+    toast.error(getErrorMessage(err, 'Ошибка загрузки пользователей'))
   } finally {
     loading.value = false
   }
 }
 
-// Fetch plans
-async function fetchPlans() {
+async function loadPlans() {
   try {
-    const resp = await adminApi.listPlans()
-    plans.value = resp.data.plans || []
-    planOptions.value = plans.value.map((p) => ({ label: p.name, value: p.id }))
+    const { data } = await adminApi.listPlans()
+    plans.value = data.plans ?? []
+    planOptions.value = plans.value.map(p => ({ value: p.id, label: p.name }))
   } catch {
-    // Plans might not be available
+    // Non-critical
   }
 }
 
-// Table columns
-const columns: DataTableColumns<AdminUser> = [
-  { type: 'selection' },
-  {
-    title: 'ID',
-    key: 'id',
-    width: 60,
-  },
-  {
-    title: 'Email / Phone',
-    key: 'email',
-    width: 200,
-    ellipsis: { tooltip: true },
-    render(row) {
-      return row.email || row.phone || '-'
+// --- Row actions ---
+function getRowActions(row: AdminUser) {
+  return [
+    {
+      key: row.is_active ? 'block' : 'unblock',
+      label: row.is_active ? 'Заблокировать' : 'Разблокировать',
+      icon: row.is_active ? Ban : CheckCircle,
     },
-  },
-  {
-    title: 'Name',
-    key: 'display_name',
-    width: 150,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Status',
-    key: 'is_active',
-    width: 90,
-    render(row) {
-      return h(
-        NTag,
-        { type: row.is_active ? 'success' : 'error', size: 'small', bordered: false },
-        { default: () => (row.is_active ? 'Active' : 'Blocked') },
-      )
+    {
+      key: row.is_admin ? 'remove-admin' : 'make-admin',
+      label: row.is_admin ? 'Убрать админа' : 'Сделать админом',
+      icon: row.is_admin ? ShieldOff : ShieldCheck,
     },
-  },
-  {
-    title: 'Admin',
-    key: 'is_admin',
-    width: 80,
-    render(row) {
-      if (!row.is_admin) return '-'
-      return h(
-        NTag,
-        { type: 'info', size: 'small', bordered: false },
-        { default: () => 'Admin' },
-      )
+    {
+      key: 'reset-password',
+      label: 'Сбросить пароль',
+      icon: KeyRound,
     },
-  },
-  {
-    title: 'Plan',
-    key: 'plan',
-    width: 100,
-    render(row) {
-      const planName = row.plan?.name || `#${row.plan_id}`
-      return h(
-        NTag,
-        { size: 'small', bordered: false },
-        { default: () => planName },
-      )
+    { key: 'divider', label: '', divider: true },
+    {
+      key: 'delete',
+      label: 'Удалить',
+      icon: Trash2,
+      destructive: true,
     },
-  },
-  {
-    title: 'Created',
-    key: 'created_at',
-    width: 120,
-    render(row) {
-      return format(new Date(row.created_at), 'MMM d, yyyy')
-    },
-  },
-  {
-    title: 'Last Login',
-    key: 'last_login_at',
-    width: 120,
-    render(row) {
-      if (!row.last_login_at) return '-'
-      return format(new Date(row.last_login_at), 'MMM d, yyyy')
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 60,
-    fixed: 'right',
-    render(row) {
-      const options = [
-        {
-          label: row.is_active ? 'Block' : 'Unblock',
-          key: row.is_active ? 'block' : 'unblock',
-        },
-        {
-          label: row.is_admin ? 'Remove Admin' : 'Make Admin',
-          key: 'toggle_admin',
-        },
-        { label: 'Reset Password', key: 'reset_password' },
-        { type: 'divider' as const, key: 'd1' },
-        { label: 'Delete', key: 'delete' },
-      ]
+  ]
+}
 
-      return h(
-        NDropdown,
-        {
-          options,
-          trigger: 'click',
-          onSelect: (key: string) => handleRowAction(key, row),
-        },
-        {
-          default: () =>
-            h(
-              NButton,
-              { text: true, size: 'small' },
-              { default: () => h(NIcon, { component: EllipsisVertical }) },
-            ),
-        },
-      )
-    },
-  },
-]
-
-function rowProps(row: AdminUser) {
-  return {
-    style: 'cursor: pointer',
-    onClick: (e: MouseEvent) => {
-      // Don't navigate if clicking checkbox or action button
-      const target = e.target as HTMLElement
-      if (target.closest('.n-checkbox') || target.closest('.n-dropdown') || target.closest('.n-button')) {
-        return
+function handleAction(key: string, row: AdminUser) {
+  switch (key) {
+    case 'block':
+      confirmDialog.value = {
+        show: true,
+        title: 'Заблокировать пользователя',
+        message: `Заблокировать пользователя ${row.email || row.phone}?`,
+        variant: 'destructive',
+        confirmText: 'Заблокировать',
+        onConfirm: () => toggleActive(row, false),
       }
-      router.push(`/users/${row.id}`)
-    },
-  }
-}
-
-// Row actions
-async function handleRowAction(key: string, row: AdminUser) {
-  if (key === 'block') {
-    dialog.warning({
-      title: 'Block User',
-      content: `Block ${row.display_name || row.phone}?`,
-      positiveText: 'Block',
-      negativeText: 'Cancel',
-      onPositiveClick: async () => {
-        try {
-          await adminApi.updateUser(row.id, { is_active: false })
-          message.success('User blocked')
-          fetchUsers()
-        } catch {
-          message.error('Failed to block user')
-        }
-      },
-    })
-  } else if (key === 'unblock') {
-    try {
-      await adminApi.updateUser(row.id, { is_active: true })
-      message.success('User unblocked')
-      fetchUsers()
-    } catch {
-      message.error('Failed to unblock user')
-    }
-  } else if (key === 'toggle_admin') {
-    try {
-      await adminApi.updateUser(row.id, { is_admin: !row.is_admin })
-      message.success(row.is_admin ? 'Admin removed' : 'Admin granted')
-      fetchUsers()
-    } catch {
-      message.error('Failed to update admin status')
-    }
-  } else if (key === 'reset_password') {
-    router.push(`/users/${row.id}`)
-  } else if (key === 'delete') {
-    dialog.error({
-      title: 'Delete User',
-      content: `Permanently delete ${row.display_name || row.phone}? This cannot be undone.`,
-      positiveText: 'Delete',
-      negativeText: 'Cancel',
-      onPositiveClick: async () => {
-        try {
-          await adminApi.deleteUser(row.id)
-          message.success('User deleted')
-          fetchUsers()
-        } catch {
-          message.error('Failed to delete user')
-        }
-      },
-    })
-  }
-}
-
-// Bulk operations
-function handleBulk(action: string) {
-  const count = checkedRowKeys.value.length
-  const actionLabel = action === 'delete' ? 'delete' : action
-
-  dialog.warning({
-    title: `Bulk ${actionLabel}`,
-    content: `Apply "${actionLabel}" to ${count} users?`,
-    positiveText: 'Confirm',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        const ids = checkedRowKeys.value.map(Number)
-        const resp = await adminApi.bulkUsers(action, ids)
-        const result = resp.data
-        message.success(
-          `${result.success_count} succeeded, ${result.error_count} failed`,
-        )
-        checkedRowKeys.value = []
-        fetchUsers()
-      } catch {
-        message.error(`Bulk ${actionLabel} failed`)
+      break
+    case 'unblock':
+      toggleActive(row, true)
+      break
+    case 'make-admin':
+      confirmDialog.value = {
+        show: true,
+        title: 'Назначить администратором',
+        message: `Сделать ${row.email || row.phone} администратором?`,
+        variant: 'default',
+        confirmText: 'Назначить',
+        onConfirm: () => toggleAdmin(row, true),
       }
-    },
-  })
+      break
+    case 'remove-admin':
+      toggleAdmin(row, false)
+      break
+    case 'reset-password':
+      router.push({ name: 'user-detail', params: { id: row.id } })
+      break
+    case 'delete':
+      confirmDialog.value = {
+        show: true,
+        title: 'Удалить пользователя',
+        message: `Вы уверены, что хотите удалить ${row.email || row.phone}? Это действие необратимо.`,
+        variant: 'destructive',
+        confirmText: 'Удалить',
+        onConfirm: () => deleteUser(row.id),
+      }
+      break
+  }
 }
 
-async function handleChangePlan() {
-  if (selectedPlanId.value === null) return
+// --- Actions ---
+async function toggleActive(user: AdminUser, active: boolean) {
   try {
-    const ids = checkedRowKeys.value.map(Number)
-    const resp = await adminApi.bulkUsers('change_plan', ids, selectedPlanId.value)
-    const result = resp.data
-    message.success(
-      `${result.success_count} succeeded, ${result.error_count} failed`,
-    )
-    checkedRowKeys.value = []
-    showChangePlanDialog.value = false
-    selectedPlanId.value = null
-    fetchUsers()
-  } catch {
-    message.error('Failed to change plan')
+    await adminApi.updateUser(user.id, { is_active: active })
+    toast.success(active ? 'Пользователь разблокирован' : 'Пользователь заблокирован')
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
   }
 }
 
+async function toggleAdmin(user: AdminUser, admin: boolean) {
+  try {
+    await adminApi.updateUser(user.id, { is_admin: admin })
+    toast.success(admin ? 'Права админа назначены' : 'Права админа отозваны')
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+async function deleteUser(id: number) {
+  try {
+    await adminApi.deleteUser(id)
+    toast.success('Пользователь удален')
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+// --- Bulk actions ---
+async function bulkAction(action: string) {
+  if (action === 'delete') {
+    confirmDialog.value = {
+      show: true,
+      title: 'Удалить пользователей',
+      message: `Удалить ${selectedIds.value.length} пользователей? Это действие необратимо.`,
+      variant: 'destructive',
+      confirmText: 'Удалить',
+      onConfirm: () => executeBulk('delete'),
+    }
+    return
+  }
+  if (action === 'block') {
+    confirmDialog.value = {
+      show: true,
+      title: 'Заблокировать пользователей',
+      message: `Заблокировать ${selectedIds.value.length} пользователей?`,
+      variant: 'destructive',
+      confirmText: 'Заблокировать',
+      onConfirm: () => executeBulk('block'),
+    }
+    return
+  }
+  await executeBulk(action)
+}
+
+async function executeBulk(action: string) {
+  try {
+    const result = await adminApi.bulkUsers(action, selectedIds.value as number[])
+    toast.success(`Выполнено: ${result.data.success_count} успешно, ${result.data.error_count} ошибок`)
+    selectedIds.value = []
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+async function executeBulkPlanChange() {
+  if (!bulkPlanId.value) return
+  try {
+    const result = await adminApi.bulkUsers('change_plan', selectedIds.value as number[], bulkPlanId.value as number)
+    toast.success(`Тариф изменен: ${result.data.success_count} успешно`)
+    selectedIds.value = []
+    showBulkPlanChange.value = false
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+// --- Helpers ---
+function formatDate(date: string): string {
+  if (!date) return '---'
+  return format(new Date(date), 'dd.MM.yyyy HH:mm')
+}
+
+// --- Navigate to user detail on row click ---
+// We handle this via the DataTable row click — but DataTable doesn't emit row click natively.
+// The user can click the row's action dropdown or simply click the row area.
+// For now, we rely on the action menu.
+
+// --- Init ---
 onMounted(() => {
-  fetchUsers()
-  fetchPlans()
-})
-
-onUnmounted(() => {
-  if (searchTimer) clearTimeout(searchTimer)
+  loadUsers()
+  loadPlans()
 })
 </script>

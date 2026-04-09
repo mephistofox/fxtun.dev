@@ -1,217 +1,254 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
     <!-- Pending alert -->
-    <n-alert v-if="pendingCount > 0" type="warning" :bordered="true">
-      {{ pendingCount }} node{{ pendingCount > 1 ? 's' : '' }} pending approval
-    </n-alert>
+    <div
+      v-if="pendingCount > 0"
+      class="flex items-center gap-3 rounded-xl border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] px-4 py-3"
+    >
+      <AlertTriangle class="h-5 w-5 text-[hsl(var(--warning))] flex-shrink-0" />
+      <span class="text-sm text-foreground">
+        {{ pendingCount }} нод ожидают подтверждения
+      </span>
+    </div>
 
-    <!-- Toolbar -->
-    <n-space align="center" :size="12">
-      <n-radio-group v-model:value="statusFilter">
-        <n-radio-button value="">All ({{ statusCounts.all }})</n-radio-button>
-        <n-radio-button value="active">Active ({{ statusCounts.active }})</n-radio-button>
-        <n-radio-button value="pending">Pending ({{ statusCounts.pending }})</n-radio-button>
-        <n-radio-button value="disabled">Disabled ({{ statusCounts.disabled }})</n-radio-button>
-      </n-radio-group>
-    </n-space>
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold">Ноды</h1>
+    </div>
+
+    <!-- Filter buttons -->
+    <div class="flex items-center gap-2">
+      <Button
+        v-for="f in filters"
+        :key="f.key"
+        :variant="statusFilter === f.key ? 'default' : 'outline'"
+        size="sm"
+        @click="statusFilter = f.key"
+      >
+        {{ f.label }}
+        <Badge v-if="f.count > 0" variant="outline" size="sm" class="ml-1.5">
+          {{ f.count }}
+        </Badge>
+      </Button>
+    </div>
 
     <!-- Table -->
-    <n-data-table
+    <DataTable
       :columns="columns"
-      :data="nodes"
+      :data="filteredNodes"
       :loading="loading"
-      :row-key="(row: EdgeNode) => row.id"
+      row-key="id"
+      empty-text="Нет нод"
+    >
+      <template #name="{ value }">
+        <span class="font-medium">{{ value }}</span>
+      </template>
+
+      <template #region="{ value }">
+        <span class="text-sm">{{ value || '-' }}</span>
+      </template>
+
+      <template #public_addr="{ value }">
+        <span class="font-mono text-sm">{{ value }}</span>
+      </template>
+
+      <template #status="{ value }">
+        <Badge :variant="statusBadge(value)">{{ statusLabel(value) }}</Badge>
+      </template>
+
+      <template #version="{ value }">
+        <span class="font-mono text-sm">{{ value || '-' }}</span>
+      </template>
+
+      <template #last_heartbeat_at="{ value }">
+        <div v-if="value" class="flex items-center gap-2">
+          <span
+            class="h-2 w-2 rounded-full"
+            :class="heartbeatColor(value)"
+          />
+          <span class="text-sm text-muted-foreground">
+            {{ formatDistanceToNow(new Date(value), { locale: ru, addSuffix: true }) }}
+          </span>
+        </div>
+        <span v-else class="text-sm text-muted-foreground">-</span>
+      </template>
+
+      <template #created_at="{ value }">
+        <span class="text-sm text-muted-foreground">{{ formatDate(value) }}</span>
+      </template>
+
+      <template #actions="{ row }">
+        <Dropdown :items="getRowActions(row)" @select="(key) => handleAction(key, row)">
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal class="h-4 w-4" />
+          </Button>
+        </Dropdown>
+      </template>
+    </DataTable>
+
+    <!-- Approve confirm -->
+    <ConfirmDialog
+      v-model:show="showApproveConfirm"
+      title="Одобрить ноду"
+      :message="`Одобрить ноду «${actionNode?.name || ''}»?`"
+      confirm-text="Одобрить"
+      @confirm="approveNode"
     />
-  </n-space>
+
+    <!-- Disable confirm -->
+    <ConfirmDialog
+      v-model:show="showDisableConfirm"
+      title="Отключить ноду"
+      :message="`Отключить ноду «${actionNode?.name || ''}»? Все тоннели на этой ноде будут закрыты.`"
+      confirm-text="Отключить"
+      variant="destructive"
+      @confirm="disableNode"
+    />
+
+    <!-- Delete confirm -->
+    <ConfirmDialog
+      v-model:show="showDeleteConfirm"
+      title="Удалить ноду"
+      :message="`Удалить ноду «${actionNode?.name || ''}»? Это действие необратимо.`"
+      confirm-text="Удалить"
+      variant="destructive"
+      @confirm="deleteNode"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { getErrorMessage } from '@/utils/error'
-import { useMessage, useDialog, NTag, NButton, NSpace } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { format, formatDistanceToNow, differenceInSeconds } from 'date-fns'
+import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { EdgeNode } from '@/api/types'
+import { getErrorMessage } from '@/utils/error'
+import { format, formatDistanceToNow, differenceInSeconds } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import { MoreHorizontal, AlertTriangle } from 'lucide-vue-next'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Button from '@/components/ui/Button.vue'
+import Dropdown from '@/components/ui/Dropdown.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
-const message = useMessage()
-const dialog = useDialog()
-
-const allNodes = ref<EdgeNode[]>([])
+const nodes = ref<EdgeNode[]>([])
 const loading = ref(false)
-const statusFilter = ref('')
+const statusFilter = ref('all')
+const actionNode = ref<EdgeNode | null>(null)
+const showApproveConfirm = ref(false)
+const showDisableConfirm = ref(false)
+const showDeleteConfirm = ref(false)
 
-const nodes = computed(() => {
-  if (!statusFilter.value) return allNodes.value
-  return allNodes.value.filter(n => n.status === statusFilter.value)
+const columns: Column[] = [
+  { key: 'name', title: 'Имя' },
+  { key: 'region', title: 'Регион', width: '120px' },
+  { key: 'public_addr', title: 'Адрес' },
+  { key: 'status', title: 'Статус', width: '120px' },
+  { key: 'version', title: 'Версия', width: '100px' },
+  { key: 'last_heartbeat_at', title: 'Heartbeat', width: '180px' },
+  { key: 'created_at', title: 'Создана', width: '160px' },
+  { key: 'actions', title: '', width: '60px', align: 'right' },
+]
+
+const pendingCount = computed(() => nodes.value.filter(n => n.status === 'pending').length)
+const activeCount = computed(() => nodes.value.filter(n => n.status === 'active').length)
+const disabledCount = computed(() => nodes.value.filter(n => n.status === 'disabled').length)
+
+const filters = computed(() => [
+  { key: 'all', label: 'Все', count: nodes.value.length },
+  { key: 'active', label: 'Активные', count: activeCount.value },
+  { key: 'pending', label: 'Ожидают', count: pendingCount.value },
+  { key: 'disabled', label: 'Отключены', count: disabledCount.value },
+])
+
+const filteredNodes = computed(() => {
+  if (statusFilter.value === 'all') return nodes.value
+  return nodes.value.filter(n => n.status === statusFilter.value)
 })
 
-const pendingCount = computed(() =>
-  allNodes.value.filter(n => n.status === 'pending').length,
-)
-
-const statusCounts = computed(() => ({
-  all: allNodes.value.length,
-  active: allNodes.value.filter(n => n.status === 'active').length,
-  pending: allNodes.value.filter(n => n.status === 'pending').length,
-  disabled: allNodes.value.filter(n => n.status === 'disabled').length,
-}))
-
-function heartbeatHealth(heartbeat: string | undefined): { color: string; label: string } {
-  if (!heartbeat) return { color: '#d03050', label: 'Never' }
-  const seconds = differenceInSeconds(new Date(), new Date(heartbeat))
-  if (seconds < 60) return { color: '#18a058', label: formatDistanceToNow(new Date(heartbeat), { addSuffix: true }) }
-  if (seconds < 300) return { color: '#f0a020', label: formatDistanceToNow(new Date(heartbeat), { addSuffix: true }) }
-  return { color: '#d03050', label: formatDistanceToNow(new Date(heartbeat), { addSuffix: true }) }
+function statusBadge(status: string): 'success' | 'warning' | 'destructive' {
+  if (status === 'active') return 'success'
+  if (status === 'pending') return 'warning'
+  return 'destructive'
 }
 
-const statusTagType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-  active: 'success',
-  pending: 'warning',
-  disabled: 'error',
+function statusLabel(status: string): string {
+  if (status === 'active') return 'Активна'
+  if (status === 'pending') return 'Ожидает'
+  return 'Отключена'
 }
 
-const columns: DataTableColumns<EdgeNode> = [
-  { title: 'Name', key: 'name', width: 150 },
-  { title: 'Region', key: 'region', width: 100 },
-  {
-    title: 'Public Address',
-    key: 'public_addr',
-    width: 180,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Status',
-    key: 'status',
-    width: 100,
-    render(row) {
-      return h(NTag, { type: statusTagType[row.status] || 'default', size: 'small' }, {
-        default: () => row.status.charAt(0).toUpperCase() + row.status.slice(1),
-      })
-    },
-  },
-  { title: 'Version', key: 'version', width: 100 },
-  {
-    title: 'Last Heartbeat',
-    key: 'last_heartbeat_at',
-    width: 180,
-    render(row) {
-      const health = heartbeatHealth(row.last_heartbeat_at)
-      return h('span', { style: { display: 'flex', alignItems: 'center', gap: '6px' } }, [
-        h('span', {
-          style: {
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: health.color,
-            display: 'inline-block',
-            flexShrink: 0,
-          },
-        }),
-        health.label,
-      ])
-    },
-  },
-  {
-    title: 'Created At',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm') : '-'
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 180,
-    render(row) {
-      const buttons: ReturnType<typeof h>[] = []
+function heartbeatColor(dateStr: string): string {
+  const seconds = differenceInSeconds(new Date(), new Date(dateStr))
+  if (seconds < 60) return 'bg-type-http'
+  if (seconds < 300) return 'bg-[hsl(var(--warning))]'
+  return 'bg-destructive'
+}
 
-      if (row.status === 'pending') {
-        buttons.push(
-          h(NButton, { size: 'small', type: 'success', quaternary: true, onClick: () => handleApprove(row) }, { default: () => 'Approve' }),
-        )
-      }
+function formatDate(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru })
+}
 
-      if (row.status === 'active') {
-        buttons.push(
-          h(NButton, { size: 'small', type: 'warning', quaternary: true, onClick: () => handleDisable(row) }, { default: () => 'Disable' }),
-        )
-      }
+function getRowActions(row: EdgeNode) {
+  const actions = []
+  if (row.status === 'pending') {
+    actions.push({ key: 'approve', label: 'Одобрить' })
+  }
+  if (row.status === 'active') {
+    actions.push({ key: 'disable', label: 'Отключить', destructive: true })
+  }
+  actions.push({ key: 'delete', label: 'Удалить', destructive: true })
+  return actions
+}
 
-      buttons.push(
-        h(NButton, { size: 'small', type: 'error', quaternary: true, onClick: () => handleDelete(row) }, { default: () => 'Delete' }),
-      )
-
-      return h(NSpace, { size: 4 }, { default: () => buttons })
-    },
-  },
-]
+function handleAction(key: string, row: EdgeNode) {
+  actionNode.value = row
+  if (key === 'approve') showApproveConfirm.value = true
+  if (key === 'disable') showDisableConfirm.value = true
+  if (key === 'delete') showDeleteConfirm.value = true
+}
 
 async function fetchNodes() {
   loading.value = true
   try {
     const { data } = await adminApi.listNodes()
-    allNodes.value = data.nodes || []
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err, 'Failed to load nodes'))
+    nodes.value = data.nodes || []
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
 }
 
-function handleApprove(node: EdgeNode) {
-  dialog.info({
-    title: 'Approve Node',
-    content: `Approve node "${node.name}"?`,
-    positiveText: 'Approve',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.approveNode(node.id)
-        message.success('Node approved')
-        await fetchNodes()
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err, 'Failed to approve node'))
-      }
-    },
-  })
+async function approveNode() {
+  if (!actionNode.value) return
+  try {
+    await adminApi.approveNode(actionNode.value.id)
+    await fetchNodes()
+  } catch (err) {
+    console.error(getErrorMessage(err))
+  }
 }
 
-function handleDisable(node: EdgeNode) {
-  dialog.warning({
-    title: 'Disable Node',
-    content: `Disable node "${node.name}"?`,
-    positiveText: 'Disable',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.disableNode(node.id)
-        message.success('Node disabled')
-        await fetchNodes()
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err, 'Failed to disable node'))
-      }
-    },
-  })
+async function disableNode() {
+  if (!actionNode.value) return
+  try {
+    await adminApi.disableNode(actionNode.value.id)
+    await fetchNodes()
+  } catch (err) {
+    console.error(getErrorMessage(err))
+  }
 }
 
-function handleDelete(node: EdgeNode) {
-  dialog.error({
-    title: 'Delete Node',
-    content: `Permanently delete node "${node.name}"? This cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.deleteNode(node.id)
-        message.success('Node deleted')
-        await fetchNodes()
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err, 'Failed to delete node'))
-      }
-    },
-  })
+async function deleteNode() {
+  if (!actionNode.value) return
+  try {
+    await adminApi.deleteNode(actionNode.value.id)
+    await fetchNodes()
+  } catch (err) {
+    console.error(getErrorMessage(err))
+  }
 }
 
 onMounted(() => {

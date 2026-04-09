@@ -1,190 +1,186 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold">Журнал действий</h1>
+    </div>
+
     <!-- Toolbar -->
-    <n-space align="center" justify="space-between">
-      <n-space align="center" :size="12">
-        <n-input
-          v-model:value="searchText"
-          placeholder="Search action, phone, IP..."
-          clearable
-          style="width: 280px"
-        />
-        <n-select
-          v-model:value="categoryFilter"
-          :options="categoryOptions"
-          style="width: 160px"
-          @update:value="handleFilterChange"
-        />
-      </n-space>
-      <n-pagination
-        v-model:page="currentPage"
-        :page-count="totalPages"
-        :page-slot="7"
-        @update:page="fetchLogs"
+    <div class="flex flex-wrap items-center gap-3">
+      <Input
+        v-model="search"
+        placeholder="Поиск по действию, телефону, IP..."
+        class="w-80"
       />
-    </n-space>
+      <Select
+        v-model="categoryFilter"
+        :options="categoryOptions"
+        placeholder="Категория"
+        class="w-48"
+      />
+    </div>
 
     <!-- Table -->
-    <n-data-table
+    <DataTable
       :columns="columns"
       :data="filteredLogs"
       :loading="loading"
-      :row-key="(row: AuditLog) => row.id"
+      row-key="id"
+      empty-text="Нет записей"
+    >
+      <template #created_at="{ value }">
+        <span class="text-sm text-muted-foreground font-mono">
+          {{ formatDateTime(value) }}
+        </span>
+      </template>
+
+      <template #user_phone="{ value }">
+        <span class="text-sm">{{ value || '-' }}</span>
+      </template>
+
+      <template #ip_address="{ value }">
+        <span class="font-mono text-sm">{{ value }}</span>
+      </template>
+
+      <template #action="{ value }">
+        <Badge variant="outline">{{ value }}</Badge>
+      </template>
+
+      <template #details="{ row }">
+        <div v-if="row.details" class="max-w-xs">
+          <button
+            v-if="!expandedRows.has(row.id)"
+            type="button"
+            class="text-sm text-muted-foreground hover:text-foreground truncate block max-w-full text-left"
+            @click="expandedRows.add(row.id)"
+          >
+            {{ truncateDetails(row.details) }}
+          </button>
+          <div v-else>
+            <pre class="text-xs font-mono bg-background rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all border border-border">{{ JSON.stringify(row.details, null, 2) }}</pre>
+            <button
+              type="button"
+              class="text-xs text-primary hover:underline mt-1"
+              @click="expandedRows.delete(row.id)"
+            >
+              Свернуть
+            </button>
+          </div>
+        </div>
+        <span v-else class="text-sm text-muted-foreground">-</span>
+      </template>
+    </DataTable>
+
+    <!-- Pagination -->
+    <Pagination
+      v-if="total > pageSize"
+      :page="page"
+      :total="total"
+      :page-size="pageSize"
+      @update:page="(p) => { page = p; fetchLogs() }"
+      @update:page-size="(s) => { pageSize = s; page = 1; fetchLogs() }"
     />
-  </n-space>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useMessage, NCode, NButton, NEllipsis } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { format } from 'date-fns'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { AuditLog } from '@/api/types'
-
-const message = useMessage()
+import { getErrorMessage } from '@/utils/error'
+import { format } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Input from '@/components/ui/Input.vue'
+import Select from '@/components/ui/Select.vue'
+import Pagination from '@/components/ui/Pagination.vue'
 
 const logs = ref<AuditLog[]>([])
 const loading = ref(false)
-const currentPage = ref(1)
+const search = ref('')
+const categoryFilter = ref<string | number | null>('all')
+const page = ref(1)
+const pageSize = ref(30)
 const total = ref(0)
-const pageSize = 30
-const searchText = ref('')
-const categoryFilter = ref('')
+const expandedRows = reactive(new Set<number>())
 
 const categoryOptions = [
-  { label: 'All Categories', value: '' },
-  { label: 'Auth', value: 'auth' },
-  { label: 'Tokens', value: 'token' },
-  { label: 'Domains', value: 'domain' },
-  { label: 'Users', value: 'user' },
-  { label: 'Other', value: 'other' },
+  { value: 'all', label: 'Все' },
+  { value: 'auth', label: 'Авторизация' },
+  { value: 'token', label: 'Токены' },
+  { value: 'domain', label: 'Домены' },
+  { value: 'user', label: 'Пользователи' },
+  { value: 'other', label: 'Другое' },
 ]
 
 const categoryPrefixes: Record<string, string[]> = {
-  auth: ['login', 'logout', 'register', 'auth', 'totp', 'password', 'refresh'],
+  auth: ['login', 'logout', 'register', 'refresh', 'totp', 'password'],
   token: ['token', 'api_token'],
-  domain: ['domain', 'subdomain'],
-  user: ['user', 'admin', 'block', 'unblock', 'plan'],
+  domain: ['domain', 'subdomain', 'custom_domain'],
+  user: ['user', 'admin_user', 'merge'],
 }
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const columns: Column[] = [
+  { key: 'created_at', title: 'Время', width: '180px' },
+  { key: 'user_phone', title: 'Пользователь', width: '160px' },
+  { key: 'ip_address', title: 'IP адрес', width: '140px' },
+  { key: 'action', title: 'Действие', width: '200px' },
+  { key: 'details', title: 'Детали' },
+]
 
 const filteredLogs = computed(() => {
   let result = logs.value
 
-  if (categoryFilter.value) {
-    const prefixes = categoryPrefixes[categoryFilter.value]
+  // Client-side category filtering
+  if (categoryFilter.value && categoryFilter.value !== 'all') {
+    const cat = String(categoryFilter.value)
+    const prefixes = categoryPrefixes[cat]
     if (prefixes) {
       result = result.filter(log =>
-        prefixes.some(prefix => log.action.toLowerCase().startsWith(prefix)),
+        prefixes.some(p => log.action.toLowerCase().startsWith(p))
       )
     } else {
-      // "other" category — exclude all known prefixes
-      const allKnown = Object.values(categoryPrefixes).flat()
+      // "other" - everything not matching known categories
+      const allPrefixes = Object.values(categoryPrefixes).flat()
       result = result.filter(log =>
-        !allKnown.some(prefix => log.action.toLowerCase().startsWith(prefix)),
+        !allPrefixes.some(p => log.action.toLowerCase().startsWith(p))
       )
     }
   }
 
-  if (searchText.value) {
-    const q = searchText.value.toLowerCase()
+  // Client-side search filtering
+  if (search.value) {
+    const q = search.value.toLowerCase()
     result = result.filter(log =>
       log.action.toLowerCase().includes(q) ||
-      log.user_phone?.toLowerCase().includes(q) ||
-      log.ip_address?.toLowerCase().includes(q),
+      (log.user_phone?.toLowerCase().includes(q)) ||
+      log.ip_address.toLowerCase().includes(q)
     )
   }
 
   return result
 })
 
-const columns: DataTableColumns<AuditLog> = [
-  {
-    title: 'Timestamp',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm:ss') : '-'
-    },
-  },
-  {
-    title: 'User',
-    key: 'user_phone',
-    width: 140,
-    render(row) {
-      return row.user_phone || (row.user_id ? `User #${row.user_id}` : 'System')
-    },
-  },
-  {
-    title: 'IP Address',
-    key: 'ip_address',
-    width: 140,
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    width: 200,
-  },
-  {
-    title: 'Details',
-    key: 'details',
-    render(row) {
-      if (!row.details || Object.keys(row.details).length === 0) return '-'
-      const jsonStr = JSON.stringify(row.details, null, 2)
-      const truncated = jsonStr.length > 80 ? jsonStr.substring(0, 80) + '...' : jsonStr
-      return h(
-        'div',
-        null,
-        [
-          h(NEllipsis, { style: 'max-width: 400px', tooltip: false }, {
-            default: () => truncated,
-          }),
-          jsonStr.length > 80
-            ? h(
-                NButton,
-                {
-                  size: 'tiny',
-                  text: true,
-                  type: 'info',
-                  style: 'margin-left: 8px',
-                  onClick: () => {
-                    expandedRow.value = expandedRow.value === row.id ? null : row.id
-                  },
-                },
-                { default: () => expandedRow.value === row.id ? 'Collapse' : 'Expand' },
-              )
-            : null,
-          expandedRow.value === row.id
-            ? h(NCode, {
-                code: jsonStr,
-                language: 'json',
-                style: 'margin-top: 8px; max-height: 300px; overflow: auto',
-              })
-            : null,
-        ],
-      )
-    },
-  },
-]
+function formatDateTime(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm:ss', { locale: ru })
+}
 
-const expandedRow = ref<number | null>(null)
-
-function handleFilterChange() {
-  currentPage.value = 1
-  fetchLogs()
+function truncateDetails(details: Record<string, unknown>): string {
+  const str = JSON.stringify(details)
+  if (str.length > 60) return str.substring(0, 60) + '...'
+  return str
 }
 
 async function fetchLogs() {
   loading.value = true
   try {
-    const { data } = await adminApi.listAuditLogs(currentPage.value, pageSize)
+    const { data } = await adminApi.listAuditLogs(page.value, pageSize.value)
     logs.value = data.logs || []
-    total.value = data.total || 0
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load audit logs')
+    total.value = data.total
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }

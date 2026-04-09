@@ -1,23 +1,10 @@
 <template>
-  <NConfigProvider :theme="darkTheme">
-    <NMessageProvider>
-      <NDialogProvider>
-        <NNotificationProvider>
-          <router-view />
-        </NNotificationProvider>
-      </NDialogProvider>
-    </NMessageProvider>
-  </NConfigProvider>
+  <div class="min-h-screen bg-background text-foreground font-sans">
+    <router-view />
+    <ToastContainer />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { darkTheme, NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider } from 'naive-ui'
+import ToastContainer from '@/components/ToastContainer.vue'
 </script>
-
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #101014;
-}
-</style>

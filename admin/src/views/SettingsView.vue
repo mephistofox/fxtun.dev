@@ -1,173 +1,252 @@
 <template>
-  <n-space vertical :size="24">
-    <!-- Server Config -->
-    <n-card title="Server Configuration">
-      <n-spin :show="loadingSettings">
-        <n-descriptions bordered :column="2" label-placement="left" v-if="settings">
-          <n-descriptions-item label="Control Port">{{ settings.control_port }}</n-descriptions-item>
-          <n-descriptions-item label="HTTP Port">{{ settings.http_port }}</n-descriptions-item>
-          <n-descriptions-item label="Web Port">{{ settings.web_port }}</n-descriptions-item>
-          <n-descriptions-item label="Base Domain">{{ settings.base_domain }}</n-descriptions-item>
-          <n-descriptions-item label="CORS Origins">{{ settings.cors_origins }}</n-descriptions-item>
-          <n-descriptions-item label="Registration Enabled">{{ settings.registration_enabled ? 'Yes' : 'No' }}</n-descriptions-item>
-          <n-descriptions-item label="TOTP Enabled">{{ settings.totp_enabled ? 'Yes' : 'No' }}</n-descriptions-item>
-        </n-descriptions>
-        <n-empty v-else-if="!loadingSettings" description="Could not load settings" />
-      </n-spin>
-    </n-card>
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold">Настройки</h1>
+    </div>
 
-    <!-- System Info -->
-    <n-card title="System Information">
-      <n-spin :show="loadingSystem">
-        <n-descriptions bordered :column="2" label-placement="left" v-if="systemInfo">
-          <n-descriptions-item label="Version">{{ systemInfo.version }}</n-descriptions-item>
-          <n-descriptions-item label="Go Version">{{ systemInfo.go_version }}</n-descriptions-item>
-          <n-descriptions-item label="OS">{{ systemInfo.os }}</n-descriptions-item>
-          <n-descriptions-item label="Architecture">{{ systemInfo.arch }}</n-descriptions-item>
-          <n-descriptions-item label="CPU Count">{{ systemInfo.num_cpu }}</n-descriptions-item>
-          <n-descriptions-item label="Goroutines">{{ systemInfo.goroutines }}</n-descriptions-item>
-        </n-descriptions>
-        <n-empty v-else-if="!loadingSystem" description="Could not load system info" />
-      </n-spin>
-    </n-card>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Server config -->
+      <Card variant="glass" class="p-6">
+        <h2 class="text-lg font-display font-semibold mb-4">Конфигурация сервера</h2>
+        <div v-if="settingsLoading" class="flex items-center justify-center py-8">
+          <svg class="h-6 w-6 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+        <dl v-else-if="settings" class="space-y-3">
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Порт управления</dt>
+            <dd class="text-sm font-mono">{{ settings.server?.control_port }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">HTTP порт</dt>
+            <dd class="text-sm font-mono">{{ settings.server?.http_port }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Web порт</dt>
+            <dd class="text-sm font-mono">{{ settings.web?.port }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">CORS домены</dt>
+            <dd class="text-sm font-mono text-right max-w-[200px] truncate" :title="String(settings.web?.cors_origins)">{{ settings.web?.cors_origins }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Базовый домен</dt>
+            <dd class="text-sm font-mono">{{ settings.domain?.base }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Регистрация</dt>
+            <dd>
+              <Badge :variant="settings.features?.registration_enabled ? 'success' : 'outline'">
+                {{ settings.features?.registration_enabled ? 'Включена' : 'Выключена' }}
+              </Badge>
+            </dd>
+          </div>
+          <div class="flex justify-between py-2">
+            <dt class="text-sm text-muted-foreground">TOTP</dt>
+            <dd>
+              <Badge :variant="settings.features?.totp_enabled ? 'success' : 'outline'">
+                {{ settings.features?.totp_enabled ? 'Включён' : 'Выключен' }}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
+      </Card>
 
-    <!-- Invite Codes -->
-    <n-card title="Invite Codes">
-      <template #header-extra>
-        <n-button type="primary" size="small" @click="openCreateCodeModal">
-          Create Code
-        </n-button>
-      </template>
-      <n-data-table
+      <!-- System info -->
+      <Card variant="glass" class="p-6">
+        <h2 class="text-lg font-display font-semibold mb-4">Системная информация</h2>
+        <div v-if="systemLoading" class="flex items-center justify-center py-8">
+          <svg class="h-6 w-6 animate-spin text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+        <dl v-else-if="systemInfo" class="space-y-3">
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Версия</dt>
+            <dd class="text-sm font-mono text-primary">{{ systemInfo.version }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Go версия</dt>
+            <dd class="text-sm font-mono">{{ systemInfo.go_version }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">ОС</dt>
+            <dd class="text-sm">{{ systemInfo.os }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">Архитектура</dt>
+            <dd class="text-sm">{{ systemInfo.arch }}</dd>
+          </div>
+          <div class="flex justify-between py-2 border-b border-border">
+            <dt class="text-sm text-muted-foreground">CPU</dt>
+            <dd class="text-sm">{{ systemInfo.num_cpu }}</dd>
+          </div>
+          <div class="flex justify-between py-2">
+            <dt class="text-sm text-muted-foreground">Горутины</dt>
+            <dd class="text-sm font-mono">{{ systemInfo.goroutines }}</dd>
+          </div>
+        </dl>
+      </Card>
+    </div>
+
+    <!-- Invite codes -->
+    <Card variant="glass" class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-display font-semibold">Инвайт-коды</h2>
+        <Button size="sm" @click="openCreateCode">
+          <Plus class="h-4 w-4" />
+          Создать код
+        </Button>
+      </div>
+
+      <DataTable
         :columns="codeColumns"
         :data="inviteCodes"
-        :loading="loadingCodes"
-        :row-key="(row: InviteCode) => row.id"
-      />
-    </n-card>
+        :loading="codesLoading"
+        row-key="id"
+        empty-text="Нет инвайт-кодов"
+      >
+        <template #id="{ value }">
+          <span class="font-mono text-sm text-muted-foreground">{{ value }}</span>
+        </template>
 
-    <!-- Create Code Modal -->
-    <n-modal
-      v-model:show="showCodeModal"
-      preset="card"
-      title="Create Invite Code"
-      style="width: 400px"
-      :mask-closable="false"
-    >
-      <n-space vertical :size="12">
-        <n-form-item label="Code (leave empty for random)">
-          <n-input v-model:value="newCode" placeholder="e.g. WELCOME2026" clearable />
-        </n-form-item>
-        <n-form-item label="Max Uses">
-          <n-input-number v-model:value="newMaxUses" :min="1" style="width: 100%" />
-        </n-form-item>
-      </n-space>
+        <template #code="{ value }">
+          <span class="font-mono text-sm">{{ value }}</span>
+        </template>
+
+        <template #max_uses="{ value }">
+          <span class="text-sm">{{ value || '\u221E' }}</span>
+        </template>
+
+        <template #use_count="{ value }">
+          <span class="text-sm">{{ value }}</span>
+        </template>
+
+        <template #created_at="{ value }">
+          <span class="text-sm text-muted-foreground">{{ formatDate(value) }}</span>
+        </template>
+
+        <template #actions="{ row }">
+          <Button variant="ghost" size="icon" @click="confirmDeleteCode(row)">
+            <Trash2 class="h-4 w-4 text-destructive" />
+          </Button>
+        </template>
+      </DataTable>
+    </Card>
+
+    <!-- Create code modal -->
+    <Modal v-model:show="showCreateCodeModal" title="Создать инвайт-код" width="max-w-sm">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-foreground mb-1.5">Код (необязательно)</label>
+          <Input v-model="newCode" placeholder="Оставьте пустым для автогенерации" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-foreground mb-1.5">Макс. использований</label>
+          <Input v-model="newCodeMaxUses" type="number" placeholder="1" />
+        </div>
+      </div>
       <template #footer>
-        <n-space justify="end">
-          <n-button @click="showCodeModal = false">Cancel</n-button>
-          <n-button type="primary" :loading="creatingCode" @click="handleCreateCode">Create</n-button>
-        </n-space>
+        <Button variant="outline" @click="showCreateCodeModal = false">Отмена</Button>
+        <Button :loading="creatingCode" @click="createCode">Создать</Button>
       </template>
-    </n-modal>
-  </n-space>
+    </Modal>
+
+    <!-- Delete code confirm -->
+    <ConfirmDialog
+      v-model:show="showDeleteCodeConfirm"
+      title="Удалить инвайт-код"
+      :message="`Удалить инвайт-код «${deletingCode?.code || ''}»?`"
+      confirm-text="Удалить"
+      variant="destructive"
+      @confirm="deleteCode"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, h } from 'vue'
-import { useMessage, useDialog, NButton } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { format } from 'date-fns'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { ServerSettings, SystemInfo, InviteCode } from '@/api/types'
+import { getErrorMessage } from '@/utils/error'
+import { format } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import { Plus, Trash2 } from 'lucide-vue-next'
+import Card from '@/components/ui/Card.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+import Modal from '@/components/ui/Modal.vue'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
-const message = useMessage()
-const dialog = useDialog()
-
-// Server Config
 const settings = ref<ServerSettings | null>(null)
-const loadingSettings = ref(false)
-
-// System Info
 const systemInfo = ref<SystemInfo | null>(null)
-const loadingSystem = ref(false)
-let systemRefreshInterval: ReturnType<typeof setInterval> | null = null
-
-// Invite Codes
 const inviteCodes = ref<InviteCode[]>([])
-const loadingCodes = ref(false)
-const showCodeModal = ref(false)
-const newCode = ref('')
-const newMaxUses = ref(10)
-const creatingCode = ref(false)
+const settingsLoading = ref(false)
+const systemLoading = ref(false)
+const codesLoading = ref(false)
 
-const codeColumns: DataTableColumns<InviteCode> = [
-  { title: 'ID', key: 'id', width: 60 },
-  {
-    title: 'Code',
-    key: 'code',
-    width: 200,
-    render(row) {
-      return h('code', { style: 'font-family: monospace; font-size: 13px' }, row.code)
-    },
-  },
-  {
-    title: 'Max Uses',
-    key: 'max_uses',
-    width: 90,
-    render(row) {
-      return row.max_uses != null ? String(row.max_uses) : 'Unlimited'
-    },
-  },
-  {
-    title: 'Used',
-    key: 'use_count',
-    width: 70,
-  },
-  {
-    title: 'Created At',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm') : '-'
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 80,
-    render(row) {
-      return h(
-        NButton,
-        { size: 'small', type: 'error', quaternary: true, onClick: () => handleDeleteCode(row) },
-        { default: () => 'Delete' },
-      )
-    },
-  },
+const showCreateCodeModal = ref(false)
+const creatingCode = ref(false)
+const newCode = ref<string | number>('')
+const newCodeMaxUses = ref<string | number>(1)
+
+const showDeleteCodeConfirm = ref(false)
+const deletingCode = ref<InviteCode | null>(null)
+
+let goroutineInterval: ReturnType<typeof setInterval> | null = null
+
+const codeColumns: Column[] = [
+  { key: 'id', title: 'ID', width: '60px' },
+  { key: 'code', title: 'Код' },
+  { key: 'max_uses', title: 'Макс. использований', width: '170px' },
+  { key: 'use_count', title: 'Использован', width: '120px' },
+  { key: 'created_at', title: 'Создан', width: '160px' },
+  { key: 'actions', title: '', width: '60px', align: 'right' },
 ]
 
+function formatDate(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru })
+}
+
+function openCreateCode() {
+  newCode.value = ''
+  newCodeMaxUses.value = 1
+  showCreateCodeModal.value = true
+}
+
+function confirmDeleteCode(code: InviteCode) {
+  deletingCode.value = code
+  showDeleteCodeConfirm.value = true
+}
+
 async function fetchSettings() {
-  loadingSettings.value = true
+  settingsLoading.value = true
   try {
     const { data } = await adminApi.getSettings()
     settings.value = data
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load settings')
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
-    loadingSettings.value = false
+    settingsLoading.value = false
   }
 }
 
 async function fetchSystemInfo() {
-  loadingSystem.value = true
+  systemLoading.value = true
   try {
     const { data } = await adminApi.getSystemInfo()
     systemInfo.value = data
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load system info')
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
-    loadingSystem.value = false
+    systemLoading.value = false
   }
 }
 
@@ -178,74 +257,57 @@ async function refreshGoroutines() {
       systemInfo.value.goroutines = data.goroutines
     }
   } catch {
-    // Silently fail on auto-refresh
+    // silently ignore refresh errors
   }
 }
 
 async function fetchInviteCodes() {
-  loadingCodes.value = true
+  codesLoading.value = true
   try {
     const { data } = await adminApi.listInviteCodes()
     inviteCodes.value = data.codes || []
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load invite codes')
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
-    loadingCodes.value = false
+    codesLoading.value = false
   }
 }
 
-function openCreateCodeModal() {
-  newCode.value = ''
-  newMaxUses.value = 10
-  showCodeModal.value = true
-}
-
-async function handleCreateCode() {
+async function createCode() {
   creatingCode.value = true
   try {
-    await adminApi.createInviteCode(newCode.value || undefined, newMaxUses.value)
-    message.success('Invite code created')
-    showCodeModal.value = false
+    const code = String(newCode.value).trim() || undefined
+    const maxUses = Number(newCodeMaxUses.value) || undefined
+    await adminApi.createInviteCode(code, maxUses)
+    showCreateCodeModal.value = false
     await fetchInviteCodes()
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to create invite code')
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     creatingCode.value = false
   }
 }
 
-function handleDeleteCode(code: InviteCode) {
-  dialog.error({
-    title: 'Delete Invite Code',
-    content: `Delete invite code "${code.code}"?`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.deleteInviteCode(code.id)
-        message.success('Invite code deleted')
-        await fetchInviteCodes()
-      } catch (err: unknown) {
-        const error = err as { response?: { data?: { error?: string } }; message?: string }
-        message.error(error.response?.data?.error || error.message || 'Failed to delete invite code')
-      }
-    },
-  })
+async function deleteCode() {
+  if (!deletingCode.value) return
+  try {
+    await adminApi.deleteInviteCode(deletingCode.value.id)
+    await fetchInviteCodes()
+  } catch (err) {
+    console.error(getErrorMessage(err))
+  }
 }
 
 onMounted(() => {
   fetchSettings()
   fetchSystemInfo()
   fetchInviteCodes()
-  systemRefreshInterval = setInterval(refreshGoroutines, 10000)
+  goroutineInterval = setInterval(refreshGoroutines, 10000)
 })
 
 onUnmounted(() => {
-  if (systemRefreshInterval) {
-    clearInterval(systemRefreshInterval)
-    systemRefreshInterval = null
+  if (goroutineInterval) {
+    clearInterval(goroutineInterval)
   }
 })
 </script>

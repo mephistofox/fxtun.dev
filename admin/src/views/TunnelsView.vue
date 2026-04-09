@@ -1,262 +1,271 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <h1 class="text-2xl font-display font-bold">Тоннели</h1>
+        <div class="flex items-center gap-2">
+          <Badge variant="outline">Всего: {{ tunnels.length }}</Badge>
+          <Badge variant="success">HTTP: {{ httpCount }}</Badge>
+          <Badge variant="info">TCP: {{ tcpCount }}</Badge>
+          <Badge variant="accent">UDP: {{ udpCount }}</Badge>
+        </div>
+      </div>
+    </div>
+
     <!-- Toolbar -->
-    <n-space align="center" justify="space-between">
-      <n-space align="center" :size="12">
-        <n-input
-          v-model:value="searchText"
-          placeholder="Search by URL, subdomain, user..."
-          clearable
-          style="width: 280px"
-        />
-        <n-select
-          v-model:value="typeFilter"
-          :options="typeOptions"
-          style="width: 140px"
-        />
-        <n-tag type="default">Total: {{ tunnels.length }}</n-tag>
-        <n-tag type="info">HTTP: {{ stats.http }}</n-tag>
-        <n-tag type="success">TCP: {{ stats.tcp }}</n-tag>
-        <n-tag type="warning">UDP: {{ stats.udp }}</n-tag>
-      </n-space>
-      <n-space align="center" :size="12">
-        <n-text v-if="lastUpdated" depth="3" style="font-size: 12px">
-          Last updated: {{ lastUpdatedText }}
-        </n-text>
-        <n-switch v-model:value="liveMode">
-          <template #checked>Live</template>
-          <template #unchecked>Live</template>
-        </n-switch>
-        <n-button
-          v-if="checkedRowKeys.length > 0"
-          type="error"
-          @click="handleBulkClose"
+    <div class="flex flex-wrap items-center gap-3">
+      <Input
+        v-model="search"
+        placeholder="Поиск по URL, субдомену, пользователю..."
+        class="w-80"
+      />
+      <Select
+        v-model="typeFilter"
+        :options="typeOptions"
+        placeholder="Тип"
+        class="w-40"
+      />
+      <Button
+        :variant="liveMode ? 'default' : 'outline'"
+        size="sm"
+        @click="toggleLive"
+      >
+        <span
+          v-if="liveMode"
+          class="relative flex h-2 w-2"
         >
-          Close {{ checkedRowKeys.length }} tunnels
-        </n-button>
-      </n-space>
-    </n-space>
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-foreground opacity-75" />
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-primary-foreground" />
+        </span>
+        <span v-else class="h-2 w-2 rounded-full bg-muted-foreground" />
+        Live
+      </Button>
+      <span v-if="lastUpdated" class="text-xs text-muted-foreground">
+        Обновлено {{ lastUpdatedText }}
+      </span>
+    </div>
+
+    <!-- Bulk actions -->
+    <div v-if="selectedKeys.length > 0" class="flex items-center gap-3">
+      <Button variant="destructive" size="sm" @click="showBulkConfirm = true">
+        Закрыть {{ selectedKeys.length }} тоннелей
+      </Button>
+    </div>
 
     <!-- Table -->
-    <n-data-table
+    <DataTable
       :columns="columns"
       :data="filteredTunnels"
       :loading="loading"
-      :row-key="(row: AdminTunnel) => row.id"
-      :checked-row-keys="checkedRowKeys"
-      @update:checked-row-keys="handleCheck"
+      selectable
+      :selected-keys="selectedKeys"
+      row-key="id"
+      empty-text="Нет активных тоннелей"
+      @update:selected-keys="selectedKeys = $event"
+    >
+      <template #type="{ value }">
+        <Badge :variant="tunnelTypeBadge(value)">{{ value.toUpperCase() }}</Badge>
+      </template>
+
+      <template #url="{ row }">
+        <span class="text-sm">{{ row.url || row.subdomain || '-' }}</span>
+      </template>
+
+      <template #user_phone="{ value }">
+        <span class="text-sm">{{ value }}</span>
+      </template>
+
+      <template #local_port="{ value }">
+        <span class="font-mono text-sm">{{ value }}</span>
+      </template>
+
+      <template #client_id="{ value }">
+        <span class="font-mono text-xs text-muted-foreground">{{ value ? value.substring(0, 8) : '-' }}</span>
+      </template>
+
+      <template #created_at="{ value }">
+        <span class="text-sm text-muted-foreground">{{ formatDate(value) }}</span>
+      </template>
+
+      <template #actions="{ row }">
+        <Dropdown :items="getRowActions()" @select="(key) => handleAction(key, row)">
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal class="h-4 w-4" />
+          </Button>
+        </Dropdown>
+      </template>
+    </DataTable>
+
+    <!-- Bulk close confirm -->
+    <ConfirmDialog
+      v-model:show="showBulkConfirm"
+      title="Закрыть тоннели"
+      :message="`Вы уверены, что хотите закрыть ${selectedKeys.length} тоннелей? Это действие необратимо.`"
+      confirm-text="Закрыть"
+      variant="destructive"
+      @confirm="bulkClose"
     />
-  </n-space>
+
+    <!-- Single close confirm -->
+    <ConfirmDialog
+      v-model:show="showCloseConfirm"
+      title="Закрыть тоннель"
+      :message="`Вы уверены, что хотите закрыть тоннель ${closingTunnel?.id || ''}?`"
+      confirm-text="Закрыть"
+      variant="destructive"
+      @confirm="closeSingle"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
-import { useMessage, useDialog, NTag, NButton } from 'naive-ui'
-import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
-import { format, formatDistanceToNow } from 'date-fns'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { AdminTunnel } from '@/api/types'
 import { getErrorMessage } from '@/utils/error'
-
-const message = useMessage()
-const dialog = useDialog()
+import { format, formatDistanceToNow } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import { MoreHorizontal } from 'lucide-vue-next'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Button from '@/components/ui/Button.vue'
+import Input from '@/components/ui/Input.vue'
+import Select from '@/components/ui/Select.vue'
+import Dropdown from '@/components/ui/Dropdown.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const tunnels = ref<AdminTunnel[]>([])
 const loading = ref(false)
-const searchText = ref('')
-const typeFilter = ref<string | null>(null)
+const search = ref('')
+const typeFilter = ref<string | number | null>('all')
+const selectedKeys = ref<(string | number)[]>([])
 const liveMode = ref(false)
-const checkedRowKeys = ref<DataTableRowKey[]>([])
 const lastUpdated = ref<Date | null>(null)
-let refreshInterval: ReturnType<typeof setInterval> | null = null
+let liveInterval: ReturnType<typeof setInterval> | null = null
+
+const showBulkConfirm = ref(false)
+const showCloseConfirm = ref(false)
+const closingTunnel = ref<AdminTunnel | null>(null)
 
 const typeOptions = [
-  { label: 'All Types', value: '' },
-  { label: 'HTTP', value: 'http' },
-  { label: 'TCP', value: 'tcp' },
-  { label: 'UDP', value: 'udp' },
+  { value: 'all', label: 'Все' },
+  { value: 'http', label: 'HTTP' },
+  { value: 'tcp', label: 'TCP' },
+  { value: 'udp', label: 'UDP' },
 ]
 
-const stats = computed(() => ({
-  http: tunnels.value.filter(t => t.type === 'http').length,
-  tcp: tunnels.value.filter(t => t.type === 'tcp').length,
-  udp: tunnels.value.filter(t => t.type === 'udp').length,
-}))
+const columns: Column[] = [
+  { key: 'type', title: 'Тип', width: '80px' },
+  { key: 'url', title: 'URL / Субдомен' },
+  { key: 'user_phone', title: 'Пользователь' },
+  { key: 'local_port', title: 'Локальный порт', width: '120px' },
+  { key: 'client_id', title: 'Нода', width: '100px' },
+  { key: 'created_at', title: 'Создан', width: '160px' },
+  { key: 'actions', title: '', width: '60px', align: 'right' },
+]
 
-const lastUpdatedText = computed(() => {
-  if (!lastUpdated.value) return ''
-  return formatDistanceToNow(lastUpdated.value, { addSuffix: true })
-})
+const httpCount = computed(() => tunnels.value.filter(t => t.type === 'http').length)
+const tcpCount = computed(() => tunnels.value.filter(t => t.type === 'tcp').length)
+const udpCount = computed(() => tunnels.value.filter(t => t.type === 'udp').length)
 
 const filteredTunnels = computed(() => {
   let result = tunnels.value
-  if (typeFilter.value) {
+  if (typeFilter.value && typeFilter.value !== 'all') {
     result = result.filter(t => t.type === typeFilter.value)
   }
-  if (searchText.value) {
-    const q = searchText.value.toLowerCase()
+  if (search.value) {
+    const q = search.value.toLowerCase()
     result = result.filter(t =>
       (t.url?.toLowerCase().includes(q)) ||
       (t.subdomain?.toLowerCase().includes(q)) ||
-      (t.user_phone?.toLowerCase().includes(q)) ||
-      (t.name?.toLowerCase().includes(q))
+      t.user_phone.toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q)
     )
   }
   return result
 })
 
-const typeTagMap: Record<string, 'info' | 'success' | 'warning'> = {
-  http: 'info',
-  tcp: 'success',
-  udp: 'warning',
+const lastUpdatedText = computed(() => {
+  if (!lastUpdated.value) return ''
+  return formatDistanceToNow(lastUpdated.value, { locale: ru, addSuffix: true })
+})
+
+function tunnelTypeBadge(type: string): 'success' | 'info' | 'accent' {
+  if (type === 'http') return 'success'
+  if (type === 'tcp') return 'info'
+  return 'accent'
 }
 
-const columns: DataTableColumns<AdminTunnel> = [
-  { type: 'selection' },
-  {
-    title: 'Type',
-    key: 'type',
-    width: 80,
-    render(row) {
-      return h(NTag, { type: typeTagMap[row.type] || 'default', size: 'small' }, {
-        default: () => row.type.toUpperCase(),
-      })
-    },
-  },
-  {
-    title: 'URL / Subdomain',
-    key: 'url',
-    ellipsis: { tooltip: true },
-    render(row) {
-      return row.url || row.subdomain || `port:${row.remote_port}` || '-'
-    },
-  },
-  {
-    title: 'User',
-    key: 'user_phone',
-    width: 150,
-  },
-  {
-    title: 'Local Port',
-    key: 'local_port',
-    width: 100,
-  },
-  {
-    title: 'Client ID',
-    key: 'client_id',
-    width: 120,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Created At',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm') : '-'
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 100,
-    render(row) {
-      return h(
-        NButton,
-        {
-          size: 'small',
-          type: 'error',
-          quaternary: true,
-          onClick: () => handleCloseTunnel(row),
-        },
-        { default: () => 'Close' },
-      )
-    },
-  },
-]
+function formatDate(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru })
+}
 
-function handleCheck(keys: DataTableRowKey[]) {
-  checkedRowKeys.value = keys
+function getRowActions() {
+  return [{ key: 'close', label: 'Закрыть', destructive: true }]
+}
+
+function handleAction(key: string, row: AdminTunnel) {
+  if (key === 'close') {
+    closingTunnel.value = row
+    showCloseConfirm.value = true
+  }
 }
 
 async function fetchTunnels() {
   loading.value = true
   try {
-    const { data } = await adminApi.listTunnels()
+    const params: { type?: string } = {}
+    const { data } = await adminApi.listTunnels(params)
     tunnels.value = data.tunnels || []
     lastUpdated.value = new Date()
-  } catch (err: unknown) {
-    message.error(getErrorMessage(err, 'Failed to load tunnels'))
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
 }
 
-function handleCloseTunnel(tunnel: AdminTunnel) {
-  dialog.warning({
-    title: 'Close Tunnel',
-    content: `Are you sure you want to close tunnel "${tunnel.url || tunnel.subdomain || tunnel.id}"?`,
-    positiveText: 'Close',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.closeTunnel(tunnel.id)
-        message.success('Tunnel closed')
-        await fetchTunnels()
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err, 'Failed to close tunnel'))
-      }
-    },
-  })
-}
-
-function handleBulkClose() {
-  const ids = checkedRowKeys.value as string[]
-  dialog.warning({
-    title: 'Close Tunnels',
-    content: `Are you sure you want to close ${ids.length} tunnels?`,
-    positiveText: 'Close All',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        const { data } = await adminApi.bulkCloseTunnels(ids)
-        message.success(`Closed ${data.success_count} tunnels`)
-        if (data.error_count > 0) {
-          message.warning(`${data.error_count} tunnels failed to close`)
-        }
-        checkedRowKeys.value = []
-        await fetchTunnels()
-      } catch (err: unknown) {
-        message.error(getErrorMessage(err, 'Bulk close failed'))
-      }
-    },
-  })
-}
-
-function startAutoRefresh() {
-  stopAutoRefresh()
-  refreshInterval = setInterval(fetchTunnels, 5000)
-}
-
-function stopAutoRefresh() {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
+async function closeSingle() {
+  if (!closingTunnel.value) return
+  try {
+    await adminApi.closeTunnel(closingTunnel.value.id)
+    await fetchTunnels()
+  } catch (err) {
+    console.error(getErrorMessage(err))
+  } finally {
+    closingTunnel.value = null
   }
 }
 
-watch(liveMode, (val) => {
-  if (val) {
-    startAutoRefresh()
-  } else {
-    stopAutoRefresh()
+async function bulkClose() {
+  try {
+    await adminApi.bulkCloseTunnels(selectedKeys.value as string[])
+    selectedKeys.value = []
+    await fetchTunnels()
+  } catch (err) {
+    console.error(getErrorMessage(err))
   }
-})
+}
+
+function toggleLive() {
+  liveMode.value = !liveMode.value
+  if (liveMode.value) {
+    liveInterval = setInterval(fetchTunnels, 5000)
+  } else if (liveInterval) {
+    clearInterval(liveInterval)
+    liveInterval = null
+  }
+}
 
 onMounted(() => {
   fetchTunnels()
 })
 
 onUnmounted(() => {
-  stopAutoRefresh()
+  if (liveInterval) {
+    clearInterval(liveInterval)
+  }
 })
 </script>

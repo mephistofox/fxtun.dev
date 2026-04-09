@@ -1,639 +1,575 @@
 <template>
-  <n-spin :show="loading" style="min-height: 200px">
-    <n-space vertical :size="24" v-if="detail">
+  <div class="p-6 space-y-6">
+    <!-- Loading -->
+    <div v-if="loading" class="flex items-center justify-center py-24">
+      <svg
+        class="h-8 w-8 animate-spin text-primary"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      </svg>
+    </div>
+
+    <template v-else-if="detail">
       <!-- Header -->
-      <n-space justify="space-between" align="center">
-        <n-space align="center" :size="16">
-          <n-button text @click="$router.push('/users')">
-            <template #icon>
-              <n-icon :component="ArrowBackOutline" />
-            </template>
-            Users
-          </n-button>
-          <n-avatar
-            round
-            :size="48"
-            :src="detail.user.avatar_url || undefined"
-          >
-            {{ userInitials }}
-          </n-avatar>
-          <n-space vertical :size="0">
-            <n-text strong style="font-size: 18px">
-              {{ detail.user.display_name || detail.user.phone }}
-            </n-text>
-            <n-text depth="3">
-              {{ detail.user.email || detail.user.phone }}
-            </n-text>
-          </n-space>
-          <n-tag
-            v-if="detail.user.is_admin"
-            type="info"
-            size="small"
-            :bordered="false"
-          >
-            Admin
-          </n-tag>
-          <n-tag
-            :type="detail.user.is_active ? 'success' : 'error'"
-            size="small"
-            :bordered="false"
-          >
-            {{ detail.user.is_active ? 'Active' : 'Blocked' }}
-          </n-tag>
-          <n-tag
-            v-if="detail.user.plan"
-            size="small"
-            :bordered="false"
-          >
-            {{ detail.user.plan.name }}
-          </n-tag>
-        </n-space>
-        <n-space :size="8">
-          <n-button
-            :type="detail.user.is_active ? 'warning' : 'success'"
-            size="small"
-            @click="toggleActive"
-          >
-            {{ detail.user.is_active ? 'Block' : 'Unblock' }}
-          </n-button>
-          <n-button size="small" @click="toggleAdmin">
-            {{ detail.user.is_admin ? 'Remove Admin' : 'Make Admin' }}
-          </n-button>
-          <n-button size="small" @click="showResetPasswordModal = true">
-            Reset Password
-          </n-button>
-          <n-button type="error" size="small" @click="handleDelete">
-            Delete
-          </n-button>
-        </n-space>
-      </n-space>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          @click="router.push({ name: 'users' })"
+        >
+          <ArrowLeft class="h-4 w-4" />
+          Пользователи
+        </button>
+        <div class="flex-1" />
+        <div class="flex items-center gap-2 flex-wrap">
+          <Badge :variant="user.is_active ? 'success' : 'destructive'">
+            {{ user.is_active ? 'Активен' : 'Заблокирован' }}
+          </Badge>
+          <Badge v-if="user.is_admin" variant="accent">Админ</Badge>
+          <Badge variant="outline">{{ user.plan?.name || `Тариф #${user.plan_id}` }}</Badge>
+        </div>
+      </div>
+
+      <!-- User info card -->
+      <Card variant="glass" class="p-6">
+        <div class="flex flex-col sm:flex-row gap-6">
+          <!-- Avatar -->
+          <div class="flex-shrink-0">
+            <div class="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <span class="text-xl font-display font-bold text-primary">
+                {{ initials }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Info -->
+          <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Имя</p>
+              <p class="text-sm font-medium text-foreground">{{ user.display_name || '---' }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Email</p>
+              <p class="text-sm font-medium text-foreground">{{ user.email || '---' }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Телефон</p>
+              <p class="text-sm font-medium text-foreground">{{ user.phone || '---' }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Тариф</p>
+              <p class="text-sm font-medium text-foreground">{{ user.plan?.name || `#${user.plan_id}` }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Создан</p>
+              <p class="text-sm text-foreground">{{ formatDate(user.created_at) }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground mb-0.5">Последний вход</p>
+              <p class="text-sm text-foreground">{{ user.last_login_at ? formatRelative(user.last_login_at) : '---' }}</p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col gap-2 sm:items-end flex-shrink-0">
+            <Button
+              :variant="user.is_active ? 'destructive' : 'success'"
+              size="sm"
+              @click="toggleActive"
+            >
+              <component :is="user.is_active ? Ban : CheckCircle" class="h-4 w-4" />
+              {{ user.is_active ? 'Заблокировать' : 'Разблокировать' }}
+            </Button>
+            <Button variant="outline" size="sm" @click="toggleAdmin">
+              <component :is="user.is_admin ? ShieldOff : ShieldCheck" class="h-4 w-4" />
+              {{ user.is_admin ? 'Убрать админа' : 'Сделать админом' }}
+            </Button>
+            <Button variant="outline" size="sm" @click="showResetPassword = true">
+              <KeyRound class="h-4 w-4" />
+              Сбросить пароль
+            </Button>
+            <Button variant="destructive" size="sm" @click="confirmDelete">
+              <Trash2 class="h-4 w-4" />
+              Удалить
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <!-- Tabs -->
-      <n-tabs type="line" animated>
-        <!-- Info Tab -->
-        <n-tab-pane name="info" tab="Info">
-          <n-card size="small">
-            <n-descriptions label-placement="left" :column="2" bordered>
-              <n-descriptions-item label="ID">{{ detail.user.id }}</n-descriptions-item>
-              <n-descriptions-item label="Phone">{{ detail.user.phone }}</n-descriptions-item>
-              <n-descriptions-item label="Email">{{ detail.user.email || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="Display Name">{{ detail.user.display_name || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="Status">
-                <n-tag
-                  :type="detail.user.is_active ? 'success' : 'error'"
-                  size="small"
-                  :bordered="false"
-                >
-                  {{ detail.user.is_active ? 'Active' : 'Blocked' }}
-                </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item label="Admin">
-                <n-tag
-                  :type="detail.user.is_admin ? 'info' : 'default'"
-                  size="small"
-                  :bordered="false"
-                >
-                  {{ detail.user.is_admin ? 'Yes' : 'No' }}
-                </n-tag>
-              </n-descriptions-item>
-              <n-descriptions-item label="Plan">
-                <n-space align="center" :size="8">
-                  <n-select
-                    v-model:value="selectedPlanId"
-                    :options="planOptions"
-                    size="small"
-                    style="width: 160px"
-                  />
-                  <n-button
-                    size="tiny"
-                    type="primary"
-                    :disabled="selectedPlanId === detail.user.plan_id"
-                    @click="changePlan"
-                  >
-                    Save
-                  </n-button>
-                </n-space>
-              </n-descriptions-item>
-              <n-descriptions-item label="GitHub ID">{{ detail.user.github_id || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="Google ID">{{ detail.user.google_id || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="Created">{{ formatDate(detail.user.created_at) }}</n-descriptions-item>
-              <n-descriptions-item label="Last Login">{{ detail.user.last_login_at ? formatDate(detail.user.last_login_at) : 'Never' }}</n-descriptions-item>
-              <n-descriptions-item label="API Tokens">{{ detail.token_count }}</n-descriptions-item>
-              <n-descriptions-item label="Custom Domains">{{ detail.domain_count }}</n-descriptions-item>
-              <n-descriptions-item v-if="detail.tunnel_stats" label="Total Connections">
-                {{ detail.tunnel_stats.total_connections }}
-              </n-descriptions-item>
-              <n-descriptions-item v-if="detail.tunnel_stats" label="Total Traffic">
-                {{ formatBytes(detail.tunnel_stats.total_bytes_sent + detail.tunnel_stats.total_bytes_received) }}
-              </n-descriptions-item>
-            </n-descriptions>
-          </n-card>
-        </n-tab-pane>
+      <Tabs v-model="activeTab" :tabs="tabs">
+        <!-- Info tab -->
+        <div v-if="activeTab === 'info'" class="space-y-4">
+          <Card class="p-6">
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <dt class="text-xs text-muted-foreground">ID</dt>
+                <dd class="text-sm font-mono text-foreground mt-0.5">{{ user.id }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Email</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ user.email || '---' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Телефон</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ user.phone || '---' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Имя</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ user.display_name || '---' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">GitHub ID</dt>
+                <dd class="text-sm font-mono text-foreground mt-0.5">{{ user.github_id || '---' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Google ID</dt>
+                <dd class="text-sm font-mono text-foreground mt-0.5">{{ user.google_id || '---' }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Токенов</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ detail.token_count }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-muted-foreground">Доменов</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ detail.domain_count }}</dd>
+              </div>
+              <div v-if="detail.tunnel_stats">
+                <dt class="text-xs text-muted-foreground">Всего подключений</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ detail.tunnel_stats.total_connections }}</dd>
+              </div>
+              <div v-if="detail.tunnel_stats">
+                <dt class="text-xs text-muted-foreground">Трафик (отправлено / получено)</dt>
+                <dd class="text-sm font-mono text-foreground mt-0.5">
+                  {{ formatBytes(detail.tunnel_stats.total_bytes_sent) }} / {{ formatBytes(detail.tunnel_stats.total_bytes_received) }}
+                </dd>
+              </div>
+            </dl>
+          </Card>
+        </div>
 
-        <!-- Active Tunnels Tab -->
-        <n-tab-pane name="tunnels" tab="Active Tunnels">
-          <n-data-table
+        <!-- Tunnels tab -->
+        <div v-if="activeTab === 'tunnels'">
+          <DataTable
             :columns="tunnelColumns"
-            :data="activeTunnels"
-            :loading="tunnelsLoading"
-            :bordered="false"
-            size="small"
-          />
-          <n-empty v-if="!tunnelsLoading && activeTunnels.length === 0" description="No active tunnels" />
-        </n-tab-pane>
+            :data="detail.tunnel_history"
+            :loading="false"
+            empty-text="Нет истории тоннелей"
+          >
+            <template #id="{ value }">
+              <span class="font-mono text-xs">{{ value }}</span>
+            </template>
+            <template #tunnel_type="{ value }">
+              <Badge
+                :variant="value === 'http' ? 'success' : value === 'tcp' ? 'info' : 'accent'"
+              >
+                {{ value.toUpperCase() }}
+              </Badge>
+            </template>
+            <template #connected_at="{ value }">
+              <span class="text-xs text-muted-foreground">{{ formatDate(value) }}</span>
+            </template>
+            <template #disconnected_at="{ value }">
+              <span class="text-xs text-muted-foreground">{{ value ? formatDate(value) : 'Активен' }}</span>
+            </template>
+            <template #bytes_sent="{ row }">
+              <span class="text-xs font-mono text-muted-foreground">
+                {{ formatBytes(row.bytes_sent) }} / {{ formatBytes(row.bytes_received) }}
+              </span>
+            </template>
+          </DataTable>
+        </div>
 
-        <!-- Subscriptions Tab -->
-        <n-tab-pane name="subscriptions" tab="Subscriptions">
-          <n-data-table
+        <!-- Subscriptions tab -->
+        <div v-if="activeTab === 'subscriptions'">
+          <DataTable
             :columns="subscriptionColumns"
             :data="detail.subscriptions"
-            :bordered="false"
-            size="small"
-          />
-          <n-empty v-if="detail.subscriptions.length === 0" description="No subscriptions" />
-        </n-tab-pane>
+            :loading="false"
+            empty-text="Нет подписок"
+          >
+            <template #id="{ value }">
+              <span class="font-mono text-xs">{{ value }}</span>
+            </template>
+            <template #plan="{ row }">
+              <span class="text-sm">{{ row.plan?.name || `#${row.plan_id}` }}</span>
+            </template>
+            <template #status="{ value }">
+              <Badge :variant="statusVariant(value)">{{ statusLabel(value) }}</Badge>
+            </template>
+            <template #current_period_end="{ value }">
+              <span class="text-xs text-muted-foreground">{{ value ? formatDate(value) : '---' }}</span>
+            </template>
+            <template #actions="{ row }">
+              <div class="flex gap-1">
+                <Button
+                  v-if="row.status === 'active'"
+                  variant="ghost"
+                  size="xs"
+                  @click="cancelSubscription(row.id)"
+                >
+                  Отменить
+                </Button>
+                <Button
+                  v-if="row.status === 'active'"
+                  variant="ghost"
+                  size="xs"
+                  @click="extendSubscription(row.id)"
+                >
+                  Продлить
+                </Button>
+              </div>
+            </template>
+          </DataTable>
+        </div>
 
-        <!-- Payments Tab -->
-        <n-tab-pane name="payments" tab="Payments">
-          <n-data-table
+        <!-- Payments tab -->
+        <div v-if="activeTab === 'payments'">
+          <DataTable
             :columns="paymentColumns"
             :data="detail.payments"
-            :bordered="false"
-            size="small"
-          />
-          <n-empty v-if="detail.payments.length === 0" description="No payments" />
-        </n-tab-pane>
+            :loading="false"
+            empty-text="Нет платежей"
+          >
+            <template #id="{ value }">
+              <span class="font-mono text-xs">{{ value }}</span>
+            </template>
+            <template #amount="{ value }">
+              <span class="font-mono text-sm">{{ value }} ₽</span>
+            </template>
+            <template #status="{ value }">
+              <Badge :variant="paymentStatusVariant(value)">{{ paymentStatusLabel(value) }}</Badge>
+            </template>
+            <template #created_at="{ value }">
+              <span class="text-xs text-muted-foreground">{{ formatDate(value) }}</span>
+            </template>
+          </DataTable>
+        </div>
 
-        <!-- Audit Tab -->
-        <n-tab-pane name="audit" tab="Audit Log">
-          <n-data-table
+        <!-- Audit tab -->
+        <div v-if="activeTab === 'audit'">
+          <DataTable
             :columns="auditColumns"
             :data="auditLogs"
             :loading="auditLoading"
-            :bordered="false"
-            size="small"
+            empty-text="Нет записей"
+          >
+            <template #id="{ value }">
+              <span class="font-mono text-xs">{{ value }}</span>
+            </template>
+            <template #action="{ value }">
+              <span class="text-sm font-medium">{{ value }}</span>
+            </template>
+            <template #ip_address="{ value }">
+              <span class="font-mono text-xs text-muted-foreground">{{ value }}</span>
+            </template>
+            <template #created_at="{ value }">
+              <span class="text-xs text-muted-foreground">{{ formatDate(value) }}</span>
+            </template>
+          </DataTable>
+          <Pagination
+            v-if="auditTotal > auditPageSize"
+            class="mt-4"
+            :page="auditPage"
+            :total="auditTotal"
+            :page-size="auditPageSize"
+            @update:page="(v) => { auditPage = v; loadAuditLogs() }"
+            @update:page-size="(v) => { auditPageSize = v; auditPage = 1; loadAuditLogs() }"
           />
-        </n-tab-pane>
-      </n-tabs>
+        </div>
+      </Tabs>
+    </template>
 
-      <!-- Reset Password Modal -->
-      <n-modal
-        v-model:show="showResetPasswordModal"
-        preset="dialog"
-        title="Reset Password"
-        positive-text="Reset"
-        negative-text="Cancel"
-        :positive-button-props="{ disabled: newPassword.length < 8 }"
-        @positive-click="handleResetPassword"
-      >
-        <n-space vertical :size="8">
-          <n-text>Enter new password (min 8 characters):</n-text>
-          <n-input
-            v-model:value="newPassword"
-            type="password"
-            placeholder="New password"
-            show-password-on="click"
-            :minlength="8"
-          />
-        </n-space>
-      </n-modal>
-    </n-space>
-  </n-spin>
+    <!-- Reset password modal -->
+    <Modal v-model:show="showResetPassword" title="Сбросить пароль">
+      <div class="space-y-4">
+        <p class="text-sm text-muted-foreground">
+          Введите новый пароль для пользователя {{ user?.email || user?.phone }}:
+        </p>
+        <Input
+          v-model="newPassword"
+          type="password"
+          placeholder="Новый пароль"
+        />
+      </div>
+      <template #footer>
+        <Button variant="ghost" @click="showResetPassword = false">Отмена</Button>
+        <Button :disabled="!newPassword || newPassword.length < 6" @click="resetPassword">
+          Сбросить
+        </Button>
+      </template>
+    </Modal>
+
+    <!-- Confirm dialog -->
+    <ConfirmDialog
+      v-model:show="showConfirmDelete"
+      title="Удалить пользователя"
+      :message="`Вы уверены, что хотите удалить ${user?.email || user?.phone}? Это действие необратимо.`"
+      variant="destructive"
+      confirm-text="Удалить"
+      @confirm="deleteUser"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { format, formatDistanceToNow } from 'date-fns'
+import { ru } from 'date-fns/locale'
 import {
-  NSpace,
-  NButton,
-  NText,
-  NTag,
-  NCard,
-  NTabs,
-  NTabPane,
-  NDescriptions,
-  NDescriptionsItem,
-  NDataTable,
-  NAvatar,
-  NSelect,
-  NModal,
-  NInput,
-  NIcon,
-  NSpin,
-  NEmpty,
-  useMessage,
-  useDialog,
-} from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { ArrowBackOutline } from '@vicons/ionicons5'
-import { format } from 'date-fns'
-
+  ArrowLeft,
+  Ban,
+  CheckCircle,
+  ShieldCheck,
+  ShieldOff,
+  KeyRound,
+  Trash2,
+} from 'lucide-vue-next'
 import { adminApi } from '@/api/client'
-import type {
-  AdminUserDetail,
-  AdminTunnel,
-  AdminSubscription,
-  Payment,
-  AuditLog,
-  Plan,
-} from '@/api/types'
+import { useToast } from '@/composables/useToast'
+import { getErrorMessage } from '@/utils/error'
+import type { AdminUserDetail, AdminUser, AuditLog } from '@/api/types'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Card from '@/components/ui/Card.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Button from '@/components/ui/Button.vue'
+import Tabs from '@/components/ui/Tabs.vue'
+import DataTable from '@/components/ui/DataTable.vue'
+import Pagination from '@/components/ui/Pagination.vue'
+import Modal from '@/components/ui/Modal.vue'
+import Input from '@/components/ui/Input.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
-const message = useMessage()
-const dialog = useDialog()
+const toast = useToast()
+
+// --- State ---
+const detail = ref<AdminUserDetail | null>(null)
+const loading = ref(false)
+const activeTab = ref('info')
+
+const showResetPassword = ref(false)
+const newPassword = ref('')
+const showConfirmDelete = ref(false)
+
+// Audit logs pagination
+const auditLogs = ref<AuditLog[]>([])
+const auditLoading = ref(false)
+const auditPage = ref(1)
+const auditPageSize = ref(20)
+const auditTotal = ref(0)
+
+const user = computed<AdminUser>(() => detail.value?.user ?? {} as AdminUser)
 
 const userId = computed(() => Number(route.params.id))
 
-// State
-const detail = ref<AdminUserDetail | null>(null)
-const loading = ref(false)
-const plans = ref<Plan[]>([])
-const selectedPlanId = ref<number>(0)
-const planOptions = ref<Array<{ label: string; value: number }>>([])
-
-// Reset password
-const showResetPasswordModal = ref(false)
-const newPassword = ref('')
-
-// Active tunnels
-const activeTunnels = ref<AdminTunnel[]>([])
-const tunnelsLoading = ref(false)
-
-// Audit logs
-const auditLogs = ref<AuditLog[]>([])
-const auditLoading = ref(false)
-
-const userInitials = computed(() => {
-  if (!detail.value) return '?'
-  const name = detail.value.user.display_name || detail.value.user.phone
+const initials = computed(() => {
+  const name = user.value.display_name || user.value.email || user.value.phone || '?'
   return name.slice(0, 2).toUpperCase()
 })
 
-function formatDate(dateStr: string): string {
-  return format(new Date(dateStr), 'MMM d, yyyy HH:mm')
-}
+// --- Tabs ---
+const tabs = [
+  { key: 'info', label: 'Информация' },
+  { key: 'tunnels', label: 'Тоннели' },
+  { key: 'subscriptions', label: 'Подписки' },
+  { key: 'payments', label: 'Платежи' },
+  { key: 'audit', label: 'Аудит' },
+]
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
-}
+// --- Table columns ---
+const tunnelColumns: Column[] = [
+  { key: 'id', title: 'ID', width: '60px' },
+  { key: 'tunnel_type', title: 'Тип', width: '80px' },
+  { key: 'local_port', title: 'Локальный порт', width: '120px' },
+  { key: 'url', title: 'URL' },
+  { key: 'connected_at', title: 'Подключен', width: '140px' },
+  { key: 'disconnected_at', title: 'Отключен', width: '140px' },
+  { key: 'bytes_sent', title: 'Трафик', width: '160px' },
+]
 
-// Fetch data
-async function fetchDetail() {
+const subscriptionColumns: Column[] = [
+  { key: 'id', title: 'ID', width: '60px' },
+  { key: 'plan', title: 'Тариф' },
+  { key: 'status', title: 'Статус', width: '120px' },
+  { key: 'current_period_end', title: 'До', width: '140px' },
+  { key: 'actions', title: '', width: '180px', align: 'right' },
+]
+
+const paymentColumns: Column[] = [
+  { key: 'id', title: 'ID', width: '60px' },
+  { key: 'invoice_id', title: 'Счет', width: '80px' },
+  { key: 'amount', title: 'Сумма', width: '100px' },
+  { key: 'status', title: 'Статус', width: '120px' },
+  { key: 'created_at', title: 'Дата', width: '140px' },
+]
+
+const auditColumns: Column[] = [
+  { key: 'id', title: 'ID', width: '60px' },
+  { key: 'action', title: 'Действие' },
+  { key: 'ip_address', title: 'IP', width: '140px' },
+  { key: 'created_at', title: 'Дата', width: '140px' },
+]
+
+// --- Load ---
+async function loadUser() {
   loading.value = true
   try {
-    const resp = await adminApi.getUserDetail(userId.value)
-    detail.value = resp.data
-    selectedPlanId.value = resp.data.user.plan_id
-  } catch {
-    message.error('Failed to load user detail')
-    router.push('/users')
+    const { data } = await adminApi.getUserDetail(userId.value)
+    detail.value = data
+  } catch (err) {
+    toast.error(getErrorMessage(err, 'Ошибка загрузки пользователя'))
+    router.push({ name: 'users' })
   } finally {
     loading.value = false
   }
 }
 
-async function fetchPlans() {
-  try {
-    const resp = await adminApi.listPlans()
-    plans.value = resp.data.plans || []
-    planOptions.value = plans.value.map((p) => ({ label: p.name, value: p.id }))
-  } catch {
-    // ignore
-  }
-}
-
-async function fetchActiveTunnels() {
-  tunnelsLoading.value = true
-  try {
-    const resp = await adminApi.listTunnels({ user_id: userId.value })
-    activeTunnels.value = resp.data.tunnels || []
-  } catch {
-    // ignore - user might not have active tunnels
-  } finally {
-    tunnelsLoading.value = false
-  }
-}
-
-async function fetchAuditLogs() {
+async function loadAuditLogs() {
   auditLoading.value = true
   try {
-    const resp = await adminApi.listAuditLogs(1, 50, userId.value)
-    auditLogs.value = resp.data.logs || []
+    const { data } = await adminApi.listAuditLogs(auditPage.value, auditPageSize.value, userId.value)
+    auditLogs.value = data.logs ?? []
+    auditTotal.value = data.total ?? 0
   } catch {
-    message.error('Failed to load audit logs')
+    auditLogs.value = []
   } finally {
     auditLoading.value = false
   }
 }
 
-// Actions
+// --- Actions ---
 async function toggleActive() {
-  if (!detail.value) return
-  const user = detail.value.user
-  const action = user.is_active ? 'Block' : 'Unblock'
-
-  dialog.warning({
-    title: `${action} User`,
-    content: `${action} ${user.display_name || user.phone}?`,
-    positiveText: action,
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.updateUser(user.id, { is_active: !user.is_active })
-        message.success(`User ${action.toLowerCase()}ed`)
-        fetchDetail()
-      } catch {
-        message.error(`Failed to ${action.toLowerCase()} user`)
-      }
-    },
-  })
+  try {
+    const newActive = !user.value.is_active
+    await adminApi.updateUser(userId.value, { is_active: newActive })
+    toast.success(newActive ? 'Пользователь разблокирован' : 'Пользователь заблокирован')
+    loadUser()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
 }
 
 async function toggleAdmin() {
-  if (!detail.value) return
-  const user = detail.value.user
   try {
-    await adminApi.updateUser(user.id, { is_admin: !user.is_admin })
-    message.success(user.is_admin ? 'Admin removed' : 'Admin granted')
-    fetchDetail()
-  } catch {
-    message.error('Failed to update admin status')
+    const newAdmin = !user.value.is_admin
+    await adminApi.updateUser(userId.value, { is_admin: newAdmin })
+    toast.success(newAdmin ? 'Права админа назначены' : 'Права админа отозваны')
+    loadUser()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
   }
 }
 
-async function changePlan() {
-  if (!detail.value) return
-  try {
-    await adminApi.updateUser(detail.value.user.id, { plan_id: selectedPlanId.value })
-    message.success('Plan updated')
-    fetchDetail()
-  } catch {
-    message.error('Failed to update plan')
-  }
-}
-
-async function handleResetPassword() {
-  if (newPassword.value.length < 8) return
+async function resetPassword() {
+  if (!newPassword.value) return
   try {
     await adminApi.resetPassword(userId.value, newPassword.value)
-    message.success('Password reset successfully')
+    toast.success('Пароль успешно сброшен')
+    showResetPassword.value = false
     newPassword.value = ''
-    showResetPasswordModal.value = false
-  } catch {
-    message.error('Failed to reset password')
+  } catch (err) {
+    toast.error(getErrorMessage(err))
   }
 }
 
-function handleDelete() {
-  if (!detail.value) return
-  const user = detail.value.user
-
-  dialog.error({
-    title: 'Delete User',
-    content: `Permanently delete ${user.display_name || user.phone}? This cannot be undone.`,
-    positiveText: 'Delete',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.deleteUser(user.id)
-        message.success('User deleted')
-        router.push('/users')
-      } catch {
-        message.error('Failed to delete user')
-      }
-    },
-  })
+function confirmDelete() {
+  showConfirmDelete.value = true
 }
 
-// Table columns
-const tunnelColumns: DataTableColumns<AdminTunnel> = [
-  { title: 'ID', key: 'id', width: 80, ellipsis: { tooltip: true } },
-  {
-    title: 'Type',
-    key: 'type',
-    width: 80,
-    render(row) {
-      const typeColors: Record<string, string> = {
-        http: 'success',
-        tcp: 'info',
-        udp: 'warning',
-      }
-      return h(
-        NTag,
-        { type: (typeColors[row.type] || 'default') as 'success' | 'info' | 'warning' | 'default', size: 'small', bordered: false },
-        { default: () => row.type.toUpperCase() },
-      )
-    },
-  },
-  { title: 'Name', key: 'name', ellipsis: { tooltip: true } },
-  { title: 'Subdomain', key: 'subdomain', width: 150, render(row) { return row.subdomain || '-' } },
-  { title: 'Remote Port', key: 'remote_port', width: 110, render(row) { return row.remote_port ?? '-' } },
-  { title: 'Local Port', key: 'local_port', width: 100 },
-  {
-    title: 'Created',
-    key: 'created_at',
-    width: 150,
-    render(row) {
-      return format(new Date(row.created_at), 'MMM d, HH:mm')
-    },
-  },
-]
-
-const subscriptionColumns: DataTableColumns<AdminSubscription> = [
-  { title: 'ID', key: 'id', width: 60 },
-  {
-    title: 'Plan',
-    key: 'plan',
-    width: 120,
-    render(row) {
-      return row.plan?.name || `#${row.plan_id}`
-    },
-  },
-  {
-    title: 'Status',
-    key: 'status',
-    width: 100,
-    render(row) {
-      const statusType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-        active: 'success',
-        pending: 'warning',
-        cancelled: 'error',
-        expired: 'default',
-      }
-      return h(
-        NTag,
-        { type: statusType[row.status] || 'default', size: 'small', bordered: false },
-        { default: () => row.status },
-      )
-    },
-  },
-  {
-    title: 'Recurring',
-    key: 'recurring',
-    width: 90,
-    render(row) {
-      return row.recurring ? 'Yes' : 'No'
-    },
-  },
-  {
-    title: 'Period Start',
-    key: 'current_period_start',
-    width: 130,
-    render(row) {
-      return row.current_period_start ? format(new Date(row.current_period_start), 'MMM d, yyyy') : '-'
-    },
-  },
-  {
-    title: 'Period End',
-    key: 'current_period_end',
-    width: 130,
-    render(row) {
-      return row.current_period_end ? format(new Date(row.current_period_end), 'MMM d, yyyy') : '-'
-    },
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 140,
-    render(row) {
-      if (row.status !== 'active') return '-'
-      return h(NSpace, { size: 4 }, {
-        default: () => [
-          h(NButton, { size: 'tiny', onClick: () => cancelSubscription(row.id) }, { default: () => 'Cancel' }),
-          h(NButton, { size: 'tiny', type: 'primary', onClick: () => extendSubscription(row.id) }, { default: () => 'Extend' }),
-        ],
-      })
-    },
-  },
-]
-
-const paymentColumns: DataTableColumns<Payment> = [
-  { title: 'ID', key: 'id', width: 60 },
-  { title: 'Invoice', key: 'invoice_id', width: 90 },
-  {
-    title: 'Amount',
-    key: 'amount',
-    width: 100,
-    render(row) {
-      return `${row.currency === 'RUB' ? '' : '$'}${row.amount}${row.currency === 'RUB' ? ' RUB' : ''}`
-    },
-  },
-  {
-    title: 'Status',
-    key: 'status',
-    width: 90,
-    render(row) {
-      const statusType: Record<string, 'success' | 'warning' | 'error'> = {
-        success: 'success',
-        pending: 'warning',
-        failed: 'error',
-      }
-      return h(
-        NTag,
-        { type: statusType[row.status] || 'default', size: 'small', bordered: false },
-        { default: () => row.status },
-      )
-    },
-  },
-  {
-    title: 'Provider',
-    key: 'provider',
-    width: 100,
-  },
-  {
-    title: 'Recurring',
-    key: 'is_recurring',
-    width: 90,
-    render(row) {
-      return row.is_recurring ? 'Yes' : 'No'
-    },
-  },
-  {
-    title: 'Date',
-    key: 'created_at',
-    width: 140,
-    render(row) {
-      return format(new Date(row.created_at), 'MMM d, yyyy HH:mm')
-    },
-  },
-]
-
-const auditColumns: DataTableColumns<AuditLog> = [
-  {
-    title: 'Time',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return format(new Date(row.created_at), 'MMM d, HH:mm:ss')
-    },
-  },
-  { title: 'Action', key: 'action', ellipsis: { tooltip: true } },
-  { title: 'IP', key: 'ip_address', width: 130 },
-  {
-    title: 'Details',
-    key: 'details',
-    ellipsis: { tooltip: true },
-    render(row) {
-      if (!row.details) return '-'
-      return JSON.stringify(row.details)
-    },
-  },
-]
-
-// Subscription actions
-async function cancelSubscription(id: number) {
-  dialog.warning({
-    title: 'Cancel Subscription',
-    content: 'Cancel this subscription?',
-    positiveText: 'Cancel Subscription',
-    negativeText: 'Go Back',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.cancelSubscription(id)
-        message.success('Subscription cancelled')
-        fetchDetail()
-      } catch {
-        message.error('Failed to cancel subscription')
-      }
-    },
-  })
-}
-
-async function extendSubscription(id: number) {
-  dialog.info({
-    title: 'Extend Subscription',
-    content: 'Extend by 30 days?',
-    positiveText: 'Extend',
-    negativeText: 'Cancel',
-    onPositiveClick: async () => {
-      try {
-        await adminApi.extendSubscription(id, 30)
-        message.success('Subscription extended by 30 days')
-        fetchDetail()
-      } catch {
-        message.error('Failed to extend subscription')
-      }
-    },
-  })
-}
-
-watch(userId, (newId) => {
-  if (newId) {
-    fetchDetail()
-    fetchActiveTunnels()
-    fetchAuditLogs()
+async function deleteUser() {
+  try {
+    await adminApi.deleteUser(userId.value)
+    toast.success('Пользователь удален')
+    router.push({ name: 'users' })
+  } catch (err) {
+    toast.error(getErrorMessage(err))
   }
-})
+}
 
+async function cancelSubscription(subId: number) {
+  try {
+    await adminApi.cancelSubscription(subId)
+    toast.success('Подписка отменена')
+    loadUser()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+async function extendSubscription(subId: number) {
+  try {
+    await adminApi.extendSubscription(subId, 30)
+    toast.success('Подписка продлена на 30 дней')
+    loadUser()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+// --- Helpers ---
+function formatDate(date: string): string {
+  if (!date) return '---'
+  return format(new Date(date), 'dd.MM.yyyy HH:mm')
+}
+
+function formatRelative(date: string): string {
+  if (!date) return '---'
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ru })
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
+}
+
+function statusVariant(status: string) {
+  switch (status) {
+    case 'active': return 'success' as const
+    case 'cancelled': return 'destructive' as const
+    case 'expired': return 'warning' as const
+    default: return 'default' as const
+  }
+}
+
+function statusLabel(status: string) {
+  switch (status) {
+    case 'active': return 'Активна'
+    case 'pending': return 'Ожидание'
+    case 'cancelled': return 'Отменена'
+    case 'expired': return 'Истекла'
+    default: return status
+  }
+}
+
+function paymentStatusVariant(status: string) {
+  switch (status) {
+    case 'success': return 'success' as const
+    case 'failed': return 'destructive' as const
+    default: return 'warning' as const
+  }
+}
+
+function paymentStatusLabel(status: string) {
+  switch (status) {
+    case 'success': return 'Успешно'
+    case 'pending': return 'Ожидание'
+    case 'failed': return 'Ошибка'
+    default: return status
+  }
+}
+
+// --- Init ---
 onMounted(() => {
-  fetchDetail()
-  fetchPlans()
-  fetchActiveTunnels()
-  fetchAuditLogs()
+  loadUser()
+  loadAuditLogs()
 })
 </script>

@@ -1,138 +1,160 @@
 <template>
-  <n-space vertical :size="16">
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold">Платежи</h1>
+    </div>
+
     <!-- Toolbar -->
-    <n-space align="center" justify="space-between">
-      <n-select
-        v-model:value="statusFilter"
+    <div class="flex flex-wrap items-center gap-3">
+      <Select
+        v-model="statusFilter"
         :options="statusOptions"
-        style="width: 180px"
-        @update:value="handleFilterChange"
+        placeholder="Статус"
+        class="w-48"
       />
-      <n-pagination
-        v-model:page="currentPage"
-        :page-count="totalPages"
-        :page-slot="7"
-        @update:page="fetchPayments"
-      />
-    </n-space>
+    </div>
 
     <!-- Table -->
-    <n-data-table
+    <DataTable
       :columns="columns"
       :data="payments"
       :loading="loading"
-      :row-key="(row: AdminPayment) => row.id"
+      row-key="id"
+      empty-text="Нет платежей"
+    >
+      <template #id="{ value }">
+        <span class="font-mono text-sm text-muted-foreground">{{ value }}</span>
+      </template>
+
+      <template #user="{ row }">
+        <span class="text-sm">{{ row.user_email || row.user_phone }}</span>
+      </template>
+
+      <template #amount="{ row }">
+        <span class="text-sm font-medium">{{ formatAmount(row.amount) }}</span>
+      </template>
+
+      <template #provider="{ row }">
+        <Badge variant="outline">{{ detectProvider(row) }}</Badge>
+      </template>
+
+      <template #status="{ value }">
+        <Badge :variant="paymentStatusBadge(value)">{{ paymentStatusLabel(value) }}</Badge>
+      </template>
+
+      <template #is_recurring="{ value }">
+        <span class="text-sm">{{ value ? 'Да' : 'Нет' }}</span>
+      </template>
+
+      <template #invoice_id="{ value }">
+        <span class="font-mono text-sm text-muted-foreground">{{ value || '-' }}</span>
+      </template>
+
+      <template #created_at="{ value }">
+        <span class="text-sm text-muted-foreground">{{ formatDate(value) }}</span>
+      </template>
+    </DataTable>
+
+    <!-- Pagination -->
+    <Pagination
+      v-if="total > pageSize"
+      :page="page"
+      :total="total"
+      :page-size="pageSize"
+      @update:page="(p) => { page = p; fetchPayments() }"
+      @update:page-size="(s) => { pageSize = s; page = 1; fetchPayments() }"
     />
-  </n-space>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useMessage, NTag } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { format } from 'date-fns'
+import { ref, watch, onMounted } from 'vue'
 import { adminApi } from '@/api/client'
 import type { AdminPayment } from '@/api/types'
-
-const message = useMessage()
+import { getErrorMessage } from '@/utils/error'
+import { format } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column } from '@/components/ui/DataTable.vue'
+import Badge from '@/components/ui/Badge.vue'
+import Select from '@/components/ui/Select.vue'
+import Pagination from '@/components/ui/Pagination.vue'
 
 const payments = ref<AdminPayment[]>([])
 const loading = ref(false)
-const currentPage = ref(1)
+const page = ref(1)
+const pageSize = ref(20)
 const total = ref(0)
-const pageSize = 20
-const statusFilter = ref('')
+const statusFilter = ref<string | number | null>('all')
 
 const statusOptions = [
-  { label: 'All Statuses', value: '' },
-  { label: 'Success', value: 'success' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Failed', value: 'failed' },
+  { value: 'all', label: 'Все' },
+  { value: 'success', label: 'Успешные' },
+  { value: 'pending', label: 'Ожидают' },
+  { value: 'failed', label: 'Неудачные' },
 ]
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-
-const statusTagType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-  success: 'success',
-  pending: 'warning',
-  failed: 'error',
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
-}
-
-const columns: DataTableColumns<AdminPayment> = [
-  { title: 'ID', key: 'id', width: 60 },
-  {
-    title: 'User',
-    key: 'user',
-    width: 160,
-    render(row) {
-      return row.user_phone || row.user_email || '-'
-    },
-  },
-  {
-    title: 'Amount',
-    key: 'amount',
-    width: 120,
-    render(row) {
-      return formatCurrency(row.amount)
-    },
-  },
-  {
-    title: 'Status',
-    key: 'status',
-    width: 100,
-    render(row) {
-      return h(NTag, { type: statusTagType[row.status] || 'default', size: 'small' }, {
-        default: () => row.status.charAt(0).toUpperCase() + row.status.slice(1),
-      })
-    },
-  },
-  {
-    title: 'Recurring',
-    key: 'is_recurring',
-    width: 90,
-    render(row) {
-      return h(NTag, { type: row.is_recurring ? 'info' : 'default', size: 'small' }, {
-        default: () => row.is_recurring ? 'Yes' : 'No',
-      })
-    },
-  },
-  {
-    title: 'Invoice ID',
-    key: 'invoice_id',
-    width: 100,
-  },
-  {
-    title: 'Created At',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return row.created_at ? format(new Date(row.created_at), 'yyyy-MM-dd HH:mm') : '-'
-    },
-  },
+const columns: Column[] = [
+  { key: 'id', title: 'ID', width: '70px' },
+  { key: 'user', title: 'Пользователь' },
+  { key: 'amount', title: 'Сумма', width: '120px' },
+  { key: 'provider', title: 'Провайдер', width: '120px' },
+  { key: 'status', title: 'Статус', width: '120px' },
+  { key: 'is_recurring', title: 'Повторяемый', width: '110px' },
+  { key: 'invoice_id', title: 'Invoice ID', width: '120px' },
+  { key: 'created_at', title: 'Дата', width: '160px' },
 ]
 
-function handleFilterChange() {
-  currentPage.value = 1
-  fetchPayments()
+function formatAmount(amount: number): string {
+  // Amounts >= 100 are likely RUB, < 100 are likely USD
+  if (amount >= 100) {
+    return `${amount.toLocaleString('ru-RU')} \u20BD`
+  }
+  return `$${amount}`
+}
+
+function detectProvider(payment: AdminPayment): string {
+  // Heuristic based on amount - RUB payments use YooKassa, USD use Creem
+  if (payment.amount >= 100) return 'YooKassa'
+  return 'Creem'
+}
+
+function paymentStatusBadge(status: string): 'success' | 'warning' | 'destructive' {
+  if (status === 'success') return 'success'
+  if (status === 'pending') return 'warning'
+  return 'destructive'
+}
+
+function paymentStatusLabel(status: string): string {
+  if (status === 'success') return 'Успешный'
+  if (status === 'pending') return 'Ожидает'
+  if (status === 'failed') return 'Неудачный'
+  return status
+}
+
+function formatDate(dateStr: string): string {
+  return format(new Date(dateStr), 'dd.MM.yyyy HH:mm', { locale: ru })
 }
 
 async function fetchPayments() {
   loading.value = true
   try {
-    const { data } = await adminApi.listPayments(currentPage.value, pageSize, statusFilter.value || undefined)
+    const status = statusFilter.value === 'all' ? undefined : String(statusFilter.value)
+    const { data } = await adminApi.listPayments(page.value, pageSize.value, status)
     payments.value = data.payments || []
-    total.value = data.total || 0
-  } catch (err: unknown) {
-    const error = err as { response?: { data?: { error?: string } }; message?: string }
-    message.error(error.response?.data?.error || error.message || 'Failed to load payments')
+    total.value = data.total
+  } catch (err) {
+    console.error(getErrorMessage(err))
   } finally {
     loading.value = false
   }
 }
+
+watch(statusFilter, () => {
+  page.value = 1
+  fetchPayments()
+})
 
 onMounted(() => {
   fetchPayments()

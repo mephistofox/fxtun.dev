@@ -1,199 +1,233 @@
 <template>
-  <n-space vertical :size="24">
-    <!-- SSE Connection indicator -->
-    <n-space align="center" :size="8">
-      <div
-        :style="{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          backgroundColor: sseConnected ? '#63e2b7' : '#e88080',
-        }"
+  <div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-display font-bold text-foreground">Панель управления</h1>
+      <div class="flex items-center gap-2">
+        <span
+          class="inline-flex items-center gap-1.5 text-xs"
+          :class="sseConnected ? 'text-type-http' : 'text-muted-foreground'"
+        >
+          <span class="status-dot" :class="sseConnected ? 'status-connected' : 'status-disconnected'">
+            <span v-if="sseConnected" class="status-dot-ping status-connected" />
+          </span>
+          {{ sseConnected ? 'Подключено' : 'Отключено' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <Stat
+        label="Активные клиенты"
+        :value="currentStats.active_clients"
+        :icon="MonitorSmartphone"
       />
-      <n-text depth="3" style="font-size: 12px">
-        {{ sseConnected ? 'Live updates active' : 'Reconnecting...' }}
-      </n-text>
-    </n-space>
+      <Stat
+        label="Активные тоннели"
+        :value="currentStats.active_tunnels"
+        :icon="Network"
+      />
+      <Stat
+        label="HTTP тоннели"
+        :value="currentStats.http_tunnels"
+        :icon="Globe"
+        class="border-type-http/20"
+      />
+      <Stat
+        label="TCP тоннели"
+        :value="currentStats.tcp_tunnels"
+        :icon="Cable"
+        class="border-type-tcp/20"
+      />
+      <Stat
+        label="UDP тоннели"
+        :value="currentStats.udp_tunnels"
+        :icon="Radio"
+        class="border-type-udp/20"
+      />
+      <Stat
+        label="Всего пользователей"
+        :value="currentStats.total_users"
+        :icon="Users"
+      />
+    </div>
 
-    <!-- Metric cards -->
-    <n-grid :cols="6" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-      <n-gi span="6 s:3 m:2 l:1" v-for="card in metricCards" :key="card.label">
-        <n-card size="small">
-          <n-statistic :label="card.label" :value="card.value" tabular-nums>
-            <template #prefix>
-              <n-icon :component="card.icon" :size="20" />
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-gi>
-    </n-grid>
-
-    <!-- Charts -->
-    <n-grid :cols="2" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-      <n-gi span="2 m:1">
-        <n-card title="Registrations" size="small">
-          <template #header-extra>
-            <n-radio-group
-              v-model:value="registrationsPeriod"
-              size="small"
-              @update:value="fetchRegistrationsChart"
+    <!-- Charts section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Registrations chart -->
+      <Card variant="glass" class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-semibold text-foreground">Регистрации</h2>
+          <div class="flex gap-1">
+            <button
+              v-for="p in chartPeriods"
+              :key="p.value"
+              type="button"
+              class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+              :class="
+                registrationPeriod === p.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+              "
+              @click="loadChart('registrations', p.value)"
             >
-              <n-radio-button value="24h">24h</n-radio-button>
-              <n-radio-button value="7d">7d</n-radio-button>
-              <n-radio-button value="30d">30d</n-radio-button>
-            </n-radio-group>
-          </template>
-          <n-spin :show="registrationsLoading">
-            <v-chart
-              :option="registrationsChartOption"
-              :style="{ height: '300px' }"
-              autoresize
-            />
-          </n-spin>
-        </n-card>
-      </n-gi>
-      <n-gi span="2 m:1">
-        <n-card title="Revenue" size="small">
-          <template #header-extra>
-            <n-radio-group
-              v-model:value="revenuePeriod"
-              size="small"
-              @update:value="fetchRevenueChart"
-            >
-              <n-radio-button value="24h">24h</n-radio-button>
-              <n-radio-button value="7d">7d</n-radio-button>
-              <n-radio-button value="30d">30d</n-radio-button>
-            </n-radio-group>
-          </template>
-          <n-spin :show="revenueLoading">
-            <v-chart
-              :option="revenueChartOption"
-              :style="{ height: '300px' }"
-              autoresize
-            />
-          </n-spin>
-        </n-card>
-      </n-gi>
-    </n-grid>
+              {{ p.label }}
+            </button>
+          </div>
+        </div>
+        <BarChart
+          :data="registrationData"
+          :loading="registrationLoading"
+          color="hsl(75 100% 50% / 0.8)"
+        />
+      </Card>
 
-    <!-- Bottom section: Recent Activity + Problem Nodes -->
-    <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen" item-responsive>
-      <n-gi span="3 m:2">
-        <n-card title="Recent Activity" size="small">
-          <template #header-extra>
-            <n-button text type="primary" @click="$router.push('/audit')">
-              View all
-            </n-button>
-          </template>
-          <n-data-table
-            :columns="auditColumns"
-            :data="recentAuditLogs"
-            :loading="auditLoading"
-            :bordered="false"
-            size="small"
-            :row-props="auditRowProps"
-          />
-        </n-card>
-      </n-gi>
-      <n-gi span="3 m:1">
-        <n-card title="Problem Nodes" size="small">
-          <n-empty
-            v-if="problemNodes.length === 0 && !nodesLoading"
-            description="All nodes healthy"
-            style="padding: 24px 0"
-          />
-          <n-spin :show="nodesLoading">
-            <n-list v-if="problemNodes.length > 0" :show-divider="true">
-              <n-list-item v-for="node in problemNodes" :key="node.id">
-                <n-thing :title="node.name" :description="node.region">
-                  <template #header-extra>
-                    <n-tag type="error" size="small">Stale</n-tag>
-                  </template>
-                  <n-text depth="3" style="font-size: 12px">
-                    Last heartbeat: {{ formatHeartbeat(node.last_heartbeat_at) }}
-                  </n-text>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-          </n-spin>
-        </n-card>
-      </n-gi>
-    </n-grid>
-  </n-space>
+      <!-- Revenue chart -->
+      <Card variant="glass" class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-display font-semibold text-foreground">Доход</h2>
+          <div class="flex gap-1">
+            <button
+              v-for="p in chartPeriods"
+              :key="p.value"
+              type="button"
+              class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
+              :class="
+                revenuePeriod === p.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+              "
+              @click="loadChart('revenue', p.value)"
+            >
+              {{ p.label }}
+            </button>
+          </div>
+        </div>
+        <BarChart
+          :data="revenueData"
+          :loading="revenueLoading"
+          color="hsl(280 100% 65% / 0.8)"
+          :format-value="(v: number) => `${v} ₽`"
+        />
+      </Card>
+    </div>
+
+    <!-- Bottom section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Recent events -->
+      <Card variant="glass" class="p-6">
+        <h2 class="font-display font-semibold text-foreground mb-4">Последние события</h2>
+        <div v-if="auditLoading" class="flex items-center justify-center py-8">
+          <svg
+            class="h-6 w-6 animate-spin text-primary"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+        <div v-else-if="auditLogs.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+          Нет событий
+        </div>
+        <div v-else class="space-y-0 -mx-2">
+          <div
+            v-for="log in auditLogs"
+            :key="log.id"
+            class="flex items-start gap-3 px-2 py-2.5 rounded-lg hover:bg-surface-elevated/50 transition-colors"
+          >
+            <div class="flex-shrink-0 mt-1">
+              <FileText class="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-foreground truncate">
+                <span class="font-medium">{{ log.action }}</span>
+                <span v-if="log.user_phone" class="text-muted-foreground"> — {{ log.user_phone }}</span>
+              </p>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                {{ formatRelative(log.created_at) }}
+                <span v-if="log.ip_address" class="font-mono"> &middot; {{ log.ip_address }}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <!-- Problematic nodes -->
+      <Card variant="glass" class="p-6">
+        <h2 class="font-display font-semibold text-foreground mb-4">Проблемные ноды</h2>
+        <div v-if="nodesLoading" class="flex items-center justify-center py-8">
+          <svg
+            class="h-6 w-6 animate-spin text-primary"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+        <div v-else-if="staleNodes.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+          <CheckCircle class="h-8 w-8 mx-auto mb-2 text-type-http opacity-50" />
+          Все ноды работают нормально
+        </div>
+        <div v-else class="space-y-0 -mx-2">
+          <div
+            v-for="node in staleNodes"
+            :key="node.id"
+            class="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-surface-elevated/50 transition-colors"
+          >
+            <div class="flex-shrink-0">
+              <AlertTriangle class="h-4 w-4 text-destructive" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-foreground truncate">{{ node.name }}</p>
+              <p class="text-xs text-muted-foreground">
+                {{ node.region }} &middot;
+                <span class="font-mono">{{ node.public_addr }}</span>
+              </p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <Badge variant="destructive" size="sm">
+                {{ formatRelative(node.last_heartbeat_at) }}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, h } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { formatDistanceToNow } from 'date-fns'
+import { ru } from 'date-fns/locale'
 import {
-  NSpace,
-  NGrid,
-  NGi,
-  NCard,
-  NStatistic,
-  NIcon,
-  NText,
-  NDataTable,
-  NButton,
-  NRadioGroup,
-  NRadioButton,
-  NSpin,
-  NTag,
-  NList,
-  NListItem,
-  NThing,
-  NEmpty,
-  useMessage,
-} from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import {
-  PeopleOutline,
-  GitNetworkOutline,
-  GlobeOutline,
-  SwapHorizontalOutline,
-  CloudUploadOutline,
-  PersonOutline,
-} from '@vicons/ionicons5'
-import { format, formatDistanceToNow, differenceInMinutes } from 'date-fns'
-import VChart from 'vue-echarts'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, BarChart } from 'echarts/charts'
-import {
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-} from 'echarts/components'
-import type { ComposeOption } from 'echarts/core'
-import type { LineSeriesOption, BarSeriesOption } from 'echarts/charts'
-import type {
-  GridComponentOption,
-  TooltipComponentOption,
-} from 'echarts/components'
-
+  MonitorSmartphone,
+  Network,
+  Globe,
+  Cable,
+  Radio,
+  Users,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+} from 'lucide-vue-next'
 import { adminApi } from '@/api/client'
 import { useAdminSSE } from '@/composables/useSSE'
-import type {
-  AdminStats,
-  AuditLog,
-  EdgeNode,
-  ChartDataPoint,
-} from '@/api/types'
+import type { AdminStats, AuditLog, EdgeNode, ChartDataPoint } from '@/api/types'
+import Card from '@/components/ui/Card.vue'
+import Stat from '@/components/ui/Stat.vue'
+import Badge from '@/components/ui/Badge.vue'
+import BarChart from '@/components/BarChart.vue'
 
-use([CanvasRenderer, LineChart, BarChart, GridComponent, TooltipComponent, LegendComponent])
+// --- SSE stats ---
+const { stats: sseStats, connected: sseConnected, connect: sseConnect, disconnect: sseDisconnect } = useAdminSSE()
 
-type ECOption = ComposeOption<
-  LineSeriesOption | BarSeriesOption | GridComponentOption | TooltipComponentOption
->
-
-const router = useRouter()
-const message = useMessage()
-
-// SSE
-const { stats: sseStats, connected: sseConnected, connect: sseConnect } = useAdminSSE()
-
-// Stats
-const statsData = ref<AdminStats>({
+const fallbackStats = ref<AdminStats>({
   active_clients: 0,
   active_tunnels: 0,
   http_tunnels: 0,
@@ -202,235 +236,114 @@ const statsData = ref<AdminStats>({
   total_users: 0,
 })
 
-const currentStats = computed(() => sseStats.value ?? statsData.value)
+const currentStats = computed(() => sseStats.value ?? fallbackStats.value)
 
-const metricCards = computed(() => [
-  {
-    label: 'Active Clients',
-    value: currentStats.value.active_clients,
-    icon: PeopleOutline,
-  },
-  {
-    label: 'Active Tunnels',
-    value: currentStats.value.active_tunnels,
-    icon: GitNetworkOutline,
-  },
-  {
-    label: 'HTTP Tunnels',
-    value: currentStats.value.http_tunnels,
-    icon: GlobeOutline,
-  },
-  {
-    label: 'TCP Tunnels',
-    value: currentStats.value.tcp_tunnels,
-    icon: SwapHorizontalOutline,
-  },
-  {
-    label: 'UDP Tunnels',
-    value: currentStats.value.udp_tunnels,
-    icon: CloudUploadOutline,
-  },
-  {
-    label: 'Total Users',
-    value: currentStats.value.total_users,
-    icon: PersonOutline,
-  },
-])
-
-// Charts
-const registrationsPeriod = ref('30d')
-const revenuePeriod = ref('30d')
-const registrationsData = ref<ChartDataPoint[]>([])
-const revenueData = ref<ChartDataPoint[]>([])
-const registrationsLoading = ref(false)
-const revenueLoading = ref(false)
-
-const chartAxisStyle = {
-  axisLine: { lineStyle: { color: '#555' } },
-  axisLabel: { color: '#999' },
-  splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-}
-
-const registrationsChartOption = computed<ECOption>(() => ({
-  backgroundColor: 'transparent',
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 16, top: 16, bottom: 32 },
-  xAxis: {
-    type: 'category',
-    data: registrationsData.value.map((p) => formatChartDate(p.date)),
-    ...chartAxisStyle,
-  },
-  yAxis: {
-    type: 'value',
-    minInterval: 1,
-    ...chartAxisStyle,
-  },
-  series: [
-    {
-      type: 'line',
-      data: registrationsData.value.map((p) => p.value),
-      smooth: true,
-      areaStyle: { opacity: 0.15 },
-      lineStyle: { color: '#63e2b7' },
-      itemStyle: { color: '#63e2b7' },
-    },
-  ],
-}))
-
-const revenueChartOption = computed<ECOption>(() => ({
-  backgroundColor: 'transparent',
-  tooltip: { trigger: 'axis' },
-  grid: { left: 50, right: 16, top: 16, bottom: 32 },
-  xAxis: {
-    type: 'category',
-    data: revenueData.value.map((p) => formatChartDate(p.date)),
-    ...chartAxisStyle,
-  },
-  yAxis: {
-    type: 'value',
-    ...chartAxisStyle,
-  },
-  series: [
-    {
-      type: 'bar',
-      data: revenueData.value.map((p) => p.value),
-      itemStyle: { color: '#70c0e8', borderRadius: [4, 4, 0, 0] },
-    },
-  ],
-}))
-
-function formatChartDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr)
-    return format(d, 'MMM d')
-  } catch {
-    return dateStr
-  }
-}
-
-async function fetchRegistrationsChart() {
-  registrationsLoading.value = true
-  try {
-    const resp = await adminApi.getChartData('registrations', registrationsPeriod.value)
-    registrationsData.value = resp.data.points || []
-  } catch {
-    message.error('Failed to load registrations chart')
-  } finally {
-    registrationsLoading.value = false
-  }
-}
-
-async function fetchRevenueChart() {
-  revenueLoading.value = true
-  try {
-    const resp = await adminApi.getChartData('payments', revenuePeriod.value)
-    revenueData.value = resp.data.points || []
-  } catch {
-    message.error('Failed to load revenue chart')
-  } finally {
-    revenueLoading.value = false
-  }
-}
-
-// Audit
-const recentAuditLogs = ref<AuditLog[]>([])
-const auditLoading = ref(false)
-
-const auditColumns: DataTableColumns<AuditLog> = [
-  {
-    title: 'Time',
-    key: 'created_at',
-    width: 160,
-    render(row) {
-      return format(new Date(row.created_at), 'MMM d, HH:mm:ss')
-    },
-  },
-  {
-    title: 'User',
-    key: 'user_phone',
-    width: 140,
-    render(row) {
-      return row.user_phone || '-'
-    },
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'IP',
-    key: 'ip_address',
-    width: 130,
-  },
+// --- Chart data ---
+const chartPeriods = [
+  { label: '7д', value: '7d' },
+  { label: '30д', value: '30d' },
 ]
 
-function auditRowProps(row: AuditLog) {
-  return {
-    style: 'cursor: pointer',
-    onClick: () => {
-      router.push('/audit')
-    },
+const registrationPeriod = ref('30d')
+const registrationData = ref<ChartDataPoint[]>([])
+const registrationLoading = ref(false)
+
+const revenuePeriod = ref('30d')
+const revenueData = ref<ChartDataPoint[]>([])
+const revenueLoading = ref(false)
+
+async function loadChart(metric: string, period: string) {
+  if (metric === 'registrations') {
+    registrationPeriod.value = period
+    registrationLoading.value = true
+    try {
+      const { data } = await adminApi.getChartData('registrations', period)
+      registrationData.value = data.points ?? []
+    } catch {
+      registrationData.value = []
+    } finally {
+      registrationLoading.value = false
+    }
+  } else {
+    revenuePeriod.value = period
+    revenueLoading.value = true
+    try {
+      const { data } = await adminApi.getChartData('payments', period)
+      revenueData.value = data.points ?? []
+    } catch {
+      revenueData.value = []
+    } finally {
+      revenueLoading.value = false
+    }
   }
 }
 
-async function fetchAuditLogs() {
+// --- Audit logs ---
+const auditLogs = ref<AuditLog[]>([])
+const auditLoading = ref(false)
+
+async function loadAuditLogs() {
   auditLoading.value = true
   try {
-    const resp = await adminApi.listAuditLogs(1, 10)
-    recentAuditLogs.value = resp.data.logs || []
+    const { data } = await adminApi.listAuditLogs(1, 10)
+    auditLogs.value = data.logs ?? []
   } catch {
-    message.error('Failed to load audit logs')
+    auditLogs.value = []
   } finally {
     auditLoading.value = false
   }
 }
 
-// Nodes
+// --- Nodes ---
 const allNodes = ref<EdgeNode[]>([])
 const nodesLoading = ref(false)
 
-const problemNodes = computed(() => {
-  const now = new Date()
-  return allNodes.value.filter((node) => {
-    if (!node.last_heartbeat_at) return true
-    return differenceInMinutes(now, new Date(node.last_heartbeat_at)) > 5
+const staleNodes = computed(() => {
+  const fiveMinAgo = Date.now() - 5 * 60 * 1000
+  return allNodes.value.filter((n) => {
+    if (!n.last_heartbeat_at) return true
+    return new Date(n.last_heartbeat_at).getTime() < fiveMinAgo
   })
 })
 
-function formatHeartbeat(dt: string | undefined): string {
-  if (!dt) return 'Never'
-  return formatDistanceToNow(new Date(dt), { addSuffix: true })
-}
-
-async function fetchNodes() {
+async function loadNodes() {
   nodesLoading.value = true
   try {
-    const resp = await adminApi.listNodes()
-    allNodes.value = resp.data.nodes || []
+    const { data } = await adminApi.listNodes()
+    allNodes.value = data.nodes ?? []
   } catch {
-    message.error('Failed to load nodes')
+    allNodes.value = []
   } finally {
     nodesLoading.value = false
   }
 }
 
-// Initial fetch
-async function fetchStats() {
+// --- Helpers ---
+function formatRelative(date?: string): string {
+  if (!date) return 'Нет данных'
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ru })
+}
+
+// --- Init ---
+async function loadInitialStats() {
   try {
-    const resp = await adminApi.getStats()
-    statsData.value = resp.data
+    const { data } = await adminApi.getStats()
+    fallbackStats.value = data
   } catch {
-    message.error('Failed to load stats')
+    // SSE will take over
   }
 }
 
 onMounted(() => {
-  fetchStats()
-  fetchRegistrationsChart()
-  fetchRevenueChart()
-  fetchAuditLogs()
-  fetchNodes()
   sseConnect()
+  loadInitialStats()
+  loadChart('registrations', '30d')
+  loadChart('revenue', '30d')
+  loadAuditLogs()
+  loadNodes()
+})
+
+onUnmounted(() => {
+  sseDisconnect()
 })
 </script>

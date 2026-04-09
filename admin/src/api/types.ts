@@ -207,13 +207,26 @@ export interface BulkResult {
 
 // Server settings
 export interface ServerSettings {
-  control_port: number
-  http_port: number
-  web_port: number
-  cors_origins: string
-  base_domain: string
-  registration_enabled: boolean
-  totp_enabled: boolean
+  server: {
+    control_port: number
+    http_port: number
+    [key: string]: unknown
+  }
+  web: {
+    port: number
+    cors_origins: string[]
+    [key: string]: unknown
+  }
+  domain: {
+    base: string
+    [key: string]: unknown
+  }
+  features: {
+    registration_enabled: boolean
+    totp_enabled: boolean
+    [key: string]: unknown
+  }
+  [key: string]: unknown
 }
 
 // System info

@@ -1,10 +1,6 @@
 /// <reference types="vite/client" />
 /// <reference types="vite-ssg" />
 
-declare module "vite-plugin-obfuscator" {
-  import type { Plugin } from "vite";
-  export function viteObfuscateFile(options?: Record<string, unknown>): Plugin;
-}
 
 interface Window {
   dataLayer: unknown[]
