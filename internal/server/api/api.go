@@ -399,6 +399,7 @@ func (s *Server) setupRoutes() {
 
 				r.Post("/users/merge", s.handleMergeUsers)
 				r.Post("/users/{id}/reset-password", s.handleAdminResetPassword)
+				r.Post("/users/{id}/grant-subscription", s.handleAdminGrantSubscription)
 
 				r.Get("/custom-domains", s.handleAdminListCustomDomains)
 				r.Delete("/custom-domains/{id}", s.handleAdminDeleteCustomDomain)
