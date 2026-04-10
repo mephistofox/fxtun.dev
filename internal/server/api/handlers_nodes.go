@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -215,6 +216,36 @@ func (s *Server) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleNodeTLSCert returns the hub's TLS certificate for edge nodes.
+func (s *Server) handleNodeTLSCert(w http.ResponseWriter, r *http.Request) {
+	certFile := s.cfg.TLS.CertFile
+	keyFile := s.cfg.TLS.KeyFile
+
+	if certFile == "" || keyFile == "" {
+		http.Error(w, `{"error":"TLS not configured on hub"}`, http.StatusNotFound)
+		return
+	}
+
+	certPEM, err := os.ReadFile(certFile)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to read TLS cert")
+		http.Error(w, `{"error":"failed to read cert"}`, http.StatusInternalServerError)
+		return
+	}
+	keyPEM, err := os.ReadFile(keyFile)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to read TLS key")
+		http.Error(w, `{"error":"failed to read key"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"cert_pem": string(certPEM),
+		"key_pem":  string(keyPEM),
+	})
 }
 
 // --- Internal Auth Verification (called by nodes to validate client tokens) ---

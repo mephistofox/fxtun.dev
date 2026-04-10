@@ -242,6 +242,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			w.Header().Add(key, v)
 		}
 	}
+	w.Header().Set("X-FxTunnel-Node", r.server.LocalNodeID())
 	w.WriteHeader(resp.StatusCode)
 
 	// --- Inspection: set up TeeReader to capture while streaming ---

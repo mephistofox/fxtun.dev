@@ -288,6 +288,7 @@ func (s *Server) setupRoutes() {
 			r.Route("/internal", func(r chi.Router) {
 				r.Use(s.nodeTokenMiddleware)
 				r.Post("/auth/verify", s.handleVerifyClientToken)
+				r.Get("/tls-cert", s.handleNodeTLSCert)
 			})
 		}
 
