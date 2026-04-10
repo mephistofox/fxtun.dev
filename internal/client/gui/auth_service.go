@@ -447,6 +447,56 @@ func (s *AuthService) refreshAccessToken(serverAddr, refreshToken string) (*auth
 	}, nil
 }
 
+// exchangeOAuthCode exchanges a one-time authorization code for tokens via the server API.
+func (s *AuthService) exchangeOAuthCode(serverAddr, code string) (*authTokens, error) {
+	apiURL := s.buildAPIURL(serverAddr, "/api/auth/exchange")
+
+	reqBody := map[string]string{
+		"code": code,
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(apiURL, "application/json", bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("exchange request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		json.Unmarshal(body, &errResp)
+		if errResp.Error != "" {
+			return nil, fmt.Errorf("%s", errResp.Error)
+		}
+		return nil, fmt.Errorf("exchange failed with status %d", resp.StatusCode)
+	}
+
+	var exchangeResp struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(body, &exchangeResp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	return &authTokens{
+		AccessToken:  exchangeResp.AccessToken,
+		RefreshToken: exchangeResp.RefreshToken,
+	}, nil
+}
+
 // StartOAuthFlow opens the system browser for OAuth and starts a localhost callback server.
 // Returns the provider URL that was opened.
 func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error) {
@@ -468,9 +518,6 @@ func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		accessToken := r.URL.Query().Get("access_token")
-		refreshToken := r.URL.Query().Get("refresh_token")
-
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			fmt.Fprintf(w, `<!DOCTYPE html><html><body><h2>Ошибка авторизации</h2><p>%s</p><p>Вы можете закрыть это окно.</p></body></html>`, html.EscapeString(errMsg))
@@ -481,9 +528,23 @@ func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error
 			return
 		}
 
-		if accessToken == "" {
+		code := r.URL.Query().Get("code")
+		if code == "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprint(w, `<!DOCTYPE html><html><body><h2>Ошибка</h2><p>Токен не получен.</p></body></html>`)
+			fmt.Fprint(w, `<!DOCTYPE html><html><body><h2>Ошибка</h2><p>Код авторизации не получен.</p></body></html>`)
+			select {
+			case ch <- nil:
+			default:
+			}
+			return
+		}
+
+		// Exchange the one-time code for tokens via server API
+		tokens, err := s.exchangeOAuthCode(serverAddr, code)
+		if err != nil {
+			s.log.Error().Err(err).Msg("OAuth code exchange failed")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html><html><body><h2>Ошибка</h2><p>Не удалось обменять код: %s</p></body></html>`, html.EscapeString(err.Error()))
 			select {
 			case ch <- nil:
 			default:
@@ -495,7 +556,7 @@ func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error
 		fmt.Fprint(w, `<!DOCTYPE html><html><body><h2>Авторизация успешна!</h2><p>Вы можете закрыть это окно и вернуться в приложение.</p><script>window.close()</script></body></html>`)
 
 		select {
-		case ch <- &authTokens{AccessToken: accessToken, RefreshToken: refreshToken}:
+		case ch <- tokens:
 		default:
 		}
 	})
