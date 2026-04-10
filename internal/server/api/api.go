@@ -457,7 +457,7 @@ func (s *Server) Start(ctx context.Context) error {
 		Addr:         addr,
 		Handler:      s.router,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0, // Disabled for SSE long-lived connections
+		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 

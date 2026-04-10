@@ -205,9 +205,12 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rc := http.NewResponseController(w)
+
 	ch := buf.Subscribe()
 	defer buf.Unsubscribe(ch)
 
+	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	_, _ = fmt.Fprintf(w, ": ping\n\n")
 	flusher.Flush()
 
@@ -218,6 +221,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			data, _ := json.Marshal(ex.Summary())
+			rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 			_, _ = fmt.Fprintf(w, "event: exchange\ndata: %s\n\n", data)
 			flusher.Flush()
 		case <-r.Context().Done():
