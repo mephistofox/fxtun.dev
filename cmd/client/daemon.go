@@ -165,7 +165,10 @@ func runDaemonForeground() error {
 	// Print active tunnels
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
-			fmt.Printf("  HTTP: %s\n", t.URL)
+			fmt.Printf("  HTTP:  %s\n", t.URL)
+			if t.HTTPSURL != "" {
+				fmt.Printf("  HTTPS: %s\n", t.HTTPSURL)
+			}
 		} else {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}

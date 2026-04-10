@@ -127,6 +127,7 @@ type TunnelCreatedMessage struct {
 
 	// For HTTP tunnels
 	URL       string `json:"url,omitempty"`
+	HTTPSURL  string `json:"https_url,omitempty"`
 	Subdomain string `json:"subdomain,omitempty"`
 
 	// For TCP/UDP tunnels
