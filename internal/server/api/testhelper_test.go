@@ -2,12 +2,15 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
@@ -57,17 +60,67 @@ type testEnv struct {
 	APIServer      *Server
 }
 
-// setupTestEnv creates a fully wired test environment with in-memory SQLite,
+// testDSN returns the PostgreSQL DSN for testing. It reads from TEST_DATABASE_DSN
+// environment variable. If not set, the test is skipped.
+func testDSN(t *testing.T) string {
+	t.Helper()
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping database-dependent test")
+	}
+	return dsn
+}
+
+// setupTestSchema creates an isolated PostgreSQL schema for a test and returns
+// the DSN with search_path set to that schema. Cleans up after the test.
+func setupTestSchema(t *testing.T, baseDSN string) string {
+	t.Helper()
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, baseDSN)
+	if err != nil {
+		t.Fatalf("failed to connect to test database: %v", err)
+	}
+
+	// Create a unique schema for this test (safe: schemaName is constructed from UnixNano)
+	schemaName := fmt.Sprintf("test_%d", time.Now().UnixNano())
+	_, err = pool.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %q", schemaName))
+	if err != nil {
+		pool.Close()
+		t.Fatalf("failed to create test schema: %v", err)
+	}
+
+	pool.Close()
+
+	t.Cleanup(func() {
+		cleanPool, err := pgxpool.New(ctx, baseDSN)
+		if err == nil {
+			_, _ = cleanPool.Exec(ctx, fmt.Sprintf("DROP SCHEMA %q CASCADE", schemaName))
+			cleanPool.Close()
+		}
+	})
+
+	// Append search_path to DSN
+	separator := "?"
+	if strings.Contains(baseDSN, "?") {
+		separator = "&"
+	}
+	return baseDSN + separator + "search_path=" + schemaName
+}
+
+// setupTestEnv creates a fully wired test environment with PostgreSQL,
 // auth service, mock tunnel provider, and an httptest.Server ready for requests.
 func setupTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+
+	baseDSN := testDSN(t)
+	dbDSN := setupTestSchema(t, baseDSN)
 
 	log := zerolog.New(os.Stderr).Level(zerolog.Disabled)
 
-	db, err := database.New(dbPath, log)
+	db, err := database.New(dbDSN, log)
 	if err != nil {
 		t.Fatalf("failed to create test database: %v", err)
 	}
@@ -99,7 +152,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 			},
 		},
 		Database: config.DatabaseSettings{
-			DSN: dbPath,
+			DSN: dbDSN,
 		},
 		TOTP: config.TOTPSettings{
 			Enabled:       true,
