@@ -6,15 +6,19 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/semver"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/server/database"
 )
 
 // testSetup creates a server with a temp SQLite database and a DB API token.
@@ -326,6 +330,41 @@ func TestServerTunnelClose(t *testing.T) {
 	}
 }
 
+func TestVersionComparison(t *testing.T) {
+	// Tests the version comparison logic used in handleControlConnection:
+	//   if minVersion != "" && clientVersion != "" {
+	//       if semver.Compare("v"+clientVersion, "v"+minVersion) < 0 { reject }
+	//   }
+	tests := []struct {
+		name    string
+		version string
+		minVer  string
+		tooOld  bool
+	}{
+		{"old version rejected", "0.9.0", "0.10.0", true},
+		{"exact version accepted", "0.10.0", "0.10.0", false},
+		{"newer version accepted", "1.0.0", "0.10.0", false},
+		{"patch newer accepted", "0.10.1", "0.10.0", false},
+		{"major newer accepted", "2.0.0", "1.99.99", false},
+		{"empty version skips check", "", "0.10.0", false},
+		{"empty minVersion skips check", "0.10.0", "", false},
+		{"both empty skips check", "", "", false},
+		// Malformed versions: semver.Compare treats invalid as "" which is < any valid,
+		// but the server skips the check when version is empty — malformed non-empty
+		// strings would be rejected by semver.Compare.
+		{"malformed version rejected", "not-a-version", "0.10.0", true},
+		{"malformed minVersion accepted", "0.10.0", "bad", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mirror the server's version check logic
+			rejected := tt.version != "" && tt.minVer != "" &&
+				semver.Compare("v"+tt.version, "v"+tt.minVer) < 0
+			assert.Equal(t, tt.tooOld, rejected)
+		})
+	}
+}
+
 func TestServerPingPong(t *testing.T) {
 	srv, _, rawToken := testSetup(t)
 	defer srv.cancel()
@@ -356,4 +395,46 @@ func TestServerPingPong(t *testing.T) {
 	if pong.Type != protocol.MsgPong {
 		t.Fatalf("expected message type %s, got %s", protocol.MsgPong, pong.Type)
 	}
+}
+
+// --- generateID tests ---
+
+func TestGenerateIDLength(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		id := generateID()
+		assert.Len(t, id, 12, "generateID must always return 12-character string")
+	}
+}
+
+func TestGenerateIDAlphabet(t *testing.T) {
+	valid := regexp.MustCompile(`^[0-9a-z]{12}$`)
+	for i := 0; i < 100; i++ {
+		id := generateID()
+		assert.Regexp(t, valid, id, "generateID must only contain lowercase alphanumeric characters")
+	}
+}
+
+func TestGenerateIDUniqueness(t *testing.T) {
+	seen := make(map[string]struct{}, 10000)
+	for i := 0; i < 10000; i++ {
+		id := generateID()
+		_, dup := seen[id]
+		require.False(t, dup, "duplicate ID detected: %s (after %d generations)", id, i)
+		seen[id] = struct{}{}
+	}
+}
+
+func TestGenerateIDNoDuplicatePositions(t *testing.T) {
+	// Before the fix, positions 0&9, 1&10, 2&11 were always identical
+	// because 9 random bytes were reused via i%9 for 12 output positions.
+	matchCount := 0
+	for i := 0; i < 1000; i++ {
+		id := generateID()
+		if len(id) >= 10 && id[0] == id[9] {
+			matchCount++
+		}
+	}
+	// With true randomness: expected ~1/36 = ~28 matches per 1000
+	// With the bug: 1000/1000 matches
+	assert.Less(t, matchCount, 100, "positions 0 and 9 should not always correlate — entropy bug likely present")
 }

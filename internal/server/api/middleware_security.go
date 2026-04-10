@@ -3,18 +3,17 @@ package api
 import (
 	"context"
 	"net/http"
+
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 )
-
-type contextKey string
-
-const originalRemoteAddrKey contextKey = "originalRemoteAddr"
 
 // saveOriginalIPMiddleware preserves the original TCP remote address
 // before middleware.RealIP rewrites it from X-Forwarded-For.
-// Use getOriginalRemoteAddr(r) to retrieve the unmodified IP.
+// The value is stored under auth.OriginalRemoteAddrKey so that
+// auth.GetClientIP can retrieve the unmodified IP.
 func saveOriginalIPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), originalRemoteAddrKey, r.RemoteAddr)
+		ctx := context.WithValue(r.Context(), auth.OriginalRemoteAddrKey, r.RemoteAddr)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -22,7 +21,7 @@ func saveOriginalIPMiddleware(next http.Handler) http.Handler {
 // getOriginalRemoteAddr returns the TCP connection's remote address,
 // unmodified by RealIP middleware. Falls back to r.RemoteAddr.
 func getOriginalRemoteAddr(r *http.Request) string {
-	if addr, ok := r.Context().Value(originalRemoteAddrKey).(string); ok {
+	if addr, ok := r.Context().Value(auth.OriginalRemoteAddrKey).(string); ok {
 		return addr
 	}
 	return r.RemoteAddr

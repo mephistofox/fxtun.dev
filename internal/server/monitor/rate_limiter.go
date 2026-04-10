@@ -66,6 +66,16 @@ func (sw *SlidingWindow) Denied() int64 {
 	return sw.denied
 }
 
+// IsIdle returns true if no events have been recorded within the given duration.
+func (sw *SlidingWindow) IsIdle(d time.Duration) bool {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	if len(sw.events) == 0 {
+		return true
+	}
+	return time.Since(sw.events[len(sw.events)-1]) > d
+}
+
 // evict removes events that have fallen outside the window.
 // Must be called with sw.mu held.
 func (sw *SlidingWindow) evict(now time.Time) {

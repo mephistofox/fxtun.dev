@@ -32,6 +32,30 @@ func TestSlidingWindow_Unlimited(t *testing.T) {
 	}
 }
 
+func TestSlidingWindow_IsIdle_Empty(t *testing.T) {
+	sw := NewSlidingWindow(5, time.Minute)
+	if !sw.IsIdle(time.Second) {
+		t.Fatal("empty window should be idle")
+	}
+}
+
+func TestSlidingWindow_IsIdle_Recent(t *testing.T) {
+	sw := NewSlidingWindow(5, time.Minute)
+	sw.Allow()
+	if sw.IsIdle(time.Second) {
+		t.Fatal("window with recent event should not be idle")
+	}
+}
+
+func TestSlidingWindow_IsIdle_AfterTimeout(t *testing.T) {
+	sw := NewSlidingWindow(5, time.Minute)
+	sw.Allow()
+	time.Sleep(120 * time.Millisecond)
+	if !sw.IsIdle(100 * time.Millisecond) {
+		t.Fatal("window should be idle after timeout exceeds last event age")
+	}
+}
+
 func TestSlidingWindow_Expiry(t *testing.T) {
 	sw := NewSlidingWindow(5, 100*time.Millisecond)
 	for i := 0; i < 5; i++ {
