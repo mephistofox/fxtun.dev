@@ -176,3 +176,21 @@ func (h *Client) doJSON(method, path string, reqBody interface{}, respBody inter
 
 	return nil
 }
+
+// TLSCertResponse holds the TLS certificate and key from the hub.
+type TLSCertResponse struct {
+	CertPEM string `json:"cert_pem"`
+	KeyPEM  string `json:"key_pem"`
+}
+
+// FetchTLSCert retrieves the hub's TLS certificate for use by edge nodes.
+func (h *Client) FetchTLSCert() (*TLSCertResponse, error) {
+	var resp TLSCertResponse
+	if err := h.doJSON("GET", "/api/internal/tls-cert", nil, &resp); err != nil {
+		return nil, fmt.Errorf("fetch TLS cert: %w", err)
+	}
+	if resp.CertPEM == "" || resp.KeyPEM == "" {
+		return nil, fmt.Errorf("hub returned empty TLS cert")
+	}
+	return &resp, nil
+}
