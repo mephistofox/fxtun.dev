@@ -192,13 +192,14 @@ func (s *InspectService) Subscribe(tunnelID string) error {
 		return fmt.Errorf("not authenticated")
 	}
 
-	url := s.app.api.BuildURL(fmt.Sprintf("/api/tunnels/%s/inspect/stream?token=%s", tunnelID, s.app.authToken))
+	url := s.app.api.BuildURL(fmt.Sprintf("/api/tunnels/%s/inspect/stream", tunnelID))
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
 
 	client := &http.Client{
 		Transport: &http.Transport{
