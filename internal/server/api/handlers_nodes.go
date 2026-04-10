@@ -130,6 +130,11 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 		existing.Version = req.Version
 		_ = s.db.EdgeNodes.UpdateHeartbeat(existing.NodeID, existing.Metadata)
 
+		// Re-add active node to Redis registry so hub can redirect clients to it
+		if existing.Status == "active" && s.nodeRegistry != nil {
+			_ = s.nodeRegistry.RegisterNode(nodeToStoreEntry(existing))
+		}
+
 		s.log.Info().
 			Str("node_id", existing.NodeID).
 			Str("name", req.Name).

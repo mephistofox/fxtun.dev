@@ -126,6 +126,8 @@ func (r *NodeRegistry) HeartbeatNode(nodeID string, tunnelCount, clientCount int
 	rdb := r.c.RDB()
 	infoKey := r.c.Key("node", "info", nodeID)
 
+	activeSetKey := r.c.Key("node", "active")
+
 	pipe := rdb.Pipeline()
 	pipe.HSet(ctx, infoKey,
 		"tunnel_count", strconv.Itoa(tunnelCount),
@@ -133,6 +135,7 @@ func (r *NodeRegistry) HeartbeatNode(nodeID string, tunnelCount, clientCount int
 		"updated_at", time.Now().Format(time.RFC3339),
 	)
 	pipe.Expire(ctx, infoKey, nodeTTL)
+	pipe.SAdd(ctx, activeSetKey, nodeID) // ensure node stays in active set
 
 	_, err := pipe.Exec(ctx)
 	return err
