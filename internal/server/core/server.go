@@ -23,6 +23,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/geoip"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/monitor"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
@@ -131,6 +132,7 @@ type Server struct {
 	hubClient    HubAuthVerifier
 	localNodeID  string
 	proxyPool    *remoteProxyPool
+	geoIP        *geoip.Lookup
 
 	// Custom domains
 	certManager    *fxtls.CertManager
@@ -315,6 +317,11 @@ func (s *Server) SetNodeRegistry(r store.NodeRegistry) {
 // SetHubClient sets the hub client for node mode auth delegation.
 func (s *Server) SetHubClient(h HubAuthVerifier) {
 	s.hubClient = h
+}
+
+// SetGeoIP sets the GeoIP lookup for region-based edge node selection.
+func (s *Server) SetGeoIP(g *geoip.Lookup) {
+	s.geoIP = g
 }
 
 // SetLocalNodeID sets this server's node identifier.
