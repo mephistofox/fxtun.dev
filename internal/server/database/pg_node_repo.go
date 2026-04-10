@@ -48,6 +48,25 @@ func (r *EdgeNodeRepository) GetByNodeID(nodeID string) (*EdgeNode, error) {
 	return n, nil
 }
 
+// GetByName retrieves a node by its name.
+func (r *EdgeNodeRepository) GetByName(name string) (*EdgeNode, error) {
+	ctx := context.Background()
+	n := &EdgeNode{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, node_id, name, region, public_addr, http_addr, status,
+		        approved_at, approved_by, last_heartbeat_at, version, metadata, created_at, updated_at
+		 FROM edge_nodes WHERE name = $1`, name,
+	).Scan(&n.ID, &n.NodeID, &n.Name, &n.Region, &n.PublicAddr, &n.HTTPAddr, &n.Status,
+		&n.ApprovedAt, &n.ApprovedBy, &n.LastHeartbeatAt, &n.Version, &n.Metadata, &n.CreatedAt, &n.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrEdgeNodeNotFound
+		}
+		return nil, fmt.Errorf("get edge node by name: %w", err)
+	}
+	return n, nil
+}
+
 // GetByID retrieves a node by its database ID.
 func (r *EdgeNodeRepository) GetByID(id int64) (*EdgeNode, error) {
 	ctx := context.Background()
