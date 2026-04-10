@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -144,6 +145,7 @@ type ActiveTunnel struct {
 	ID         string
 	Config     config.TunnelConfig
 	URL        string // For HTTP tunnels
+	HTTPSURL   string // For HTTP tunnels (HTTPS)
 	RemoteAddr string // For TCP/UDP tunnels
 	Connected  time.Time
 
@@ -210,18 +212,46 @@ func (c *Client) UpdateToken(newToken string) {
 	c.cfg.Server.Token = newToken
 }
 
+// dialServer establishes a TCP connection to the server, with TLS if not in insecure mode.
+func (c *Client) dialServer() (net.Conn, error) {
+	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+	if err != nil {
+		return nil, err
+	}
+	tuneTCPConn(conn)
+
+	if c.cfg.Server.Insecure {
+		return conn, nil
+	}
+
+	// Wrap with TLS
+	host, _, err := net.SplitHostPort(c.cfg.Server.Address)
+	if err != nil {
+		host = c.cfg.Server.Address
+	}
+	tlsConn := tls.Client(conn, &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: !c.cfg.Server.TLSVerify,
+		MinVersion:         tls.VersionTLS12,
+	})
+	if err := tlsConn.HandshakeContext(c.ctx); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("TLS handshake: %w", err)
+	}
+	return tlsConn, nil
+}
+
 // Connect connects to the server
 func (c *Client) Connect() error {
 	c.log.Info().Str("server", c.cfg.Server.Address).Msg("Connecting to server")
 	c.events.EmitType(EventConnecting)
 
 	// Dial server
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+	conn, err := c.dialServer()
 	if err != nil {
 		c.events.EmitError(err)
 		return fmt.Errorf("dial server: %w", err)
 	}
-	tuneTCPConn(conn)
 	c.conn = conn
 
 	// Negotiate compression before yamux
@@ -471,6 +501,7 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 			ID:               resp.TunnelID,
 			Config:           tunnelCfg,
 			URL:              resp.URL,
+			HTTPSURL:         resp.HTTPSURL,
 			RemoteAddr:       resp.RemoteAddr,
 			Connected:        time.Now(),
 			BasicAuthEnabled: resp.BasicAuthEnabled,
@@ -1403,11 +1434,10 @@ func (c *Client) openDataConnection(idx int) error {
 
 func (c *Client) tryOpenDataConnection(idx int) error {
 	// Dial server
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+	conn, err := c.dialServer()
 	if err != nil {
 		return fmt.Errorf("dial server: %w", err)
 	}
-	tuneTCPConn(conn)
 
 	// Negotiate compression
 	rwc, _, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)

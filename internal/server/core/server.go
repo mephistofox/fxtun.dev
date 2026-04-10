@@ -1102,6 +1102,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	c.registerTunnelMonitor(tunnel)
 
 	url := fmt.Sprintf("http://%s.%s", subdomain, c.server.cfg.Domain.Base)
+	httpsURL := fmt.Sprintf("https://%s.%s", subdomain, c.server.cfg.Domain.Base)
 
 	resp := &protocol.TunnelCreatedMessage{
 		Message:          protocol.NewMessage(protocol.MsgTunnelCreated),
@@ -1109,6 +1110,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		TunnelType:       protocol.TunnelHTTP,
 		Name:             req.Name,
 		URL:              url,
+		HTTPSURL:         httpsURL,
 		Subdomain:        subdomain,
 		BasicAuthEnabled: tunnel.BasicAuthHash != "",
 		AllowIPsCount:    len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
