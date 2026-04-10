@@ -33,6 +33,9 @@ install: build
 test:
 	go test -v -race ./...
 
+test-e2e:
+	go test -v -race -count=1 -timeout 120s ./internal/e2e/...
+
 fmt:
 	go fmt ./...
 
