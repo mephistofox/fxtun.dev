@@ -456,6 +456,8 @@ func run(cmd *cobra.Command, args []string) error {
 	log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
 
 	// Graceful shutdown
+	exchange.Stop()
+
 	if apiServer != nil {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
