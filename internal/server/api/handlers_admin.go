@@ -458,8 +458,8 @@ func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if len(req.NewPassword) < 8 || len(req.NewPassword) > 128 {
-		s.respondError(w, http.StatusBadRequest, "password must be between 8 and 128 characters")
+	if len(req.NewPassword) < 8 || len(req.NewPassword) > 72 {
+		s.respondError(w, http.StatusBadRequest, "password must be between 8 and 72 characters")
 		return
 	}
 
@@ -1132,12 +1132,15 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	rc := http.NewResponseController(w)
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	// Send initial ping
+	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	_, _ = fmt.Fprintf(w, ": ping\n\n")
 	flusher.Flush()
 
@@ -1145,11 +1148,13 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 	defer ticker.Stop()
 
 	// Send initial stats immediately
+	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	s.sendAdminStatsEvent(w, flusher)
 
 	for {
 		select {
 		case <-ticker.C:
+			rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 			s.sendAdminStatsEvent(w, flusher)
 		case <-r.Context().Done():
 			return

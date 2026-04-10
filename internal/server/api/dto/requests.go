@@ -3,7 +3,7 @@ package dto
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
 	Phone       string `json:"phone" validate:"required,min=10,max=20"`
-	Password    string `json:"password" validate:"required,min=8,max=128"`
+	Password    string `json:"password" validate:"required,min=8,max=72"`
 	DisplayName string `json:"display_name" validate:"max=100"`
 }
 
@@ -22,7 +22,7 @@ type RefreshRequest struct {
 // ChangePasswordRequest represents a password change request
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" validate:"required"`
-	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
+	NewPassword string `json:"new_password" validate:"required,min=8,max=72"`
 }
 
 // UpdateProfileRequest represents a profile update request
@@ -114,7 +114,7 @@ type MergeUsersRequest struct {
 
 // ResetPasswordRequest represents an admin password reset request
 type ResetPasswordRequest struct {
-	NewPassword string `json:"new_password"`
+	NewPassword string `json:"new_password" validate:"required,min=8,max=72"`
 }
 
 // CheckoutRequest represents a subscription checkout request
