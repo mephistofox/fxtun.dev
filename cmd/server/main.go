@@ -20,6 +20,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
 	"github.com/mephistofox/fxtunnel/internal/server/exchange"
+	"github.com/mephistofox/fxtunnel/internal/server/geoip"
 	"github.com/mephistofox/fxtunnel/internal/server/hub"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
@@ -210,6 +211,18 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Set server mode
 	srv.SetMode(cfg.EffectiveMode())
+
+	// Initialize GeoIP for region-based edge node selection
+	if cfg.GeoIP.Enabled && cfg.GeoIP.Database != "" {
+		geo, err := geoip.New(cfg.GeoIP.Database)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to load GeoIP database, using least-loaded selection")
+		} else {
+			srv.SetGeoIP(geo)
+			defer geo.Close()
+			log.Info().Str("db", cfg.GeoIP.Database).Msg("GeoIP database loaded")
+		}
+	}
 
 	// Set Telegram notifier on tunnel server
 	if telegramNotifier != nil {
