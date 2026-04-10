@@ -230,6 +230,43 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Node mode: register with hub and fetch TLS cert BEFORE starting server
+	var hubClient *hub.Client
+	if cfg.EffectiveMode() == config.ModeNode {
+		hubClient = hub.NewClient(cfg.Node.HubURL, cfg.Node.HubToken, log)
+		nodeID, err := hubClient.Register(cfg.Node.Name, cfg.Node.Region, cfg.Node.PublicAddr, cfg.Node.HTTPAddr, Version)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to register with hub (will retry via heartbeat)")
+		} else {
+			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
+		}
+
+		// Fetch TLS cert from hub if cert files don't exist (blocks until obtained)
+		if cfg.TLS.Enabled {
+			if _, statErr := os.Stat(cfg.TLS.CertFile); os.IsNotExist(statErr) {
+				log.Info().Msg("TLS cert not found locally, requesting from hub...")
+				for {
+					tlsCert, err := hubClient.FetchTLSCert()
+					if err != nil {
+						log.Warn().Err(err).Msg("Failed to fetch TLS cert (node may be pending approval, retrying in 1m)")
+						time.Sleep(1 * time.Minute)
+						continue
+					}
+					certDir := filepath.Dir(cfg.TLS.CertFile)
+					_ = os.MkdirAll(certDir, 0700)
+					if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
+						log.Fatal().Err(err).Msg("Failed to write cert file")
+					}
+					if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
+						log.Fatal().Err(err).Msg("Failed to write key file")
+					}
+					log.Info().Msg("TLS cert fetched from hub and saved")
+					break
+				}
+			}
+		}
+	}
+
 	// Start server
 	if err := srv.Start(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to start server")
@@ -243,54 +280,10 @@ func run(cmd *cobra.Command, args []string) error {
 		Str("mode", string(cfg.EffectiveMode())).
 		Msg("Server started")
 
-	// Node mode: register with hub and start heartbeat
-	if cfg.EffectiveMode() == config.ModeNode {
-		hubClient := hub.NewClient(cfg.Node.HubURL, cfg.Node.HubToken, log)
-		nodeID, err := hubClient.Register(cfg.Node.Name, cfg.Node.Region, cfg.Node.PublicAddr, cfg.Node.HTTPAddr, Version)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to register with hub (will retry via heartbeat)")
-		} else {
-			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
-		}
-
-		// Fetch TLS cert from hub if TLS is enabled but cert files don't exist.
-		// Retries every minute until cert is obtained (node may be pending approval).
-		if cfg.TLS.Enabled {
-			if _, statErr := os.Stat(cfg.TLS.CertFile); os.IsNotExist(statErr) {
-				certCtx, certCancel := context.WithCancel(context.Background())
-				defer certCancel()
-				go func() {
-					for {
-						log.Info().Msg("TLS cert not found locally, requesting from hub...")
-						tlsCert, err := hubClient.FetchTLSCert()
-						if err != nil {
-							log.Warn().Err(err).Msg("Failed to fetch TLS cert from hub (will retry in 1m)")
-							select {
-							case <-time.After(1 * time.Minute):
-								continue
-							case <-certCtx.Done():
-								return
-							}
-						}
-						certDir := filepath.Dir(cfg.TLS.CertFile)
-						_ = os.MkdirAll(certDir, 0700)
-						if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
-							log.Error().Err(err).Msg("Failed to write cert file")
-						} else if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
-							log.Error().Err(err).Msg("Failed to write key file")
-						} else {
-							log.Info().Msg("TLS cert fetched from hub and saved successfully")
-						}
-						return
-					}
-				}()
-			}
-		}
-
-		// Set hub client on server for auth delegation
+	// Node mode: set hub client and start heartbeat AFTER server started
+	if cfg.EffectiveMode() == config.ModeNode && hubClient != nil {
 		srv.SetHubClient(&hubAuthAdapter{client: hubClient})
 
-		// Start heartbeat in background (cancelled on shutdown)
 		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
 		defer heartbeatCancel()
 		go hubClient.StartHeartbeatLoop(heartbeatCtx, 30*time.Second, func() (int, int) {
