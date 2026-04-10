@@ -12,6 +12,12 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 )
 
+// maxCaptureRead is the absolute maximum bytes read into memory for a single
+// request or response body during inspector capture. This prevents OOM when
+// large uploads/downloads flow through an inspected tunnel. Bodies exceeding
+// this limit are truncated in both the capture and the forwarded request.
+const maxCaptureRead = 10 * 1024 * 1024 // 10 MB
+
 // Capture records HTTP request/response bytes flowing through a tunnel connection.
 type Capture struct {
 	tunnelID     string
@@ -39,21 +45,25 @@ func NewCapture(tunnelID, tunnelName string, maxBodySize int) *Capture {
 }
 
 // WrapRequest wraps a reader to capture request bytes. Data passes through unchanged.
+// Only the first maxCaptureRead bytes are buffered for inspection; the rest
+// still flows through the returned reader to the consumer.
 func (c *Capture) WrapRequest(r io.Reader) io.Reader {
-	return io.TeeReader(r, &c.reqBuf)
+	return io.TeeReader(r, &limitedWriter{w: &c.reqBuf, remaining: maxCaptureRead})
 }
 
 // WrapResponse wraps a reader to capture response bytes.
+// Only the first maxCaptureRead bytes are buffered for inspection.
 func (c *Capture) WrapResponse(r io.Reader) io.Reader {
-	return io.TeeReader(r, &c.respBuf)
+	return io.TeeReader(r, &limitedWriter{w: &c.respBuf, remaining: maxCaptureRead})
 }
 
 // CaptureRequest captures HTTP request metadata and body.
 // Replaces req.Body so the caller can still use req.Write().
+// Reads at most maxCaptureRead bytes to prevent OOM on large uploads.
 func (c *Capture) CaptureRequest(req *http.Request) {
 	c.parsedReq = req
 	if req.Body != nil {
-		body, _ := io.ReadAll(req.Body)
+		body, _ := io.ReadAll(io.LimitReader(req.Body, maxCaptureRead))
 		req.Body.Close()
 		c.reqBody = c.truncateBody(body)
 		c.reqBodySize = int64(len(body))
@@ -65,8 +75,9 @@ func (c *Capture) CaptureRequest(req *http.Request) {
 // CaptureResponse captures HTTP response metadata and body.
 // Must be called BEFORE resp.Write() since Write drains the body.
 // Replaces resp.Body with a new reader so the caller can still use resp.Write().
+// Reads at most maxCaptureRead bytes to prevent OOM on large downloads.
 func (c *Capture) CaptureResponse(resp *http.Response) {
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxCaptureRead))
 	resp.Body.Close()
 	// Store captured data.
 	c.parsedResp = resp
@@ -118,7 +129,7 @@ func (c *Capture) parseRequest(ex *inspect.CapturedExchange) {
 	ex.Host = req.Host
 	ex.RequestHeaders = req.Header
 
-	body, _ := io.ReadAll(req.Body)
+	body, _ := io.ReadAll(io.LimitReader(req.Body, maxCaptureRead))
 	ex.RequestBodySize = int64(len(body))
 	ex.RequestBody = c.truncateBody(body)
 }
@@ -138,7 +149,7 @@ func (c *Capture) parseResponse(ex *inspect.CapturedExchange) {
 	ex.StatusCode = resp.StatusCode
 	ex.ResponseHeaders = resp.Header
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxCaptureRead))
 	ex.ResponseBodySize = int64(len(body))
 	ex.ResponseBody = c.truncateBody(body)
 }
@@ -170,4 +181,32 @@ func generateCaptureID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return "c-" + hex.EncodeToString(b)
+}
+
+// limitedWriter wraps an io.Writer and silently discards writes after the byte
+// budget is exhausted. Used by WrapRequest/WrapResponse to cap TeeReader
+// buffer growth while letting the underlying data stream continue unimpeded.
+type limitedWriter struct {
+	w         io.Writer
+	remaining int64
+}
+
+func (lw *limitedWriter) Write(p []byte) (int, error) {
+	if lw.remaining <= 0 {
+		// Budget exhausted — pretend the write succeeded so TeeReader
+		// keeps copying data to the real consumer.
+		return len(p), nil
+	}
+	toWrite := p
+	if int64(len(toWrite)) > lw.remaining {
+		toWrite = toWrite[:lw.remaining]
+	}
+	n, err := lw.w.Write(toWrite)
+	lw.remaining -= int64(n)
+	if err != nil {
+		return n, err
+	}
+	// Report full len(p) consumed even if we only buffered a prefix.
+	// This satisfies io.TeeReader which needs Write to accept all bytes.
+	return len(p), nil
 }
