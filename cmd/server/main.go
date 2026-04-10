@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -250,6 +251,27 @@ func run(cmd *cobra.Command, args []string) error {
 			log.Error().Err(err).Msg("Failed to register with hub (will retry via heartbeat)")
 		} else {
 			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
+		}
+
+		// Fetch TLS cert from hub if TLS is enabled but cert files don't exist
+		if cfg.TLS.Enabled {
+			if _, err := os.Stat(cfg.TLS.CertFile); os.IsNotExist(err) {
+				log.Info().Msg("TLS cert not found locally, fetching from hub...")
+				tlsCert, err := hubClient.FetchTLSCert()
+				if err != nil {
+					log.Error().Err(err).Msg("Failed to fetch TLS cert from hub")
+				} else {
+					certDir := filepath.Dir(cfg.TLS.CertFile)
+					_ = os.MkdirAll(certDir, 0700)
+					if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
+						log.Error().Err(err).Msg("Failed to write cert file")
+					} else if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
+						log.Error().Err(err).Msg("Failed to write key file")
+					} else {
+						log.Info().Msg("TLS cert fetched from hub and saved")
+					}
+				}
+			}
 		}
 
 		// Set hub client on server for auth delegation
