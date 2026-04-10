@@ -29,6 +29,7 @@ type CertManager struct {
 	acmeMgr    *autocert.Manager
 	redisCache store.TLSCache
 	stopCh     chan struct{}
+	stopOnce   sync.Once
 }
 
 // SetRedisCache sets an optional L2 Redis cache between memory and DB.
@@ -235,9 +236,11 @@ func (cm *CertManager) StartRenewal() {
 	}()
 }
 
-// Stop stops the renewal goroutine.
+// Stop stops the renewal goroutine. Safe to call multiple times.
 func (cm *CertManager) Stop() {
-	close(cm.stopCh)
+	cm.stopOnce.Do(func() {
+		close(cm.stopCh)
+	})
 }
 
 // TLSConfig returns a tls.Config using this manager's GetCertificate.

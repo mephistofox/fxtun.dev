@@ -1507,6 +1507,12 @@ func (c *Client) Close() {
 		c.TunnelsMu.Lock()
 		for tunnelID, tunnel := range c.Tunnels {
 			c.server.monitor.RemoveTunnel(tunnelID)
+
+			// Unregister from cross-server registry
+			if c.server.tunnelRegistry != nil {
+				_ = c.server.tunnelRegistry.Unregister(tunnelID)
+			}
+
 			switch tunnel.Type {
 			case protocol.TunnelHTTP:
 				c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)

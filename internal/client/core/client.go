@@ -538,13 +538,14 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		// Start auto-close timer (idle timeout)
 		if tunnelCfg.AutoClose != "" {
 			d, _ := parseDuration(tunnelCfg.AutoClose) // already validated by CLI
+			tunnelID := resp.TunnelID
 			c.timersMu.Lock()
-			c.autoCloseTimers[resp.TunnelID] = newAutoCloseTimer(d, func() {
+			c.autoCloseTimers[tunnelID] = newAutoCloseTimer(d, func() {
 				c.log.Info().
-					Str("tunnel_id", resp.TunnelID).
+					Str("tunnel_id", tunnelID).
 					Str("reason", "idle for "+tunnelCfg.AutoClose).
 					Msg("tunnel auto-closed")
-				c.Close()
+				c.closeTunnel(tunnelID)
 			})
 			c.timersMu.Unlock()
 		}
@@ -555,13 +556,14 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		// This is acceptable for MVP — the timer measures "time since last connect".
 		if tunnelCfg.MaxLifetime != "" {
 			d, _ := parseDuration(tunnelCfg.MaxLifetime) // already validated by CLI
+			tunnelID := resp.TunnelID
 			c.timersMu.Lock()
-			c.maxLifetimeTimers[resp.TunnelID] = newMaxLifetimeTimer(d, func() {
+			c.maxLifetimeTimers[tunnelID] = newMaxLifetimeTimer(d, func() {
 				c.log.Info().
-					Str("tunnel_id", resp.TunnelID).
+					Str("tunnel_id", tunnelID).
 					Str("reason", "max lifetime "+tunnelCfg.MaxLifetime+" reached").
 					Msg("tunnel auto-closed")
-				c.Close()
+				c.closeTunnel(tunnelID)
 			})
 			c.timersMu.Unlock()
 		}
@@ -685,6 +687,9 @@ func (c *Client) handleTunnelClosed(data []byte) {
 	}
 	delete(c.tunnels, msg.TunnelID)
 	c.tunnelsMu.Unlock()
+
+	// Stop timers for this tunnel
+	c.stopTunnelTimers(msg.TunnelID)
 
 	// Emit tunnel closed event with final traffic stats
 	c.events.EmitWithPayload(EventTunnelClosed, map[string]interface{}{
@@ -1275,7 +1280,9 @@ func (c *Client) GetTunnels() []*ActiveTunnel {
 	return tunnels
 }
 
-// CloseTunnel closes a specific tunnel by ID
+// CloseTunnel closes a specific tunnel by ID.
+// It sends a close request to the server; the server will respond with
+// TunnelClosed which triggers handleTunnelClosed for final cleanup.
 func (c *Client) CloseTunnel(tunnelID string) error {
 	c.tunnelsMu.RLock()
 	_, exists := c.tunnels[tunnelID]
@@ -1296,6 +1303,45 @@ func (c *Client) CloseTunnel(tunnelID string) error {
 
 	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel close requested")
 	return nil
+}
+
+// closeTunnel closes a single tunnel: sends a close request to the server,
+// removes the tunnel from local state, and stops its timers.
+// Used by auto-close and max-lifetime timer callbacks to close only
+// the specific tunnel instead of the entire client.
+func (c *Client) closeTunnel(tunnelID string) {
+	// Send close request to server
+	msg := &protocol.TunnelCloseMessage{
+		Message:  protocol.NewMessage(protocol.MsgTunnelClose),
+		TunnelID: tunnelID,
+	}
+	if err := c.sendControl(msg); err != nil {
+		c.log.Error().Err(err).Str("tunnel_id", tunnelID).Msg("Failed to send tunnel close")
+	}
+
+	// Remove from local state
+	c.tunnelsMu.Lock()
+	delete(c.tunnels, tunnelID)
+	c.tunnelsMu.Unlock()
+
+	// Stop timers for this tunnel
+	c.stopTunnelTimers(tunnelID)
+}
+
+// stopTunnelTimers stops and removes auto-close and max-lifetime timers
+// for a specific tunnel. Safe to call even if no timers exist for the tunnel.
+func (c *Client) stopTunnelTimers(tunnelID string) {
+	c.timersMu.Lock()
+	defer c.timersMu.Unlock()
+
+	if t, ok := c.autoCloseTimers[tunnelID]; ok {
+		t.stop()
+		delete(c.autoCloseTimers, tunnelID)
+	}
+	if t, ok := c.maxLifetimeTimers[tunnelID]; ok {
+		t.stop()
+		delete(c.maxLifetimeTimers, tunnelID)
+	}
 }
 
 // Wait waits for the client to close

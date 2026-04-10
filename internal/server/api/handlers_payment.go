@@ -368,8 +368,8 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 // handlePaymentWebhook handles YooKassa webhook notifications (POST)
 func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	s.log.Info().
-		Str("original_addr", getOriginalRemoteAddr(r)).
-		Str("remote_addr", r.RemoteAddr).
+		Str("remote_addr", r.RemoteAddr).              // Post-RealIP = actual client IP from nginx
+		Str("original_tcp_addr", getOriginalRemoteAddr(r)). // Raw TCP = nginx 127.0.0.1
 		Str("method", r.Method).
 		Msg("YooKassa webhook received")
 
@@ -378,16 +378,16 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify IP using the original TCP remote address saved BEFORE
-	// middleware.RealIP rewrites r.RemoteAddr from X-Forwarded-For.
-	// This prevents attackers from spoofing X-Forwarded-For to bypass
-	// the YooKassa IP allowlist.
+	// Verify IP using r.RemoteAddr which contains the real client IP.
+	// Behind nginx (trusted proxy), nginx sets X-Real-IP from the actual
+	// client address, and middleware.RealIP copies it into r.RemoteAddr.
+	// Do NOT use getOriginalRemoteAddr() here — it returns the raw TCP
+	// peer address which is 127.0.0.1 (nginx itself) behind a reverse proxy.
 	if !s.cfg.YooKassa.TestMode {
-		originalAddr := getOriginalRemoteAddr(r)
-		if !payment.IsYooKassaIP(originalAddr) {
+		if !payment.IsYooKassaIP(r.RemoteAddr) {
 			s.log.Warn().
-				Str("original_addr", originalAddr).
 				Str("remote_addr", r.RemoteAddr).
+				Str("original_tcp_addr", getOriginalRemoteAddr(r)).
 				Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
 				Msg("Webhook from unauthorized IP")
 			http.Error(w, "unauthorized", http.StatusForbidden)

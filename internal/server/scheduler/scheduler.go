@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +50,10 @@ type Scheduler struct {
 
 	// Check intervals
 	checkInterval time.Duration
+
+	// Deduplication for expiration reminders
+	sentReminders   map[int64]time.Time // subscription_id -> last reminder sent at
+	sentRemindersMu sync.Mutex
 }
 
 // New creates a new scheduler
@@ -59,6 +64,7 @@ func New(db *database.Database, cfg *config.ServerConfig, providers *payment.Reg
 		log:           log.With().Str("component", "scheduler").Logger(),
 		providers:     providers,
 		checkInterval: 1 * time.Hour,
+		sentReminders: make(map[int64]time.Time),
 	}
 }
 
@@ -115,6 +121,9 @@ func (s *Scheduler) runChecks() {
 
 	// 5. Cleanup stale pending payments
 	s.cleanupStalePendingPayments()
+
+	// 6. Cleanup old reminder deduplication entries
+	s.cleanupSentReminders()
 }
 
 // processExpiredSubscriptions deactivates expired non-recurring subscriptions
@@ -455,6 +464,16 @@ func (s *Scheduler) checkExpiringSubscriptions(daysAhead int) {
 	}
 
 	for _, sub := range subs {
+		// Deduplication: skip if reminder was already sent within last 24 hours
+		s.sentRemindersMu.Lock()
+		lastSent, exists := s.sentReminders[sub.ID]
+		if exists && time.Since(lastSent) < 24*time.Hour {
+			s.sentRemindersMu.Unlock()
+			continue
+		}
+		s.sentReminders[sub.ID] = time.Now()
+		s.sentRemindersMu.Unlock()
+
 		plan, _ := s.db.Plans.GetByID(sub.PlanID)
 
 		s.log.Debug().
@@ -471,6 +490,17 @@ func (s *Scheduler) checkExpiringSubscriptions(daysAhead int) {
 			Plan:         plan,
 			DaysLeft:     daysAhead,
 		})
+	}
+}
+
+// cleanupSentReminders removes old entries from the deduplication map to prevent memory leaks
+func (s *Scheduler) cleanupSentReminders() {
+	s.sentRemindersMu.Lock()
+	defer s.sentRemindersMu.Unlock()
+	for id, t := range s.sentReminders {
+		if time.Since(t) > 7*24*time.Hour {
+			delete(s.sentReminders, id)
+		}
 	}
 }
 
