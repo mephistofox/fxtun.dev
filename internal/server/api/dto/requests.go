@@ -133,6 +133,12 @@ type ExtendSubscriptionRequest struct {
 	Days int `json:"days" validate:"required,min=1"`
 }
 
+// GrantSubscriptionRequest represents an admin request to grant a free subscription to a user
+type GrantSubscriptionRequest struct {
+	PlanID int64 `json:"plan_id" validate:"required"`
+	Months int   `json:"months" validate:"required,min=1,max=60"`
+}
+
 // ReplayExchangeRequest represents a request to replay an exchange with optional modifications
 type ReplayExchangeRequest struct {
 	Method  *string             `json:"method,omitempty"`
