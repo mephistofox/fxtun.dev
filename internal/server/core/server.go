@@ -331,6 +331,15 @@ func (s *Server) LocalNodeID() string {
 	return h
 }
 
+// NodeName returns a human-readable name for this server node.
+func (s *Server) NodeName() string {
+	if s.mode == config.ModeNode && s.cfg.Node.Name != "" {
+		return s.cfg.Node.Name
+	}
+	h, _ := os.Hostname()
+	return h
+}
+
 // NodePublicHost returns the public host for tunnel URLs.
 // In node mode, returns the node's public address host.
 // In other modes, returns the base domain.
