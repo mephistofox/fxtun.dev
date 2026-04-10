@@ -487,11 +487,13 @@ func fetchPlans(api *apiClient) ([]planDTO, error) {
 		return nil, fmt.Errorf("HTTP %d: %s", status, string(data))
 	}
 
-	var plans []planDTO
-	if err := json.Unmarshal(data, &plans); err != nil {
+	var resp struct {
+		Plans []planDTO `json:"plans"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("unmarshal plans: %w", err)
 	}
-	return plans, nil
+	return resp.Plans, nil
 }
 
 func createTestUser(api *apiClient, phone, password string) (*userDTO, string, error) {
