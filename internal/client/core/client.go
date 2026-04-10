@@ -514,6 +514,24 @@ func (c *Client) RequestTunnel(tunnelCfg config.TunnelConfig) error {
 		c.tunnels[resp.TunnelID] = tunnel
 		c.tunnelsMu.Unlock()
 
+		// Save assigned subdomain/port back to config for reconnect persistence
+		if resp.Subdomain != "" && tunnelCfg.Subdomain == "" {
+			for i := range c.cfg.Tunnels {
+				if c.cfg.Tunnels[i].Name == tunnelCfg.Name && c.cfg.Tunnels[i].Type == tunnelCfg.Type && c.cfg.Tunnels[i].LocalPort == tunnelCfg.LocalPort {
+					c.cfg.Tunnels[i].Subdomain = resp.Subdomain
+					break
+				}
+			}
+		}
+		if resp.RemotePort > 0 && tunnelCfg.RemotePort == 0 {
+			for i := range c.cfg.Tunnels {
+				if c.cfg.Tunnels[i].Name == tunnelCfg.Name && c.cfg.Tunnels[i].Type == tunnelCfg.Type && c.cfg.Tunnels[i].LocalPort == tunnelCfg.LocalPort {
+					c.cfg.Tunnels[i].RemotePort = resp.RemotePort
+					break
+				}
+			}
+		}
+
 		// Pre-probe local address synchronously so first connection is instant
 		ProbeLocalAddress(c.log, tunnelCfg.LocalAddr, tunnelCfg.LocalPort)
 
@@ -816,7 +834,7 @@ func (c *Client) handleStream(stream net.Conn) {
 	// Read binary stream header
 	hdr, err := protocol.ReadStreamHeader(stream)
 	if err != nil {
-		if c.ctx.Err() == nil {
+		if c.ctx.Err() == nil && !c.closed.Load() && !errors.Is(err, io.EOF) {
 			c.log.Error().Err(err).Msg("Failed to read connection info")
 		}
 		return
