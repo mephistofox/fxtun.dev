@@ -375,7 +375,7 @@ func hashToken(token string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-const defaultMaxDataSessions = 8
+const defaultMaxDataSessions = 16
 
 // effectiveMaxDataSessions returns the max data sessions from plan.
 // Returns 0 for unlimited (admin), defaultMaxDataSessions if no plan.

@@ -53,7 +53,7 @@ const (
 	trafficStatsInterval = 2 * time.Second
 
 	// dataConnectionCount is the number of additional data connections to open (total = 1 primary + N data).
-	dataConnectionCount = 15
+	dataConnectionCount = 16
 
 	// maxOverflowGoroutines caps the number of goroutines spawned when the worker pool is full.
 	maxOverflowGoroutines = 1024
@@ -1353,16 +1353,28 @@ func (c *Client) emitTrafficStats(tunnel *ActiveTunnel) {
 
 func (c *Client) openDataConnections() {
 	var wg sync.WaitGroup
+	var failCount atomic.Int32
 	for i := 0; i < c.maxDataSessions; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
 			if err := c.openDataConnection(idx); err != nil {
-				c.log.Warn().Err(err).Int("index", idx).Msg("Failed to open data connection")
+				failCount.Add(1)
+				c.log.Debug().Err(err).Int("index", idx).Msg("Data connection failed")
 			}
 		}(i)
 	}
 	wg.Wait()
+
+	failed := int(failCount.Load())
+	opened := c.maxDataSessions - failed
+	if failed > 0 && opened > 0 {
+		c.log.Info().Int("opened", opened).Int("failed", failed).Int("requested", c.maxDataSessions).
+			Msg("Some data connections could not be established (performance may be reduced)")
+	} else if opened == 0 {
+		c.log.Warn().Int("requested", c.maxDataSessions).
+			Msg("No data connections established, using primary connection only")
+	}
 }
 
 func (c *Client) openDataConnection(idx int) error {

@@ -132,6 +132,7 @@ func runDaemonForeground() error {
 	cfg.Reconnect.Enabled = true
 
 	c := client.New(cfg, log)
+	c.SetVersion(Version)
 	if err := c.Connect(); err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
