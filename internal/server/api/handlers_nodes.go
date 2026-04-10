@@ -119,6 +119,31 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if node with this name already exists — reuse its node_id
+	existing, err := s.db.EdgeNodes.GetByName(req.Name)
+	if err == nil && existing != nil {
+		// Update existing node's connection info
+		existing.PublicAddr = req.PublicAddr
+		existing.HTTPAddr = req.HTTPAddr
+		existing.Region = req.Region
+		existing.Version = req.Version
+		_ = s.db.EdgeNodes.UpdateHeartbeat(existing.NodeID, existing.Metadata)
+
+		s.log.Info().
+			Str("node_id", existing.NodeID).
+			Str("name", req.Name).
+			Str("status", existing.Status).
+			Msg("Edge node re-registered (existing)")
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(nodeRegisterResponse{
+			NodeID: existing.NodeID,
+			Status: existing.Status,
+		})
+		return
+	}
+
+	// New node — create with fresh UUID
 	nodeID := uuid.New().String()
 	node := &database.EdgeNode{
 		NodeID:     nodeID,
