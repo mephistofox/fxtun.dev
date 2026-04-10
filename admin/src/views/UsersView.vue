@@ -141,6 +141,53 @@
         <Button :disabled="!bulkPlanId" @click="executeBulkPlanChange">Применить</Button>
       </template>
     </Modal>
+
+    <!-- Change plan modal (per-user) -->
+    <Modal v-model:show="showChangePlan" title="Сменить план">
+      <div class="space-y-4">
+        <p class="text-sm text-muted-foreground">
+          Выберите новый тарифный план:
+        </p>
+        <Select
+          v-model="changePlanSelectedId"
+          :options="planOptions"
+          placeholder="Выберите план"
+        />
+      </div>
+      <template #footer>
+        <Button variant="ghost" @click="showChangePlan = false">Отмена</Button>
+        <Button :disabled="!changePlanSelectedId" @click="executeChangePlan">Применить</Button>
+      </template>
+    </Modal>
+
+    <!-- Grant subscription modal (per-user) -->
+    <Modal v-model:show="showGrantSubscription" title="Выдать подписку">
+      <div class="space-y-4">
+        <p class="text-sm text-muted-foreground">
+          Выберите план и срок подписки:
+        </p>
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-foreground">План</label>
+          <Select
+            v-model="grantSubPlanId"
+            :options="planOptions"
+            placeholder="Выберите план"
+          />
+        </div>
+        <div class="space-y-2">
+          <label class="text-sm font-medium text-foreground">Количество месяцев</label>
+          <Input
+            v-model="grantSubMonths"
+            type="number"
+            placeholder="1"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <Button variant="ghost" @click="showGrantSubscription = false">Отмена</Button>
+        <Button :disabled="!grantSubPlanId || !grantSubMonths || Number(grantSubMonths) < 1 || Number(grantSubMonths) > 60" @click="executeGrantSubscription">Выдать</Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -157,6 +204,8 @@ import {
   KeyRound,
   Trash2,
   CreditCard,
+  ArrowRightLeft,
+  Gift,
 } from 'lucide-vue-next'
 import { adminApi } from '@/api/client'
 import { useToast } from '@/composables/useToast'
@@ -194,6 +243,17 @@ const showBulkPlanChange = ref(false)
 const bulkPlanId = ref<string | number | null>(null)
 
 const planOptions = ref<{ value: string | number; label: string }[]>([])
+
+// Change plan modal (per-user)
+const showChangePlan = ref(false)
+const changePlanUserId = ref<number | null>(null)
+const changePlanSelectedId = ref<string | number | null>(null)
+
+// Grant subscription modal (per-user)
+const showGrantSubscription = ref(false)
+const grantSubUserId = ref<number | null>(null)
+const grantSubPlanId = ref<string | number | null>(null)
+const grantSubMonths = ref<string | number>(1)
 
 // Confirm dialog
 const confirmDialog = ref({
@@ -305,6 +365,16 @@ function getRowActions(row: AdminUser) {
       icon: row.is_admin ? ShieldOff : ShieldCheck,
     },
     {
+      key: 'change-plan',
+      label: 'Сменить план',
+      icon: ArrowRightLeft,
+    },
+    {
+      key: 'grant-subscription',
+      label: 'Выдать подписку',
+      icon: Gift,
+    },
+    {
       key: 'reset-password',
       label: 'Сбросить пароль',
       icon: KeyRound,
@@ -347,6 +417,17 @@ function handleAction(key: string, row: AdminUser) {
     case 'remove-admin':
       toggleAdmin(row, false)
       break
+    case 'change-plan':
+      changePlanUserId.value = row.id
+      changePlanSelectedId.value = row.plan_id
+      showChangePlan.value = true
+      break
+    case 'grant-subscription':
+      grantSubUserId.value = row.id
+      grantSubPlanId.value = null
+      grantSubMonths.value = 1
+      showGrantSubscription.value = true
+      break
     case 'reset-password':
       router.push({ name: 'user-detail', params: { id: row.id } })
       break
@@ -388,6 +469,34 @@ async function deleteUser(id: number) {
   try {
     await adminApi.deleteUser(id)
     toast.success('Пользователь удален')
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+async function executeChangePlan() {
+  if (!changePlanUserId.value || !changePlanSelectedId.value) return
+  try {
+    await adminApi.updateUser(changePlanUserId.value, { plan_id: changePlanSelectedId.value as number })
+    toast.success('Тариф пользователя изменен')
+    showChangePlan.value = false
+    loadUsers()
+  } catch (err) {
+    toast.error(getErrorMessage(err))
+  }
+}
+
+async function executeGrantSubscription() {
+  if (!grantSubUserId.value || !grantSubPlanId.value) return
+  try {
+    await adminApi.grantSubscription(
+      grantSubUserId.value,
+      grantSubPlanId.value as number,
+      Number(grantSubMonths.value) || 1,
+    )
+    toast.success('Подписка выдана')
+    showGrantSubscription.value = false
     loadUsers()
   } catch (err) {
     toast.error(getErrorMessage(err))

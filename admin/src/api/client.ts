@@ -242,6 +242,9 @@ export const adminApi = {
       { days },
     ),
 
+  grantSubscription: (userId: number, planId: number, months: number) =>
+    api.post(`/admin/users/${userId}/grant-subscription`, { plan_id: planId, months }),
+
   // Payments
   listPayments: (page = 1, limit = 20, status?: string) =>
     api.get<{
