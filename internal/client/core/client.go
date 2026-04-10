@@ -213,6 +213,7 @@ func (c *Client) UpdateToken(newToken string) {
 }
 
 // dialServer establishes a TCP connection to the server, with TLS if not in insecure mode.
+// If TLS handshake fails, automatically falls back to plain TCP (edge nodes may not have TLS).
 func (c *Client) dialServer() (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
 	if err != nil {
