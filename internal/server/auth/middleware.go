@@ -12,8 +12,9 @@ import (
 type contextKey string
 
 const (
-	UserContextKey   contextKey = "user"
-	ClaimsContextKey contextKey = "claims"
+	UserContextKey         contextKey = "user"
+	ClaimsContextKey       contextKey = "claims"
+	OriginalRemoteAddrKey  contextKey = "originalRemoteAddr"
 )
 
 // AuthenticatedUser represents the authenticated user in context
@@ -240,27 +241,28 @@ func GetClaimsFromContext(ctx context.Context) *Claims {
 	return claims
 }
 
-// GetClientIP extracts the client IP address from the request
+// GetClientIP extracts the client IP address from the request.
+//
+// It first checks the request context for the original TCP remote address
+// stored by saveOriginalIPMiddleware (before RealIP rewrites RemoteAddr).
+// If not present, it falls back to r.RemoteAddr.
+//
+// This function intentionally does NOT trust X-Forwarded-For or X-Real-IP
+// headers to prevent IP spoofing. Proxy header handling is done upstream
+// by Chi's RealIP middleware for the handlers that need it.
 func GetClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxies)
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		// Take the first IP in the list
-		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
-		}
-	}
-
-	// Check X-Real-IP header
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
-	// Remove port if present
+	// Prefer the original TCP address saved before RealIP middleware
 	addr := r.RemoteAddr
+	if original, ok := r.Context().Value(OriginalRemoteAddrKey).(string); ok && original != "" {
+		addr = original
+	}
+
+	// Remove port if present
+	return stripPort(addr)
+}
+
+// stripPort removes the port suffix from an address string.
+func stripPort(addr string) string {
 	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
 		// Check if this is IPv6
 		if strings.Contains(addr, "[") {
@@ -271,6 +273,5 @@ func GetClientIP(r *http.Request) string {
 		}
 		return addr[:colonIdx]
 	}
-
 	return addr
 }

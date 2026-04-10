@@ -181,15 +181,23 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 
 // handleGitHubLinkCallback processes the GitHub account linking after OAuth callback.
 func (s *Server) handleGitHubLinkCallback(w http.ResponseWriter, r *http.Request, userID int64, ghUser *githubUser) {
-	// Check if another user already has this GitHub ID — if so, merge
-	existingUser, mergeErr := s.db.Users.GetByGitHubID(ghUser.ID)
-	if mergeErr == nil && existingUser.ID != userID {
-		if err := s.db.Users.MergeUsers(userID, existingUser.ID); err != nil {
-			s.log.Error().Err(err).Int64("primary", userID).Int64("secondary", existingUser.ID).Msg("GitHub account merge failed")
-			s.redirectWithError(w, r, "failed to merge accounts", "")
-			return
-		}
-	} else if err := s.authService.LinkGitHub(userID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
+	// Check if another user already has this GitHub ID
+	existingUser, err := s.db.Users.GetByGitHubID(ghUser.ID)
+	if err == nil && existingUser.ID != userID {
+		// This GitHub account is linked to a different user — refuse to proceed
+		s.log.Warn().Int64("user_id", userID).Int64("existing_user_id", existingUser.ID).Int64("github_id", ghUser.ID).Msg("GitHub account already linked to another user")
+		s.redirectWithError(w, r, "this GitHub account is already linked to another user", "")
+		return
+	}
+
+	// If already linked to the same user, just redirect success
+	if err == nil && existingUser.ID == userID {
+		http.Redirect(w, r, "/profile?github_linked=true", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Link the GitHub account to the current user
+	if err := s.authService.LinkGitHub(userID, ghUser.ID, ghUser.Email, ghUser.AvatarURL); err != nil {
 		s.log.Error().Err(err).Int64("user_id", userID).Msg("GitHub account linking failed")
 		s.redirectWithError(w, r, "failed to link GitHub account", "")
 		return
@@ -470,15 +478,23 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 // handleGoogleLinkCallback processes the Google account linking after OAuth callback.
 func (s *Server) handleGoogleLinkCallback(w http.ResponseWriter, r *http.Request, userID int64, gUser *googleUser) {
-	// Check if another user already has this Google ID — if so, merge
-	existingUser, mergeErr := s.db.Users.GetByGoogleID(gUser.ID)
-	if mergeErr == nil && existingUser.ID != userID {
-		if err := s.db.Users.MergeUsers(userID, existingUser.ID); err != nil {
-			s.log.Error().Err(err).Int64("primary", userID).Int64("secondary", existingUser.ID).Msg("Google account merge failed")
-			s.redirectWithError(w, r, "failed to merge accounts", "")
-			return
-		}
-	} else if err := s.authService.LinkGoogle(userID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
+	// Check if another user already has this Google ID
+	existingUser, err := s.db.Users.GetByGoogleID(gUser.ID)
+	if err == nil && existingUser.ID != userID {
+		// This Google account is linked to a different user — refuse to proceed
+		s.log.Warn().Int64("user_id", userID).Int64("existing_user_id", existingUser.ID).Str("google_id", gUser.ID).Msg("Google account already linked to another user")
+		s.redirectWithError(w, r, "this Google account is already linked to another user", "")
+		return
+	}
+
+	// If already linked to the same user, just redirect success
+	if err == nil && existingUser.ID == userID {
+		http.Redirect(w, r, "/profile?google_linked=true", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Link the Google account to the current user
+	if err := s.authService.LinkGoogle(userID, gUser.ID, gUser.Email, gUser.Picture); err != nil {
 		s.log.Error().Err(err).Int64("user_id", userID).Msg("Google account linking failed")
 		s.redirectWithError(w, r, "failed to link Google account", "")
 		return

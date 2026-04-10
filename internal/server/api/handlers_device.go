@@ -80,6 +80,24 @@ func (s *Server) handleDeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Determine plan limits
+	maxTunnels := 10
+	maxTokens := 0 // 0 means unlimited
+
+	if user.Plan != nil {
+		maxTunnels = user.Plan.MaxTunnelsPerToken
+		maxTokens = user.Plan.MaxTokens
+	}
+
+	// Check token count against plan limit
+	if maxTokens > 0 {
+		tokenCount, _ := s.db.Tokens.Count(user.ID)
+		if tokenCount >= maxTokens {
+			s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached for your plan")
+			return
+		}
+	}
+
 	plainToken, err := auth.GenerateAPIToken()
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to generate token")
@@ -92,7 +110,7 @@ func (s *Server) handleDeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		TokenHash:         tokenHash,
 		Name:              "CLI (device flow)",
 		AllowedSubdomains: []string{"*"},
-		MaxTunnels:        10,
+		MaxTunnels:        maxTunnels,
 	}
 
 	if err := s.db.Tokens.Create(dbToken); err != nil {

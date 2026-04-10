@@ -18,6 +18,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
+	"golang.org/x/mod/semver"
 
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -495,6 +496,22 @@ func (s *Server) Start() error {
 		}
 	}
 
+	// Periodic cleanup of idle auth rate limiters to prevent memory leaks
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.cleanupAuthLimiters()
+			case <-s.ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Accept control connections
 	s.wg.Add(1)
 	go s.acceptControlConnections()
@@ -712,7 +729,7 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 
 		// Check client version against minimum required
 		if s.cfg.Server.MinVersion != "" && authMsg.Version != "" {
-			if authMsg.Version < s.cfg.Server.MinVersion {
+			if semver.Compare("v"+authMsg.Version, "v"+s.cfg.Server.MinVersion) < 0 {
 				log.Warn().Str("client_version", authMsg.Version).Str("min_version", s.cfg.Server.MinVersion).
 					Msg("Client version too old")
 				result := &protocol.AuthResultMessage{
@@ -799,6 +816,7 @@ func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, contro
 	}
 	client.DataSessions = append(client.DataSessions, session)
 	client.DataConns = append(client.DataConns, conn)
+	dataCount := len(client.DataSessions)
 	client.DataMu.Unlock()
 
 	// Send success
@@ -811,7 +829,7 @@ func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, contro
 	// Close the control stream — server will use session.Open() for data streams
 	controlStream.Close()
 
-	log.Info().Str("client_id", client.ID).Int("data_sessions", len(client.DataSessions)).Msg("Data session joined")
+	log.Info().Str("client_id", client.ID).Int("data_sessions", dataCount).Msg("Data session joined")
 }
 
 func (s *Server) findClientBySecret(clientID, secret string) *Client {
@@ -842,6 +860,17 @@ func (s *Server) allowAuth(remoteAddr string) bool {
 	}
 	v, _ := s.authLimiters.LoadOrStore(host, monitor.NewSlidingWindow(authRateLimitPerMin, time.Minute))
 	return v.(*monitor.SlidingWindow).Allow()
+}
+
+// cleanupAuthLimiters removes idle auth rate limiters to prevent unbounded memory growth.
+func (s *Server) cleanupAuthLimiters() {
+	s.authLimiters.Range(func(key, value any) bool {
+		sw := value.(*monitor.SlidingWindow)
+		if sw.IsIdle(5 * time.Minute) {
+			s.authLimiters.Delete(key)
+		}
+		return true
+	})
 }
 
 func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bool) {
@@ -1526,15 +1555,21 @@ func (c *Client) Close() {
 // Helper functions
 
 func generateID() string {
-	b := make([]byte, 9) // 9 bytes = 12 base64url chars
-	if _, err := rand.Read(b); err != nil {
-		panic("crypto/rand failed: " + err.Error())
-	}
-	// Base36 encode: lowercase alphanumeric, URL-safe, short
 	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
-	out := make([]byte, 12)
+	const idLen = 12
+	out := make([]byte, idLen)
 	for i := range out {
-		out[i] = alphabet[int(b[i%len(b)])%len(alphabet)]
+		for {
+			var b [1]byte
+			if _, err := rand.Read(b[:]); err != nil {
+				panic("crypto/rand failed: " + err.Error())
+			}
+			// Reject values >= 252 (252 = 36*7) to eliminate modular bias
+			if b[0] < 252 {
+				out[i] = alphabet[b[0]%36]
+				break
+			}
+		}
 	}
 	return string(out)
 }
