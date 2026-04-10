@@ -30,6 +30,12 @@ type NodeSettings struct {
 	HTTPAddr   string `mapstructure:"http_addr"`     // public address for inter-node HTTP proxy (host:port)
 }
 
+// GeoIPSettings contains GeoIP database configuration for region-based node selection.
+type GeoIPSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Database string `mapstructure:"database"` // path to .mmdb file
+}
+
 // ServerConfig holds all server configuration
 type ServerConfig struct {
 	Mode          ServerMode           `mapstructure:"mode"`
@@ -53,6 +59,7 @@ type ServerConfig struct {
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
 	ExchangeRate  float64              `mapstructure:"exchange_rate"`
 	Redis         RedisSettings        `mapstructure:"redis"`
+	GeoIP         GeoIPSettings        `mapstructure:"geoip"`
 }
 
 // RedisSettings contains Redis cache configuration
@@ -341,6 +348,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("redis.sentinel_enabled", false)
 	v.SetDefault("redis.sentinel_master", "fxtunnel-master")
 	v.SetDefault("mode", "standalone")
+	v.SetDefault("geoip.enabled", false)
+	v.SetDefault("geoip.database", "")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)

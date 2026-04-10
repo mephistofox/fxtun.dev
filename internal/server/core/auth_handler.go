@@ -17,6 +17,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/geoip"
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
@@ -432,7 +433,8 @@ func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg
 		return false, nil
 	}
 
-	node := s.selectBestNode()
+	clientIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+	node, selection := s.selectBestNode(clientIP)
 	if node == nil {
 		// No nodes available — hub handles the client itself
 		return false, nil
@@ -450,29 +452,52 @@ func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg
 		return false, fmt.Errorf("send redirect: %w", err)
 	}
 
+	country := ""
+	if s.geoIP != nil {
+		country = s.geoIP.Country(clientIP)
+	}
+
 	log.Info().
 		Str("node", node.Name).
 		Str("region", node.Region).
 		Str("addr", node.PublicAddr).
+		Str("client_country", country).
+		Str("selection", selection).
 		Msg("Redirecting client to edge node")
 
 	return true, errRedirected
 }
 
-// selectBestNode picks the best edge node for a client (least-loaded strategy).
-func (s *Server) selectBestNode() *store.NodeEntry {
+// selectBestNode picks the best edge node for a client.
+// It first tries GeoIP-based selection matching the client's country to a node region,
+// then falls back to least-loaded strategy.
+// Returns the selected node and the selection reason ("geo" or "least-loaded").
+func (s *Server) selectBestNode(clientIP string) (*store.NodeEntry, string) {
 	nodes, err := s.nodeRegistry.ListActiveNodes()
 	if err != nil || len(nodes) == 0 {
-		return nil
+		return nil, ""
 	}
 
+	// Try GeoIP-based selection first
+	if s.geoIP != nil {
+		country := s.geoIP.Country(clientIP)
+		if country != "" {
+			for i := range nodes {
+				if geoip.RegionMatchesCountry(nodes[i].Region, country) {
+					return &nodes[i], "geo"
+				}
+			}
+		}
+	}
+
+	// Fallback: least-loaded
 	best := &nodes[0]
 	for i := 1; i < len(nodes); i++ {
 		if nodes[i].TunnelCount < best.TunnelCount {
 			best = &nodes[i]
 		}
 	}
-	return best
+	return best, "least-loaded"
 }
 
 // authenticateViaHub delegates client authentication to the hub (used in node mode).
