@@ -530,28 +530,26 @@ func (s *Server) handleOAuthExchange(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// redirectWithTokens redirects with tokens: desktop gets tokens in URL, web gets a one-time code.
+// redirectWithTokens redirects with a one-time exchange code (never tokens in URL).
 func (s *Server) redirectWithTokens(w http.ResponseWriter, r *http.Request, tokenPair *auth.TokenPair, desktopRedirect string) {
-	// Desktop flow: send tokens directly to localhost (acceptable risk for localhost)
-	if desktopRedirect != "" && isLocalhostURI(desktopRedirect) {
-		params := url.Values{}
-		params.Set("access_token", tokenPair.AccessToken)
-		params.Set("refresh_token", tokenPair.RefreshToken)
-		params.Set("expires_in", fmt.Sprintf("%d", tokenPair.ExpiresIn))
-		http.Redirect(w, r, desktopRedirect+"?"+params.Encode(), http.StatusTemporaryRedirect)
-		return
-	}
-
-	// Web flow: issue a one-time code to avoid tokens in URL
+	// Issue a one-time code to avoid tokens in URL for both desktop and web flows
 	code, err := s.oauthStore.CreateCode(tokenPair.AccessToken, tokenPair.RefreshToken, tokenPair.ExpiresIn)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to create OAuth exchange code")
-		s.redirectWithError(w, r, "internal error", "")
+		s.redirectWithError(w, r, "internal error", desktopRedirect)
 		return
 	}
 
 	params := url.Values{}
 	params.Set("code", code)
+
+	// Desktop flow: redirect to localhost callback with code
+	if desktopRedirect != "" && isLocalhostURI(desktopRedirect) {
+		http.Redirect(w, r, desktopRedirect+"?"+params.Encode(), http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Web flow: redirect to frontend auth callback with code
 	http.Redirect(w, r, "/auth/callback?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
