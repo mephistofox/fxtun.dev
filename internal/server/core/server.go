@@ -665,13 +665,6 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
 
-	// Auth rate limiting per IP (10 attempts/minute)
-	if !s.allowAuth(remoteAddr) {
-		log.Warn().Msg("Auth rate limited")
-		conn.Close()
-		return
-	}
-
 	// Negotiate compression before yamux
 	rwc, compressed, err := protocol.NegotiateCompression(conn, s.cfg.Server.CompressionEnabled, true)
 	if err != nil {
@@ -727,6 +720,13 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		return
 
 	case protocol.MsgAuth:
+		// Rate limit only actual auth attempts (not data connections / JoinSession)
+		if !s.allowAuth(remoteAddr) {
+			log.Warn().Msg("Auth rate limited")
+			session.Close()
+			return
+		}
+
 		parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to parse auth message")
@@ -860,7 +860,7 @@ func (s *Server) removeClient(clientID string) {
 	s.clientMgr.removeClient(clientID)
 }
 
-const authRateLimitPerMin = 10
+const authRateLimitPerMin = 30
 
 func (s *Server) allowAuth(remoteAddr string) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
