@@ -253,24 +253,37 @@ func run(cmd *cobra.Command, args []string) error {
 			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
 		}
 
-		// Fetch TLS cert from hub if TLS is enabled but cert files don't exist
+		// Fetch TLS cert from hub if TLS is enabled but cert files don't exist.
+		// Retries every minute until cert is obtained (node may be pending approval).
 		if cfg.TLS.Enabled {
-			if _, err := os.Stat(cfg.TLS.CertFile); os.IsNotExist(err) {
-				log.Info().Msg("TLS cert not found locally, fetching from hub...")
-				tlsCert, err := hubClient.FetchTLSCert()
-				if err != nil {
-					log.Error().Err(err).Msg("Failed to fetch TLS cert from hub")
-				} else {
-					certDir := filepath.Dir(cfg.TLS.CertFile)
-					_ = os.MkdirAll(certDir, 0700)
-					if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
-						log.Error().Err(err).Msg("Failed to write cert file")
-					} else if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
-						log.Error().Err(err).Msg("Failed to write key file")
-					} else {
-						log.Info().Msg("TLS cert fetched from hub and saved")
+			if _, statErr := os.Stat(cfg.TLS.CertFile); os.IsNotExist(statErr) {
+				certCtx, certCancel := context.WithCancel(context.Background())
+				defer certCancel()
+				go func() {
+					for {
+						log.Info().Msg("TLS cert not found locally, requesting from hub...")
+						tlsCert, err := hubClient.FetchTLSCert()
+						if err != nil {
+							log.Warn().Err(err).Msg("Failed to fetch TLS cert from hub (will retry in 1m)")
+							select {
+							case <-time.After(1 * time.Minute):
+								continue
+							case <-certCtx.Done():
+								return
+							}
+						}
+						certDir := filepath.Dir(cfg.TLS.CertFile)
+						_ = os.MkdirAll(certDir, 0700)
+						if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
+							log.Error().Err(err).Msg("Failed to write cert file")
+						} else if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
+							log.Error().Err(err).Msg("Failed to write key file")
+						} else {
+							log.Info().Msg("TLS cert fetched from hub and saved successfully")
+						}
+						return
 					}
-				}
+				}()
 			}
 		}
 
