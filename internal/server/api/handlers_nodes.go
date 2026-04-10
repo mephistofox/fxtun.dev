@@ -218,11 +218,29 @@ func (s *Server) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleNodeTLSCert returns the hub's TLS certificate for edge nodes.
+// handleNodeTLSCert returns the hub's TLS certificate only to approved edge nodes.
 func (s *Server) handleNodeTLSCert(w http.ResponseWriter, r *http.Request) {
+	// Require node_id query param
+	nodeID := r.URL.Query().Get("node_id")
+	if nodeID == "" {
+		http.Error(w, `{"error":"node_id is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Verify node exists and is approved
+	node, err := s.db.EdgeNodes.GetByNodeID(nodeID)
+	if err != nil || node == nil {
+		http.Error(w, `{"error":"node not found"}`, http.StatusNotFound)
+		return
+	}
+	if node.Status != "active" {
+		s.log.Warn().Str("node_id", nodeID).Str("status", node.Status).Msg("Unapproved node tried to fetch TLS cert")
+		http.Error(w, `{"error":"node not approved"}`, http.StatusForbidden)
+		return
+	}
+
 	certFile := s.cfg.TLS.CertFile
 	keyFile := s.cfg.TLS.KeyFile
-
 	if certFile == "" || keyFile == "" {
 		http.Error(w, `{"error":"TLS not configured on hub"}`, http.StatusNotFound)
 		return
@@ -240,6 +258,8 @@ func (s *Server) handleNodeTLSCert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"failed to read key"}`, http.StatusInternalServerError)
 		return
 	}
+
+	s.log.Info().Str("node_id", nodeID).Str("name", node.Name).Msg("TLS cert issued to approved node")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
