@@ -88,7 +88,7 @@ function alignClass(align?: string): string {
 <template>
   <div
     :class="cn(
-      'relative overflow-hidden rounded-xl border border-border bg-card backdrop-blur-xl',
+      'relative overflow-visible rounded-xl border border-border bg-card backdrop-blur-xl',
       props.class,
     )"
   >
