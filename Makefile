@@ -1,4 +1,4 @@
-.PHONY: all build server client clean install test fmt lint web admin admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
+.PHONY: all build server client clean install test test-staging fmt lint web admin admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
 
 BINARY_SERVER=fxtunnel-server
 BINARY_CLIENT=fxtunnel
@@ -35,6 +35,9 @@ test:
 
 test-e2e:
 	go test -v -race -count=1 -timeout 120s ./internal/e2e/...
+
+test-staging:
+	go run cmd/integration-test/main.go --server mfdev.ru:4443 --api-url https://mfdev.ru --admin-token $(ADMIN_TOKEN)
 
 fmt:
 	go fmt ./...
