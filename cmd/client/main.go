@@ -797,6 +797,7 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 
 	// Create client
 	c := client.New(cfg, log)
+	c.SetVersion(Version)
 
 	fmt.Println("  \033[90mConnecting to fxtunnel server...\033[0m")
 
