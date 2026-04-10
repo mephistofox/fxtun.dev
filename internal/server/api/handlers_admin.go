@@ -935,6 +935,115 @@ func (s *Server) handleAdminExtendSubscription(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// handleAdminGrantSubscription grants a free subscription to a user
+func (s *Server) handleAdminGrantSubscription(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	userID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	var req dto.GrantSubscriptionRequest
+	if err := s.decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Months <= 0 || req.Months > 60 {
+		s.respondError(w, http.StatusBadRequest, "months must be between 1 and 60")
+		return
+	}
+
+	// Check user exists
+	user, err := s.db.Users.GetByID(userID)
+	if err != nil {
+		if errors.Is(err, database.ErrUserNotFound) {
+			s.respondError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get user")
+		s.respondError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	// Check plan exists
+	plan, err := s.db.Plans.GetByID(req.PlanID)
+	if err != nil {
+		if errors.Is(err, database.ErrPlanNotFound) {
+			s.respondError(w, http.StatusNotFound, "plan not found")
+			return
+		}
+		s.log.Error().Err(err).Msg("Failed to get plan")
+		s.respondError(w, http.StatusInternalServerError, "failed to get plan")
+		return
+	}
+
+	now := time.Now()
+	periodEnd := now.AddDate(0, req.Months, 0)
+
+	// Look for existing active subscription
+	sub, err := s.db.Subscriptions.GetByUserID(userID)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to get subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to get subscription")
+		return
+	}
+
+	if sub != nil && sub.IsActive() {
+		// Extend existing active subscription
+		if sub.CurrentPeriodEnd != nil && sub.CurrentPeriodEnd.After(now) {
+			periodEnd = sub.CurrentPeriodEnd.AddDate(0, req.Months, 0)
+		}
+		sub.PlanID = plan.ID
+		sub.CurrentPeriodEnd = &periodEnd
+		if err := s.db.Subscriptions.Update(sub); err != nil {
+			s.log.Error().Err(err).Msg("Failed to update subscription")
+			s.respondError(w, http.StatusInternalServerError, "failed to update subscription")
+			return
+		}
+	} else {
+		// Create new subscription
+		sub = &database.Subscription{
+			UserID:             userID,
+			PlanID:             plan.ID,
+			Status:             database.SubscriptionStatusActive,
+			Recurring:          false,
+			CurrentPeriodStart: &now,
+			CurrentPeriodEnd:   &periodEnd,
+		}
+		if err := s.db.Subscriptions.Create(sub); err != nil {
+			s.log.Error().Err(err).Msg("Failed to create subscription")
+			s.respondError(w, http.StatusInternalServerError, "failed to create subscription")
+			return
+		}
+	}
+
+	// Update user plan
+	user.PlanID = plan.ID
+	if err := s.db.Users.Update(user); err != nil {
+		s.log.Error().Err(err).Msg("Failed to update user plan")
+		// Non-fatal: subscription was already created/updated
+	}
+
+	// Audit log
+	_ = s.db.Audit.Log(&currentUser.ID, "admin_grant_subscription", map[string]interface{}{
+		"target_user_id":  userID,
+		"plan_id":         plan.ID,
+		"plan_name":       plan.Name,
+		"months":          req.Months,
+		"subscription_id": sub.ID,
+		"period_end":      sub.CurrentPeriodEnd,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, sub)
+}
+
 // handleGetUserDetail returns detailed user info with payments, subscriptions, and tunnel history
 func (s *Server) handleGetUserDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
