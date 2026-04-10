@@ -183,10 +183,10 @@ type TLSCertResponse struct {
 	KeyPEM  string `json:"key_pem"`
 }
 
-// FetchTLSCert retrieves the hub's TLS certificate for use by edge nodes.
+// FetchTLSCert retrieves the hub's TLS certificate for use by approved edge nodes.
 func (h *Client) FetchTLSCert() (*TLSCertResponse, error) {
 	var resp TLSCertResponse
-	if err := h.doJSON("GET", "/api/internal/tls-cert", nil, &resp); err != nil {
+	if err := h.doJSON("GET", "/api/internal/tls-cert?node_id="+h.nodeID, nil, &resp); err != nil {
 		return nil, fmt.Errorf("fetch TLS cert: %w", err)
 	}
 	if resp.CertPEM == "" || resp.KeyPEM == "" {
