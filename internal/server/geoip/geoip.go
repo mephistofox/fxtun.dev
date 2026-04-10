@@ -22,8 +22,8 @@ type result struct {
 // regionCountries maps region prefixes to country codes.
 // When a client's country matches a region, the node in that region is preferred.
 var regionCountries = map[string][]string{
-	"ru":   {"RU", "BY", "KZ", "UZ", "KG", "TJ", "AM", "AZ", "GE", "MD", "UA"},
-	"eu":   {"DE", "FR", "GB", "NL", "IT", "ES", "PL", "CZ", "AT", "CH", "BE", "SE", "NO", "DK", "FI", "IE", "PT", "RO", "BG", "HR", "SK", "HU", "LT", "LV", "EE", "SI", "LU"},
+	"ru":   {"RU", "BY", "KZ", "UZ", "KG", "TJ", "AM", "AZ", "GE", "MD", "UA", "LV", "LT", "EE", "FI"},
+	"eu":   {"DE", "FR", "GB", "NL", "IT", "ES", "PL", "CZ", "AT", "CH", "BE", "SE", "NO", "DK", "IE", "PT", "RO", "BG", "HR", "SK", "HU", "SI", "LU"},
 	"us":   {"US", "CA", "MX"},
 	"asia": {"JP", "KR", "SG", "HK", "TW", "IN", "TH", "VN", "MY", "ID", "PH", "AU", "NZ"},
 }
