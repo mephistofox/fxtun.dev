@@ -60,6 +60,14 @@ type ServerConfig struct {
 	ExchangeRate  float64              `mapstructure:"exchange_rate"`
 	Redis         RedisSettings        `mapstructure:"redis"`
 	GeoIP         GeoIPSettings        `mapstructure:"geoip"`
+	DNS           DNSSettings          `mapstructure:"dns"`
+}
+
+// DNSSettings contains authoritative DNS server configuration.
+type DNSSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Listen   string `mapstructure:"listen"`    // ":53"
+	ZoneFile string `mapstructure:"zone_file"` // path to YAML zone file
 }
 
 // RedisSettings contains Redis cache configuration
@@ -350,6 +358,9 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("mode", "standalone")
 	v.SetDefault("geoip.enabled", false)
 	v.SetDefault("geoip.database", "")
+	v.SetDefault("dns.enabled", false)
+	v.SetDefault("dns.listen", ":53")
+	v.SetDefault("dns.zone_file", "")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)

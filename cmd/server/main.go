@@ -18,6 +18,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/config"
 	server "github.com/mephistofox/fxtunnel/internal/server/core"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	fxdns "github.com/mephistofox/fxtunnel/internal/server/dns"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
 	"github.com/mephistofox/fxtunnel/internal/server/exchange"
 	"github.com/mephistofox/fxtunnel/internal/server/geoip"
@@ -190,6 +191,8 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// Set tunnel registry and TLS cache if Redis enabled
+	var tunnelRegistry *fxredis.TunnelRegistry
+	var nodeRegistry *fxredis.NodeRegistry
 	if redisClient != nil {
 		// ServerID determines how other nodes address this server for HTTP proxy
 		hostname, _ := os.Hostname()
@@ -197,13 +200,14 @@ func run(cmd *cobra.Command, args []string) error {
 		if cfg.EffectiveMode() == config.ModeNode && cfg.Node.HTTPAddr != "" {
 			serverID = cfg.Node.HTTPAddr
 		}
-		srv.SetTunnelRegistry(fxredis.NewTunnelRegistry(redisClient, serverID))
+		tunnelRegistry = fxredis.NewTunnelRegistry(redisClient, serverID)
+		srv.SetTunnelRegistry(tunnelRegistry)
 		srv.SetLocalNodeID(serverID)
 		log.Info().Str("server_id", serverID).Msg("Redis tunnel registry enabled")
 
 		// Set node registry for hub and node modes
 		if cfg.EffectiveMode() == config.ModeHub || cfg.EffectiveMode() == config.ModeNode {
-			nodeRegistry := fxredis.NewNodeRegistry(redisClient)
+			nodeRegistry = fxredis.NewNodeRegistry(redisClient)
 			srv.SetNodeRegistry(nodeRegistry)
 			log.Info().Msg("Redis node registry enabled")
 		}
@@ -292,6 +296,32 @@ func run(cmd *cobra.Command, args []string) error {
 		Bool("auth_enabled", cfg.Auth.Enabled).
 		Str("mode", string(cfg.EffectiveMode())).
 		Msg("Server started")
+
+	// Authoritative DNS server (optional). Resolves static records from a YAML
+	// zone file plus dynamic tunnel subdomains from the Redis tunnel registry.
+	var dnsSrv *fxdns.Server
+	if cfg.DNS.Enabled && cfg.DNS.ZoneFile != "" {
+		var dnsTunnels fxdns.TunnelLookup
+		var dnsNodes fxdns.NodeLookup
+		if tunnelRegistry != nil {
+			dnsTunnels = tunnelRegistry
+		}
+		if nodeRegistry != nil {
+			dnsNodes = nodeRegistry
+		}
+
+		dnsSrv, err = fxdns.New(fxdns.Config{
+			Enabled:  true,
+			Listen:   cfg.DNS.Listen,
+			ZoneFile: cfg.DNS.ZoneFile,
+		}, dnsTunnels, dnsNodes, log)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to init DNS server")
+		} else if err := dnsSrv.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start DNS server")
+			dnsSrv = nil
+		}
+	}
 
 	// Node mode: set hub client and start heartbeat AFTER server started
 	if cfg.EffectiveMode() == config.ModeNode && hubClient != nil {
@@ -498,6 +528,10 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// Graceful shutdown
 	exchange.Stop()
+
+	if dnsSrv != nil {
+		dnsSrv.Stop()
+	}
 
 	if apiServer != nil {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
