@@ -1,0 +1,30 @@
+# DNS zone config for mfdev.ru — exported from Beget on 2026-04-14T00:13:36+03:00
+# Add dynamic tunnel subdomains via Redis tunnel registry (handled at runtime)
+zones:
+  - name: "mfdev.ru"
+    tunnels_enabled: true
+    ttl: 300
+    records:
+      # Apex
+      - {name: "@", type: "A", value: "155.212.137.199"}
+      - {name: "@", type: "MX", value: "mx1.beget.com.", priority: 10}
+      - {name: "@", type: "MX", value: "mx2.beget.com.", priority: 20}
+      - {name: "@", type: "TXT", value: "v=spf1 redirect=beget.com"}
+
+      # Subdomains (infrastructure)
+      - {name: "www",   type: "A", value: "87.236.16.192"}
+      - {name: "admin", type: "A", value: "155.212.137.199"}
+      - {name: "api",   type: "A", value: "155.212.137.199"}
+
+      # Glue records for our DNS servers (will be NS1/NS2 after delegation)
+      - {name: "ns1",   type: "A", value: "155.212.137.199"}  # hub
+      - {name: "ns2",   type: "A", value: "159.194.203.103"}  # edge-1
+
+      # NS delegation (for self-reference inside zone)
+      - {name: "@", type: "NS", value: "ns1.mfdev.ru."}
+      - {name: "@", type: "NS", value: "ns2.mfdev.ru."}
+
+      # Note: *.mfdev.ru (tunnel subdomains) resolved dynamically from Redis
+      # at runtime — no static wildcard needed
+
+# Total records exported: 12
