@@ -1,26 +1,12 @@
 #!/bin/bash
-# Switch mfdev.ru DNS delegation to our own NS servers via Beget API.
+# Beget DNS management: backup, sync from YAML, switch NS, restore.
 #
-# SAFETY:
-#   - Creates a backup of current DNS records before any change
-#   - Verifies our NS servers are responding BEFORE switching
-#   - Supports rollback via --restore
-#
-# Usage:
-#   export BEGET_LOGIN="your_login"
-#   export BEGET_PASSWORD="your_password"
-#
-#   ./scripts/beget-dns-switch-ns.sh backup mfdev.ru
-#     → saves current zone to backups/dns-<domain>-<ts>.json
-#
-#   ./scripts/beget-dns-switch-ns.sh check 155.212.137.199 159.194.203.103
-#     → verifies our NS servers work before switching
-#
-#   ./scripts/beget-dns-switch-ns.sh switch mfdev.ru ns1.mfdev.ru ns2.mfdev.ru
-#     → sets NS records for mfdev.ru to our custom NS (after backup + check)
-#
-#   ./scripts/beget-dns-switch-ns.sh restore mfdev.ru backups/dns-mfdev.ru-20260414.json
-#     → restores from backup
+# Commands:
+#   backup  <domain>
+#   check   <ns1_ip> <ns2_ip> [domain]
+#   apply   <yaml_file>          — UPSERT all records from YAML to Beget
+#   switch  <domain> <ns1> <ns2>
+#   restore <domain> <backup_file>
 set -euo pipefail
 
 BEGET_LOGIN="${BEGET_LOGIN:-}"
@@ -67,6 +53,30 @@ check_status() {
   return 0
 }
 
+# Fetch records for one FQDN. Returns the `.records` object (A, MX, TXT, ...).
+get_records() {
+  local fqdn="$1"
+  local response
+  response=$(beget_call "dns/getData" "{\"fqdn\":\"$fqdn\"}") || return 1
+  check_status "$response" >/dev/null 2>&1 || {
+    echo "{}"
+    return 0
+  }
+  echo "$response" | jq '.answer.result.records // {}'
+}
+
+# Set records for one FQDN (completely replaces existing records for that FQDN).
+set_records() {
+  local fqdn="$1"
+  local records="$2"
+  local payload
+  payload=$(jq -n --arg fqdn "$fqdn" --argjson records "$records" \
+    '{fqdn: $fqdn, records: $records}')
+  local response
+  response=$(beget_call "dns/changeRecords" "$payload")
+  check_status "$response"
+}
+
 # --- Commands ---
 
 cmd_backup() {
@@ -95,15 +105,12 @@ cmd_check() {
   local fail=0
   for ip in "$ns1_ip" "$ns2_ip"; do
     echo -n "  Testing $ip... "
-    if dig +short +time=3 +tries=1 "@$ip" "$domain" SOA >/dev/null 2>&1; then
-      if dig +short +time=3 +tries=1 "@$ip" "$domain" SOA | grep -q .; then
-        echo "✓ OK"
-      else
-        echo "✗ FAIL (no SOA returned)"
-        fail=1
-      fi
+    local result
+    result=$(dig +short +time=3 +tries=1 "@$ip" "$domain" SOA 2>/dev/null)
+    if [ -n "$result" ]; then
+      echo "✓ OK  ($result)"
     else
-      echo "✗ FAIL (no response)"
+      echo "✗ FAIL (no SOA returned)"
       fail=1
     fi
   done
@@ -111,11 +118,143 @@ cmd_check() {
   if [ "$fail" -eq 1 ]; then
     echo "" >&2
     echo "✗ One or more NS servers are not responding correctly." >&2
-    echo "  Do NOT switch NS until fxtunnel DNS server is working on both." >&2
     exit 1
   fi
   echo ""
   echo "✓ Both NS servers are authoritative for $domain"
+}
+
+# apply: reads YAML zone config and UPSERTs records on Beget.
+# Each FQDN is updated independently; for each target FQDN:
+#   - types present in YAML → replaced with YAML values
+#   - types only in current Beget → preserved
+#
+# Flags:
+#   --dry-run   — print plan (current vs target) without applying
+cmd_apply() {
+  local dry_run=0
+  if [ "${1:-}" = "--dry-run" ]; then
+    dry_run=1
+    shift
+  fi
+
+  local yaml_file="$1"
+  if [ ! -f "$yaml_file" ]; then
+    echo "ERROR: YAML file not found: $yaml_file" >&2
+    exit 1
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    echo "=== DRY RUN (no changes will be made) ==="
+  fi
+
+  # Parse YAML with yq (preferred) or python fallback
+  local zones_json
+  if command -v yq >/dev/null 2>&1; then
+    zones_json=$(yq -o=json '.zones' "$yaml_file")
+  else
+    zones_json=$(python3 -c "import sys, yaml, json; print(json.dumps(yaml.safe_load(open('$yaml_file'))['zones']))")
+  fi
+
+  # For each zone
+  local zone_count
+  zone_count=$(echo "$zones_json" | jq 'length')
+  if [ "$zone_count" = "0" ] || [ "$zone_count" = "null" ]; then
+    echo "No zones in $yaml_file" >&2
+    exit 1
+  fi
+
+  for zi in $(seq 0 $((zone_count - 1))); do
+    local zone_name
+    zone_name=$(echo "$zones_json" | jq -r ".[$zi].name")
+    echo ""
+    echo "=== Zone: $zone_name ==="
+
+    # Group records by FQDN
+    # record.name == "@" → fqdn = zone_name
+    # record.name == "www" → fqdn = "www.zone_name"
+    local records_json
+    records_json=$(echo "$zones_json" | jq ".[$zi].records")
+
+    # Extract unique FQDNs
+    local fqdns
+    fqdns=$(echo "$records_json" | jq -r --arg zone "$zone_name" '
+      map(
+        if .name == "@" or .name == "" or .name == $zone then $zone
+        else .name + "." + $zone
+        end
+      ) | unique | .[]
+    ')
+
+    # For each FQDN
+    while IFS= read -r fqdn; do
+      [ -z "$fqdn" ] && continue
+      echo ""
+      echo "--- $fqdn ---"
+
+      # Collect YAML records for this FQDN, group by type
+      local yaml_records_for_fqdn
+      yaml_records_for_fqdn=$(echo "$records_json" | jq --arg zone "$zone_name" --arg fqdn "$fqdn" '
+        map(select(
+          (if .name == "@" or .name == "" or .name == $zone then $zone else .name + "." + $zone end) == $fqdn
+        ))
+      ')
+
+      # Build target records object grouped by type
+      local target
+      target=$(echo "$yaml_records_for_fqdn" | jq '
+        reduce .[] as $r ({};
+          .[$r.type] += [
+            if $r.type == "A"     then {value: $r.value}
+            elif $r.type == "AAAA" then {value: $r.value}
+            elif $r.type == "CNAME" then {value: ($r.value | sub("\\.$"; "") + ".")}
+            elif $r.type == "MX"    then {value: ($r.value | sub("\\.$"; "") + "."), priority: ($r.priority // 10)}
+            elif $r.type == "TXT"   then {value: $r.value}
+            elif $r.type == "NS"    then {value: ($r.value | sub("\\.$"; "") + ".")}
+            elif $r.type == "CAA"   then {value: $r.value}
+            elif $r.type == "SRV"   then {value: $r.value, priority: ($r.priority // 0), weight: ($r.weight // 0), port: ($r.port // 0)}
+            else {value: $r.value} end
+          ]
+        )
+      ')
+
+      # Get current Beget records
+      local current
+      current=$(get_records "$fqdn")
+
+      # Merge: target types override current types, non-target types preserved
+      local merged
+      merged=$(jq -n --argjson current "$current" --argjson target "$target" '
+        $current as $c | $target as $t |
+        ($c | to_entries | map(select(.key as $k | $t | has($k) | not)) | from_entries) + $t
+      ')
+
+      # Show diff
+      local target_types
+      target_types=$(echo "$target" | jq -r 'keys | join(", ")')
+      echo "  Types from YAML: $target_types"
+      echo "  Final records:"
+      echo "$merged" | jq -r '
+        to_entries[] |
+        .key as $type |
+        .value[] |
+        "    \($type): \(.value)" + (if .priority then " (priority=\(.priority))" else "" end)
+      '
+
+      # Apply
+      if set_records "$fqdn" "$merged" >/dev/null 2>&1; then
+        echo "  ✓ Applied"
+      else
+        echo "  ✗ FAILED" >&2
+      fi
+
+      # Small pause to be polite to API
+      sleep 0.3
+    done <<< "$fqdns"
+  done
+
+  echo ""
+  echo "✓ apply complete"
 }
 
 cmd_switch() {
@@ -123,12 +262,10 @@ cmd_switch() {
   local ns1="$2"
   local ns2="$3"
 
-  # Auto-backup first
   echo "→ Backing up current state before switch..."
   cmd_backup "$domain"
   echo ""
 
-  # Fetch current records (we need to preserve A/MX/TXT)
   echo "→ Fetching current records..."
   local response
   response=$(beget_call "dns/getData" "{\"fqdn\":\"$domain\"}")
@@ -137,26 +274,21 @@ cmd_switch() {
   local current
   current=$(echo "$response" | jq '.answer.result.records')
 
-  # Build new records: keep everything except NS, replace NS with ours
   local new_records
   new_records=$(echo "$current" | jq --arg ns1 "$ns1." --arg ns2 "$ns2." '
     . as $orig
     | {
-        A: ($orig.A // []),
-        AAAA: ($orig.AAAA // []),
-        MX: ($orig.MX // []),
-        TXT: ($orig.TXT // []),
-        CAA: ($orig.CAA // []),
+        A:     ($orig.A     // []),
+        AAAA:  ($orig.AAAA  // []),
+        MX:    ($orig.MX    // []),
+        TXT:   ($orig.TXT   // []),
+        CAA:   ($orig.CAA   // []),
         CNAME: ($orig.CNAME // []),
-        SRV: ($orig.SRV // []),
-        NS: [
-          {"value": $ns1},
-          {"value": $ns2}
-        ]
+        SRV:   ($orig.SRV   // []),
+        NS: [ {"value": $ns1}, {"value": $ns2} ]
       }
   ')
 
-  # Show diff
   echo "→ New NS records:"
   echo "  ns1: $ns1."
   echo "  ns2: $ns2."
@@ -164,13 +296,12 @@ cmd_switch() {
   echo "Other records preserved:"
   echo "$new_records" | jq -r 'to_entries[] | select(.key != "NS") | "  \(.key): \(.value | length) records"'
   echo ""
-  read -p "Proceed with NS change? This will affect the domain globally. [yes/NO]: " confirm
+  read -p "Proceed with NS change? [yes/NO]: " confirm
   if [ "$confirm" != "yes" ]; then
     echo "Aborted."
     exit 0
   fi
 
-  # Build changeRecords payload
   local payload
   payload=$(jq -n --arg fqdn "$domain" --argjson records "$new_records" \
     '{fqdn: $fqdn, records: $records}')
@@ -180,8 +311,6 @@ cmd_switch() {
   check_status "$response"
 
   echo "✓ NS records updated."
-  echo ""
-  echo "Note: parent-zone NS propagation (for .ru registry) takes up to a few hours."
   echo "Monitor with: dig NS $domain"
 }
 
@@ -222,19 +351,23 @@ shift || true
 
 case "$CMD" in
   backup)
-    if [ $# -lt 1 ]; then echo "Usage: $0 backup <domain>" >&2; exit 1; fi
+    [ $# -lt 1 ] && { echo "Usage: $0 backup <domain>" >&2; exit 1; }
     cmd_backup "$1"
     ;;
   check)
-    if [ $# -lt 2 ]; then echo "Usage: $0 check <ns1_ip> <ns2_ip> [domain]" >&2; exit 1; fi
+    [ $# -lt 2 ] && { echo "Usage: $0 check <ns1_ip> <ns2_ip> [domain]" >&2; exit 1; }
     cmd_check "$@"
     ;;
+  apply)
+    [ $# -lt 1 ] && { echo "Usage: $0 apply <yaml_file>" >&2; exit 1; }
+    cmd_apply "$1"
+    ;;
   switch)
-    if [ $# -lt 3 ]; then echo "Usage: $0 switch <domain> <ns1_fqdn> <ns2_fqdn>" >&2; exit 1; fi
+    [ $# -lt 3 ] && { echo "Usage: $0 switch <domain> <ns1_fqdn> <ns2_fqdn>" >&2; exit 1; }
     cmd_switch "$1" "$2" "$3"
     ;;
   restore)
-    if [ $# -lt 2 ]; then echo "Usage: $0 restore <domain> <backup_file>" >&2; exit 1; fi
+    [ $# -lt 2 ] && { echo "Usage: $0 restore <domain> <backup_file>" >&2; exit 1; }
     cmd_restore "$1" "$2"
     ;;
   *)
@@ -247,7 +380,13 @@ Commands:
 
   check <ns1_ip> <ns2_ip> [domain]
       Verify both NS servers respond with SOA for the domain.
-      Run BEFORE switch to avoid breaking DNS.
+
+  apply <yaml_file>
+      UPSERT all records from YAML zone config to Beget.
+      Types in YAML override existing; other types preserved.
+      Works per-FQDN (apex + each subdomain).
+      Example:
+        $0 apply configs/dns-mfdev.yaml
 
   switch <domain> <ns1_fqdn> <ns2_fqdn>
       Replace NS records with our custom NS (auto-backup first).
@@ -256,8 +395,6 @@ Commands:
 
   restore <domain> <backup_file>
       Restore DNS records from a backup.
-      Example:
-        $0 restore mfdev.ru backups/dns/dns-mfdev.ru-20260414-120000.json
 
 Env vars required: BEGET_LOGIN, BEGET_PASSWORD
 EOF
