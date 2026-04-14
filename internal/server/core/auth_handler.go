@@ -487,19 +487,26 @@ func (s *Server) selectBestNode(clientIP string) (*store.NodeEntry, string) {
 		return nil, ""
 	}
 
-	// Try GeoIP-based selection first
+	// Try GeoIP-based selection first: pick least-loaded among geo-matching nodes
 	if s.geoIP != nil {
 		country := s.geoIP.Country(clientIP)
 		if country != "" {
+			var best *store.NodeEntry
 			for i := range nodes {
-				if geoip.RegionMatchesCountry(nodes[i].Region, country) {
-					return &nodes[i], "geo"
+				if !geoip.RegionMatchesCountry(nodes[i].Region, country) {
+					continue
 				}
+				if best == nil || nodes[i].TunnelCount < best.TunnelCount {
+					best = &nodes[i]
+				}
+			}
+			if best != nil {
+				return best, "geo"
 			}
 		}
 	}
 
-	// Fallback: least-loaded
+	// Fallback: least-loaded across all nodes
 	best := &nodes[0]
 	for i := 1; i < len(nodes); i++ {
 		if nodes[i].TunnelCount < best.TunnelCount {
