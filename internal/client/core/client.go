@@ -395,19 +395,46 @@ func (c *Client) authenticate() error {
 
 	// Handle edge node redirect
 	if result.Code == protocol.ErrCodeRedirect && result.RedirectAddr != "" {
+		// Defaults: use the server-picked primary (backward compat with old servers
+		// that don't send RedirectCandidates).
+		redirectAddr := result.RedirectAddr
+		redirectNodeID := result.RedirectNodeID
+		redirectRegion := result.RedirectRegion
+
+		// If hub returned multiple candidates, probe TCP RTT in parallel and
+		// pick the fastest. Fallback to the server-picked primary on failure.
+		if len(result.RedirectCandidates) > 1 {
+			best, rtt, err := probeLatency(c.ctx, result.RedirectCandidates)
+			if err != nil {
+				c.log.Warn().
+					Err(err).
+					Int("candidates", len(result.RedirectCandidates)).
+					Msg("Latency probe failed, falling back to server-picked node")
+			} else {
+				redirectAddr = best.Addr
+				redirectNodeID = best.NodeID
+				redirectRegion = best.Region
+				c.log.Info().
+					Str("fastest", best.NodeID).
+					Dur("rtt", rtt).
+					Int("candidates", len(result.RedirectCandidates)).
+					Msg("Selected fastest candidate via TCP RTT probe")
+			}
+		}
+
 		c.log.Info().
-			Str("node", result.RedirectNodeID).
-			Str("region", result.RedirectRegion).
-			Str("addr", result.RedirectAddr).
+			Str("node", redirectNodeID).
+			Str("region", redirectRegion).
+			Str("addr", redirectAddr).
 			Msg("Redirected to edge node")
-		c.nodeName = result.RedirectNodeID
-		c.nodeRegion = result.RedirectRegion
+		c.nodeName = redirectNodeID
+		c.nodeRegion = redirectRegion
 		c.events.EmitWithPayload(EventRedirected, map[string]interface{}{
-			"node":    result.RedirectNodeID,
-			"region":  result.RedirectRegion,
-			"address": result.RedirectAddr,
+			"node":    redirectNodeID,
+			"region":  redirectRegion,
+			"address": redirectAddr,
 		})
-		return &redirectError{addr: result.RedirectAddr}
+		return &redirectError{addr: redirectAddr}
 	}
 
 	if !result.Success {
