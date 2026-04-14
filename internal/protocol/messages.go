@@ -96,6 +96,18 @@ type AuthResultMessage struct {
 	RedirectAddr   string `json:"redirect_addr,omitempty"`
 	RedirectNodeID string `json:"redirect_node_id,omitempty"`
 	RedirectRegion string `json:"redirect_region,omitempty"`
+
+	// RedirectCandidates is the full list of candidate nodes the client may
+	// probe (TCP RTT) and pick the fastest. The first entry mirrors
+	// RedirectAddr/RedirectNodeID/RedirectRegion for backward compatibility.
+	RedirectCandidates []NodeRedirectCandidate `json:"redirect_candidates,omitempty"`
+}
+
+// NodeRedirectCandidate describes a node the client may connect to.
+type NodeRedirectCandidate struct {
+	Addr   string `json:"addr"` // host:port
+	NodeID string `json:"node_id"`
+	Region string `json:"region"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel
