@@ -440,6 +440,15 @@ func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg
 		return false, nil
 	}
 
+	// Don't redirect if selected node is THIS server — serve client locally
+	if node.NodeID == s.localNodeID || node.Name == s.cfg.Node.Name {
+		log.Info().
+			Str("node", node.Name).
+			Str("selection", selection).
+			Msg("Selected local node — serving client without redirect")
+		return false, nil
+	}
+
 	result := &protocol.AuthResultMessage{
 		Message:        protocol.NewMessage(protocol.MsgAuthResult),
 		Success:        true,
