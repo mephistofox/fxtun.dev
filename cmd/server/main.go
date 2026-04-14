@@ -25,6 +25,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/hub"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
@@ -333,6 +334,68 @@ func run(cmd *cobra.Command, args []string) error {
 			stats := srv.GetStats()
 			return stats.ActiveTunnels, stats.ActiveClients
 		})
+	}
+
+	// Hub mode: register self as a node so hub also serves tunnels.
+	// Uses node section config (name/region/public_addr) if set, otherwise defaults.
+	if cfg.EffectiveMode() == config.ModeHub && nodeRegistry != nil {
+		hubName := cfg.Node.Name
+		if hubName == "" {
+			hubName = "hub"
+		}
+		hubRegion := cfg.Node.Region
+		if hubRegion == "" {
+			hubRegion = "default"
+		}
+		hubPublicAddr := cfg.Node.PublicAddr
+		if hubPublicAddr == "" {
+			hubPublicAddr = fmt.Sprintf("%s:%d", srv.NodePublicHost(), cfg.Server.ControlPort)
+		}
+		hubHTTPAddr := cfg.Node.HTTPAddr
+		if hubHTTPAddr == "" {
+			hubHTTPAddr = fmt.Sprintf("%s:%d", srv.NodePublicHost(), cfg.Server.HTTPPort)
+		}
+
+		hubNodeID, _ := os.Hostname()
+		if hubNodeID == "" {
+			hubNodeID = "hub"
+		}
+
+		hubEntry := store.NodeEntry{
+			NodeID:     hubNodeID,
+			Name:       hubName,
+			Region:     hubRegion,
+			PublicAddr: hubPublicAddr,
+			HTTPAddr:   hubHTTPAddr,
+			Status:     "active",
+		}
+		if err := nodeRegistry.RegisterNode(hubEntry); err != nil {
+			log.Warn().Err(err).Msg("Failed to register hub as node")
+		} else {
+			srv.SetLocalNodeID(hubNodeID)
+			log.Info().
+				Str("node_id", hubNodeID).
+				Str("name", hubName).
+				Str("region", hubRegion).
+				Msg("Hub registered as node in active pool")
+
+			// Hub heartbeat to keep itself in active set
+			hubHBCtx, hubHBCancel := context.WithCancel(context.Background())
+			defer hubHBCancel()
+			go func() {
+				ticker := time.NewTicker(30 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-hubHBCtx.Done():
+						return
+					case <-ticker.C:
+						stats := srv.GetStats()
+						_ = nodeRegistry.HeartbeatNode(hubNodeID, stats.ActiveTunnels, stats.ActiveClients)
+					}
+				}
+			}()
+		}
 	}
 
 	// Start API server if web panel is enabled
