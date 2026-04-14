@@ -434,28 +434,40 @@ func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg
 	}
 
 	clientIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-	node, selection := s.selectBestNode(clientIP)
-	if node == nil {
+	candidates, selection := s.selectCandidates(clientIP)
+	if len(candidates) == 0 {
 		// No nodes available — hub handles the client itself
 		return false, nil
 	}
 
+	primary := &candidates[0]
+
 	// Don't redirect if selected node is THIS server — serve client locally
-	if node.NodeID == s.localNodeID || node.Name == s.cfg.Node.Name {
+	if primary.NodeID == s.localNodeID || primary.Name == s.cfg.Node.Name {
 		log.Info().
-			Str("node", node.Name).
+			Str("node", primary.Name).
 			Str("selection", selection).
 			Msg("Selected local node — serving client without redirect")
 		return false, nil
 	}
 
+	redirectCandidates := make([]protocol.NodeRedirectCandidate, 0, len(candidates))
+	for i := range candidates {
+		redirectCandidates = append(redirectCandidates, protocol.NodeRedirectCandidate{
+			Addr:   candidates[i].PublicAddr,
+			NodeID: candidates[i].Name,
+			Region: candidates[i].Region,
+		})
+	}
+
 	result := &protocol.AuthResultMessage{
-		Message:        protocol.NewMessage(protocol.MsgAuthResult),
-		Success:        true,
-		Code:           protocol.ErrCodeRedirect,
-		RedirectAddr:   node.PublicAddr,
-		RedirectNodeID: node.Name,
-		RedirectRegion: node.Region,
+		Message:            protocol.NewMessage(protocol.MsgAuthResult),
+		Success:            true,
+		Code:               protocol.ErrCodeRedirect,
+		RedirectAddr:       primary.PublicAddr,
+		RedirectNodeID:     primary.Name,
+		RedirectRegion:     primary.Region,
+		RedirectCandidates: redirectCandidates,
 	}
 	if err := codec.Encode(result); err != nil {
 		return false, fmt.Errorf("send redirect: %w", err)
@@ -467,53 +479,82 @@ func (s *Server) tryRedirectToNode(conn net.Conn, codec *protocol.Codec, authMsg
 	}
 
 	log.Info().
-		Str("node", node.Name).
-		Str("region", node.Region).
-		Str("addr", node.PublicAddr).
+		Str("node", primary.Name).
+		Str("region", primary.Region).
+		Str("addr", primary.PublicAddr).
 		Str("client_country", country).
 		Str("selection", selection).
+		Int("candidates", len(redirectCandidates)).
 		Msg("Redirecting client to edge node")
 
 	return true, errRedirected
 }
 
-// selectBestNode picks the best edge node for a client.
-// It first tries GeoIP-based selection matching the client's country to a node region,
-// then falls back to least-loaded strategy.
-// Returns the selected node and the selection reason ("geo" or "least-loaded").
-func (s *Server) selectBestNode(clientIP string) (*store.NodeEntry, string) {
+// maxRedirectCandidates caps how many nodes are returned to the client for
+// latency probing. Client-side parallel probes are cheap, but we keep this
+// bounded to avoid pathological fan-out.
+const maxRedirectCandidates = 5
+
+// selectCandidates picks up to maxRedirectCandidates edge nodes for a client,
+// ordered by (geo-match first, then TunnelCount ascending).
+// Returns the selected nodes and the selection reason ("geo" or "least-loaded").
+func (s *Server) selectCandidates(clientIP string) ([]store.NodeEntry, string) {
 	nodes, err := s.nodeRegistry.ListActiveNodes()
 	if err != nil || len(nodes) == 0 {
 		return nil, ""
 	}
 
-	// Try GeoIP-based selection first: pick least-loaded among geo-matching nodes
+	// Try GeoIP-based selection first: collect geo-matching nodes, sorted by load
 	if s.geoIP != nil {
 		country := s.geoIP.Country(clientIP)
 		if country != "" {
-			var best *store.NodeEntry
+			var matched []store.NodeEntry
 			for i := range nodes {
-				if !geoip.RegionMatchesCountry(nodes[i].Region, country) {
-					continue
-				}
-				if best == nil || nodes[i].TunnelCount < best.TunnelCount {
-					best = &nodes[i]
+				if geoip.RegionMatchesCountry(nodes[i].Region, country) {
+					matched = append(matched, nodes[i])
 				}
 			}
-			if best != nil {
-				return best, "geo"
+			if len(matched) > 0 {
+				sortNodesByLoad(matched)
+				if len(matched) > maxRedirectCandidates {
+					matched = matched[:maxRedirectCandidates]
+				}
+				return matched, "geo"
 			}
 		}
 	}
 
 	// Fallback: least-loaded across all nodes
-	best := &nodes[0]
+	all := make([]store.NodeEntry, len(nodes))
+	copy(all, nodes)
+	sortNodesByLoad(all)
+	if len(all) > maxRedirectCandidates {
+		all = all[:maxRedirectCandidates]
+	}
+	return all, "least-loaded"
+}
+
+// sortNodesByLoad sorts nodes in-place by TunnelCount ascending (least-loaded first).
+func sortNodesByLoad(nodes []store.NodeEntry) {
+	// insertion sort — candidate list is tiny (<= a few dozen typically)
 	for i := 1; i < len(nodes); i++ {
-		if nodes[i].TunnelCount < best.TunnelCount {
-			best = &nodes[i]
+		j := i
+		for j > 0 && nodes[j].TunnelCount < nodes[j-1].TunnelCount {
+			nodes[j], nodes[j-1] = nodes[j-1], nodes[j]
+			j--
 		}
 	}
-	return best, "least-loaded"
+}
+
+// selectBestNode picks the best edge node for a client (wrapper around
+// selectCandidates for backward compatibility).
+// Returns the selected node and the selection reason ("geo" or "least-loaded").
+func (s *Server) selectBestNode(clientIP string) (*store.NodeEntry, string) {
+	candidates, selection := s.selectCandidates(clientIP)
+	if len(candidates) == 0 {
+		return nil, ""
+	}
+	return &candidates[0], selection
 }
 
 // authenticateViaHub delegates client authentication to the hub (used in node mode).
