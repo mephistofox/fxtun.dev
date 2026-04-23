@@ -1181,6 +1181,7 @@
       "status": "Status",
       "role": "Role",
       "plan": "Plan",
+      "createdAt": "Registered",
       "lastLogin": "Last Login",
       "actions": "Actions",
       "active": "Active",

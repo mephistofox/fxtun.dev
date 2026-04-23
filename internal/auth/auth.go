@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,11 +12,41 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserNotActive      = errors.New("user account is not active")
-	ErrPhoneAlreadyExists = errors.New("phone number already registered")
-	ErrTOTPRequired       = errors.New("TOTP code required")
+	ErrInvalidCredentials     = errors.New("invalid credentials")
+	ErrUserNotActive          = errors.New("user account is not active")
+	ErrPhoneAlreadyExists     = errors.New("phone number already registered")
+	ErrTOTPRequired           = errors.New("TOTP code required")
+	ErrInvalidPhone           = errors.New("invalid phone number format")
+	ErrSuspiciousDisplayName  = errors.New("display name rejected")
 )
+
+// e164PhoneRegex matches E.164 international phone numbers: + followed by 8-15 digits, first digit non-zero.
+var e164PhoneRegex = regexp.MustCompile(`^\+[1-9]\d{7,14}$`)
+
+// suspiciousDisplayNamePatterns holds regexes that identify known bot/abuse display names.
+// Extend this list as new spam signatures appear.
+var suspiciousDisplayNamePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^freedom[\s\-_]*(?:user|\d+)?$`),
+}
+
+// IsValidE164Phone reports whether phone is a syntactically valid E.164 number.
+func IsValidE164Phone(phone string) bool {
+	return e164PhoneRegex.MatchString(phone)
+}
+
+// IsSuspiciousDisplayName reports whether displayName matches any known abuse pattern.
+func IsSuspiciousDisplayName(displayName string) bool {
+	trimmed := strings.TrimSpace(displayName)
+	if trimmed == "" {
+		return false
+	}
+	for _, p := range suspiciousDisplayNamePatterns {
+		if p.MatchString(trimmed) {
+			return true
+		}
+	}
+	return false
+}
 
 // MaskPhone masks a phone number for logging, showing only the last 4 digits.
 func MaskPhone(phone string) string {
@@ -47,6 +78,19 @@ func NewService(db *database.Database, jwtSecret string, accessTTL, refreshTTL t
 
 // Register creates a new user account
 func (s *Service) Register(phone, password, displayName, ipAddress string) (*database.User, *TokenPair, error) {
+	// Normalize and validate phone (must be E.164)
+	phone = normalizePhone(phone)
+	if !IsValidE164Phone(phone) {
+		return nil, nil, ErrInvalidPhone
+	}
+
+	// Reject known bot/abuse display name patterns
+	displayName = strings.TrimSpace(displayName)
+	if IsSuspiciousDisplayName(displayName) {
+		s.log.Warn().Str("phone", MaskPhone(phone)).Str("ip", ipAddress).Str("display_name", displayName).Msg("Registration rejected: suspicious display name")
+		return nil, nil, ErrSuspiciousDisplayName
+	}
+
 	// Hash password
 	passwordHash, err := HashPassword(password)
 	if err != nil {
@@ -117,6 +161,8 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 	}
 	if err != nil {
 		if errors.Is(err, database.ErrUserNotFound) {
+			// Run a dummy hash verification so timing does not leak user existence.
+			_ = CheckPassword(password, dummyPasswordHash)
 			return nil, nil, ErrInvalidCredentials
 		}
 		return nil, nil, fmt.Errorf("get user: %w", err)

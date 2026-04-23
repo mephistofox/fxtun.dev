@@ -14,6 +14,21 @@ const (
 	bcryptCost = 12
 )
 
+// dummyPasswordHash is used to equalize login timing when the user lookup
+// fails, so attackers cannot enumerate registered phones/emails by response time.
+// Generated from a random value at server start; no user input will match it.
+var dummyPasswordHash = func() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "$2a$12$K6uVvPHzBwPZhFZm5rOJGOqDhJgGl2QHY0ge8QH7Pu3Xk9Xj3LwLm"
+	}
+	h, err := bcrypt.GenerateFromPassword(b, bcryptCost)
+	if err != nil {
+		return "$2a$12$K6uVvPHzBwPZhFZm5rOJGOqDhJgGl2QHY0ge8QH7Pu3Xk9Xj3LwLm"
+	}
+	return string(h)
+}()
+
 // HashPassword creates a bcrypt hash of the password
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
