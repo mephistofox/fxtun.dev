@@ -9,9 +9,9 @@ type RegisterRequest struct {
 
 // LoginRequest represents a login request
 type LoginRequest struct {
-	Phone    string `json:"phone" validate:"required"`
-	Password string `json:"password" validate:"required"`
-	TOTPCode string `json:"totp_code,omitempty"`
+	Phone    string `json:"phone" validate:"required,min=5,max=64"`
+	Password string `json:"password" validate:"required,min=1,max=128"`
+	TOTPCode string `json:"totp_code,omitempty" validate:"max=16"`
 }
 
 // RefreshRequest represents a token refresh request

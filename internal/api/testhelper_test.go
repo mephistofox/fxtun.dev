@@ -84,11 +84,13 @@ func setupTestEnv(t *testing.T) *testEnv {
 			Wildcard: true,
 		},
 		Auth: config.AuthSettings{
-			Enabled:         true,
-			JWTSecret:       "test-jwt-secret-at-least-32-chars-long!!",
-			AccessTokenTTL:  "15m",
-			RefreshTokenTTL: "168h",
-			MaxDomains:      3,
+			Enabled:                  true,
+			JWTSecret:                "test-jwt-secret-at-least-32-chars-long!!",
+			AccessTokenTTL:           "15m",
+			RefreshTokenTTL:          "168h",
+			MaxDomains:               3,
+			PhoneRegistrationEnabled: true,
+			PhoneRegistrationTarpit:  false,
 		},
 		Web: config.WebSettings{
 			Enabled: false, // avoid validation requiring jwt_secret via Validate()

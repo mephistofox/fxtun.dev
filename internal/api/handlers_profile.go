@@ -99,6 +99,10 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Update fields
 	if req.DisplayName != "" {
+		if auth.IsSuspiciousDisplayName(req.DisplayName) {
+			s.respondErrorWithCode(w, http.StatusBadRequest, "INVALID_DISPLAY_NAME", "display name rejected")
+			return
+		}
 		dbUser.DisplayName = req.DisplayName
 	}
 
