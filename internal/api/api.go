@@ -118,6 +118,12 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		shutdownCh:     make(chan struct{}),
 	}
 
+	// Make OAuth state tokens stateless (HMAC-signed) so service restarts
+	// don't invalidate in-flight sign-in flows.
+	if cfg.Auth.JWTSecret != "" {
+		s.oauthStore.SetSigningKey([]byte(cfg.Auth.JWTSecret))
+	}
+
 	go s.deviceStore.Cleanup(s.shutdownCh)
 	go s.oauthStore.Cleanup(s.shutdownCh)
 
