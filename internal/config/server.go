@@ -69,12 +69,17 @@ type DomainSettings struct {
 
 // AuthSettings contains authentication configuration
 type AuthSettings struct {
-	Enabled         bool          `mapstructure:"enabled"`
-	Tokens          []TokenConfig `mapstructure:"tokens"`
-	JWTSecret       string        `mapstructure:"jwt_secret"`
-	AccessTokenTTL  string        `mapstructure:"access_token_ttl"`
-	RefreshTokenTTL string        `mapstructure:"refresh_token_ttl"`
-	MaxDomains      int           `mapstructure:"max_domains_per_user"`
+	Enabled                  bool          `mapstructure:"enabled"`
+	Tokens                   []TokenConfig `mapstructure:"tokens"`
+	JWTSecret                string        `mapstructure:"jwt_secret"`
+	AccessTokenTTL           string        `mapstructure:"access_token_ttl"`
+	RefreshTokenTTL          string        `mapstructure:"refresh_token_ttl"`
+	MaxDomains               int           `mapstructure:"max_domains_per_user"`
+	PhoneRegistrationEnabled bool          `mapstructure:"phone_registration_enabled"`
+	// PhoneRegistrationTarpit: when phone_registration_enabled=false and this is true,
+	// the /api/auth/register endpoint returns a plausible 201 with fake (unusable)
+	// tokens instead of 403 — so bots waste time on accounts they can't log into.
+	PhoneRegistrationTarpit  bool          `mapstructure:"phone_registration_tarpit"`
 }
 
 // WebSettings contains web panel configuration
@@ -87,9 +92,10 @@ type WebSettings struct {
 
 // RateLimitConfig contains rate limiting settings
 type RateLimitConfig struct {
-	Enabled      bool `mapstructure:"enabled"`
-	AuthPerMin   int  `mapstructure:"auth_per_min"`
-	GlobalPerMin int  `mapstructure:"global_per_min"`
+	Enabled        bool `mapstructure:"enabled"`
+	AuthPerMin     int  `mapstructure:"auth_per_min"`
+	GlobalPerMin   int  `mapstructure:"global_per_min"`
+	RegisterPerMin int  `mapstructure:"register_per_min"`
 }
 
 // DatabaseSettings contains database configuration
@@ -267,6 +273,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.access_token_ttl", "15m")
 	v.SetDefault("auth.refresh_token_ttl", "168h")
 	v.SetDefault("auth.max_domains_per_user", 3)
+	v.SetDefault("auth.phone_registration_enabled", false)
+	v.SetDefault("auth.phone_registration_tarpit", true)
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("tls.https_port", 443)
 	v.SetDefault("tls.acme_email", "")
@@ -284,6 +292,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("web.rate_limit.enabled", true)
 	v.SetDefault("web.rate_limit.auth_per_min", 5)
 	v.SetDefault("web.rate_limit.global_per_min", 100)
+	v.SetDefault("web.rate_limit.register_per_min", 1)
 	v.SetDefault("downloads.enabled", true)
 	v.SetDefault("downloads.path", "./downloads")
 	v.SetDefault("inspect.enabled", true)

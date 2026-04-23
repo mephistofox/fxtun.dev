@@ -351,6 +351,7 @@ onUnmounted(() => {
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.status') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.role') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.plan') }}</th>
+                <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.createdAt') }}</th>
                 <th class="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.lastLogin') }}</th>
                 <th class="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">{{ t('admin.users.actions') }}</th>
               </tr>
@@ -445,6 +446,11 @@ onUnmounted(() => {
                         </button>
                       </div>
                     </div>
+                  </td>
+
+                  <!-- Created At -->
+                  <td class="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                    {{ user.created_at ? formatDate(user.created_at) : '-' }}
                   </td>
 
                   <!-- Last Login -->

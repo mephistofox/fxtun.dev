@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net"
 	"net/http"
 )
 
@@ -11,7 +12,7 @@ const originalRemoteAddrKey contextKey = "originalRemoteAddr"
 
 // saveOriginalIPMiddleware preserves the original TCP remote address
 // before middleware.RealIP rewrites it from X-Forwarded-For.
-// Use getOriginalRemoteAddr(r) to retrieve the unmodified IP.
+// Use getOriginalRemoteAddr(r) to retrieve the unmodified IP (without port).
 func saveOriginalIPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), originalRemoteAddrKey, r.RemoteAddr)
@@ -19,13 +20,19 @@ func saveOriginalIPMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getOriginalRemoteAddr returns the TCP connection's remote address,
-// unmodified by RealIP middleware. Falls back to r.RemoteAddr.
+// getOriginalRemoteAddr returns the TCP connection's remote IP (without port),
+// unmodified by RealIP middleware. The port is stripped so rate limiters
+// key on IP only — otherwise every new TCP connection from the same IP gets
+// a fresh limiter bucket and rate limiting is effectively bypassed.
 func getOriginalRemoteAddr(r *http.Request) string {
-	if addr, ok := r.Context().Value(originalRemoteAddrKey).(string); ok {
-		return addr
+	raw, _ := r.Context().Value(originalRemoteAddrKey).(string)
+	if raw == "" {
+		raw = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	if host, _, err := net.SplitHostPort(raw); err == nil {
+		return host
+	}
+	return raw
 }
 
 func securityHeadersMiddleware(next http.Handler) http.Handler {
