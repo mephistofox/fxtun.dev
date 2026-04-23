@@ -215,7 +215,14 @@ func (s *Server) setupRoutes() {
 				authRL.cleanup(s.shutdownCh, 5*time.Minute)
 				r.Use(rateLimitMiddleware(authRL))
 			}
-			r.Post("/register", s.handleRegister)
+			// Registration has its own stricter limiter (anti-abuse).
+			if s.cfg.Web.RateLimit.Enabled && s.cfg.Web.RateLimit.RegisterPerMin > 0 {
+				registerRL := newIPRateLimiter(s.cfg.Web.RateLimit.RegisterPerMin)
+				registerRL.cleanup(s.shutdownCh, 10*time.Minute)
+				r.With(rateLimitMiddleware(registerRL)).Post("/register", s.handleRegister)
+			} else {
+				r.Post("/register", s.handleRegister)
+			}
 			r.Post("/login", s.handleLogin)
 			r.Post("/refresh", s.handleRefresh)
 			r.Post("/device/code", s.handleDeviceCode)
