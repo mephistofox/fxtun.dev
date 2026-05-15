@@ -4,20 +4,10 @@ on:
   push:
     branches: [master]
     paths:
-      - 'web/**'
-      - 'internal/api/**'
-      - 'internal/auth/**'
-      - 'internal/config/**'
-      - 'internal/database/**'
-      - 'internal/email/**'
-      - 'internal/exchange/**'
-      - 'internal/inspect/**'
-      - 'internal/payment/**'
-      - 'internal/protocol/**'
-      - 'internal/scheduler/**'
       - 'internal/server/**'
-      - 'internal/tls/**'
-      - 'internal/web/**'
+      - 'internal/config/**'
+      - 'internal/protocol/**'
+      - 'internal/inspect/**'
       - 'cmd/server/**'
       - 'go.mod'
       - 'go.sum'
@@ -25,71 +15,21 @@ on:
   pull_request:
     branches: [master]
     paths:
-      - 'web/**'
-      - 'internal/api/**'
-      - 'internal/auth/**'
-      - 'internal/config/**'
-      - 'internal/database/**'
-      - 'internal/email/**'
-      - 'internal/exchange/**'
-      - 'internal/inspect/**'
-      - 'internal/payment/**'
-      - 'internal/protocol/**'
-      - 'internal/scheduler/**'
       - 'internal/server/**'
-      - 'internal/tls/**'
-      - 'internal/web/**'
+      - 'internal/config/**'
+      - 'internal/protocol/**'
+      - 'internal/inspect/**'
       - 'cmd/server/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/ci-server.yml'
 
 jobs:
-  build-web:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build web frontend
-        run: |
-          cd web && npm ci && npm run build
-          mkdir -p ../internal/web/dist
-          cp -r dist/* ../internal/web/dist/
-
-      - name: Create GUI dist placeholder
-        run: |
-          mkdir -p gui/dist
-          echo '<!DOCTYPE html><html><body>placeholder</body></html>' > gui/dist/index.html
-
-      - name: Upload frontends
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontends
-          path: |
-            internal/web/dist
-            gui/dist
-          retention-days: 1
-
   test:
-    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download frontends
-        uses: actions/download-artifact@v4
-        with:
-          name: frontends
-          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -98,7 +38,7 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./cmd/... ./internal/...
+        run: go test -v -race -coverprofile=coverage.out ./cmd/server/... ./internal/server/... ./internal/config/... ./internal/protocol/... ./internal/inspect/...
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -108,17 +48,10 @@ jobs:
           retention-days: 7
 
   lint:
-    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download frontends
-        uses: actions/download-artifact@v4
-        with:
-          name: frontends
-          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -130,20 +63,13 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=5m ./cmd/... ./internal/...
+          args: --timeout=5m ./cmd/server/... ./internal/server/... ./internal/config/... ./internal/protocol/... ./internal/inspect/...
 
   build-check:
-    needs: build-web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download frontends
-        uses: actions/download-artifact@v4
-        with:
-          name: frontends
-          path: .
 
       - name: Setup Go
         uses: actions/setup-go@v5

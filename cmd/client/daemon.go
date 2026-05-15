@@ -8,14 +8,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
+	client "github.com/mephistofox/fxtunnel/internal/client/core"
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/daemon"
+	"github.com/mephistofox/fxtunnel/internal/client/daemon"
 )
 
 var daemonForeground bool
@@ -88,7 +87,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 
 		attr := &os.ProcAttr{
 			Files: []*os.File{devNull, devNull, devNull},
-			Sys:   &syscall.SysProcAttr{Setsid: true},
+			Sys:   daemonSysProcAttr(),
 		}
 
 		proc, err := os.StartProcess(exe, newArgs, attr)
@@ -133,6 +132,7 @@ func runDaemonForeground() error {
 	cfg.Reconnect.Enabled = true
 
 	c := client.New(cfg, log)
+	c.SetVersion(Version)
 	if err := c.Connect(); err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
@@ -165,7 +165,10 @@ func runDaemonForeground() error {
 	// Print active tunnels
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
-			fmt.Printf("  HTTP: %s\n", t.URL)
+			fmt.Printf("  HTTP:  %s\n", t.URL)
+			if t.HTTPSURL != "" {
+				fmt.Printf("  HTTPS: %s\n", t.HTTPSURL)
+			}
 		} else {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}

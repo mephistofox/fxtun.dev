@@ -7,10 +7,10 @@ dist/
 .env
 
 # GUI
-gui/dist/
-gui/node_modules/
-gui/src/wailsjs/
-build/bin/
+gui/frontend/dist/
+gui/frontend/node_modules/
+gui/frontend/src/wailsjs/
+gui/build/bin/
 
 # Data
 *.db
@@ -24,7 +24,7 @@ plan.txt
 docs/blog/
 docs/plans/
 data/tg/
-build/windows/
+gui/build/windows/
 *.docx
 
 # Local binaries and configs
@@ -39,4 +39,4 @@ todo.md
 docs/new-features.md
 2026-*.txt
 
-screenshots/
+screenshots/backups/

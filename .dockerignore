@@ -2,11 +2,13 @@
 .github
 .claude
 bin/
-build/
 downloads/
-dist/
 node_modules/
 gui/
+web/
 *.db
 *.db-journal
 coverage.out
+screenshots/
+docs/
+assets/

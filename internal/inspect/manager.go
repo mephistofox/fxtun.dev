@@ -14,6 +14,11 @@ type Store interface {
 	DeleteByTunnelID(tunnelID string) (int64, error)
 }
 
+type persistJob struct {
+	ex     *CapturedExchange
+	userID int64
+}
+
 // Manager manages per-tunnel RingBuffers.
 type Manager struct {
 	mu          sync.RWMutex
@@ -22,6 +27,8 @@ type Manager struct {
 	capacity    int
 	maxBodySize int
 	store       Store
+	persistCh   chan *persistJob
+	persistWg   sync.WaitGroup
 }
 
 // NewManager creates a new Manager. If capacity is 0, inspection is disabled.
@@ -34,9 +41,23 @@ func NewManager(capacity, maxBodySize int) *Manager {
 	}
 }
 
-// SetStore sets the persistent store for exchange data.
+// SetStore sets the persistent store for exchange data and starts the async persist worker.
 func (m *Manager) SetStore(store Store) {
 	m.store = store
+	if store != nil {
+		m.persistCh = make(chan *persistJob, 10000)
+		m.persistWg.Add(1)
+		go m.persistWorker()
+	}
+}
+
+func (m *Manager) persistWorker() {
+	defer m.persistWg.Done()
+	for job := range m.persistCh {
+		if err := m.store.Save(job.ex, job.userID); err != nil {
+			log.Printf("[inspect] failed to persist exchange %s: %v", job.ex.ID, err)
+		}
+	}
 }
 
 // Enabled returns true if inspection is enabled (capacity > 0).
@@ -93,22 +114,24 @@ func (m *Manager) Get(tunnelID string) *RingBuffer {
 	return m.buffers[tunnelID]
 }
 
-// AddAndPersist adds the exchange to the in-memory buffer and persists to DB synchronously.
+// AddAndPersist adds the exchange to the in-memory buffer and enqueues async DB persistence.
 func (m *Manager) AddAndPersist(tunnelID string, ex *CapturedExchange) {
 	buf := m.Get(tunnelID)
 	if buf != nil {
 		buf.Add(ex)
 	}
 
-	if m.store == nil {
+	if m.persistCh == nil {
 		return
 	}
 	m.mu.RLock()
 	userID := m.userIDs[tunnelID]
 	m.mu.RUnlock()
 
-	if err := m.store.Save(ex, userID); err != nil {
-		log.Printf("[inspect] failed to persist exchange %s: %v", ex.ID, err)
+	select {
+	case m.persistCh <- &persistJob{ex: ex, userID: userID}:
+	default:
+		log.Printf("[inspect] persist queue full, dropping exchange %s", ex.ID)
 	}
 }
 
@@ -160,8 +183,14 @@ func (m *Manager) ForEach(fn func(tunnelID string, buf *RingBuffer)) {
 	}
 }
 
-// Close closes all buffers and clears the map.
+// Close drains the persist queue and closes all buffers.
 func (m *Manager) Close() {
+	// Drain persist queue first
+	if m.persistCh != nil {
+		close(m.persistCh)
+		m.persistWg.Wait()
+	}
+
 	m.mu.Lock()
 	buffers := m.buffers
 	m.buffers = make(map[string]*RingBuffer)

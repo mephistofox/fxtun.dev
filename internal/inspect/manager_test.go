@@ -140,12 +140,12 @@ func TestManager_AddAndPersist(t *testing.T) {
 	ex := &CapturedExchange{ID: "ex-1", TunnelID: "tunnel-1", Method: "GET", Path: "/test"}
 	m.AddAndPersist("tunnel-1", ex)
 
-	// Persist is synchronous, data should be available immediately
+	// Persist is async — Close() drains the queue before returning
+	m.Close()
+
 	saved := store.getSaved()
 	assert.Len(t, saved, 1)
 	assert.Equal(t, "ex-1", saved[0].ID)
-
-	m.Close()
 }
 
 func TestManager_AddAndPersist_NoUserID(t *testing.T) {
@@ -157,6 +157,9 @@ func TestManager_AddAndPersist_NoUserID(t *testing.T) {
 
 	ex := &CapturedExchange{ID: "ex-1", TunnelID: "tunnel-1"}
 	m.AddAndPersist("tunnel-1", ex)
+
+	// Persist is async — Close() drains the queue
+	m.Close()
 
 	assert.Len(t, store.getSaved(), 1, "should persist even without user ID (legacy tokens)")
 }

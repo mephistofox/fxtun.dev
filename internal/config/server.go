@@ -11,8 +11,35 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ServerMode defines the operating mode of the server.
+type ServerMode string
+
+const (
+	ModeStandalone ServerMode = "standalone" // default: single server, current behavior
+	ModeHub        ServerMode = "hub"        // central coordinator with DB, API, admin
+	ModeNode       ServerMode = "node"       // edge server handling tunnel connections
+)
+
+// NodeSettings contains edge node configuration (used when mode=node).
+type NodeSettings struct {
+	HubURL     string `mapstructure:"hub_url"`     // hub API URL, e.g. "https://hub.fxtun.dev"
+	HubToken   string `mapstructure:"hub_token"`    // pre-shared secret for node authentication
+	Name       string `mapstructure:"name"`         // human-readable node name, e.g. "moscow-1"
+	Region     string `mapstructure:"region"`        // geographic region, e.g. "ru-msk"
+	PublicAddr string `mapstructure:"public_addr"`   // public address for client connections (host:port)
+	HTTPAddr   string `mapstructure:"http_addr"`     // public address for inter-node HTTP proxy (host:port)
+}
+
+// GeoIPSettings contains GeoIP database configuration for region-based node selection.
+type GeoIPSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Database string `mapstructure:"database"` // path to .mmdb file
+}
+
 // ServerConfig holds all server configuration
 type ServerConfig struct {
+	Mode          ServerMode           `mapstructure:"mode"`
+	Node          NodeSettings         `mapstructure:"node"`
 	Server        ServerSettings       `mapstructure:"server"`
 	Domain        DomainSettings       `mapstructure:"domain"`
 	Auth          AuthSettings         `mapstructure:"auth"`
@@ -31,6 +58,28 @@ type ServerConfig struct {
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
 	ExchangeRate  float64              `mapstructure:"exchange_rate"`
+	Redis         RedisSettings        `mapstructure:"redis"`
+	GeoIP         GeoIPSettings        `mapstructure:"geoip"`
+	DNS           DNSSettings          `mapstructure:"dns"`
+}
+
+// DNSSettings contains authoritative DNS server configuration.
+type DNSSettings struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	Listen   string `mapstructure:"listen"`    // ":53"
+	ZoneFile string `mapstructure:"zone_file"` // path to YAML zone file
+}
+
+// RedisSettings contains Redis cache configuration
+type RedisSettings struct {
+	Enabled        bool     `mapstructure:"enabled"`
+	Addr           string   `mapstructure:"addr"`
+	Password       string   `mapstructure:"password"`
+	DB             int      `mapstructure:"db"`
+	KeyPrefix      string   `mapstructure:"key_prefix"`
+	SentinelEnabled bool    `mapstructure:"sentinel_enabled"`
+	SentinelMaster string   `mapstructure:"sentinel_master"`
+	SentinelAddrs  []string `mapstructure:"sentinel_addrs"`
 }
 
 // ServerSettings contains network settings
@@ -100,7 +149,7 @@ type RateLimitConfig struct {
 
 // DatabaseSettings contains database configuration
 type DatabaseSettings struct {
-	Path string `mapstructure:"path"`
+	DSN string `mapstructure:"dsn"`
 }
 
 // TOTPSettings contains TOTP 2FA configuration
@@ -285,7 +334,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("logging.format", "console")
 	v.SetDefault("web.enabled", false)
 	v.SetDefault("web.port", 8081)
-	v.SetDefault("database.path", "./data/fxtunnel.db")
+	v.SetDefault("database.dsn", "postgres://fxtunnel:fxtunnel@localhost:5432/fxtunnel?sslmode=disable")
 	v.SetDefault("totp.enabled", true)
 	v.SetDefault("totp.issuer", "fxTunnel")
 	v.SetDefault("totp.encryption_key", "")
@@ -308,6 +357,19 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("smtp.from_name", "fxTunnel")
 	v.SetDefault("telegram.enabled", false)
 	v.SetDefault("exchange_rate", 80.0)
+	v.SetDefault("redis.enabled", false)
+	v.SetDefault("redis.addr", "localhost:6379")
+	v.SetDefault("redis.password", "")
+	v.SetDefault("redis.db", 0)
+	v.SetDefault("redis.key_prefix", "fxt:")
+	v.SetDefault("redis.sentinel_enabled", false)
+	v.SetDefault("redis.sentinel_master", "fxtunnel-master")
+	v.SetDefault("mode", "standalone")
+	v.SetDefault("geoip.enabled", false)
+	v.SetDefault("geoip.database", "")
+	v.SetDefault("dns.enabled", false)
+	v.SetDefault("dns.listen", ":53")
+	v.SetDefault("dns.zone_file", "")
 
 	if configPath != "" {
 		v.SetConfigFile(configPath)
@@ -377,8 +439,50 @@ func parsePaymentDomains(configPath string) (map[string]PaymentDomainSettings, e
 	return raw.Payments.Domains, nil
 }
 
+// EffectiveMode returns the server mode, defaulting to standalone.
+func (c *ServerConfig) EffectiveMode() ServerMode {
+	if c.Mode == "" {
+		return ModeStandalone
+	}
+	return c.Mode
+}
+
 // Validate checks the configuration for errors
 func (c *ServerConfig) Validate() error {
+	switch c.EffectiveMode() {
+	case ModeStandalone, ModeHub, ModeNode:
+		// valid
+	default:
+		return fmt.Errorf("invalid mode %q: must be standalone, hub, or node", c.Mode)
+	}
+
+	if c.EffectiveMode() == ModeNode {
+		if c.Node.HubURL == "" {
+			return fmt.Errorf("node.hub_url is required in node mode")
+		}
+		if c.Node.HubToken == "" {
+			return fmt.Errorf("node.hub_token is required in node mode")
+		}
+		if c.Node.Name == "" {
+			return fmt.Errorf("node.name is required in node mode")
+		}
+		if c.Node.PublicAddr == "" {
+			return fmt.Errorf("node.public_addr is required in node mode")
+		}
+		if !c.Redis.Enabled {
+			return fmt.Errorf("redis.enabled must be true in node mode")
+		}
+	}
+
+	if c.EffectiveMode() == ModeHub {
+		if !c.Redis.Enabled {
+			return fmt.Errorf("redis.enabled must be true in hub mode")
+		}
+		if c.Node.HubToken == "" {
+			return fmt.Errorf("node.hub_token is required in hub mode (used to authenticate edge nodes)")
+		}
+	}
+
 	if c.Server.ControlPort < 1 || c.Server.ControlPort > 65535 {
 		return fmt.Errorf("invalid control port: %d", c.Server.ControlPort)
 	}
