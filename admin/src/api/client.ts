@@ -287,6 +287,12 @@ export const adminApi = {
 
   deleteInviteCode: (id: number) =>
     api.delete(`/admin/invite-codes/${id}`),
+
+  // TLS certificates
+  listCertificates: () =>
+    api.get<{ certificates: import('./types').CertificateInfo[]; total: number }>(
+      '/admin/certificates',
+    ),
 }
 
 export default api

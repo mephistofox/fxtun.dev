@@ -71,6 +71,7 @@ import {
   Receipt,
   Wallet,
   Globe,
+  ShieldCheck,
   FileText,
   Settings,
   LogOut,
@@ -89,6 +90,7 @@ const menuItems = [
   { label: 'Подписки', route: 'subscriptions', icon: Receipt },
   { label: 'Платежи', route: 'payments', icon: Wallet },
   { label: 'Домены', route: 'domains', icon: Globe },
+  { label: 'Сертификаты', route: 'certificates', icon: ShieldCheck },
   { label: 'Журнал', route: 'audit', icon: FileText },
   { label: 'Настройки', route: 'settings', icon: Settings },
 ]

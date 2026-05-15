@@ -273,3 +273,17 @@ export interface ProfileResponse {
   tunnel_count: number
   plan?: Plan
 }
+
+export interface CertificateInfo {
+  hostname: string
+  subject?: string
+  sans?: string[]
+  issuer?: string
+  not_before?: string
+  not_after?: string
+  days_left: number
+  status: 'ok' | 'expiring' | 'critical' | 'expired' | 'error'
+  error?: string
+  source: 'tls' | 'database'
+  wildcard: boolean
+}
