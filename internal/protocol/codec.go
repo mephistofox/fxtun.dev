@@ -23,10 +23,12 @@ var codecBufPool = sync.Pool{
 	},
 }
 
-// Codec handles encoding and decoding of protocol messages
+// Codec handles encoding and decoding of protocol messages.
+// Write operations are protected by a mutex for concurrent safety.
 type Codec struct {
 	reader io.Reader
 	writer io.Writer
+	wmu    sync.Mutex
 }
 
 // NewCodec creates a new codec for the given reader/writer
@@ -37,7 +39,8 @@ func NewCodec(r io.Reader, w io.Writer) *Codec {
 	}
 }
 
-// Encode writes a message to the writer with length prefix
+// Encode writes a message to the writer with length prefix.
+// Thread-safe: protected by write mutex.
 func (c *Codec) Encode(msg any) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
@@ -60,7 +63,9 @@ func (c *Codec) Encode(msg any) error {
 	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data))) //nolint:gosec // len() is always non-negative and bounded by MaxPayloadSize
 	copy(buf[HeaderSize:], data)
 
+	c.wmu.Lock()
 	_, werr := c.writer.Write(buf)
+	c.wmu.Unlock()
 	*bp = buf[:0]
 	codecBufPool.Put(bp)
 	if werr != nil {
@@ -153,7 +158,9 @@ func (c *Codec) EncodeBytes(data []byte) error {
 	binary.BigEndian.PutUint32(buf[:HeaderSize], uint32(len(data))) //nolint:gosec // len() is always non-negative and bounded by MaxPayloadSize
 	copy(buf[HeaderSize:], data)
 
+	c.wmu.Lock()
 	_, werr := c.writer.Write(buf)
+	c.wmu.Unlock()
 	*bp = buf[:0]
 	codecBufPool.Put(bp)
 	if werr != nil {

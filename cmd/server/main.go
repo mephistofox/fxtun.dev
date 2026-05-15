@@ -6,23 +6,29 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/mephistofox/fxtunnel/internal/api"
-	"github.com/mephistofox/fxtunnel/internal/auth"
+	"github.com/mephistofox/fxtunnel/internal/server/api"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/database"
-	"github.com/mephistofox/fxtunnel/internal/email"
-	"github.com/mephistofox/fxtunnel/internal/exchange"
-	"github.com/mephistofox/fxtunnel/internal/payment"
-	"github.com/mephistofox/fxtunnel/internal/scheduler"
-	"github.com/mephistofox/fxtunnel/internal/server"
-	"github.com/mephistofox/fxtunnel/internal/telegram"
-	fxtls "github.com/mephistofox/fxtunnel/internal/tls"
+	server "github.com/mephistofox/fxtunnel/internal/server/core"
+	"github.com/mephistofox/fxtunnel/internal/server/database"
+	fxdns "github.com/mephistofox/fxtunnel/internal/server/dns"
+	"github.com/mephistofox/fxtunnel/internal/server/email"
+	"github.com/mephistofox/fxtunnel/internal/server/exchange"
+	"github.com/mephistofox/fxtunnel/internal/server/geoip"
+	"github.com/mephistofox/fxtunnel/internal/server/hub"
+	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
+	"github.com/mephistofox/fxtunnel/internal/server/telegram"
+	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
 
 var (
@@ -34,6 +40,7 @@ var (
 	configFile string
 	logLevel   string
 	logFormat  string
+	serverMode string
 )
 
 func main() {
@@ -44,7 +51,7 @@ func main() {
 It allows clients to expose local services through HTTP subdomains,
 TCP ports, or UDP ports.
 
-GitHub: https://github.com/mephistofox/fxtunnel
+GitHub: https://github.com/mephistofox/fxtun.dev
 Website: https://fxtun.dev`,
 		RunE: run,
 	}
@@ -52,13 +59,14 @@ Website: https://fxtun.dev`,
 	rootCmd.Flags().StringVarP(&configFile, "config", "c", "", "Config file path")
 	rootCmd.Flags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.Flags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
+	rootCmd.Flags().StringVar(&serverMode, "mode", "", "Server mode: standalone, hub, node")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("fxTunnel Server %s (built %s)\n", Version, BuildTime)
-			fmt.Println("GitHub: https://github.com/mephistofox/fxtunnel")
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
 			fmt.Println("Website: https://fxtun.dev")
 		},
 	}
@@ -84,10 +92,19 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
+	// Override mode from CLI flag
+	if serverMode != "" {
+		cfg.Mode = config.ServerMode(serverMode)
+	}
+
 	// Override log settings from config if not set via flags
 	if !cmd.Flags().Changed("log-level") && cfg.Logging.Level != "" {
 		log = setupLogging(cfg.Logging.Level, cfg.Logging.Format)
 	}
+
+	log.Info().
+		Str("mode", string(cfg.EffectiveMode())).
+		Msg("Server mode")
 
 	// Initialize database if web panel is enabled
 	var db *database.Database
@@ -95,9 +112,9 @@ func run(cmd *cobra.Command, args []string) error {
 	var apiServer *api.Server
 
 	if cfg.Web.Enabled {
-		log.Info().Str("path", cfg.Database.Path).Msg("Initializing database")
+		log.Info().Str("dsn", cfg.Database.DSN).Msg("Initializing database")
 
-		db, err = database.New(cfg.Database.Path, log)
+		db, err = database.New(cfg.Database.DSN, log)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to initialize database")
 		}
@@ -136,6 +153,22 @@ func run(cmd *cobra.Command, args []string) error {
 		log.Info().Msg("Database and auth service initialized")
 	}
 
+	// Initialize Redis if enabled
+	var redisClient *fxredis.Client
+	if cfg.Redis.Enabled {
+		redisClient, err = fxredis.New(cfg.Redis, log)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to connect to Redis")
+		}
+		defer redisClient.Close()
+
+		// Override session store with Redis
+		if authService != nil {
+			authService.SetSessionStore(fxredis.NewSessionStore(redisClient))
+			log.Info().Msg("Redis session store enabled")
+		}
+	}
+
 	// Initialize Telegram notifications
 	var telegramNotifier *telegram.AdminNotifier
 	if cfg.Telegram.Enabled {
@@ -158,6 +191,44 @@ func run(cmd *cobra.Command, args []string) error {
 		srv.SetAuthService(authService)
 	}
 
+	// Set tunnel registry and TLS cache if Redis enabled
+	var tunnelRegistry *fxredis.TunnelRegistry
+	var nodeRegistry *fxredis.NodeRegistry
+	if redisClient != nil {
+		// ServerID determines how other nodes address this server for HTTP proxy
+		hostname, _ := os.Hostname()
+		serverID := hostname
+		if cfg.EffectiveMode() == config.ModeNode && cfg.Node.HTTPAddr != "" {
+			serverID = cfg.Node.HTTPAddr
+		}
+		tunnelRegistry = fxredis.NewTunnelRegistry(redisClient, serverID)
+		srv.SetTunnelRegistry(tunnelRegistry)
+		srv.SetLocalNodeID(serverID)
+		log.Info().Str("server_id", serverID).Msg("Redis tunnel registry enabled")
+
+		// Set node registry for hub and node modes
+		if cfg.EffectiveMode() == config.ModeHub || cfg.EffectiveMode() == config.ModeNode {
+			nodeRegistry = fxredis.NewNodeRegistry(redisClient)
+			srv.SetNodeRegistry(nodeRegistry)
+			log.Info().Msg("Redis node registry enabled")
+		}
+	}
+
+	// Set server mode
+	srv.SetMode(cfg.EffectiveMode())
+
+	// Initialize GeoIP for region-based edge node selection
+	if cfg.GeoIP.Enabled && cfg.GeoIP.Database != "" {
+		geo, err := geoip.New(cfg.GeoIP.Database)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to load GeoIP database, using least-loaded selection")
+		} else {
+			srv.SetGeoIP(geo)
+			defer geo.Close()
+			log.Info().Str("db", cfg.GeoIP.Database).Msg("GeoIP database loaded")
+		}
+	}
+
 	// Set Telegram notifier on tunnel server
 	if telegramNotifier != nil {
 		srv.SetTelegramNotifier(telegramNotifier)
@@ -167,6 +238,50 @@ func run(cmd *cobra.Command, args []string) error {
 	if cfg.CustomDomains.Enabled && db != nil {
 		if err := srv.InitCustomDomains(); err != nil {
 			log.Error().Err(err).Msg("Failed to initialize custom domains")
+		}
+		// Set Redis TLS cache if available
+		if redisClient != nil {
+			if cm := srv.CertManager(); cm != nil {
+				cm.SetRedisCache(fxredis.NewTLSCache(redisClient))
+				log.Info().Msg("Redis TLS certificate cache enabled")
+			}
+		}
+	}
+
+	// Node mode: register with hub and fetch TLS cert BEFORE starting server
+	var hubClient *hub.Client
+	if cfg.EffectiveMode() == config.ModeNode {
+		hubClient = hub.NewClient(cfg.Node.HubURL, cfg.Node.HubToken, log)
+		nodeID, err := hubClient.Register(cfg.Node.Name, cfg.Node.Region, cfg.Node.PublicAddr, cfg.Node.HTTPAddr, Version)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to register with hub (will retry via heartbeat)")
+		} else {
+			log.Info().Str("node_id", nodeID).Msg("Registered with hub")
+		}
+
+		// Fetch TLS cert from hub if cert files don't exist (blocks until obtained)
+		if cfg.TLS.Enabled {
+			if _, statErr := os.Stat(cfg.TLS.CertFile); os.IsNotExist(statErr) {
+				log.Info().Msg("TLS cert not found locally, requesting from hub...")
+				for {
+					tlsCert, err := hubClient.FetchTLSCert()
+					if err != nil {
+						log.Warn().Err(err).Msg("Failed to fetch TLS cert (node may be pending approval, retrying in 1m)")
+						time.Sleep(1 * time.Minute)
+						continue
+					}
+					certDir := filepath.Dir(cfg.TLS.CertFile)
+					_ = os.MkdirAll(certDir, 0700)
+					if err := os.WriteFile(cfg.TLS.CertFile, []byte(tlsCert.CertPEM), 0600); err != nil {
+						log.Fatal().Err(err).Msg("Failed to write cert file")
+					}
+					if err := os.WriteFile(cfg.TLS.KeyFile, []byte(tlsCert.KeyPEM), 0600); err != nil {
+						log.Fatal().Err(err).Msg("Failed to write key file")
+					}
+					log.Info().Msg("TLS cert fetched from hub and saved")
+					break
+				}
+			}
 		}
 	}
 
@@ -180,7 +295,108 @@ func run(cmd *cobra.Command, args []string) error {
 		Int("http_port", cfg.Server.HTTPPort).
 		Str("domain", cfg.Domain.Base).
 		Bool("auth_enabled", cfg.Auth.Enabled).
+		Str("mode", string(cfg.EffectiveMode())).
 		Msg("Server started")
+
+	// Authoritative DNS server (optional). Resolves static records from a YAML
+	// zone file plus dynamic tunnel subdomains from the Redis tunnel registry.
+	var dnsSrv *fxdns.Server
+	if cfg.DNS.Enabled && cfg.DNS.ZoneFile != "" {
+		var dnsTunnels fxdns.TunnelLookup
+		var dnsNodes fxdns.NodeLookup
+		if tunnelRegistry != nil {
+			dnsTunnels = tunnelRegistry
+		}
+		if nodeRegistry != nil {
+			dnsNodes = nodeRegistry
+		}
+
+		dnsSrv, err = fxdns.New(fxdns.Config{
+			Enabled:  true,
+			Listen:   cfg.DNS.Listen,
+			ZoneFile: cfg.DNS.ZoneFile,
+		}, dnsTunnels, dnsNodes, log)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to init DNS server")
+		} else if err := dnsSrv.Start(); err != nil {
+			log.Error().Err(err).Msg("Failed to start DNS server")
+			dnsSrv = nil
+		}
+	}
+
+	// Node mode: set hub client and start heartbeat AFTER server started
+	if cfg.EffectiveMode() == config.ModeNode && hubClient != nil {
+		srv.SetHubClient(&hubAuthAdapter{client: hubClient})
+
+		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
+		defer heartbeatCancel()
+		go hubClient.StartHeartbeatLoop(heartbeatCtx, 30*time.Second, func() (int, int) {
+			stats := srv.GetStats()
+			return stats.ActiveTunnels, stats.ActiveClients
+		})
+	}
+
+	// Hub mode: register self as a node so hub also serves tunnels.
+	// Uses node section config (name/region/public_addr) if set, otherwise defaults.
+	if cfg.EffectiveMode() == config.ModeHub && nodeRegistry != nil {
+		hubName := cfg.Node.Name
+		if hubName == "" {
+			hubName = "hub"
+		}
+		hubRegion := cfg.Node.Region
+		if hubRegion == "" {
+			hubRegion = "default"
+		}
+		hubPublicAddr := cfg.Node.PublicAddr
+		if hubPublicAddr == "" {
+			hubPublicAddr = fmt.Sprintf("%s:%d", srv.NodePublicHost(), cfg.Server.ControlPort)
+		}
+		hubHTTPAddr := cfg.Node.HTTPAddr
+		if hubHTTPAddr == "" {
+			hubHTTPAddr = fmt.Sprintf("%s:%d", srv.NodePublicHost(), cfg.Server.HTTPPort)
+		}
+
+		hubNodeID, _ := os.Hostname()
+		if hubNodeID == "" {
+			hubNodeID = "hub"
+		}
+
+		hubEntry := store.NodeEntry{
+			NodeID:     hubNodeID,
+			Name:       hubName,
+			Region:     hubRegion,
+			PublicAddr: hubPublicAddr,
+			HTTPAddr:   hubHTTPAddr,
+			Status:     "active",
+		}
+		if err := nodeRegistry.RegisterNode(hubEntry); err != nil {
+			log.Warn().Err(err).Msg("Failed to register hub as node")
+		} else {
+			srv.SetLocalNodeID(hubNodeID)
+			log.Info().
+				Str("node_id", hubNodeID).
+				Str("name", hubName).
+				Str("region", hubRegion).
+				Msg("Hub registered as node in active pool")
+
+			// Hub heartbeat to keep itself in active set
+			hubHBCtx, hubHBCancel := context.WithCancel(context.Background())
+			defer hubHBCancel()
+			go func() {
+				ticker := time.NewTicker(30 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-hubHBCtx.Done():
+						return
+					case <-ticker.C:
+						stats := srv.GetStats()
+						_ = nodeRegistry.HeartbeatNode(hubNodeID, stats.ActiveTunnels, stats.ActiveClients)
+					}
+				}
+			}()
+		}
+	}
 
 	// Start API server if web panel is enabled
 	if cfg.Web.Enabled && authService != nil {
@@ -191,7 +407,19 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		srv.InspectManager().SetStore(db.Exchanges)
 
-		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log)
+		var apiOpts []api.Option
+		if redisClient != nil {
+			apiOpts = append(apiOpts,
+				api.WithDeviceStore(fxredis.NewDeviceStore(redisClient)),
+				api.WithOAuthStore(fxredis.NewOAuthStore(redisClient)),
+			)
+			// Add node registry for hub mode admin endpoints
+			if cfg.EffectiveMode() == config.ModeHub {
+				apiOpts = append(apiOpts, api.WithNodeRegistry(fxredis.NewNodeRegistry(redisClient)))
+			}
+		}
+
+		apiServer = api.New(cfg, db, authService, tunnelProvider, srv.InspectManager(), cdm, log, apiOpts...)
 		apiServer.SetVersion(Version)
 		apiServer.SetMinVersion(cfg.Server.MinVersion)
 		apiServer.SetReplayProvider(srv.HTTPRouter())
@@ -213,7 +441,7 @@ func run(cmd *cobra.Command, args []string) error {
 			Int("port", cfg.Web.Port).
 			Msg("Web panel API started")
 
-		// Start expired session cleanup
+		// Start periodic cleanup
 		go func() {
 			ticker := time.NewTicker(1 * time.Hour)
 			defer ticker.Stop()
@@ -222,10 +450,13 @@ func run(cmd *cobra.Command, args []string) error {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					if deleted, err := db.Sessions.DeleteExpired(); err != nil {
-						log.Error().Err(err).Msg("Failed to cleanup expired sessions")
-					} else if deleted > 0 {
-						log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+					// Session cleanup only needed when Redis is not handling TTL
+					if redisClient == nil {
+						if deleted, err := db.Sessions.DeleteExpired(); err != nil {
+							log.Error().Err(err).Msg("Failed to cleanup expired sessions")
+						} else if deleted > 0 {
+							log.Info().Int64("deleted", deleted).Msg("Cleaned up expired sessions")
+						}
 					}
 					// Cleanup old inspect exchanges (24h TTL)
 					if deleted, err := db.Exchanges.DeleteOlderThan(time.Now().Add(-24 * time.Hour)); err != nil {
@@ -236,6 +467,32 @@ func run(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}()
+
+		// Start stale-node cleanup for hub mode
+		if cfg.EffectiveMode() == config.ModeHub && redisClient != nil {
+			nodeReg := fxredis.NewNodeRegistry(redisClient)
+			go func() {
+				ticker := time.NewTicker(60 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						stale, err := db.EdgeNodes.ListStaleNodes(3 * time.Minute)
+						if err != nil {
+							log.Error().Err(err).Msg("Failed to list stale nodes")
+							continue
+						}
+						for _, node := range stale {
+							log.Warn().Str("node_id", node.NodeID).Str("name", node.Name).Msg("Disabling stale edge node")
+							_ = db.EdgeNodes.UpdateStatus(node.ID, "disabled", 0)
+							_ = nodeReg.UnregisterNode(node.NodeID)
+						}
+					}
+				}
+			}()
+		}
 
 		// Initialize exchange rate from config
 		exchange.Init(cfg.ExchangeRate)
@@ -333,6 +590,12 @@ func run(cmd *cobra.Command, args []string) error {
 	log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
 
 	// Graceful shutdown
+	exchange.Stop()
+
+	if dnsSrv != nil {
+		dnsSrv.Stop()
+	}
+
 	if apiServer != nil {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
@@ -456,4 +719,24 @@ func deriveTLSEncryptionKey(totpKey []byte) []byte {
 	h.Write([]byte("fxtunnel-tls-key-encryption:"))
 	h.Write(totpKey)
 	return h.Sum(nil) // 32 bytes
+}
+
+// hubAuthAdapter adapts hub.Client to server.HubAuthVerifier interface.
+type hubAuthAdapter struct {
+	client *hub.Client
+}
+
+func (a *hubAuthAdapter) VerifyClientToken(token string) (*server.HubAuthInfo, error) {
+	info, err := a.client.VerifyClientToken(token)
+	if err != nil {
+		return nil, err
+	}
+	return &server.HubAuthInfo{
+		Valid:            info.Valid,
+		UserID:           info.UserID,
+		MaxTunnels:       info.MaxTunnels,
+		MaxDataSessions:  info.MaxDataSessions,
+		IsAdmin:          info.IsAdmin,
+		InspectorEnabled: info.InspectorEnabled,
+	}, nil
 }

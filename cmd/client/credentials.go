@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
+	"github.com/mephistofox/fxtunnel/internal/client/keyring"
 )
 
 // checkAuth checks if user has valid credentials from keyring or ~/.fxtunnel/client.yaml.

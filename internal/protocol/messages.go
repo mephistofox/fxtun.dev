@@ -67,6 +67,7 @@ type AuthMessage struct {
 	Token     string `json:"token"`
 	ClientID  string `json:"client_id,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
+	Version   string `json:"version,omitempty"` // client protocol version
 }
 
 // ClientCapabilities describes features available based on the user's plan.
@@ -86,9 +87,27 @@ type AuthResultMessage struct {
 	MaxTunnels    int                 `json:"max_tunnels,omitempty"`
 	ServerName    string              `json:"server_name,omitempty"`
 	SessionID     string              `json:"session_id,omitempty"`
-	SessionSecret string              `json:"session_secret,omitempty"`
-	MinVersion    string              `json:"min_version,omitempty"`
-	Capabilities  *ClientCapabilities `json:"capabilities,omitempty"`
+	SessionSecret   string              `json:"session_secret,omitempty"`
+	MinVersion      string              `json:"min_version,omitempty"`
+	Capabilities    *ClientCapabilities `json:"capabilities,omitempty"`
+	MaxDataSessions int                 `json:"max_data_sessions,omitempty"`
+
+	// Edge node redirect: hub tells client to connect to a specific node
+	RedirectAddr   string `json:"redirect_addr,omitempty"`
+	RedirectNodeID string `json:"redirect_node_id,omitempty"`
+	RedirectRegion string `json:"redirect_region,omitempty"`
+
+	// RedirectCandidates is the full list of candidate nodes the client may
+	// probe (TCP RTT) and pick the fastest. The first entry mirrors
+	// RedirectAddr/RedirectNodeID/RedirectRegion for backward compatibility.
+	RedirectCandidates []NodeRedirectCandidate `json:"redirect_candidates,omitempty"`
+}
+
+// NodeRedirectCandidate describes a node the client may connect to.
+type NodeRedirectCandidate struct {
+	Addr   string `json:"addr"` // host:port
+	NodeID string `json:"node_id"`
+	Region string `json:"region"`
 }
 
 // TunnelRequestMessage is sent by client to create a tunnel
@@ -120,6 +139,7 @@ type TunnelCreatedMessage struct {
 
 	// For HTTP tunnels
 	URL       string `json:"url,omitempty"`
+	HTTPSURL  string `json:"https_url,omitempty"`
 	Subdomain string `json:"subdomain,omitempty"`
 
 	// For TCP/UDP tunnels
@@ -229,4 +249,5 @@ const (
 	ErrCodePermissionDenied = "PERMISSION_DENIED"
 	ErrCodeInternalError    = "INTERNAL_ERROR"
 	ErrCodeProtocolError    = "PROTOCOL_ERROR"
+	ErrCodeRedirect         = "REDIRECT"
 )
