@@ -40,3 +40,11 @@ docs/new-features.md
 2026-*.txt
 
 screenshots/backups/
+
+# Prod deploy — local secrets and large artifacts, never commit
+backups/
+deploy/server.yaml
+deploy/*.tgz
+admin/dist/
+web/dist/
+internal/web/dist/
