@@ -1,11 +1,21 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import Sitemap from "vite-plugin-sitemap";
+import { ViteMinifyPlugin } from "vite-plugin-minify";
 import path from "path";
 
 export default defineConfig({
   plugins: [
     vue(),
+    ViteMinifyPlugin({
+      collapseWhitespace: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      minifyCSS: true,
+      minifyJS: true,
+    }),
     Sitemap({
       hostname: "https://fxtun.dev",
       dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
@@ -47,6 +57,15 @@ export default defineConfig({
       },
     }),
   ],
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_JIT_COMPILATION__: true,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+    __VUE_PROD_DEVTOOLS__: false,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -55,6 +74,22 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        passes: 2,
+        pure_funcs: ["console.log", "console.info", "console.debug"],
+      },
+      mangle: {
+        toplevel: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
+    cssMinify: "lightningcss",
   },
   ssgOptions: {
     script: "async",

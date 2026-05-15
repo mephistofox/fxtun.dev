@@ -19,9 +19,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/mephistofox/fxtunnel/internal/client"
+	client "github.com/mephistofox/fxtunnel/internal/client/core"
 	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/keyring"
+	"github.com/mephistofox/fxtunnel/internal/client/keyring"
 )
 
 const defaultControlPort = "4443"
@@ -55,6 +55,9 @@ var (
 	// Inspector flags
 	inspectAddr string
 	noInspect   bool
+
+	// TLS flags
+	insecureFlag bool
 )
 
 func main() {
@@ -119,6 +122,7 @@ For GUI mode, use fxtunnel-gui binary.`,
 	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
 	rootCmd.PersistentFlags().StringVar(&inspectAddr, "inspect-addr", "", "Inspector listen address (default 127.0.0.1:4040)")
 	rootCmd.PersistentFlags().BoolVar(&noInspect, "no-inspect", false, "Disable local traffic inspector")
+	rootCmd.PersistentFlags().BoolVar(&insecureFlag, "insecure", false, "Connect without TLS (for servers without TLS enabled)")
 
 	// HTTP tunnel command
 	httpCmd := &cobra.Command{
@@ -278,6 +282,9 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	}
 	if inspectAddr != "" {
 		cfg.Inspect.Addr = inspectAddr
+	}
+	if insecureFlag {
+		cfg.Server.Insecure = true
 	}
 
 	// Normalize server address (add default port if missing)
@@ -703,8 +710,9 @@ func checkAndAutoUpdate(addr string) {
 func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 	cfg := &config.ClientConfig{
 		Server: config.ClientServerSettings{
-			Address: normalizeServerAddr(serverAddr),
-			Token:   token,
+			Address:  normalizeServerAddr(serverAddr),
+			Token:    token,
+			Insecure: insecureFlag,
 		},
 		Tunnels: []config.TunnelConfig{tunnel},
 		Reconnect: config.ReconnectSettings{
@@ -797,6 +805,7 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 
 	// Create client
 	c := client.New(cfg, log)
+	c.SetVersion(Version)
 
 	fmt.Println("  \033[90mConnecting to fxtunnel server...\033[0m")
 
@@ -812,7 +821,10 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	fmt.Println("  \033[32mTunnel established!\033[0m")
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
-			fmt.Printf("  HTTP: %s\n", t.URL)
+			fmt.Printf("  HTTP:  %s\n", t.URL)
+			if t.HTTPSURL != "" {
+				fmt.Printf("  HTTPS: %s\n", t.HTTPSURL)
+			}
 		} else {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
 		}

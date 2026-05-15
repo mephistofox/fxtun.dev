@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fxTunnel — Code Review Report | 2026-04-09</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0A0D;--bg-elevated:#0F1217;--bg-card:#131820;--bg-card-hover:#181f2a;
+  --fg:#F2F2F2;--fg-secondary:#A0AEC0;--fg-muted:#5A6A7A;
+  --border:#1D2535;--border-subtle:#151D2B;
+  --primary:#BFFF00;--primary-dim:#7FA700;
+  --accent:#E040FB;
+  --critical:#DC2626;--critical-bg:rgba(220,38,38,0.08);--critical-border:rgba(220,38,38,0.25);
+  --high:#F97316;--high-bg:rgba(249,115,22,0.08);--high-border:rgba(249,115,22,0.25);
+  --medium:#EAB308;--medium-bg:rgba(234,179,8,0.08);--medium-border:rgba(234,179,8,0.25);
+  --low:#3B82F6;--low-bg:rgba(59,130,246,0.08);--low-border:rgba(59,130,246,0.25);
+  --security:#E040FB;--bug:#F97316;--perf:#06B6D4;--quality:#8B5CF6;
+  --radius:10px;--radius-sm:6px;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--fg);
+  font-family:'JetBrains Mono','Fira Code',monospace;
+  font-size:14px;line-height:1.7;
+  min-height:100vh;
+}
+a{color:var(--primary);text-decoration:none;transition:color .2s}
+a:hover{color:var(--accent)}
+code{
+  font-family:'JetBrains Mono',monospace;
+  background:var(--bg);padding:2px 6px;border-radius:4px;
+  font-size:0.9em;border:1px solid var(--border);
+}
+
+/* ===== Layout ===== */
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+.section{margin-bottom:48px}
+
+/* ===== Header ===== */
+.header{
+  position:relative;overflow:hidden;
+  border-bottom:1px solid var(--border);
+  padding:60px 0 48px;
+}
+.header::before{
+  content:'';position:absolute;top:-120px;right:-80px;
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(191,255,0,0.06) 0%,transparent 70%);
+  pointer-events:none;
+}
+.header::after{
+  content:'';position:absolute;bottom:-100px;left:-60px;
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(224,64,251,0.04) 0%,transparent 70%);
+  pointer-events:none;
+}
+.header-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.header-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--bg-elevated);border:1px solid var(--border);
+  border-radius:999px;padding:4px 14px;font-size:12px;
+  color:var(--fg-secondary);font-weight:500;
+}
+.header-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary);display:inline-block}
+.header h1{
+  font-size:36px;font-weight:700;letter-spacing:-0.5px;
+  margin:16px 0 8px;
+  background:linear-gradient(135deg,var(--fg) 0%,var(--fg-secondary) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.header .subtitle{color:var(--fg-muted);font-size:14px;font-weight:400}
+
+/* ===== Dashboard ===== */
+.dashboard{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;margin:32px 0 48px;
+}
+.stat-card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px 24px;
+  position:relative;overflow:hidden;transition:border-color .2s;
+}
+.stat-card:hover{border-color:var(--fg-muted)}
+.stat-card .label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--fg-muted);margin-bottom:8px;font-weight:600}
+.stat-card .value{font-size:32px;font-weight:700;line-height:1}
+.stat-card .bar{position:absolute;bottom:0;left:0;height:3px;border-radius:0 3px 0 0}
+.stat-card.critical .value{color:var(--critical)}.stat-card.critical .bar{background:var(--critical);width:100%}
+.stat-card.high .value{color:var(--high)}.stat-card.high .bar{background:var(--high);width:75%}
+.stat-card.medium .value{color:var(--medium)}.stat-card.medium .bar{background:var(--medium);width:55%}
+.stat-card.low .value{color:var(--low)}.stat-card.low .bar{background:var(--low);width:35%}
+.stat-card.total .value{color:var(--fg)}.stat-card.total .bar{background:var(--primary);width:100%}
+
+/* ===== TOC ===== */
+.toc{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px 28px;margin-bottom:48px;
+}
+.toc h2{font-size:16px;font-weight:600;margin-bottom:16px;color:var(--fg)}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:6px}
+.toc a{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 8px;border-radius:var(--radius-sm);
+  font-size:12px;color:var(--fg-secondary);
+  transition:background .15s,color .15s;
+}
+.toc a:hover{background:var(--bg-card-hover);color:var(--fg)}
+.toc a .num{color:var(--fg-muted);min-width:24px;text-align:right}
+
+/* ===== Severity Sections ===== */
+.severity-header{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:24px;padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
+.severity-header h2{font-size:20px;font-weight:700}
+.severity-header .count{
+  font-size:12px;font-weight:600;
+  padding:3px 10px;border-radius:999px;
+}
+
+/* ===== Finding Card ===== */
+.finding{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:16px;
+  transition:border-color .2s,transform .15s;
+  overflow:hidden;
+}
+.finding:hover{border-color:var(--fg-muted);transform:translateY(-1px)}
+.finding-header{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:20px 24px 12px;flex-wrap:wrap;
+}
+.finding-num{
+  font-size:13px;font-weight:700;min-width:32px;
+  color:var(--fg-muted);padding-top:2px;
+}
+.finding-title{font-size:15px;font-weight:600;flex:1;min-width:200px;line-height:1.4}
+.finding-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{
+  display:inline-flex;align-items:center;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;
+  padding:3px 10px;border-radius:999px;white-space:nowrap;
+}
+.badge-critical{background:var(--critical-bg);color:var(--critical);border:1px solid var(--critical-border)}
+.badge-high{background:var(--high-bg);color:var(--high);border:1px solid var(--high-border)}
+.badge-medium{background:var(--medium-bg);color:var(--medium);border:1px solid var(--medium-border)}
+.badge-low{background:var(--low-bg);color:var(--low);border:1px solid var(--low-border)}
+.badge-cat{background:var(--bg);color:var(--fg-muted);border:1px solid var(--border);font-weight:500}
+.badge-security{color:var(--security);border-color:rgba(224,64,251,0.3);background:rgba(224,64,251,0.08)}
+.badge-bug{color:var(--high);border-color:var(--high-border);background:var(--high-bg)}
+.badge-perf{color:var(--perf);border-color:rgba(6,182,212,0.3);background:rgba(6,182,212,0.08)}
+.badge-quality{color:var(--quality);border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.08)}
+.finding-body{padding:0 24px 20px}
+.finding-file{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--primary-dim);margin-bottom:12px;
+  padding:4px 10px;background:rgba(191,255,0,0.04);
+  border:1px solid rgba(191,255,0,0.1);border-radius:var(--radius-sm);
+  word-break:break-all;
+}
+.finding-file svg{flex-shrink:0}
+.finding-desc{color:var(--fg-secondary);font-size:13px;line-height:1.7;margin-bottom:12px}
+.finding-impact{
+  font-size:12px;color:var(--fg-muted);
+  padding:10px 14px;background:var(--bg);
+  border-radius:var(--radius-sm);border:1px solid var(--border);
+  line-height:1.6;
+}
+.finding-impact strong{color:var(--fg-secondary);font-weight:600}
+
+/* ===== Coverage Section ===== */
+.coverage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.coverage-item{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:14px 18px;
+  font-size:13px;color:var(--fg-secondary);
+  display:flex;align-items:center;gap:10px;
+}
+.coverage-item .icon{color:var(--critical);font-size:16px;flex-shrink:0}
+
+/* ===== Priority Table ===== */
+.priority-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.priority-table th{
+  text-align:left;padding:10px 16px;
+  background:var(--bg-card);color:var(--fg-muted);
+  font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:600;
+  border-bottom:1px solid var(--border);
+}
+.priority-table td{
+  padding:10px 16px;border-bottom:1px solid var(--border-subtle);
+  color:var(--fg-secondary);
+}
+.priority-table tr:hover td{background:var(--bg-card-hover)}
+.priority-table th:first-child{border-radius:var(--radius-sm) 0 0 0}
+.priority-table th:last-child{border-radius:0 var(--radius-sm) 0 0}
+
+/* ===== Footer ===== */
+.footer{
+  text-align:center;padding:40px 0;
+  border-top:1px solid var(--border);
+  color:var(--fg-muted);font-size:12px;
+  margin-top:64px;
+}
+.footer a{color:var(--primary-dim)}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--fg-muted)}
+
+/* ===== Responsive ===== */
+@media(max-width:768px){
+  .header h1{font-size:24px}
+  .dashboard{grid-template-columns:repeat(2,1fr)}
+  .toc-grid{grid-template-columns:1fr}
+  .finding-header{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- HEADER                                                        -->
+<!-- ============================================================ -->
+<header class="header">
+<div class="container">
+  <div class="header-top">
+    <span class="header-badge"><span class="dot"></span> fxTunnel</span>
+    <span class="header-badge">develop</span>
+    <span class="header-badge">2026-04-09</span>
+  </div>
+  <h1>Code Review Report</h1>
+  <p class="subtitle">Полномасштабный анализ кодовой базы &mdash; 5 параллельных ревью-агентов, все подсистемы</p>
+</div>
+</header>
+
+<!-- ============================================================ -->
+<!-- DASHBOARD                                                     -->
+<!-- ============================================================ -->
+<div class="container">
+<div class="dashboard">
+  <div class="stat-card total">
+    <div class="label">Всего найдено</div>
+    <div class="value">67</div>
+    <div class="bar"></div>
+  </div>
+  <div class="stat-card critical">
+    <div class="label">Critical</div>
+    <div class="value">8</div>
+    <div class="bar"></div>
+  </div>
+  <div class="stat-card high">
+    <div class="label">High</div>
+    <div class="value">17</div>
+    <div class="bar"></div>
+  </div>
+  <div class="stat-card medium">
+    <div class="label">Medium</div>
+    <div class="value">27</div>
+    <div class="bar"></div>
+  </div>
+  <div class="stat-card low">
+    <div class="label">Low</div>
+    <div class="value">15</div>
+    <div class="bar"></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS                                             -->
+<!-- ============================================================ -->
+<div class="toc section">
+  <h2>Содержание</h2>
+  <div class="toc-grid">
+    <a href="#f1"><span class="num">01</span> YooKassa webhook IP bypass</a>
+    <a href="#f2"><span class="num">02</span> GetClientIP IP spoofing</a>
+    <a href="#f3"><span class="num">03</span> WriteTimeout: 0 на всём HTTP-сервере</a>
+    <a href="#f4"><span class="num">04</span> Статический обменный курс USD/RUB</a>
+    <a href="#f5"><span class="num">05</span> OAuth токены в URL query params</a>
+    <a href="#f6"><span class="num">06</span> Inspector SSE auth token в URL</a>
+    <a href="#f7"><span class="num">07</span> OAuth merge аккаунтов без согласия</a>
+    <a href="#f8"><span class="num">08</span> bcrypt обрезка паролей &gt;72 байт</a>
+    <a href="#f9"><span class="num">09</span> Semver: лексикографическое сравнение</a>
+    <a href="#f10"><span class="num">10</span> Session secret не ротируется</a>
+    <a href="#f11"><span class="num">11</span> generateID — сниженная энтропия</a>
+    <a href="#f12"><span class="num">12</span> IP allowlist bypass без прокси</a>
+    <a href="#f13"><span class="num">13</span> UDP hash collision — misdirection</a>
+    <a href="#f14"><span class="num">14</span> authLimiters memory leak</a>
+    <a href="#f15"><span class="num">15</span> Дублирование expiration emails</a>
+    <a href="#f16"><span class="num">16</span> autocert.Cache неполная реализация</a>
+    <a href="#f17"><span class="num">17</span> Auto-close убивает все туннели</a>
+    <a href="#f18"><span class="num">18</span> Inspector io.ReadAll без лимита</a>
+    <a href="#f19"><span class="num">19</span> Data race на app.client в GUI</a>
+    <a href="#f20"><span class="num">20</span> Device flow обходит лимиты плана</a>
+    <a href="#f21"><span class="num">21</span> Redis: туннели не удаляются при disconnect</a>
+    <a href="#f22"><span class="num">22</span> TLS CertManager double-close panic</a>
+    <a href="#f23"><span class="num">23</span> Race condition в reconnecting</a>
+    <a href="#f24"><span class="num">24</span> TLS InsecureSkipVerify для SSE</a>
+    <a href="#f25"><span class="num">25</span> streamPool goroutine не отслеживается</a>
+    <a href="#f26"><span class="num">26</span> exchange.rate data race</a>
+    <a href="#f27"><span class="num">27</span> uniqueIPs map unbounded growth</a>
+    <a href="#f28"><span class="num">28</span> TLS renewal: unbounded goroutines</a>
+    <a href="#f29"><span class="num">29</span> SlidingWindow O(n) bottleneck</a>
+    <a href="#f30"><span class="num">30</span> Default DSN = Postgres вместо SQLite</a>
+    <a href="#f31"><span class="num">31</span> Internal errors в user-facing email</a>
+    <a href="#f32"><span class="num">32</span> Нет валидации payment secrets</a>
+    <a href="#f33"><span class="num">33</span> Persist queue молча дропает exchanges</a>
+    <a href="#f34"><span class="num">34</span> IsApexDomain ломается на .co.uk</a>
+    <a href="#f35"><span class="num">35</span> Stream pool busy-spin 200 ops/sec</a>
+    <a href="#f36"><span class="num">36</span> Interstitial дропает upstream ответ</a>
+    <a href="#f37"><span class="num">37</span> remoteProxyPool без eviction</a>
+    <a href="#f38"><span class="num">38</span> TCP port race при create/close</a>
+    <a href="#f39"><span class="num">39</span> alphanum запрещает дефисы в subdomain</a>
+    <a href="#f40"><span class="num">40</span> verifyToken игнорирует AllowedIPs</a>
+    <a href="#f41"><span class="num">41</span> Телефон в JWT claims (PII)</a>
+    <a href="#f42"><span class="num">42</span> MergeUsers не инвалидирует сессии</a>
+    <a href="#f43"><span class="num">43</span> Redis: context.Background() блокирует shutdown</a>
+    <a href="#f44"><span class="num">44</span> Телефон логируется при JWT auth</a>
+    <a href="#f45"><span class="num">45</span> cancelSSE map без мьютекса</a>
+    <a href="#f46"><span class="num">46</span> Panic при записи в closed oauthCh</a>
+    <a href="#f47"><span class="num">47</span> UDP goroutine leak до 30 сек</a>
+    <a href="#f48"><span class="num">48</span> API client: io.ReadAll без size limit</a>
+    <a href="#f49"><span class="num">49</span> CLI HTTP client без timeout</a>
+    <a href="#f50"><span class="num">50</span> sendControl ошибки игнорируются</a>
+    <a href="#f51"><span class="num">51</span> Admin reset password без min length</a>
+    <a href="#f52"><span class="num">52</span> TLS keys в БД без шифрования</a>
+    <a href="#f53"><span class="num">53</span> Payment registry без мьютекса</a>
+    <a href="#f54"><span class="num">54</span> Hardcoded MIME boundary</a>
+    <a href="#f55"><span class="num">55</span> Bot token в URL path (log leak)</a>
+    <a href="#f56"><span class="num">56</span> nil body при CapturePayment</a>
+    <a href="#f57"><span class="num">57</span> Type assertion ломает interface</a>
+    <a href="#f58"><span class="num">58</span> log.Printf вместо zerolog</a>
+    <a href="#f59"><span class="num">59</span> tunnelCreateMu never cleaned</a>
+    <a href="#f60"><span class="num">60</span> DataSessions len() без lock</a>
+    <a href="#f61"><span class="num">61</span> Daemon API без аутентификации</a>
+    <a href="#f62"><span class="num">62</span> os.Exit(0) в горутине</a>
+    <a href="#f63"><span class="num">63</span> fmt.Printf с ANSI в library code</a>
+    <a href="#f64"><span class="num">64</span> Inspector CORS Allow-Origin: *</a>
+    <a href="#f65"><span class="num">65</span> BytesSent некорректен для chunked</a>
+    <a href="#f66"><span class="num">66</span> matchWildcard без mid-position *</a>
+    <a href="#f67"><span class="num">67</span> audit_logs: нет индекса на action</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CRITICAL FINDINGS                                             -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2 style="color:var(--critical)">Critical</h2>
+  <span class="badge badge-critical">8 issues</span>
+</div>
+
+<!-- #1 -->
+<div class="finding" id="f1">
+  <div class="finding-header">
+    <span class="finding-num">#01</span>
+    <span class="finding-title">YooKassa webhook IP-check обходится через X-Forwarded-For</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/payment/yookassa.go:455-461 &amp; internal/server/api/handlers_payment.go:385
+    </div>
+    <div class="finding-desc">
+      <code>r.RemoteAddr</code> перезаписывается RealIP middleware значением из заголовков <code>X-Forwarded-For</code> / <code>X-Real-IP</code>. Проверка <code>IsYooKassaIP(r.RemoteAddr)</code> сверяет уже подменённый IP, а не реальный TCP-адрес отправителя. Атакующий ставит заголовок <code>X-Forwarded-For: 185.71.76.1</code> (IP из allowlist YooKassa) с любого адреса и полностью обходит проверку.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Атакующий отправляет поддельный <code>payment.succeeded</code> webhook с произвольными metadata (user_id, subscription_id) — бесплатная активация подписок без реальной оплаты. Полный обход платёжной верификации.
+    </div>
+  </div>
+</div>
+
+<!-- #2 -->
+<div class="finding" id="f2">
+  <div class="finding-header">
+    <span class="finding-num">#02</span>
+    <span class="finding-title">GetClientIP доверяет X-Forwarded-For/X-Real-IP безусловно</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/auth/middleware.go:244-276
+    </div>
+    <div class="finding-desc">
+      Функция <code>GetClientIP()</code> приоритетно читает заголовки <code>X-Forwarded-For</code> и <code>X-Real-IP</code> без проверки доверенного прокси. Используется для audit logs, сессий, проверки <code>AllowedIPs</code> на API-токенах. Любой клиент может подделать свой IP через HTTP-заголовки.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Обход IP-ограничений на API-токенах, подмена IP в аудит-логах (уничтожение forensic-возможностей), потенциальный обход rate-limiting в API-эндпоинтах.
+    </div>
+  </div>
+</div>
+
+<!-- #3 -->
+<div class="finding" id="f3">
+  <div class="finding-header">
+    <span class="finding-num">#03</span>
+    <span class="finding-title">WriteTimeout: 0 отключён на всём HTTP-сервере</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/api/api.go:437
+    </div>
+    <div class="finding-desc">
+      <code>WriteTimeout: 0</code> отключает таймаут записи для <strong>всех</strong> подключений, хотя комментарий говорит «disabled for SSE long-lived connections». Это затрагивает каждый эндпоинт: файловые загрузки, вебхуки, обычные API-запросы.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Уязвимость к Slowloris-атаке. Клиент удерживает соединение бесконечно, медленно читая ответ — исчерпание горутин и файловых дескрипторов. SSE должен быть на отдельном mux с <code>http.TimeoutHandler</code>.
+    </div>
+  </div>
+</div>
+
+<!-- #4 -->
+<div class="finding" id="f4">
+  <div class="finding-header">
+    <span class="finding-num">#04</span>
+    <span class="finding-title">Статический обменный курс USD/RUB без live-обновления</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/exchange/exchange.go:1-33
+    </div>
+    <div class="finding-desc">
+      Обменный курс — глобальная переменная <code>var rate float64</code>, устанавливаемая один раз при старте из конфига (<code>exchange_rate: 80.0</code>). Нет механизма получения live-курса от API. Курс USD/RUB колеблется от 60 до 110+.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Ежемесячные autopayment через scheduler (<code>ConvertUSDToRUB(plan.Price)</code>) списывают неправильные суммы. При реальном курсе 100 и конфиге 80 — пользователи платят на 20% меньше. И наоборот.
+    </div>
+  </div>
+</div>
+
+<!-- #5 -->
+<div class="finding" id="f5">
+  <div class="finding-header">
+    <span class="finding-num">#05</span>
+    <span class="finding-title">OAuth callback передаёт токены через URL query parameters</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/gui/auth_service.go:470-501
+    </div>
+    <div class="finding-desc">
+      OAuth callback handler читает <code>access_token</code> и <code>refresh_token</code> из <code>r.URL.Query().Get("access_token")</code>. Токены в URL сохраняются в browser history, серверных access logs, утекают через заголовок <code>Referer</code>.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Токены доступны в browser history. На shared-машине или при компрометации — полная утечка учётных данных. Нужно использовать POST body или URL fragment (<code>#token=</code>).
+    </div>
+  </div>
+</div>
+
+<!-- #6 -->
+<div class="finding" id="f6">
+  <div class="finding-header">
+    <span class="finding-num">#06</span>
+    <span class="finding-title">Inspector SSE: auth token передаётся в URL query string</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/gui/inspect_service.go:195
+    </div>
+    <div class="finding-desc">
+      Auth-токен передаётся как <code>?token=%s</code> в URL запроса к SSE-эндпоинту инспектора. Токен оказывается в логах сервера, прокси-логах, истории браузера.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Утечка auth-токена через любое логирование URL. Компрометация позволяет полный доступ к данным инспектора и управлению туннелями.
+    </div>
+  </div>
+</div>
+
+<!-- #7 -->
+<div class="finding" id="f7">
+  <div class="finding-header">
+    <span class="finding-num">#07</span>
+    <span class="finding-title">OAuth merge аккаунтов без согласия пользователя</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/api/handlers_oauth.go:183-199, 472-488
+    </div>
+    <div class="finding-desc">
+      При линковке GitHub/Google аккаунта, если OAuth ID принадлежит другому пользователю, вызывается <code>MergeUsers</code> автоматически без подтверждения. Переносятся все API-токены, сессии, домены, подписки, история.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Атакующий, контролирующий GitHub/Google аккаунт, ранее привязанный к жертве, запускает auto-merge и получает полный доступ: все токены, сессии, домены, биллинг.
+    </div>
+  </div>
+</div>
+
+<!-- #8 -->
+<div class="finding" id="f8">
+  <div class="finding-header">
+    <span class="finding-num">#08</span>
+    <span class="finding-title">bcrypt молча обрезает пароли длиннее 72 байт</span>
+    <div class="finding-badges">
+      <span class="badge badge-critical">Critical</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/api/dto/requests.go:6 &amp; internal/server/auth/password.go:19
+    </div>
+    <div class="finding-desc">
+      DTO разрешает пароли до 128 символов (<code>validate:"max=128"</code>), но <code>bcrypt.GenerateFromPassword</code> хеширует только первые 72 байта. Пользователь думает, что установил длинный пароль, но фактически защищён только первыми 72 байтами.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Два разных пароля с одинаковыми первыми 72 байтами дают идентичный хеш — оба допускают вход. Нужно ограничить max=72 или применить pre-hashing через SHA-256.
+    </div>
+  </div>
+</div>
+
+</div><!-- /section critical -->
+
+<!-- ============================================================ -->
+<!-- HIGH FINDINGS                                                 -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2 style="color:var(--high)">High</h2>
+  <span class="badge badge-high">17 issues</span>
+</div>
+
+<!-- #9 -->
+<div class="finding" id="f9">
+  <div class="finding-header">
+    <span class="finding-num">#09</span>
+    <span class="finding-title">Версия клиента сравнивается лексикографически, не semver</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/server.go:713-728
+    </div>
+    <div class="finding-desc">
+      <code>authMsg.Version &lt; s.cfg.Server.MinVersion</code> использует Go string comparison (лексикографическое). <code>"0.9.0" &lt; "0.10.0"</code> = <code>false</code>, потому что <code>'9' &gt; '1'</code> на позиции 2.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Клиент 0.9.0 проходит проверку минимальной версии 0.10.0. Устаревшие клиенты с уязвимостями не блокируются. Нужно <code>golang.org/x/mod/semver</code>.
+    </div>
+  </div>
+</div>
+
+<!-- #10 -->
+<div class="finding" id="f10">
+  <div class="finding-header">
+    <span class="finding-num">#10</span>
+    <span class="finding-title">Session secret не ротируется после успешного JoinSession</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/server.go:817-830
+    </div>
+    <div class="finding-desc">
+      Session secret с TTL 5 минут не инвалидируется после успешного <code>JoinSession</code>. Перехваченный секрет позволяет подключить неограниченное число data-сессий в пределах TTL.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Атакующий, перехвативший session secret, добавляет rogue data-сессии к чужому клиенту, потенциально перехватывая или подменяя трафик.
+    </div>
+  </div>
+</div>
+
+<!-- #11 -->
+<div class="finding" id="f11">
+  <div class="finding-header">
+    <span class="finding-num">#11</span>
+    <span class="finding-title">generateID: сниженная энтропия из-за переиспользования байт</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/server.go:1528-1540
+    </div>
+    <div class="finding-desc">
+      9 random bytes генерируют 12 символов через <code>i%len(b)</code>: байты 0-2 переиспользуются для позиций 9-11. Символы на позициях 0&amp;9, 1&amp;10, 2&amp;11 <strong>всегда идентичны</strong>. Плюс bias от <code>%36</code> на byte range 0-255.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Эффективная длина ID = 9 символов вместо 12. Пространство ID значительно меньше ожидаемого, что увеличивает вероятность коллизий и предсказуемости.
+    </div>
+  </div>
+</div>
+
+<!-- #12 -->
+<div class="finding" id="f12">
+  <div class="finding-header">
+    <span class="finding-num">#12</span>
+    <span class="finding-title">IP allowlist обходится через X-Real-IP без trusted proxy</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/middleware_ip.go:53-75
+    </div>
+    <div class="finding-desc">
+      <code>extractClientIP</code> приоритетно читает <code>X-Real-IP</code> перед <code>RemoteAddr</code>. Без trusted proxy атакующий спуфит <code>X-Real-IP: &lt;allowed-ip&gt;</code> и обходит IP-allowlist туннеля.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> IP-whitelist на туннелях не защищает от атакующих, которые могут подставить нужный заголовок. Контроль доступа по IP фактически не работает.
+    </div>
+  </div>
+</div>
+
+<!-- #13 -->
+<div class="finding" id="f13">
+  <div class="finding-header">
+    <span class="finding-num">#13</span>
+    <span class="finding-title">UDP hash collision: ответы уходят не тому клиенту</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/udp_manager.go:229-237
+    </div>
+    <div class="finding-desc">
+      <code>hashAddr</code> генерирует 32-bit хеш IP+port. <code>hashToKey</code> — last-write-wins. По birthday paradox: 50% вероятность коллизии при ~65K уникальных адресах. При коллизии ответ уходит не тому UDP-клиенту.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> В высоконагруженных UDP-туннелях (DNS, игровые серверы) ответы маршрутизируются неправильному клиенту — нарушение корректности и information disclosure.
+    </div>
+  </div>
+</div>
+
+<!-- #14 -->
+<div class="finding" id="f14">
+  <div class="finding-header">
+    <span class="finding-num">#14</span>
+    <span class="finding-title">authLimiters (sync.Map) растёт без ограничений — memory leak</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/server.go:142, 838-845
+    </div>
+    <div class="finding-desc">
+      Каждый уникальный IP при попытке авторизации создаёт запись <code>SlidingWindow</code> в <code>sync.Map</code>, которая никогда не удаляется. Ботнет с ротацией IP вызовет неограниченный рост памяти.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> OOM при целенаправленной атаке с миллионов IP. Даже при обычной работе — медленная утечка памяти за недели/месяцы.
+    </div>
+  </div>
+</div>
+
+<!-- #15 -->
+<div class="finding" id="f15">
+  <div class="finding-header">
+    <span class="finding-num">#15</span>
+    <span class="finding-title">Expiration reminder emails отправляются каждый час без дедупликации</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/scheduler/scheduler.go:442-475
+    </div>
+    <div class="finding-desc">
+      <code>sendExpirationReminders</code> запускается каждый час (интервал scheduler). Запрашивает подписки, истекающие через 3 и 1 день. Нет дедупликации — каждый час те же пользователи получают те же письма.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Пользователь получает ~48 дублей «осталось 3 дня» и ~24 дубля «остался 1 день». Жалобы, блокировка почтового провайдера, репутационный ущерб.
+    </div>
+  </div>
+</div>
+
+<!-- #16 -->
+<div class="finding" id="f16">
+  <div class="finding-header">
+    <span class="finding-num">#16</span>
+    <span class="finding-title">autocert.Cache: неполная реализация, рискует rate-limit Let's Encrypt</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/tls/manager.go:280-286
+    </div>
+    <div class="finding-desc">
+      <code>Cache.Get</code> возвращает только <code>cert.CertPEM</code>, игнорируя private key. <code>Put</code> — no-op (<code>return nil</code>). autocert не может кешировать сертификаты и перезапрашивает их при каждом рестарте.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Let's Encrypt rate limit: 5 duplicate certificates per domain per week. После нескольких рестартов сервера — невозможность получить новые сертификаты.
+    </div>
+  </div>
+</div>
+
+<!-- #17 -->
+<div class="finding" id="f17">
+  <div class="finding-header">
+    <span class="finding-num">#17</span>
+    <span class="finding-title">Auto-close одного туннеля убивает ВСЕ туннели клиента</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/core/client.go:498, 515
+    </div>
+    <div class="finding-desc">
+      Таймер auto-close вызывает <code>c.Close()</code> — закрывает клиент целиком (все туннели, yamux session, reconnect). Должен закрывать только конкретный туннель.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Пользователь с несколькими туннелями теряет все активные соединения при истечении auto-close любого одного туннеля.
+    </div>
+  </div>
+</div>
+
+<!-- #18 -->
+<div class="finding" id="f18">
+  <div class="finding-header">
+    <span class="finding-num">#18</span>
+    <span class="finding-title">Inspector: io.ReadAll без лимита на body — OOM</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-perf">Performance</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/core/inspector_capture.go:55-62, 69-77
+    </div>
+    <div class="finding-desc">
+      <code>CaptureRequest</code> и <code>CaptureResponse</code> используют <code>io.ReadAll()</code> для чтения полного body перед truncation до <code>maxBodySize</code>. 2GB upload читается целиком в память.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> OOM-crash клиента при проксировании больших файлов через HTTP-туннель с включённым инспектором. Нужно <code>io.LimitReader</code>.
+    </div>
+  </div>
+</div>
+
+<!-- #19 -->
+<div class="finding" id="f19">
+  <div class="finding-header">
+    <span class="finding-num">#19</span>
+    <span class="finding-title">Data race на app.client/authToken/refreshToken в GUI</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/gui/auth_service.go:131, tunnel_service.go:51,77,141,164
+    </div>
+    <div class="finding-desc">
+      <code>s.app.client</code> пишется из <code>Login</code>/<code>Logout</code>/<code>Disconnect</code> и читается из <code>GetActiveTunnels</code>/<code>CreateTunnel</code>/<code>CloseTunnel</code> без синхронизации. Аналогично для <code>authToken</code>, <code>refreshToken</code>, <code>serverAddress</code>.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Crash (nil pointer dereference), использование закрытого клиента, race detector warnings. Нужен RWMutex или atomic.Pointer.
+    </div>
+  </div>
+</div>
+
+<!-- #20 -->
+<div class="finding" id="f20">
+  <div class="finding-header">
+    <span class="finding-num">#20</span>
+    <span class="finding-title">Device flow обходит лимит токенов плана</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/api/handlers_device.go:59-115
+    </div>
+    <div class="finding-desc">
+      <code>handleDeviceAuthorize</code> создаёт API-токен с <code>MaxTunnels: 10</code> без проверки <code>user.Plan.MaxTokens</code>. Обычный <code>handleCreateToken</code> проверяет лимит — device flow его обходит.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Free-пользователь с лимитом 1 токен генерирует неограниченные токены через device flow, обходя монетизацию.
+    </div>
+  </div>
+</div>
+
+<!-- #21 -->
+<div class="finding" id="f21">
+  <div class="finding-header">
+    <span class="finding-num">#21</span>
+    <span class="finding-title">Client disconnect не удаляет туннели из Redis registry</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/server.go:1471-1524
+    </div>
+    <div class="finding-desc">
+      <code>Client.Close()</code> итерирует туннели и делает cleanup (HTTP router, listeners), но НЕ вызывает <code>tunnelRegistry.Unregister()</code>. Сравните с <code>closeTunnel()</code> (строка 1313-1316) — там Unregister вызывается.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> После disconnect туннели остаются в Redis до TTL. Cross-node routing отправляет трафик в мёртвый узел — ошибки проксирования 60-90 секунд.
+    </div>
+  </div>
+</div>
+
+<!-- #22 -->
+<div class="finding" id="f22">
+  <div class="finding-header">
+    <span class="finding-num">#22</span>
+    <span class="finding-title">TLS CertManager.Stop() — panic при двойном вызове</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/tls/manager.go:240
+    </div>
+    <div class="finding-desc">
+      <code>close(cm.stopCh)</code> без guard от double-close. При error-path cleanup + deferred cleanup — panic: «close of closed channel».
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Crash сервера при shutdown если cleanup вызывается дважды. Нужен <code>sync.Once</code>.
+    </div>
+  </div>
+</div>
+
+<!-- #23 -->
+<div class="finding" id="f23">
+  <div class="finding-header">
+    <span class="finding-num">#23</span>
+    <span class="finding-title">Race condition в reconnecting flag — двойной reconnect</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/core/client.go:691-701, 1057-1063
+    </div>
+    <div class="finding-desc">
+      <code>handleServerShutdown</code> ставит <code>reconnecting=true</code>, горутина через 5 сек сбрасывает в <code>false</code> и вызывает <code>handleDisconnect()</code>. Между unlock и вызовом — <code>acceptStreams</code> или <code>keepalive</code> могут запустить параллельный reconnect.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Два конкурентных reconnection loop, corruption состояния соединения, лишние ресурсы.
+    </div>
+  </div>
+</div>
+
+<!-- #24 -->
+<div class="finding" id="f24">
+  <div class="finding-header">
+    <span class="finding-num">#24</span>
+    <span class="finding-title">TLS InsecureSkipVerify: true для SSE инспектора</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-security">Security</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/client/gui/inspect_service.go:203-206
+    </div>
+    <div class="finding-desc">
+      SSE клиент инспектора отключает TLS верификацию полностью. Уязвимость к MITM-атаке на том же сегменте сети.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Атакующий перехватывает inspection traffic, включая auth-токен (issue #6), получая полный доступ.
+    </div>
+  </div>
+</div>
+
+<!-- #25 -->
+<div class="finding" id="f25">
+  <div class="finding-header">
+    <span class="finding-num">#25</span>
+    <span class="finding-title">streamPool refill goroutine не отслеживается WaitGroup</span>
+    <div class="finding-badges">
+      <span class="badge badge-high">High</span>
+      <span class="badge badge-bug">Bug</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      internal/server/core/stream_pool.go:57-58
+    </div>
+    <div class="finding-desc">
+      <code>go c.refillStreamPool()</code> не добавлен в WaitGroup. Может открыть yamux stream ПОСЛЕ <code>Session.Close()</code> при shutdown, вызывая panic или утечку.
+    </div>
+    <div class="finding-impact">
+      <strong>Последствия:</strong> Panic при shutdown/disconnect сервера, race с закрытием сессии.
+    </div>
+  </div>
+</div>
+
+</div><!-- /section high -->
+
+<!-- ============================================================ -->
+<!-- MEDIUM FINDINGS                                               -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2 style="color:var(--medium)">Medium</h2>
+  <span class="badge badge-medium">27 issues</span>
+</div>
+
+<!-- #26 -->
+<div class="finding" id="f26">
+  <div class="finding-header">
+    <span class="finding-num">#26</span>
+    <span class="finding-title">exchange.rate: data race на глобальной переменной float64</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/exchange/exchange.go:5-11</div>
+    <div class="finding-desc"><code>var rate float64</code> пишется <code>Init()</code>, читается <code>GetRate()</code> без синхронизации. На 32-bit платформах torn read может дать некорректный курс.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Неправильные суммы платежей, race detector warning.</div>
+  </div>
+</div>
+
+<!-- #27 -->
+<div class="finding" id="f27">
+  <div class="finding-header">
+    <span class="finding-num">#27</span>
+    <span class="finding-title">uniqueIPs map в мониторе растёт бесконечно</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/monitor/metrics.go:33-34, 145-154</div>
+    <div class="finding-desc">Map <code>uniqueIPs</code> никогда не очищается для lifetime туннеля. Публичный HTTP-туннель за дни/недели накапливает миллионы записей.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Unbounded memory growth для долгоживущих туннелей.</div>
+  </div>
+</div>
+
+<!-- #28 -->
+<div class="finding" id="f28">
+  <div class="finding-header">
+    <span class="finding-num">#28</span>
+    <span class="finding-title">TLS renewal запускает неограниченные goroutines</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/tls/manager.go:253-265</div>
+    <div class="finding-desc"><code>renewExpiring()</code> вызывает <code>ObtainCert</code> для каждого cert, каждый спавнит goroutine. Нет concurrency limit. Сотни доменов → goroutine storm.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Исчерпание соединений, rate-limit от Let's Encrypt.</div>
+  </div>
+</div>
+
+<!-- #29 -->
+<div class="finding" id="f29">
+  <div class="finding-header">
+    <span class="finding-num">#29</span>
+    <span class="finding-title">SlidingWindow rate limiter: O(n) complexity</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/monitor/rate_limiter.go:47-51</div>
+    <div class="finding-desc">Каждый event timestamp хранится в slice (до 3600 записей). <code>evict</code> — линейный scan под мьютексом. Умножается на число уникальных IP.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Rate limiter становится bottleneck под высокой нагрузкой, добавляя latency к каждому HTTP-запросу.</div>
+  </div>
+</div>
+
+<!-- #30 -->
+<div class="finding" id="f30">
+  <div class="finding-header">
+    <span class="finding-num">#30</span>
+    <span class="finding-title">Default DSN = Postgres, но проект использует SQLite</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/config/server.go:314</div>
+    <div class="finding-desc">Default DSN: <code>postgres://fxtunnel:fxtunnel@localhost:5432/fxtunnel</code>. Без конфиг-файла — ошибка подключения к Postgres вместо автосоздания SQLite. Также содержит hardcoded credentials.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Сбивающая с толку ошибка при первом запуске без конфига.</div>
+  </div>
+</div>
+
+<!-- #31 -->
+<div class="finding" id="f31">
+  <div class="finding-header">
+    <span class="finding-num">#31</span>
+    <span class="finding-title">Internal error messages утекают в user-facing emails</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/email/notifier.go:155-158</div>
+    <div class="finding-desc"><code>event.Error.Error()</code> подставляется в HTML email-шаблон. Go error strings могут содержать пути, DB-ошибки, API-ключи в URL.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Утечка API-credentials, путей серверной ФС, деталей БД в письмах пользователям.</div>
+  </div>
+</div>
+
+<!-- #32 -->
+<div class="finding" id="f32">
+  <div class="finding-header">
+    <span class="finding-num">#32</span>
+    <span class="finding-title">Нет валидации payment secrets при enabled: true</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/config/server.go:422-499</div>
+    <div class="finding-desc"><code>Validate()</code> не проверяет что <code>secret_key</code>, <code>shop_id</code>, <code>api_key</code>, <code>webhook_secret</code> не пусты при <code>enabled: true</code>. Сервер стартует с misconfigured payments.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Runtime failures при попытках оплаты. Пустой <code>webhook_secret</code> для Creem ломает <code>verifySignature</code>.</div>
+  </div>
+</div>
+
+<!-- #33 -->
+<div class="finding" id="f33">
+  <div class="finding-header">
+    <span class="finding-num">#33</span>
+    <span class="finding-title">Persist queue молча дропает exchanges при переполнении</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/inspect/manager.go:131-136</div>
+    <div class="finding-desc">Канал persist (buffer 10000) при переполнении молча дропает exchanges с <code>log.Printf</code> вместо zerolog. Нет метрик, нет алертов.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Потеря inspection data при traffic spike без видимости для пользователя.</div>
+  </div>
+</div>
+
+<!-- #34 -->
+<div class="finding" id="f34">
+  <div class="finding-header">
+    <span class="finding-num">#34</span>
+    <span class="finding-title">IsApexDomain ломается на .co.uk, .com.br, .net.au</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/tls/verify.go:27-29</div>
+    <div class="finding-desc"><code>IsApexDomain</code> считает точки. <code>example.co.uk</code> (3 части) = «не apex», хотя ЭТО apex-домен для .co.uk. CNAME verification вместо A record.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Пользователи с .co.uk, .com.br, .net.au не могут верифицировать apex-домены.</div>
+  </div>
+</div>
+
+<!-- #35 -->
+<div class="finding" id="f35">
+  <div class="finding-header">
+    <span class="finding-num">#35</span>
+    <span class="finding-title">Stream pool refill busy-spin 200 ops/sec на клиента</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/stream_pool.go:60-104</div>
+    <div class="finding-desc">При полном пуле (256 streams) горутина спит всего 5ms и проверяет снова. 200 checks/sec * N клиентов. Нужен condition variable или channel signal.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Значительное потребление CPU при 100+ подключённых клиентах.</div>
+  </div>
+</div>
+
+<!-- #36 -->
+<div class="finding" id="f36">
+  <div class="finding-header">
+    <span class="finding-num">#36</span>
+    <span class="finding-title">Interstitial: полный upstream response читается и дропается</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/http_router.go:202-237</div>
+    <div class="finding-desc">При <code>mayNeedInterstitial</code> запрос отправляется клиенту, полный ответ читается для проверки Content-Type, затем дропается. Backend обрабатывает запрос дважды.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Двойная нагрузка на tunneled service для первых визитов, лишний трафик через yamux.</div>
+  </div>
+</div>
+
+<!-- #37 -->
+<div class="finding" id="f37">
+  <div class="finding-header">
+    <span class="finding-num">#37</span>
+    <span class="finding-title">remoteProxyPool растёт без eviction</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/proxy_remote.go:15-59</div>
+    <div class="finding-desc">Каждый уникальный node address создаёт <code>ReverseProxy</code> с <code>http.Transport</code> (100 max idle conns). Старые записи никогда не чистятся.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Утечка памяти и file descriptors при динамической топологии edge nodes.</div>
+  </div>
+</div>
+
+<!-- #38 -->
+<div class="finding" id="f38">
+  <div class="finding-header">
+    <span class="finding-num">#38</span>
+    <span class="finding-title">TCP port race при быстром create/close цикле</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/server.go:1318-1325</div>
+    <div class="finding-desc"><code>closeTunnel</code> закрывает listener, но port release происходит в defer <code>AcceptConnections</code>. Race window: порт логически свободен но отмечен как occupied в PortAllocator.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> «Port already in use» ошибки при быстром пересоздании туннелей.</div>
+  </div>
+</div>
+
+<!-- #39 -->
+<div class="finding" id="f39">
+  <div class="finding-header">
+    <span class="finding-num">#39</span>
+    <span class="finding-title">alphanum валидатор запрещает дефисы в subdomain</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/api/dto/requests.go:43 vs handlers_domains.go:67-69</div>
+    <div class="finding-desc">DTO: <code>validate:"alphanum"</code> — только буквы и цифры. Handler regex: <code>^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$</code> — дефисы разрешены. Валидатор отклоняет <code>my-app</code> до regex проверки.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Пользователи не могут зарезервировать subdomain с дефисами, хотя это валидный формат.</div>
+  </div>
+</div>
+
+<!-- #40 -->
+<div class="finding" id="f40">
+  <div class="finding-header">
+    <span class="finding-num">#40</span>
+    <span class="finding-title">verifyToken через edge nodes игнорирует AllowedIPs</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/api/handlers_nodes.go:215-287</div>
+    <div class="finding-desc"><code>verifyToken</code> валидирует hash и user status, но НЕ проверяет <code>apiToken.IsIPAllowed()</code>. IP-ограничения обходятся при подключении через edge nodes.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Security control (IP restriction) неэффективен для edge node topology.</div>
+  </div>
+</div>
+
+<!-- #41 -->
+<div class="finding" id="f41">
+  <div class="finding-header">
+    <span class="finding-num">#41</span>
+    <span class="finding-title">Телефон в JWT claims — PII в незашифрованном токене</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/auth/jwt.go:22-27</div>
+    <div class="finding-desc">JWT claims включают <code>Phone</code>. JWT — base64 (не зашифрован). Телефон виден любому, кто перехватит или получит токен (logs, browser storage).</div>
+    <div class="finding-impact"><strong>Последствия:</strong> PII-exposure, потенциальные GDPR-нарушения. Для OAuth users поле может содержать email.</div>
+  </div>
+</div>
+
+<!-- #42 -->
+<div class="finding" id="f42">
+  <div class="finding-header">
+    <span class="finding-num">#42</span>
+    <span class="finding-title">MergeUsers не инвалидирует сессии secondary user</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/database/pg_user_repo.go:414-476</div>
+    <div class="finding-desc">Сессии secondary user переносятся к primary. Refresh-токены secondary остаются валидными и теперь дают доступ к объединённому аккаунту.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Если secondary user имел активные сессии — все они дают доступ к merged account.</div>
+  </div>
+</div>
+
+<!-- #43 -->
+<div class="finding" id="f43">
+  <div class="finding-header">
+    <span class="finding-num">#43</span>
+    <span class="finding-title">Redis: context.Background() блокирует graceful shutdown</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/redis/tunnel_registry.go:30,56,83...</div>
+    <div class="finding-desc">Все Redis операции используют <code>context.Background()</code> вместо server context. Операции не cancellable при shutdown.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Shutdown зависает если Redis недоступен.</div>
+  </div>
+</div>
+
+<!-- #44 -->
+<div class="finding" id="f44">
+  <div class="finding-header">
+    <span class="finding-num">#44</span>
+    <span class="finding-title">Телефон логируется в plaintext при каждой JWT auth</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/auth_handler.go:172</div>
+    <div class="finding-desc"><code>log.Info().Str("phone", claims.Phone)</code> записывает номер телефона в plaintext при каждой JWT-авторизации. PII в production-логах.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> PII exposure в логах, нарушение privacy compliance.</div>
+  </div>
+</div>
+
+<!-- #45 -->
+<div class="finding" id="f45">
+  <div class="finding-header">
+    <span class="finding-num">#45</span>
+    <span class="finding-title">cancelSSE map без мьютекса — data race</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/gui/inspect_service.go:19, 220-224, 253-257</div>
+    <div class="finding-desc"><code>cancelSSE</code> map читается/пишется из <code>Subscribe</code>/<code>Unsubscribe</code> без синхронизации.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Panic от concurrent map access при одновременных subscribe/unsubscribe.</div>
+  </div>
+</div>
+
+<!-- #46 -->
+<div class="finding" id="f46">
+  <div class="finding-header">
+    <span class="finding-num">#46</span>
+    <span class="finding-title">Panic при записи в закрытый oauthCh channel</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/gui/auth_service.go:576-587</div>
+    <div class="finding-desc"><code>stopOAuthServerLocked</code> закрывает <code>s.oauthCh</code>. Если второй OAuth callback приходит после закрытия канала — panic при записи в closed channel.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> GUI crash при повторном OAuth callback.</div>
+  </div>
+</div>
+
+<!-- #47 -->
+<div class="finding" id="f47">
+  <div class="finding-header">
+    <span class="finding-num">#47</span>
+    <span class="finding-title">UDP proxy goroutine leak до 30 секунд при teardown</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/core/udp_proxy.go:47-78, 81-112</div>
+    <div class="finding-desc"><code>handleUDPStream</code> спавнит 2 горутины, ждёт только одну. Вторая живёт до <code>SetReadDeadline</code> timeout (30 сек) после закрытия соединения.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Goroutine leak до 30 сек на каждое UDP-соединение при teardown.</div>
+  </div>
+</div>
+
+<!-- #48 -->
+<div class="finding" id="f48">
+  <div class="finding-header">
+    <span class="finding-num">#48</span>
+    <span class="finding-title">GUI API client: io.ReadAll без size limit</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/gui/api_client.go:136</div>
+    <div class="finding-desc"><code>io.ReadAll(resp.Body)</code> без ограничения размера. Malicious сервер отправляет огромный response — OOM клиента.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Memory exhaustion на стороне клиента от злонамеренного сервера.</div>
+  </div>
+</div>
+
+<!-- #49 -->
+<div class="finding" id="f49">
+  <div class="finding-header">
+    <span class="finding-num">#49</span>
+    <span class="finding-title">CLI HTTP client без timeout — зависает навсегда</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> cmd/client/apiclient.go:36</div>
+    <div class="finding-desc"><code>http.Client{}</code> без <code>Timeout</code>. При зависшем сервере CLI команды (<code>domains list</code>, <code>domains add</code>) блокируются бесконечно.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> CLI зависает навсегда при неотвечающем сервере. Нужно <code>Timeout: 30 * time.Second</code>.</div>
+  </div>
+</div>
+
+<!-- #50 -->
+<div class="finding" id="f50">
+  <div class="finding-header">
+    <span class="finding-num">#50</span>
+    <span class="finding-title">sendControl ошибки игнорируются — phantom tunnels</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/server.go:574,724,809,854,1091...</div>
+    <div class="finding-desc"><code>_ = c.sendControl(msg)</code> молча игнорирует write errors. При <code>TunnelCreated</code> (строка 1091) — сервер зарегистрировал туннель, но клиент не знает.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Phantom tunnels: занимают ресурсы сервера, но клиент не знает о них.</div>
+  </div>
+</div>
+
+<!-- #51 -->
+<div class="finding" id="f51">
+  <div class="finding-header">
+    <span class="finding-num">#51</span>
+    <span class="finding-title">Admin reset password без минимальной длины</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/api/handlers_admin.go</div>
+    <div class="finding-desc"><code>ResetPasswordRequest.NewPassword</code> без <code>validate</code> tag. Обычный <code>ChangePasswordRequest</code> имеет <code>min=8,max=128</code>, а admin reset — нет.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Админ может установить пустой или 1-символьный пароль пользователю.</div>
+  </div>
+</div>
+
+<!-- #52 -->
+<div class="finding" id="f52">
+  <div class="finding-header">
+    <span class="finding-num">#52</span>
+    <span class="finding-title">TLS private keys хранятся в БД без шифрования</span>
+    <div class="finding-badges"><span class="badge badge-medium">Medium</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/database/models.go:190-197</div>
+    <div class="finding-desc"><code>key_pem BYTEA</code> хранится в открытом виде. TOTP secrets шифруются (AES-256-GCM), а TLS private keys — нет.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> При breach БД — полная компрометация всех custom domain TLS сертификатов.</div>
+  </div>
+</div>
+
+</div><!-- /section medium -->
+
+<!-- ============================================================ -->
+<!-- LOW FINDINGS                                                  -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2 style="color:var(--low)">Low</h2>
+  <span class="badge badge-low">15 issues</span>
+</div>
+
+<!-- #53 -->
+<div class="finding" id="f53">
+  <div class="finding-header">
+    <span class="finding-num">#53</span>
+    <span class="finding-title">Payment registry без мьютекса</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/payment/registry.go:6-35</div>
+    <div class="finding-desc"><code>Registry</code> без sync. Безопасно при startup (happens-before), но <code>Register</code> после старта — data race.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Minimal — providers регистрируются только при startup.</div>
+  </div>
+</div>
+
+<!-- #54 -->
+<div class="finding" id="f54">
+  <div class="finding-header">
+    <span class="finding-num">#54</span>
+    <span class="finding-title">Hardcoded MIME boundary в email</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/email/email.go:96</div>
+    <div class="finding-desc">Статический MIME boundary <code>"----=_Part_0_1234567890.1234567890"</code>. Спам-фильтры могут помечать как подозрительное.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Повышенная вероятность попадания в спам.</div>
+  </div>
+</div>
+
+<!-- #55 -->
+<div class="finding" id="f55">
+  <div class="finding-header">
+    <span class="finding-num">#55</span>
+    <span class="finding-title">Telegram bot token в URL path — утечка в логах</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/telegram/telegram.go:55</div>
+    <div class="finding-desc">Стандартный Telegram Bot API паттерн (<code>/bot{token}/sendMessage</code>), но при HTTP logging/tracing токен попадает в логи.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Bot token в access logs, error logs, APM traces.</div>
+  </div>
+</div>
+
+<!-- #56 -->
+<div class="finding" id="f56">
+  <div class="finding-header">
+    <span class="finding-num">#56</span>
+    <span class="finding-title">nil body при CapturePayment без amount</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/payment/yookassa.go:252-264</div>
+    <div class="finding-desc">Когда <code>amount</code> = nil, POST отправляется с <code>Content-Type: application/json</code> и пустым телом.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> YooKassa может вернуть 400 error на capture request.</div>
+  </div>
+</div>
+
+<!-- #57 -->
+<div class="finding" id="f57">
+  <div class="finding-header">
+    <span class="finding-num">#57</span>
+    <span class="finding-title">Type assertion (*payment.YooKassa) ломает interface</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/scheduler/scheduler.go:316-323</div>
+    <div class="finding-desc"><code>yookassa.(*payment.YooKassa)</code> прямой type assertion ломает абстракцию <code>Provider</code> interface. При обёртке/мокировании — panic.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Усложняет тестирование и рефакторинг payment layer.</div>
+  </div>
+</div>
+
+<!-- #58 -->
+<div class="finding" id="f58">
+  <div class="finding-header">
+    <span class="finding-num">#58</span>
+    <span class="finding-title">log.Printf вместо zerolog в inspect package</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/inspect/manager.go:58, 135</div>
+    <div class="finding-desc"><code>log.Printf</code> (stdlib) вместо <code>zerolog</code> — сообщения выпадают из structured logging pipeline.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Невидимые ошибки в JSON log aggregation.</div>
+  </div>
+</div>
+
+<!-- #59 -->
+<div class="finding" id="f59">
+  <div class="finding-header">
+    <span class="finding-num">#59</span>
+    <span class="finding-title">tunnelCreateMu sync.Map never cleaned</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/client_manager.go:26</div>
+    <div class="finding-desc">Per-user mutex для tunnel creation не удаляется после disconnect. ~24 байта на пользователя навсегда.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Микро-утечка при миллионах уникальных пользователей за lifetime.</div>
+  </div>
+</div>
+
+<!-- #60 -->
+<div class="finding" id="f60">
+  <div class="finding-header">
+    <span class="finding-num">#60</span>
+    <span class="finding-title">DataSessions len() без lock — data race</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/core/server.go:814</div>
+    <div class="finding-desc"><code>len(client.DataSessions)</code> в log-вызове после отпускания <code>DataMu</code>. Другая горутина может модифицировать slice конкурентно.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Race detector warning, некорректный count в логе.</div>
+  </div>
+</div>
+
+<!-- #61 -->
+<div class="finding" id="f61">
+  <div class="finding-header">
+    <span class="finding-num">#61</span>
+    <span class="finding-title">Daemon API без аутентификации (localhost)</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/daemon/api.go:58-71</div>
+    <div class="finding-desc">Daemon API слушает <code>127.0.0.1</code> без auth. Любой локальный процесс добавляет/удаляет туннели, выполняет shutdown.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Local privilege escalation — malware на машине управляет туннелями. Низкий риск на single-user.</div>
+  </div>
+</div>
+
+<!-- #62 -->
+<div class="finding" id="f62">
+  <div class="finding-header">
+    <span class="finding-num">#62</span>
+    <span class="finding-title">os.Exit(0) в горутине — defers не выполняются</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/gui/app.go:148-152</div>
+    <div class="finding-desc">Force exit через <code>os.Exit(0)</code> в горутине после 3-секундного таймаута. Не выполняет defers, не flush-ит буферы.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Потенциальная коррупция local SQLite при write in-flight.</div>
+  </div>
+</div>
+
+<!-- #63 -->
+<div class="finding" id="f63">
+  <div class="finding-header">
+    <span class="finding-num">#63</span>
+    <span class="finding-title">fmt.Printf с ANSI escape codes в library code</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-quality">Code Quality</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/core/client.go:1009</div>
+    <div class="finding-desc"><code>fmt.Printf</code> с ANSI escape прямо в stdout из library code. В GUI-клиенте или при pipe — мусорные символы.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Garbled output в non-terminal contexts, нельзя отключить.</div>
+  </div>
+</div>
+
+<!-- #64 -->
+<div class="finding" id="f64">
+  <div class="finding-header">
+    <span class="finding-num">#64</span>
+    <span class="finding-title">Inspector CORS: Access-Control-Allow-Origin: *</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-security">Security</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/core/inspector.go:77</div>
+    <div class="finding-desc">Wildcard CORS на localhost inspector. Любой сайт в браузере пользователя может делать fetch к inspector и читать captured traffic.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Exfiltration captured HTTP data (включая body с sensitive данными) через вредоносный сайт.</div>
+  </div>
+</div>
+
+<!-- #65 -->
+<div class="finding" id="f65">
+  <div class="finding-header">
+    <span class="finding-num">#65</span>
+    <span class="finding-title">BytesSent/Received некорректен для chunked transfer</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/client/core/client.go:937, 955</div>
+    <div class="finding-desc"><code>ContentLength</code> = -1 для chunked/unknown-length. <code>Add(-1)</code> декрементирует счётчик. Также не учитывает headers.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Некорректная статистика трафика при активном инспекторе.</div>
+  </div>
+</div>
+
+<!-- #66 -->
+<div class="finding" id="f66">
+  <div class="finding-header">
+    <span class="finding-num">#66</span>
+    <span class="finding-title">matchWildcard не поддерживает * в середине паттерна</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-bug">Bug</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/database/models.go:99-117</div>
+    <div class="finding-desc"><code>matchWildcard</code> обрабатывает <code>*</code> только в начале или конце. Паттерн <code>dev-*-test</code> трактуется как exact match.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Пользователи не могут использовать glob-паттерны для subdomain matching на API-токенах.</div>
+  </div>
+</div>
+
+<!-- #67 -->
+<div class="finding" id="f67">
+  <div class="finding-header">
+    <span class="finding-num">#67</span>
+    <span class="finding-title">audit_logs: нет индекса на столбец action</span>
+    <div class="finding-badges"><span class="badge badge-low">Low</span><span class="badge badge-perf">Performance</span></div>
+  </div>
+  <div class="finding-body">
+    <div class="finding-file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> internal/server/database/migrations/00001_initial_schema.sql</div>
+    <div class="finding-desc"><code>ListAuditLogsByAction</code> и <code>CountAuditLogsByAction</code> фильтруют по <code>action</code>, но индексированы только <code>user_id</code> и <code>created_at</code>.</div>
+    <div class="finding-impact"><strong>Последствия:</strong> Full table scan при фильтрации по action. Деградация admin panel при росте таблицы.</div>
+  </div>
+</div>
+
+</div><!-- /section low -->
+
+<!-- ============================================================ -->
+<!-- TEST COVERAGE GAPS                                            -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2 style="color:var(--accent)">Тестовое покрытие — критические пробелы</h2>
+</div>
+<div class="coverage-grid">
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/server/redis/ — все Redis stores</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/server/payment/ — YooKassa, Creem</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/server/hub/ — edge node hub client</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/client/gui/ — весь GUI backend</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/client/storage/ — local SQLite</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/client/keyring/ — credential storage</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/server/core/stream_pool.go</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> internal/server/core/proxy_remote.go</div>
+  <div class="coverage-item"><span class="icon">&#x2717;</span> Интеграционные тесты tunnel lifecycle</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PRIORITY TABLE                                                -->
+<!-- ============================================================ -->
+<div class="section">
+<div class="severity-header">
+  <h2>Рекомендуемый порядок исправления</h2>
+</div>
+<table class="priority-table">
+  <thead>
+    <tr><th>P</th><th>#</th><th>Проблема</th><th>Усилие</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><span class="badge badge-critical">P0</span></td><td>1</td><td>YooKassa webhook IP bypass</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-critical">P0</span></td><td>2</td><td>GetClientIP IP spoofing</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-critical">P0</span></td><td>7</td><td>OAuth auto-merge без согласия</td><td>Среднее</td></tr>
+    <tr><td><span class="badge badge-critical">P0</span></td><td>4</td><td>Статический exchange rate</td><td>Среднее</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>3</td><td>WriteTimeout: 0</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>9</td><td>Semver comparison</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>5,6</td><td>Токены в URL</td><td>Среднее</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>11</td><td>generateID entropy</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>20</td><td>Device flow bypass</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-high">P1</span></td><td>14</td><td>authLimiters memory leak</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-medium">P2</span></td><td>8</td><td>bcrypt truncation</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-medium">P2</span></td><td>15</td><td>Duplicate reminder emails</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-medium">P2</span></td><td>17</td><td>Auto-close kills all tunnels</td><td>Среднее</td></tr>
+    <tr><td><span class="badge badge-medium">P2</span></td><td>21</td><td>Redis tunnel unregister</td><td>Малое</td></tr>
+    <tr><td><span class="badge badge-medium">P2</span></td><td>39</td><td>Subdomain hyphens blocked</td><td>Малое</td></tr>
+  </tbody>
+</table>
+</div>
+
+</div><!-- /container -->
+
+<!-- ============================================================ -->
+<!-- FOOTER                                                        -->
+<!-- ============================================================ -->
+<footer class="footer">
+  <div class="container">
+    <p>fxTunnel Code Review Report &mdash; сгенерирован 2026-04-09</p>
+    <p>5 параллельных ревью-агентов &bull; branch: develop &bull; commit: 51584e0</p>
+  </div>
+</footer>
+
+</body>
+</html>

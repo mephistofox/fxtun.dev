@@ -6,11 +6,8 @@ on:
     paths:
       - 'internal/client/**'
       - 'internal/config/**'
-      - 'internal/daemon/**'
-      - 'internal/gui/**'
-      - 'internal/keyring/**'
       - 'internal/protocol/**'
-      - 'internal/storage/**'
+      - 'internal/inspect/**'
       - 'cmd/client/**'
       - 'gui/**'
       - 'go.mod'
@@ -21,11 +18,8 @@ on:
     paths:
       - 'internal/client/**'
       - 'internal/config/**'
-      - 'internal/daemon/**'
-      - 'internal/gui/**'
-      - 'internal/keyring/**'
       - 'internal/protocol/**'
-      - 'internal/storage/**'
+      - 'internal/inspect/**'
       - 'cmd/client/**'
       - 'gui/**'
       - 'go.mod'
@@ -51,9 +45,7 @@ jobs:
             ./cmd/client/... \
             ./internal/client/... \
             ./internal/protocol/... \
-            ./internal/config/... \
-            ./internal/daemon/... \
-            ./internal/keyring/...
+            ./internal/config/...
 
   build-check:
     runs-on: ubuntu-latest
