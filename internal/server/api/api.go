@@ -404,6 +404,8 @@ func (s *Server) setupRoutes() {
 				r.Get("/custom-domains", s.handleAdminListCustomDomains)
 				r.Delete("/custom-domains/{id}", s.handleAdminDeleteCustomDomain)
 
+				r.Get("/certificates", s.handleAdminListCertificates)
+
 				r.Get("/plans", s.handleListPlans)
 				r.Post("/plans", s.handleCreatePlan)
 				r.Put("/plans/{id}", s.handleUpdatePlan)
