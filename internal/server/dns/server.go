@@ -161,8 +161,11 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}
 
-	// Static records.
+	// Static records — exact match first.
 	for _, rec := range zone.Records {
+		if rec.Name == "*" {
+			continue // wildcards handled separately below as a fallback
+		}
 		fullName := strings.ToLower(rec.FullName(zone.Name))
 		if fullName != qName {
 			continue
@@ -179,6 +182,31 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 		}
 		if rr := buildRR(rec, q.Name, ttl); rr != nil {
 			m.Answer = append(m.Answer, rr)
+		}
+	}
+
+	// Wildcard fallback — only for subdomain queries (never the apex), and only
+	// when no exact-match record was found. Mirrors RFC 1034 §4.3.3 wildcard
+	// semantics. Provides a friendly "tunnel not found" 404 from the nginx +
+	// fxtunnel chain instead of a DNS error for non-existent tunnel subdomains.
+	if len(m.Answer) == 0 && subdomain != "" {
+		for _, rec := range zone.Records {
+			if rec.Name != "*" {
+				continue
+			}
+			if !matchType(rec.Type, q.Qtype) {
+				continue
+			}
+			ttl := rec.TTL
+			if ttl == 0 {
+				ttl = zone.TTL
+			}
+			if ttl == 0 {
+				ttl = 300
+			}
+			if rr := buildRR(rec, q.Name, ttl); rr != nil {
+				m.Answer = append(m.Answer, rr)
+			}
 		}
 	}
 
