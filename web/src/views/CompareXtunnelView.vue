@@ -9,7 +9,7 @@ const { t, tm } = useI18n()
 const tableRows = [
   'price', 'protocols', 'tunnels', 'sessionTimeout', 'requestLimits',
   'bandwidth', 'subdomains', 'customDomains', 'gui', 'inspector',
-  'selfHosted', 'permanentAddress',
+  'openSource', 'permanentAddress',
 ] as const
 
 interface FaqItem {
@@ -27,7 +27,7 @@ function toggleFaq(index: number) {
 }
 
 const sectionKeys = [
-  'pricing', 'protocols', 'limits', 'gui', 'inspector', 'selfHosted',
+  'pricing', 'protocols', 'limits', 'gui', 'inspector', 'openSource',
 ] as const
 </script>
 

@@ -69,6 +69,21 @@ const publicRoutes: RouteRecordRaw[] = [
     name: 'downloads',
     component: () => import('./views/DownloadsPublicView.vue'),
   },
+  {
+    path: '/abuse',
+    name: 'abuse',
+    component: () => import('./views/AbuseView.vue'),
+  },
+  {
+    path: '/aup',
+    name: 'aup',
+    component: () => import('./views/AupView.vue'),
+  },
+  {
+    path: '/disclaimer',
+    name: 'disclaimer',
+    component: () => import('./views/DisclaimerView.vue'),
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {

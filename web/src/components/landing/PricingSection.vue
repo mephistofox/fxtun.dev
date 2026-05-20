@@ -291,6 +291,19 @@ onMounted(async () => {
                   {{ plan.inspector_enabled ? t('landing.pricing.inspectorUnlimited') : t('landing.pricing.inspector') }}
                 </span>
               </li>
+
+              <!-- UDP support -->
+              <li class="flex items-start gap-2">
+                <svg aria-hidden="true" v-if="plan.udp_enabled !== false" class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                </svg>
+                <svg aria-hidden="true" v-else class="h-4 w-4 text-muted-foreground/40 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z" clip-rule="evenodd" />
+                </svg>
+                <span :class="plan.udp_enabled === false ? 'text-muted-foreground/50' : ''">
+                  {{ plan.udp_enabled === false ? t('landing.pricing.udpUnavailable') : t('landing.pricing.udpAvailable') }}
+                </span>
+              </li>
             </ul>
 
             <!-- CTA Button -->

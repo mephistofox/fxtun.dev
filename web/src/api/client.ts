@@ -293,6 +293,7 @@ export interface Plan {
   rate_limit_udp: number
   rate_limit_http: number
   creem_product_id: string
+  udp_enabled?: boolean
 }
 
 // Admin subscription and payment types

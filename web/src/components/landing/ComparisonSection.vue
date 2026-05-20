@@ -18,13 +18,13 @@ const features = [
   'protocols',
   'guiClient',
   'inspector',
-  'selfHosted',
+  'openSource',
   'customDomains',
 ] as const
 
 // Highlight fxtun advantages (cells where we're better)
 const advantages: Record<string, Set<string>> = {
-  fxtunnel: new Set(['freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'selfHosted']),
+  fxtunnel: new Set(['freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'openSource']),
 }
 
 function isAdvantage(competitor: string, feature: string): boolean {

@@ -8,7 +8,7 @@ const { t, tm } = useI18n()
 
 const tableRows = [
   'price', 'subdomains', 'requestLimits', 'sessionTimeout', 'protocols',
-  'gui', 'inspector', 'selfHosted', 'customDomains', 'bandwidth',
+  'gui', 'inspector', 'openSource', 'customDomains', 'bandwidth',
 ] as const
 
 interface FaqItem {
