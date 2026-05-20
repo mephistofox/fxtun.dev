@@ -243,6 +243,7 @@ const (
 	ErrCodeInvalidToken     = "INVALID_TOKEN"
 	ErrCodeTokenExpired     = "TOKEN_EXPIRED"
 	ErrCodeTunnelLimit      = "TUNNEL_LIMIT"
+	ErrCodePlanLimit        = "PLAN_LIMIT"
 	ErrCodeSubdomainTaken   = "SUBDOMAIN_TAKEN"
 	ErrCodeSubdomainInvalid = "SUBDOMAIN_INVALID"
 	ErrCodePortUnavailable  = "PORT_UNAVAILABLE"
