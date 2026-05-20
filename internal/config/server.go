@@ -86,6 +86,10 @@ type RedisSettings struct {
 type ServerSettings struct {
 	ControlPort        int           `mapstructure:"control_port"`
 	HTTPPort           int           `mapstructure:"http_port"`
+	// HTTPBind is the address the HTTP tunnel proxy listens on. Empty = all
+	// interfaces (legacy). Set to "127.0.0.1" in production to force traffic
+	// through nginx (which terminates TLS and sets X-Real-IP).
+	HTTPBind           string        `mapstructure:"http_bind"`
 	TCPPortRange       PortRange     `mapstructure:"tcp_port_range"`
 	UDPPortRange       PortRange     `mapstructure:"udp_port_range"`
 	CompressionEnabled bool          `mapstructure:"compression_enabled"`
@@ -129,11 +133,19 @@ type AuthSettings struct {
 	// the /api/auth/register endpoint returns a plausible 201 with fake (unusable)
 	// tokens instead of 403 — so bots waste time on accounts they can't log into.
 	PhoneRegistrationTarpit  bool          `mapstructure:"phone_registration_tarpit"`
+	// TrustedProxies lists IP addresses whose X-Real-IP / X-Forwarded-For
+	// headers may be trusted to determine the real client IP. Anything outside
+	// this list is treated as a potentially-malicious direct connection and
+	// the TCP source is used. Default: ["127.0.0.1", "::1"] (loopback only).
+	TrustedProxies           []string      `mapstructure:"trusted_proxies"`
 }
 
 // WebSettings contains web panel configuration
 type WebSettings struct {
 	Enabled     bool            `mapstructure:"enabled"`
+	// Bind is the address the API listens on. Empty = all interfaces
+	// (legacy). Set to "127.0.0.1" in production so only nginx can reach it.
+	Bind        string          `mapstructure:"bind"`
 	Port        int             `mapstructure:"port"`
 	CORSOrigins []string        `mapstructure:"cors_origins"`
 	RateLimit   RateLimitConfig `mapstructure:"rate_limit"`
@@ -324,6 +336,9 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.max_domains_per_user", 3)
 	v.SetDefault("auth.phone_registration_enabled", false)
 	v.SetDefault("auth.phone_registration_tarpit", true)
+	v.SetDefault("auth.trusted_proxies", []string{"127.0.0.1", "::1"})
+	v.SetDefault("server.http_bind", "")
+	v.SetDefault("web.bind", "")
 	v.SetDefault("tls.enabled", false)
 	v.SetDefault("tls.https_port", 443)
 	v.SetDefault("tls.acme_email", "")

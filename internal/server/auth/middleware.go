@@ -243,22 +243,18 @@ func GetClaimsFromContext(ctx context.Context) *Claims {
 
 // GetClientIP extracts the client IP address from the request.
 //
-// It first checks the request context for the original TCP remote address
-// stored by saveOriginalIPMiddleware (before RealIP rewrites RemoteAddr).
-// If not present, it falls back to r.RemoteAddr.
+// By the time a handler runs, the API server's trustedRealIPMiddleware has
+// already rewritten r.RemoteAddr to the real client IP when the request
+// came in through a trusted proxy (e.g. nginx on 127.0.0.1). When the
+// source is untrusted, r.RemoteAddr is the raw TCP source — forwarded
+// headers are ignored on purpose to prevent spoofing.
 //
-// This function intentionally does NOT trust X-Forwarded-For or X-Real-IP
-// headers to prevent IP spoofing. Proxy header handling is done upstream
-// by Chi's RealIP middleware for the handlers that need it.
+// This function just normalises the value by stripping the port (if any).
+// Code paths that specifically need the proxy's own address (e.g. webhook
+// IP allowlists where the proxy is the trust boundary) should read
+// OriginalRemoteAddrKey from the request context instead.
 func GetClientIP(r *http.Request) string {
-	// Prefer the original TCP address saved before RealIP middleware
-	addr := r.RemoteAddr
-	if original, ok := r.Context().Value(OriginalRemoteAddrKey).(string); ok && original != "" {
-		addr = original
-	}
-
-	// Remove port if present
-	return stripPort(addr)
+	return stripPort(r.RemoteAddr)
 }
 
 // stripPort removes the port suffix from an address string.
