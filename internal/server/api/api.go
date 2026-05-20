@@ -192,8 +192,11 @@ func (s *Server) setupRoutes() {
 
 	// Middleware
 	r.Use(middleware.RequestID)
-	r.Use(saveOriginalIPMiddleware)
-	r.Use(middleware.RealIP)
+	// Replaces the chi middleware.RealIP — that one trusts X-Forwarded-For
+	// from any TCP source, which is unsafe if the API can be reached
+	// directly (bypassing nginx). Our version only honours the headers when
+	// the immediate source is in auth.trusted_proxies (default: loopback).
+	r.Use(trustedRealIPMiddleware(s.cfg.Auth.TrustedProxies))
 	r.Use(s.loggingMiddleware)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
@@ -455,7 +458,9 @@ func (s *Server) setupRoutes() {
 
 // Start starts the API server
 func (s *Server) Start(ctx context.Context) error {
-	addr := fmt.Sprintf(":%d", s.cfg.Web.Port)
+	// Empty bind = listen on all interfaces (legacy). In production it should
+	// be "127.0.0.1" so external clients can only reach the API through nginx.
+	addr := fmt.Sprintf("%s:%d", s.cfg.Web.Bind, s.cfg.Web.Port)
 
 	s.httpServer = &http.Server{
 		Addr:         addr,

@@ -477,8 +477,10 @@ func (s *Server) Start() error {
 	}
 	s.log.Info().Str("addr", controlAddr).Msg("Control plane listening")
 
-	// Start HTTP listener
-	httpAddr := fmt.Sprintf(":%d", s.cfg.Server.HTTPPort)
+	// Start HTTP listener. Empty bind = all interfaces (legacy). In production
+	// it should be "127.0.0.1" so external clients can only reach the HTTP
+	// tunnel proxy through nginx (which sets X-Real-IP and terminates TLS).
+	httpAddr := fmt.Sprintf("%s:%d", s.cfg.Server.HTTPBind, s.cfg.Server.HTTPPort)
 	s.httpListener, err = newReusePortListener(s.ctx, httpAddr)
 	if err != nil {
 		s.controlListener.Close()

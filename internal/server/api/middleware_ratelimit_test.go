@@ -63,14 +63,14 @@ func TestRateLimiter_DifferentIPsIndependent(t *testing.T) {
 }
 
 func TestRateLimiter_UsesRemoteAddr(t *testing.T) {
-	// Rate limiter uses r.RemoteAddr which is set by Chi's middleware.RealIP upstream.
+	// Rate limiter uses r.RemoteAddr which is set by trustedRealIPMiddleware upstream.
 	// It should NOT read X-Real-IP or X-Forwarded-For headers directly.
 	rl := newIPRateLimiter(1)
 	handler := rateLimitMiddleware(rl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// First request from 5.5.5.5 (simulating middleware.RealIP having set RemoteAddr)
+	// First request from 5.5.5.5 (simulating trustedRealIPMiddleware having set RemoteAddr)
 	req := httptest.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "5.5.5.5"
 	w := httptest.NewRecorder()
