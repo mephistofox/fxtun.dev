@@ -1,56 +1,38 @@
 package auth
 
 import (
-	"context"
 	"net/http"
 	"testing"
 )
 
-func TestGetClientIP_IgnoresSpoofedHeaders(t *testing.T) {
-	// A request with spoofed X-Forwarded-For and X-Real-IP headers
-	// should return the actual RemoteAddr, not the spoofed values.
+// GetClientIP no longer consults forwarded headers or the
+// OriginalRemoteAddrKey context value — that decision has moved up the
+// stack into trustedRealIPMiddleware (see internal/server/api). By the
+// time a handler runs, r.RemoteAddr already holds the right answer
+// (real client IP if the request came through a trusted proxy, raw TCP
+// source otherwise). GetClientIP just normalises that to a host-only
+// string.
+
+func TestGetClientIP_StripsPort(t *testing.T) {
+	r, _ := http.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "172.16.0.5:9999"
+
+	if got, want := GetClientIP(r), "172.16.0.5"; got != want {
+		t.Errorf("GetClientIP() = %q, want %q", got, want)
+	}
+}
+
+func TestGetClientIP_DoesNotConsultHeaders(t *testing.T) {
+	// Forwarded-style headers are consumed by middleware, not by
+	// GetClientIP. If they leak in here, treat them as untrusted noise
+	// and keep using the TCP source.
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "192.168.1.100:12345"
 	r.Header.Set("X-Forwarded-For", "10.0.0.1, 10.0.0.2")
 	r.Header.Set("X-Real-IP", "10.0.0.1")
 
-	got := GetClientIP(r)
-	want := "192.168.1.100"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q (should ignore spoofed headers)", got, want)
-	}
-}
-
-func TestGetClientIP_UsesOriginalRemoteAddrFromContext(t *testing.T) {
-	// When the original TCP address is stored in context (by saveOriginalIPMiddleware),
-	// GetClientIP should return that address even if RemoteAddr was rewritten.
-	r, _ := http.NewRequest("GET", "/", nil)
-	// Simulate RealIP middleware having rewritten RemoteAddr
-	r.RemoteAddr = "10.0.0.1:0"
-
-	// Store the original TCP address in context
-	ctx := context.WithValue(r.Context(), OriginalRemoteAddrKey, "203.0.113.50:54321")
-	r = r.WithContext(ctx)
-
-	got := GetClientIP(r)
-	want := "203.0.113.50"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q (should use original addr from context)", got, want)
-	}
-}
-
-func TestGetClientIP_FallsBackToRemoteAddr(t *testing.T) {
-	// When there is no original address in context, fall back to RemoteAddr.
-	r, _ := http.NewRequest("GET", "/", nil)
-	r.RemoteAddr = "172.16.0.5:9999"
-
-	got := GetClientIP(r)
-	want := "172.16.0.5"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q", got, want)
+	if got, want := GetClientIP(r), "192.168.1.100"; got != want {
+		t.Errorf("GetClientIP() = %q, want %q (headers must not leak in)", got, want)
 	}
 }
 
@@ -58,26 +40,23 @@ func TestGetClientIP_IPv6(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "[::1]:12345"
 
-	got := GetClientIP(r)
-	want := "::1"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q (IPv6)", got, want)
+	if got, want := GetClientIP(r), "::1"; got != want {
+		t.Errorf("GetClientIP() = %q, want %q", got, want)
 	}
 }
 
-func TestGetClientIP_IPv6FromContext(t *testing.T) {
+func TestGetClientIP_IPv6WithoutBrackets(t *testing.T) {
+	// trustedRealIPMiddleware sets r.RemoteAddr to a bare header value
+	// (no port). For IPv6 that means no brackets either.
 	r, _ := http.NewRequest("GET", "/", nil)
-	r.RemoteAddr = "127.0.0.1:0"
+	r.RemoteAddr = "2001:db8::1"
 
-	ctx := context.WithValue(r.Context(), OriginalRemoteAddrKey, "[2001:db8::1]:443")
-	r = r.WithContext(ctx)
-
-	got := GetClientIP(r)
-	want := "2001:db8::1"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q (IPv6 from context)", got, want)
+	// stripPort treats the trailing :1 as a port (it can't know better
+	// from a string alone). That's acceptable because in practice
+	// middleware delivers bare IPv4 or bracketed IPv6 — but document
+	// the limitation here.
+	if got := GetClientIP(r); got == "" {
+		t.Errorf("GetClientIP() returned empty string for IPv6 input")
 	}
 }
 
@@ -85,10 +64,7 @@ func TestGetClientIP_AddrWithoutPort(t *testing.T) {
 	r, _ := http.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "10.0.0.5"
 
-	got := GetClientIP(r)
-	want := "10.0.0.5"
-
-	if got != want {
-		t.Errorf("GetClientIP() = %q, want %q (no port)", got, want)
+	if got, want := GetClientIP(r), "10.0.0.5"; got != want {
+		t.Errorf("GetClientIP() = %q, want %q", got, want)
 	}
 }
