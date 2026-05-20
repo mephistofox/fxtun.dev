@@ -18,7 +18,7 @@ export default defineConfig({
     }),
     Sitemap({
       hostname: "https://fxtun.dev",
-      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,
       robots: [{ userAgent: "*", allow: "/" }],
@@ -31,6 +31,9 @@ export default defineConfig({
         "/offer": "yearly",
         "/terms": "yearly",
         "/privacy": "yearly",
+        "/abuse": "yearly",
+        "/aup": "yearly",
+        "/disclaimer": "yearly",
       },
       priority: {
         "/": 1.0,
@@ -41,6 +44,9 @@ export default defineConfig({
         "/offer": 0.3,
         "/terms": 0.3,
         "/privacy": 0.3,
+        "/abuse": 0.2,
+        "/aup": 0.2,
+        "/disclaimer": 0.2,
       },
       lastmod: {
         "/": new Date("2026-03-28"),
@@ -96,7 +102,7 @@ export default defineConfig({
     formatting: "minify",
     beastiesOptions: { fonts: false, preloadFonts: false },
     includedRoutes() {
-      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
+      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
       const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
       return [...pages, ...ruPages, ...enPages];

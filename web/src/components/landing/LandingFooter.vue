@@ -72,6 +72,15 @@ const blogUrl = computed(() => getBlogUrl())
           <RouterLink to="/privacy" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {{ t('legal.privacy') }}
           </RouterLink>
+          <RouterLink to="/aup" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('legal.aup') }}
+          </RouterLink>
+          <RouterLink to="/abuse" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('legal.abuse') }}
+          </RouterLink>
+          <RouterLink to="/disclaimer" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            {{ t('legal.disclaimer') }}
+          </RouterLink>
         </div>
 
         <!-- Copyright -->
