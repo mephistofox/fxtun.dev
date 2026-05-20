@@ -1013,6 +1013,13 @@ func (c *Client) handleTunnelRequest(data []byte) {
 	case protocol.TunnelTCP:
 		c.createTCPTunnel(req)
 	case protocol.TunnelUDP:
+		// Gate UDP behind the plan flag — Free has udp_enabled=false.
+		// Admins (no plan, or unlimited) are allowed unconditionally.
+		if c.Plan != nil && !c.Plan.UDPEnabled {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodePlanLimit,
+				"UDP tunnels are not available on your plan — upgrade to enable UDP")
+			return
+		}
 		c.createUDPTunnel(req)
 	default:
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, "unknown tunnel type")
