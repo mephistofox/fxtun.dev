@@ -379,10 +379,11 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify IP using r.RemoteAddr which contains the real client IP.
-	// Behind nginx (trusted proxy), nginx sets X-Real-IP from the actual
-	// client address, and middleware.RealIP copies it into r.RemoteAddr.
-	// Do NOT use getOriginalRemoteAddr() here — it returns the raw TCP
-	// peer address which is 127.0.0.1 (nginx itself) behind a reverse proxy.
+	// Behind nginx (a trusted proxy), nginx sets X-Real-IP from the actual
+	// client address, and trustedRealIPMiddleware copies it into r.RemoteAddr.
+	// Do NOT use getOriginalRemoteAddr() here — it returns the raw TCP peer
+	// address which is 127.0.0.1 (nginx itself) when traffic comes through
+	// the reverse proxy.
 	if !s.cfg.YooKassa.TestMode {
 		if !payment.IsYooKassaIP(r.RemoteAddr) {
 			s.log.Warn().
