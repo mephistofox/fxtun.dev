@@ -193,8 +193,8 @@ onMounted(() => {
             </svg>
           </div>
           <div>
-            <p class="font-medium text-sm">{{ t('landing.features.selfHosted.title') }}</p>
-            <p class="text-xs text-muted-foreground">{{ t('landing.features.selfHosted.short') }}</p>
+            <p class="font-medium text-sm">{{ t('landing.features.openSource.title') }}</p>
+            <p class="text-xs text-muted-foreground">{{ t('landing.features.openSource.short') }}</p>
           </div>
         </div>
       </div>

@@ -37,58 +37,36 @@ const matrixFeatures = [
   'tunnels', 'anySubdomain', 'reservedSubdomains', 'customDomains',
   'accessKeys', 'inspector', 'httpTunnels', 'tcpTunnels', 'udpTunnels',
   'autoReconnect', 'desktopApp', 'noRequestLimits', 'noBandwidthLimits',
-  'noSessionTimeout', 'selfHostable',
+  'noSessionTimeout', 'openSource',
 ] as const
 
-// Plan column values for the matrix
+// Plan column values for the matrix — mirrors database `plans` table (migration 00002 + 00005 + 00006).
 const planColumns = computed(() => [
   {
     name: 'Free',
     slug: 'free',
     values: {
-      tunnels: '1',
+      tunnels: '3',
       anySubdomain: true,
-      reservedSubdomains: '0',
+      reservedSubdomains: '1',
       customDomains: '0',
       accessKeys: '1',
       inspector: false,
       httpTunnels: true,
       tcpTunnels: true,
-      udpTunnels: true,
+      udpTunnels: false,
       autoReconnect: true,
       desktopApp: true,
       noRequestLimits: true,
       noBandwidthLimits: true,
       noSessionTimeout: true,
-      selfHostable: true,
+      openSource: true,
     },
   },
   {
     name: 'Starter',
     slug: 'starter',
     price: isRuDomain.value ? '200 ₽' : '$2.50',
-    values: {
-      tunnels: '3',
-      anySubdomain: true,
-      reservedSubdomains: '1',
-      customDomains: '1',
-      accessKeys: '1',
-      inspector: true,
-      httpTunnels: true,
-      tcpTunnels: true,
-      udpTunnels: true,
-      autoReconnect: true,
-      desktopApp: true,
-      noRequestLimits: true,
-      noBandwidthLimits: true,
-      noSessionTimeout: true,
-      selfHostable: true,
-    },
-  },
-  {
-    name: 'Base',
-    slug: 'base',
-    price: isRuDomain.value ? '400 ₽' : '$5',
     values: {
       tunnels: '5',
       anySubdomain: true,
@@ -104,13 +82,13 @@ const planColumns = computed(() => [
       noRequestLimits: true,
       noBandwidthLimits: true,
       noSessionTimeout: true,
-      selfHostable: true,
+      openSource: true,
     },
   },
   {
     name: 'Pro',
     slug: 'pro',
-    price: isRuDomain.value ? '600 ₽' : '$7.50',
+    price: isRuDomain.value ? '400 ₽' : '$5',
     values: {
       tunnels: '15',
       anySubdomain: true,
@@ -126,7 +104,29 @@ const planColumns = computed(() => [
       noRequestLimits: true,
       noBandwidthLimits: true,
       noSessionTimeout: true,
-      selfHostable: true,
+      openSource: true,
+    },
+  },
+  {
+    name: 'Business',
+    slug: 'business',
+    price: isRuDomain.value ? '600 ₽' : '$7.50',
+    values: {
+      tunnels: '50',
+      anySubdomain: true,
+      reservedSubdomains: '50',
+      customDomains: '50',
+      accessKeys: '50',
+      inspector: true,
+      httpTunnels: true,
+      tcpTunnels: true,
+      udpTunnels: true,
+      autoReconnect: true,
+      desktopApp: true,
+      noRequestLimits: true,
+      noBandwidthLimits: true,
+      noSessionTimeout: true,
+      openSource: true,
     },
   },
 ])
@@ -190,7 +190,7 @@ function toggleFaq(index: number) {
                     v-for="plan in planColumns"
                     :key="plan.slug"
                     class="text-center"
-                    :class="{ 'matrix-recommended': plan.slug === 'base' }"
+                    :class="{ 'matrix-recommended': plan.slug === 'starter' }"
                   >
                     <div class="font-semibold">{{ plan.name }}</div>
                     <div v-if="plan.price" class="text-xs text-muted-foreground font-normal mt-0.5">
@@ -209,7 +209,7 @@ function toggleFaq(index: number) {
                     v-for="plan in planColumns"
                     :key="plan.slug"
                     class="text-center"
-                    :class="{ 'matrix-recommended': plan.slug === 'base' }"
+                    :class="{ 'matrix-recommended': plan.slug === 'starter' }"
                   >
                     <template v-if="typeof plan.values[feature] === 'boolean'">
                       <svg
@@ -334,10 +334,10 @@ function toggleFaq(index: number) {
           </h2>
           <div class="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
             <div
-              v-for="tier in ['free', 'starter', 'base', 'pro']"
+              v-for="tier in ['free', 'starter', 'pro', 'business']"
               :key="tier"
               class="plan-card"
-              :class="{ 'plan-card--recommended': tier === 'base' }"
+              :class="{ 'plan-card--recommended': tier === 'starter' }"
             >
               <h3 class="text-lg font-display font-semibold mb-3">
                 {{ t(`pricingPage.whoIsItFor.${tier}.title`) }}
