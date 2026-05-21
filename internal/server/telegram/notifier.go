@@ -66,16 +66,22 @@ func (n *AdminNotifier) NotifyNewSubscription(userID int64, displayName, planNam
 
 // NotifyRegistrationTarpit reports a bot that hit the disabled phone/password
 // registration endpoint. We show everything the attacker sent, so the operator
-// can see patterns and pick additional defenses.
-func (n *AdminNotifier) NotifyRegistrationTarpit(phone, password, displayName, ip, userAgent string) {
+// can see patterns and pick additional defenses. banTTL > 0 means the IP was
+// auto-banned for the given duration.
+func (n *AdminNotifier) NotifyRegistrationTarpit(phone, password, displayName, ip, userAgent string, banTTL time.Duration) {
+	banLine := ""
+	if banTTL > 0 {
+		banLine = fmt.Sprintf("\n🚫 Auto-ban IP: %s", formatDuration(banTTL))
+	}
 	msg := fmt.Sprintf(
-		"🕷 <b>Tarpit: попытка регистрации</b>\nPhone: <code>%s</code>\nPassword: <code>%s</code>\nName: <code>%s</code>\nIP: <code>%s</code>\nUser-Agent: <code>%s</code>\nВремя: %s",
+		"🕷 <b>Tarpit: попытка регистрации</b>\nPhone: <code>%s</code>\nPassword: <code>%s</code>\nName: <code>%s</code>\nIP: <code>%s</code>\nUser-Agent: <code>%s</code>\nВремя: %s%s",
 		escapeHTML(phone),
 		escapeHTML(password),
 		escapeHTML(displayName),
 		escapeHTML(ip),
 		escapeHTML(userAgent),
 		time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
+		banLine,
 	)
 	n.send(msg)
 }

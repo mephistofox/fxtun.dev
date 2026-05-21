@@ -99,6 +99,7 @@ type Server struct {
 	deviceStore    store.DeviceStore
 	oauthStore     store.OAuthStore
 	nodeRegistry   store.NodeRegistry
+	ipBanStore     store.IPBanStore
 	shutdownCh     chan struct{}
 }
 
@@ -120,10 +121,16 @@ func WithNodeRegistry(nr store.NodeRegistry) Option {
 	return func(s *Server) { s.nodeRegistry = nr }
 }
 
+// WithIPBanStore overrides the default in-memory IP ban store.
+func WithIPBanStore(bs store.IPBanStore) Option {
+	return func(s *Server) { s.ipBanStore = bs }
+}
+
 // New creates a new API server
 func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger, opts ...Option) *Server {
 	memDevice := newDeviceStore()
 	memOAuth := newOAuthStore()
+	memIPBan := newMemIPBanStore()
 
 	s := &Server{
 		cfg:                  cfg,
@@ -137,6 +144,7 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		downloadsPath:  cfg.Downloads.Path,
 		deviceStore:    memDevice,
 		oauthStore:     memOAuth,
+		ipBanStore:     memIPBan,
 		shutdownCh:     make(chan struct{}),
 	}
 
@@ -150,6 +158,9 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 	}
 	if s.oauthStore == memOAuth {
 		go memOAuth.Cleanup(s.shutdownCh)
+	}
+	if s.ipBanStore == memIPBan {
+		go memIPBan.cleanup(s.shutdownCh)
 	}
 
 	s.setupRoutes()
@@ -443,6 +454,11 @@ func (s *Server) setupRoutes() {
 					r.Post("/{id}/disable", s.handleDisableNode)
 					r.Delete("/{id}", s.handleDeleteNode)
 				})
+
+				// IP bans (tarpit + manual)
+				r.Get("/ip-bans", s.handleListIPBans)
+				r.Post("/ip-bans", s.handleCreateIPBan)
+				r.Delete("/ip-bans/{ip}", s.handleDeleteIPBan)
 			})
 		})
 	})
