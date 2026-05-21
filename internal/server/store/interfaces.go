@@ -111,3 +111,24 @@ type TLSCache interface {
 	Put(domain string, certPEM, keyPEM []byte, expiresAt time.Time) error
 	Delete(domain string) error
 }
+
+// IPBanEntry describes an active IP ban.
+type IPBanEntry struct {
+	IP        string
+	Reason    string
+	BannedAt  time.Time
+	ExpiresAt time.Time
+}
+
+// IPBanStore manages temporary IP bans (e.g. from tarpit hits).
+type IPBanStore interface {
+	// Ban records the IP as banned for ttl. Returns true if this is a new ban,
+	// false if the IP was already banned (the TTL is refreshed in both cases).
+	Ban(ip, reason string, ttl time.Duration) (isNew bool, err error)
+	// IsBanned returns whether the IP is currently banned and the ban reason.
+	IsBanned(ip string) (banned bool, reason string, err error)
+	// Unban removes an active ban.
+	Unban(ip string) error
+	// List returns all currently active bans (best-effort; may be paginated under the hood).
+	List() ([]IPBanEntry, error)
+}
