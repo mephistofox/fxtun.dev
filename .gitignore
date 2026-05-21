@@ -1,4 +1,10 @@
-.claude
+# Claude Code — share team automations (agents/hooks/skills/settings.json),
+# keep personal config and prod/infra details local.
+.claude/settings.local.json
+.claude/memory/
+.claude/CLAUDE.md
+.claude/commands/deploy.md
+
 bin/
 configs/server.yaml
 configs/nginx-mfdev.conf
