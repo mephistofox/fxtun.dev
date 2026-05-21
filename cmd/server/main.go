@@ -412,6 +412,7 @@ func run(cmd *cobra.Command, args []string) error {
 			apiOpts = append(apiOpts,
 				api.WithDeviceStore(fxredis.NewDeviceStore(redisClient)),
 				api.WithOAuthStore(fxredis.NewOAuthStore(redisClient)),
+				api.WithIPBanStore(fxredis.NewIPBanStore(redisClient)),
 			)
 			// Add node registry for hub mode admin endpoints
 			if cfg.EffectiveMode() == config.ModeHub {

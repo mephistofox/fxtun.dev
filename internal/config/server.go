@@ -133,6 +133,12 @@ type AuthSettings struct {
 	// the /api/auth/register endpoint returns a plausible 201 with fake (unusable)
 	// tokens instead of 403 — so bots waste time on accounts they can't log into.
 	PhoneRegistrationTarpit  bool          `mapstructure:"phone_registration_tarpit"`
+	// TarpitBanEnabled: when true, IPs that hit the registration tarpit are
+	// temporarily banned (no DB write, no bcrypt CPU spend, no Telegram spam)
+	// for TarpitBanTTL. Default: true.
+	TarpitBanEnabled         bool          `mapstructure:"tarpit_ban_enabled"`
+	// TarpitBanTTL is the duration of a tarpit-triggered IP ban. Default: 72h.
+	TarpitBanTTL             time.Duration `mapstructure:"tarpit_ban_ttl"`
 	// TrustedProxies lists IP addresses whose X-Real-IP / X-Forwarded-For
 	// headers may be trusted to determine the real client IP. Anything outside
 	// this list is treated as a potentially-malicious direct connection and
@@ -336,6 +342,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.max_domains_per_user", 3)
 	v.SetDefault("auth.phone_registration_enabled", false)
 	v.SetDefault("auth.phone_registration_tarpit", true)
+	v.SetDefault("auth.tarpit_ban_enabled", true)
+	v.SetDefault("auth.tarpit_ban_ttl", "72h")
 	v.SetDefault("auth.trusted_proxies", []string{"127.0.0.1", "::1"})
 	v.SetDefault("server.http_bind", "")
 	v.SetDefault("web.bind", "")
