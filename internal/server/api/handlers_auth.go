@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -16,6 +17,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	// Phone/password registration is disabled by default; only OAuth (GitHub/Google)
 	// is available unless the operator explicitly opts in via auth.phone_registration_enabled.
 	if !s.cfg.Auth.PhoneRegistrationEnabled {
+		// If this IP was already trapped, respond with the tarpit shape immediately
+		// — no body parse, no bcrypt, no Telegram spam.
+		if s.cfg.Auth.PhoneRegistrationTarpit && s.ipBanStore != nil {
+			clientIP := auth.GetClientIP(r)
+			if banned, _, _ := s.ipBanStore.IsBanned(clientIP); banned {
+				s.respondTarpitRegisterBanned(w, r)
+				return
+			}
+		}
+
 		var req dto.RegisterRequest
 		if !decodeAndValidate(w, r, &req) {
 			return
@@ -277,8 +288,23 @@ func (s *Server) respondTarpitRegister(w http.ResponseWriter, r *http.Request, r
 		Str("user_agent", userAgent).
 		Msg("Registration tarpit: fake 201 returned, no DB write")
 
-	if s.telegramNotifier != nil {
-		s.telegramNotifier.NotifyRegistrationTarpit(req.Phone, req.Password, req.DisplayName, ipAddress, userAgent)
+	// Ban the IP so repeat hits short-circuit without bcrypt/Telegram work.
+	isNewBan := true
+	var banTTL time.Duration
+	if s.cfg.Auth.TarpitBanEnabled && s.ipBanStore != nil && ipAddress != "" {
+		banTTL = s.cfg.Auth.TarpitBanTTL
+		if banTTL <= 0 {
+			banTTL = 72 * time.Hour
+		}
+		var err error
+		isNewBan, err = s.ipBanStore.Ban(ipAddress, "registration tarpit", banTTL)
+		if err != nil {
+			s.log.Warn().Err(err).Str("ip", ipAddress).Msg("failed to record tarpit IP ban")
+		}
+	}
+
+	if s.telegramNotifier != nil && isNewBan {
+		s.telegramNotifier.NotifyRegistrationTarpit(req.Phone, req.Password, req.DisplayName, ipAddress, userAgent, banTTL)
 	}
 
 	fakeAccess := fakeJWTLikeToken()
@@ -289,6 +315,31 @@ func (s *Server) respondTarpitRegister(w http.ResponseWriter, r *http.Request, r
 			ID:          0,
 			Phone:       req.Phone,
 			DisplayName: req.DisplayName,
+			IsAdmin:     false,
+			IsActive:    true,
+			CreatedAt:   time.Now().UTC(),
+		},
+		AccessToken:  fakeAccess,
+		RefreshToken: fakeRefresh,
+		ExpiresIn:    900,
+	})
+}
+
+// respondTarpitRegisterBanned is the fast path for IPs already trapped:
+// no body parse, no bcrypt-mimicking sleep, no Telegram spam — just a plausible
+// 201 with random tokens. Bots get the same shape they got the first time.
+func (s *Server) respondTarpitRegisterBanned(w http.ResponseWriter, r *http.Request) {
+	// Drain (bounded) body so keep-alive clients don't get RST mid-write.
+	if r.Body != nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, 1<<20))
+	}
+	fakeAccess := fakeJWTLikeToken()
+	fakeRefresh := "rt_" + randomHex(24)
+	s.respondJSON(w, http.StatusCreated, dto.AuthResponse{
+		User: &dto.UserDTO{
+			ID:          0,
+			Phone:       "",
+			DisplayName: "",
 			IsAdmin:     false,
 			IsActive:    true,
 			CreatedAt:   time.Now().UTC(),
