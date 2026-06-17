@@ -130,9 +130,18 @@ func (s *SettingsService) SetNotifications(value bool) error {
 	return s.SetBool(KeyNotifications, value)
 }
 
-// GetDefaultServerAddress returns the default server address
+// defaultServerAddress is the DPI-resilient TLS control endpoint of the fxtun.dev
+// SaaS. It is the :443 tunnel endpoint (not the website on :443, nor the
+// DPI-throttled plaintext :4443), so it survives ISP/middlebox interference.
+const defaultServerAddress = "tunnel.fxtun.dev:443"
+
+// GetDefaultServerAddress returns the default server address, falling back to
+// the fxtun.dev SaaS tunnel endpoint when the user hasn't set one.
 func (s *SettingsService) GetDefaultServerAddress() string {
 	addr, _ := s.Get(KeyServerAddress)
+	if addr == "" {
+		return defaultServerAddress
+	}
 	return addr
 }
 

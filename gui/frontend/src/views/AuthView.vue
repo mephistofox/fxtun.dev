@@ -26,7 +26,7 @@ watch(() => authStore.error, (error) => {
 
 onMounted(async () => {
   await settingsStore.init()
-  serverAddress.value = settingsStore.serverAddress || 'localhost:4443'
+  serverAddress.value = settingsStore.serverAddress || 'tunnel.fxtun.dev:443'
 })
 
 async function handleOAuth(provider: string) {
