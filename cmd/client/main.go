@@ -600,11 +600,7 @@ func resolveWebURL() string {
 	}
 
 	if addr != "" {
-		host := addr
-		if idx := strings.Index(addr, ":"); idx != -1 {
-			host = addr[:idx]
-		}
-		return "https://" + host
+		return client.WebBaseURL(addr)
 	}
 
 	return DefaultServerURL
