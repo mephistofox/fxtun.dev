@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.9.0](https://github.com/mephistofox/fxTunnel/compare/v3.8.0...v3.9.0) (2026-06-17)
+
+
+### Features
+
+* **client:** mimic Chrome TLS fingerprint via uTLS ([f63798e](https://github.com/mephistofox/fxTunnel/commit/f63798e205805fb96608f850c555100f9cf06821))
+
+
+### Bug Fixes
+
+* **build:** bump Dockerfile Go to 1.25 to match go.mod ([38e99a7](https://github.com/mephistofox/fxTunnel/commit/38e99a71e4f040c85147e826e61c386ffc0e4bf4))
+
 ## [3.8.0](https://github.com/mephistofox/fxTunnel/compare/v3.7.0...v3.8.0) (2026-06-17)
 
 
