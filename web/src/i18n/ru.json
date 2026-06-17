@@ -1073,7 +1073,7 @@
     "guiDescription": "Нативное приложение на Wails (Go + Vue 3) с визуальным управлением туннелями, встроенным инспектором трафика и историей подключений. Терминал не нужен — всё через графический интерфейс.",
     "quickStartTitle": "Быстрая установка",
     "quickStartLinux": "curl -fsSL https://fxtun.ru/install.sh | sh",
-    "quickStartWindows": "irm https://fxtun.ru/install.ps1 | iex",
+    "quickStartWindows": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://fxtun.ru/install.ps1 | iex",
     "platformsTitle": "Поддерживаемые платформы",
     "platforms": {
       "linux": "Linux (x64, ARM64) — CLI + GUI",

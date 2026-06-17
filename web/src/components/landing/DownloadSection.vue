@@ -17,7 +17,7 @@ const copied = ref(false)
 
 const installCommand = computed(() => {
   if (activeOS.value === 'windows') {
-    return `irm https://${getBaseDomain()}/install.ps1 | iex`
+    return `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://${getBaseDomain()}/install.ps1 | iex`
   }
   return `curl -fsSL https://${getBaseDomain()}/install.sh | sh`
 })
