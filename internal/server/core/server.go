@@ -721,6 +721,11 @@ func (s *Server) acceptControlConnections(l net.Listener) {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
+			// Listener closed on shutdown — exit quietly instead of spinning
+			// the loop and flooding the log with "use of closed connection".
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
 			select {
 			case <-s.ctx.Done():
 				return
