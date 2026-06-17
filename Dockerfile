@@ -1,5 +1,5 @@
 # Build Go server (frontend served separately via nginx/CDN)
-FROM golang:1.24-bookworm AS go-builder
+FROM golang:1.25-bookworm AS go-builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
