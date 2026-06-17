@@ -2,14 +2,23 @@
 
 # Server connection settings
 server:
-  # Server address (host:port)
-  address: "tunnel.example.com:4443"
+  # Primary server address (host:port). The :443 TLS endpoint looks like normal
+  # HTTPS and survives ISP/DPI interference. The client falls back to
+  # fallback_address automatically if this endpoint stalls or is blocked.
+  address: "tunnel.fxtun.dev:443"
 
   # Authentication token
   token: "sk_user1_token456"
 
-  # Skip TLS verification (not recommended for production)
+  # Verify the server TLS certificate (recommended). Set insecure: true only
+  # for the legacy plaintext control port or self-signed setups.
   insecure: false
+  tls_verify: true
+
+  # Fallback endpoint tried when the primary fails to connect or the handshake
+  # stalls (the signature of a middlebox throttling the non-standard port).
+  fallback_address: "fxtun.dev:4443"
+  fallback_insecure: true
 
 # Tunnel definitions
 tunnels:

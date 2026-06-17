@@ -20,8 +20,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	client "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/client/keyring"
+	"github.com/mephistofox/fxtunnel/internal/config"
 )
 
 const defaultControlPort = "4443"
@@ -756,7 +756,7 @@ func getInstalledWebsite() string {
 // normalizeServerAddr adds default port if not specified
 func normalizeServerAddr(addr string) string {
 	if addr == "" {
-		return "fxtun.dev:" + defaultControlPort
+		return "tunnel.fxtun.dev:443"
 	}
 	// Check if port is already specified
 	if !strings.Contains(addr, ":") {
