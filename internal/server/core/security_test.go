@@ -53,7 +53,7 @@ func TestHTTPRouter_IPAllowlist_Blocks(t *testing.T) {
 	req.RemoteAddr = "203.0.113.50:12345"
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.False(t, ok)
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -66,7 +66,7 @@ func TestHTTPRouter_SecurityChainOrder(t *testing.T) {
 	hash := hashCredentials(t, "user", "pass")
 	tunnel := &Tunnel{
 		BasicAuthHash: hash,
-		AllowedIPs:   []net.IP{net.ParseIP("10.0.0.1")},
+		AllowedIPs:    []net.IP{net.ParseIP("10.0.0.1")},
 	}
 
 	// Request comes from a non-allowlisted IP but carries valid auth credentials
@@ -76,7 +76,7 @@ func TestHTTPRouter_SecurityChainOrder(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	// Simulate the middleware chain as done in ServeHTTP: IP check first
-	if !checkIPAllowlist(w, req, tunnel) {
+	if !checkIPAllowlist(w, req, tunnel, trustLoopback) {
 		// IP was blocked — must be 403, not 401
 		assert.Equal(t, http.StatusForbidden, w.Code)
 		// Auth check must never have been reached
@@ -124,7 +124,7 @@ func TestHTTPRouter_IPAllowlist_CIDR(t *testing.T) {
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 
-			ok := checkIPAllowlist(w, req, tunnel)
+			ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 			assert.Equal(t, tt.wantOk, ok)
 			assert.Equal(t, tt.wantStatus, w.Code)
@@ -173,10 +173,10 @@ func TestHTTPRouter_AllSecurityFeatures(t *testing.T) {
 
 	tunnel := &Tunnel{
 		BasicAuthHash: hash,
-		AllowedIPs:   []net.IP{net.ParseIP("10.1.2.3")},
-		AllowedNets:  []*net.IPNet{cidr},
-		AutoClose:    30 * time.Minute,
-		MaxLifetime:  2 * time.Hour,
+		AllowedIPs:    []net.IP{net.ParseIP("10.1.2.3")},
+		AllowedNets:   []*net.IPNet{cidr},
+		AutoClose:     30 * time.Minute,
+		MaxLifetime:   2 * time.Hour,
 	}
 
 	t.Run("blocked IP gets 403 regardless of auth", func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestHTTPRouter_AllSecurityFeatures(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		// IP check runs first
-		if !checkIPAllowlist(w, req, tunnel) {
+		if !checkIPAllowlist(w, req, tunnel, trustLoopback) {
 			assert.Equal(t, http.StatusForbidden, w.Code)
 			assert.Empty(t, w.Header().Get("WWW-Authenticate"))
 			return
@@ -200,7 +200,7 @@ func TestHTTPRouter_AllSecurityFeatures(t *testing.T) {
 		// No auth header
 		w := httptest.NewRecorder()
 
-		ipOk := checkIPAllowlist(w, req, tunnel)
+		ipOk := checkIPAllowlist(w, req, tunnel, trustLoopback)
 		require.True(t, ipOk, "IP should be allowed")
 
 		authOk := checkBasicAuth(w, req, tunnel)
@@ -215,7 +215,7 @@ func TestHTTPRouter_AllSecurityFeatures(t *testing.T) {
 		req.SetBasicAuth("admin", "secret")
 		w := httptest.NewRecorder()
 
-		ipOk := checkIPAllowlist(w, req, tunnel)
+		ipOk := checkIPAllowlist(w, req, tunnel, trustLoopback)
 		assert.True(t, ipOk)
 
 		authOk := checkBasicAuth(w, req, tunnel)
@@ -266,7 +266,7 @@ func TestParseAllowIPs_Integration(t *testing.T) {
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 
-			ok := checkIPAllowlist(w, req, tunnel)
+			ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 			assert.Equal(t, tt.wantOk, ok, "remoteAddr=%s", tt.remoteAddr)
 			if tt.wantOk {

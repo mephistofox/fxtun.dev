@@ -139,6 +139,7 @@ type Querier interface {
 	ListUsersFiltered(ctx context.Context, arg ListUsersFilteredParams) ([]User, error)
 	ListVerifiedCustomDomains(ctx context.Context) ([]CustomDomain, error)
 	SaveExchange(ctx context.Context, arg SaveExchangeParams) error
+	SetCustomDomainVerificationToken(ctx context.Context, arg SetCustomDomainVerificationTokenParams) error
 	SetCustomDomainVerified(ctx context.Context, arg SetCustomDomainVerifiedParams) error
 	SetFirstTunnelAt(ctx context.Context, arg SetFirstTunnelAtParams) (int64, error)
 	UpdateAPITokenLastUsed(ctx context.Context, id int64) error
