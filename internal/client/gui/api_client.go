@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	client "github.com/mephistofox/fxtunnel/internal/client/core"
 )
 
 // apiClient provides a centralized HTTP client with automatic token refresh.
@@ -18,13 +20,10 @@ type apiClient struct {
 	log zerolog.Logger
 }
 
-// BuildURL constructs a full API URL from a path.
+// BuildURL constructs a full API URL from a path. The API is served on the web
+// host (e.g. fxtun.dev), not the control/tunnel endpoint (tunnel.fxtun.dev:443).
 func (c *apiClient) BuildURL(path string) string {
-	host := c.app.serverAddress
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-	return fmt.Sprintf("https://%s%s", host, path)
+	return fmt.Sprintf("https://%s%s", client.WebHost(c.app.serverAddress), path)
 }
 
 // Get performs an authenticated GET request.

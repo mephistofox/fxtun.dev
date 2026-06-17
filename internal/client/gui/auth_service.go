@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,8 +18,8 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	client "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/client/keyring"
+	"github.com/mephistofox/fxtunnel/internal/config"
 )
 
 // ErrTOTPRequired is returned when TOTP code is required
@@ -570,11 +569,8 @@ func (s *AuthService) StartOAuthFlow(serverAddr, provider string) (string, error
 		}
 	}()
 
-	// Build OAuth URL
-	host := serverAddr
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
+	// Build OAuth URL (web host, not the control/tunnel endpoint)
+	host := client.WebHost(serverAddr)
 	callbackURI := fmt.Sprintf("http://localhost:%d/callback", port)
 	oauthURL := fmt.Sprintf("https://%s/api/auth/%s?redirect_uri=%s", host, provider, url.QueryEscape(callbackURI))
 
@@ -658,11 +654,8 @@ func (s *AuthService) bringWindowToFront() {
 	wailsRuntime.WindowSetAlwaysOnTop(s.app.ctx, false)
 }
 
-// buildAPIURL constructs API URL from server address
+// buildAPIURL constructs an API URL from the server address. The API lives on
+// the web host (e.g. fxtun.dev), not the control/tunnel endpoint.
 func (s *AuthService) buildAPIURL(serverAddr, path string) string {
-	host := serverAddr
-	if idx := strings.Index(host, ":"); idx != -1 {
-		host = host[:idx]
-	}
-	return fmt.Sprintf("https://%s%s", host, path)
+	return fmt.Sprintf("https://%s%s", client.WebHost(serverAddr), path)
 }
