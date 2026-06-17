@@ -1073,7 +1073,7 @@
     "guiDescription": "Native Wails app (Go + Vue 3) with visual tunnel management, built-in traffic inspector, and connection history. No terminal needed — everything through a graphical interface.",
     "quickStartTitle": "Quick Install",
     "quickStartLinux": "curl -fsSL https://fxtun.dev/install.sh | sh",
-    "quickStartWindows": "irm https://fxtun.dev/install.ps1 | iex",
+    "quickStartWindows": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://fxtun.dev/install.ps1 | iex",
     "platformsTitle": "Supported Platforms",
     "platforms": {
       "linux": "Linux (x64, ARM64) — CLI + GUI",
