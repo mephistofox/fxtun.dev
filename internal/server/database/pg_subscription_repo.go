@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // SubscriptionRepository handles subscription database operations using PostgreSQL via sqlc.

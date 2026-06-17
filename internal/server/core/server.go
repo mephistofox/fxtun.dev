@@ -21,15 +21,15 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/geoip"
-	"github.com/mephistofox/fxtunnel/internal/server/monitor"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
-	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/geoip"
+	"github.com/mephistofox/fxtun.dev/internal/server/monitor"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/server/tls"
 )
 
 var (

@@ -15,8 +15,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	clientcore "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
+	clientcore "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // CLI flags

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // CustomDomainRepository handles custom domain database operations using PostgreSQL via sqlc.

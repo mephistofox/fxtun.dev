@@ -11,7 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // loginAuth implements smtp.Auth for LOGIN mechanism (required by some providers like Beget)

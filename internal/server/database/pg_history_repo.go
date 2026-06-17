@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // UserHistoryRepository handles user history database operations using PostgreSQL via sqlc.

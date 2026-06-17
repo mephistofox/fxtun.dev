@@ -10,7 +10,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 // TunnelLookup resolves a tunnel subdomain to its registry entry.

@@ -14,12 +14,12 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/geoip"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/geoip"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 // errRedirected is a sentinel error returned when the client is redirected to a node.

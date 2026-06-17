@@ -5,7 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/client/storage"
+	"github.com/mephistofox/fxtun.dev/internal/client/storage"
 )
 
 // SettingsService handles application settings

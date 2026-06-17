@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/exchange"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
 )
 
 // handleGetSubscription returns the current user's subscription

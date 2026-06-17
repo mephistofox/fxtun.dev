@@ -12,16 +12,16 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/email"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
-	"github.com/mephistofox/fxtunnel/internal/server/telegram"
-	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/email"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/telegram"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/server/tls"
 )
 
 // TunnelInfo represents tunnel information from the server
