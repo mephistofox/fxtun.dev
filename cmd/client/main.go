@@ -822,8 +822,12 @@ func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
 			fmt.Printf("  HTTP:  %s\n", t.URL)
-			if t.HTTPSURL != "" {
-				fmt.Printf("  HTTPS: %s\n", t.HTTPSURL)
+			httpsURL := t.HTTPSURL
+			if httpsURL == "" && strings.HasPrefix(t.URL, "http://") {
+				httpsURL = "https://" + strings.TrimPrefix(t.URL, "http://")
+			}
+			if httpsURL != "" {
+				fmt.Printf("  HTTPS: %s\n", httpsURL)
 			}
 		} else {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)

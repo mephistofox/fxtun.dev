@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	client "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/client/daemon"
+	"github.com/mephistofox/fxtunnel/internal/config"
 )
 
 var daemonForeground bool
@@ -166,8 +166,12 @@ func runDaemonForeground() error {
 	for _, t := range c.GetTunnels() {
 		if t.URL != "" {
 			fmt.Printf("  HTTP:  %s\n", t.URL)
-			if t.HTTPSURL != "" {
-				fmt.Printf("  HTTPS: %s\n", t.HTTPSURL)
+			httpsURL := t.HTTPSURL
+			if httpsURL == "" && strings.HasPrefix(t.URL, "http://") {
+				httpsURL = "https://" + strings.TrimPrefix(t.URL, "http://")
+			}
+			if httpsURL != "" {
+				fmt.Printf("  HTTPS: %s\n", httpsURL)
 			}
 		} else {
 			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
