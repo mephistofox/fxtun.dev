@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.9.1](https://github.com/mephistofox/fxTunnel/compare/v3.9.0...v3.9.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **client:** route API/update/OAuth calls to the web host, not the tunnel endpoint ([38a27b9](https://github.com/mephistofox/fxTunnel/commit/38a27b9c1c4285514f3c867fbd1de9337fc5ac66))
+
 ## [3.9.0](https://github.com/mephistofox/fxTunnel/compare/v3.8.0...v3.9.0) (2026-06-17)
 
 
