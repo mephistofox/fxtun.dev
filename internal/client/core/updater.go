@@ -33,9 +33,10 @@ type UpdateInfo struct {
 // CheckUpdate checks the server for available updates.
 // Returns nil if the client is up to date.
 func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
-	// Strip port from server address — API is served on standard HTTPS port,
-	// not on the control/tunnel port (e.g. 4443).
-	host, _, _ := strings.Cut(serverAddr, ":")
+	// Resolve the web/API host: the API and downloads live on the base web host
+	// (e.g. fxtun.dev) over standard HTTPS, not on the control/tunnel endpoint
+	// (e.g. tunnel.fxtun.dev:443, which is a raw TLS+yamux listener, not HTTP).
+	host := WebHost(serverAddr)
 	scheme := "https"
 	url := fmt.Sprintf("%s://%s/api/version", scheme, host)
 

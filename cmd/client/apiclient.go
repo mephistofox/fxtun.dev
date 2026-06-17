@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	client "github.com/mephistofox/fxtunnel/internal/client/core"
 )
 
 type apiClient struct {
@@ -22,11 +24,7 @@ func newAPIClient() (*apiClient, error) {
 
 	webURL := DefaultServerURL
 	if addr != "" {
-		host := addr
-		if idx := strings.Index(addr, ":"); idx != -1 {
-			host = addr[:idx]
-		}
-		webURL = "https://" + host
+		webURL = client.WebBaseURL(addr)
 	}
 
 	return &apiClient{
