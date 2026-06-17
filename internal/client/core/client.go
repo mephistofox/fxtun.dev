@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/yamux"
+	utls "github.com/refraction-networking/utls"
 	"github.com/rs/zerolog"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -271,16 +271,20 @@ func (c *Client) dialEndpoint(ep endpoint) (net.Conn, error) {
 		return conn, nil
 	}
 
-	tlsConn := tls.Client(conn, &tls.Config{
+	// Mimic a real Chrome TLS handshake (uTLS) so the ClientHello fingerprint
+	// (JA3/JA4) is indistinguishable from a browser — defeats DPI that throttles
+	// non-browser TLS. The Chrome preset selects versions/ciphers/extensions; we
+	// only set the verification-relevant fields. The server is plain crypto/tls
+	// and needs no changes.
+	uconn := utls.UClient(conn, &utls.Config{
 		ServerName:         ep.serverName,
 		InsecureSkipVerify: !ep.tlsVerify,
-		MinVersion:         tls.VersionTLS12,
-	})
-	if err := tlsConn.HandshakeContext(c.ctx); err != nil {
+	}, utls.HelloChrome_Auto)
+	if err := uconn.HandshakeContext(c.ctx); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("TLS handshake: %w", err)
 	}
-	return tlsConn, nil
+	return uconn, nil
 }
 
 // dialAndNegotiate dials a specific endpoint and performs compression
