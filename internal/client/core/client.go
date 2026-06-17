@@ -81,6 +81,15 @@ type Client struct {
 	controlStream net.Conn
 	controlCodec  *protocol.Codec
 
+	// activeEndpoint is the transport endpoint the control connection
+	// succeeded on. Data connections reuse it directly so they don't each
+	// re-probe (and stall on) a DPI-blocked primary endpoint.
+	// Written in Connect() before openDataConnections() (which joins its
+	// goroutines synchronously) and only re-Connect()ed after reconnect()'s
+	// cancel()+wg.Wait() barrier, so reads happen-after the write — no lock
+	// needed (mirrors the unguarded c.conn pattern).
+	activeEndpoint endpoint
+
 	// Multi-session pool: additional data connections for parallelism
 	dataSessions    []*yamux.Session
 	dataConns       []net.Conn
@@ -101,8 +110,8 @@ type Client struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	streamWorkers  chan net.Conn // bounded worker pool for incoming streams
-	overflowCount  atomic.Int32 // current overflow goroutine count
+	streamWorkers chan net.Conn // bounded worker pool for incoming streams
+	overflowCount atomic.Int32  // current overflow goroutine count
 
 	version string // protocol version sent to server during auth
 
@@ -126,7 +135,7 @@ type Client struct {
 	redirectCount int
 
 	// Auto-close timers
-	autoCloseTimers   map[string]*autoCloseTimer  // tunnelID -> timer
+	autoCloseTimers   map[string]*autoCloseTimer   // tunnelID -> timer
 	maxLifetimeTimers map[string]*maxLifetimeTimer // tunnelID -> timer
 	timersMu          sync.Mutex
 }
@@ -212,27 +221,59 @@ func (c *Client) UpdateToken(newToken string) {
 	c.cfg.Server.Token = newToken
 }
 
-// dialServer establishes a TCP connection to the server, with TLS if not in insecure mode.
-// If TLS handshake fails, automatically falls back to plain TCP (edge nodes may not have TLS).
-func (c *Client) dialServer() (net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", c.cfg.Server.Address, dialTimeout)
+// endpoint is one transport target the client may connect through.
+type endpoint struct {
+	addr       string
+	useTLS     bool
+	tlsVerify  bool
+	serverName string
+}
+
+// endpoints returns the ordered list of transport endpoints to try: the
+// primary first, then the optional fallback. New configs make the primary the
+// DPI-resilient tunnel.*:443 TLS endpoint and the fallback the legacy
+// host:4443 plaintext endpoint. Identical/empty addresses are skipped.
+func (c *Client) endpoints() []endpoint {
+	hostOf := func(addr string) string {
+		if h, _, err := net.SplitHostPort(addr); err == nil {
+			return h
+		}
+		return addr
+	}
+
+	eps := []endpoint{{
+		addr:       c.cfg.Server.Address,
+		useTLS:     !c.cfg.Server.Insecure,
+		tlsVerify:  c.cfg.Server.TLSVerify,
+		serverName: hostOf(c.cfg.Server.Address),
+	}}
+	if fb := c.cfg.Server.FallbackAddress; fb != "" && fb != c.cfg.Server.Address {
+		eps = append(eps, endpoint{
+			addr:       fb,
+			useTLS:     !c.cfg.Server.FallbackInsecure,
+			tlsVerify:  c.cfg.Server.TLSVerify,
+			serverName: hostOf(fb),
+		})
+	}
+	return eps
+}
+
+// dialEndpoint establishes a TCP connection to a single endpoint, wrapping it
+// in TLS when the endpoint requires it.
+func (c *Client) dialEndpoint(ep endpoint) (net.Conn, error) {
+	conn, err := net.DialTimeout("tcp", ep.addr, dialTimeout)
 	if err != nil {
 		return nil, err
 	}
 	tuneTCPConn(conn)
 
-	if c.cfg.Server.Insecure {
+	if !ep.useTLS {
 		return conn, nil
 	}
 
-	// Wrap with TLS
-	host, _, err := net.SplitHostPort(c.cfg.Server.Address)
-	if err != nil {
-		host = c.cfg.Server.Address
-	}
 	tlsConn := tls.Client(conn, &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: !c.cfg.Server.TLSVerify,
+		ServerName:         ep.serverName,
+		InsecureSkipVerify: !ep.tlsVerify,
 		MinVersion:         tls.VersionTLS12,
 	})
 	if err := tlsConn.HandshakeContext(c.ctx); err != nil {
@@ -242,29 +283,62 @@ func (c *Client) dialServer() (net.Conn, error) {
 	return tlsConn, nil
 }
 
+// dialAndNegotiate dials a specific endpoint and performs compression
+// negotiation, returning the (possibly wrapped) stream.
+func (c *Client) dialAndNegotiate(ep endpoint) (net.Conn, io.ReadWriteCloser, bool, error) {
+	conn, err := c.dialEndpoint(ep)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
+	if err != nil {
+		conn.Close()
+		return nil, nil, false, fmt.Errorf("compression negotiation: %w", err)
+	}
+	return conn, rwc, compressed, nil
+}
+
+// connectTransport tries each endpoint in order and returns the first that
+// completes both the dial/TLS handshake and the compression negotiation. The
+// fallback covers both dial/TLS failures and a stalled compression handshake —
+// the latter being the signature of DPI/middlebox interference on the
+// non-standard plaintext port.
+func (c *Client) connectTransport() (net.Conn, io.ReadWriteCloser, bool, endpoint, error) {
+	eps := c.endpoints()
+	var lastErr error
+	for i, ep := range eps {
+		conn, rwc, compressed, err := c.dialAndNegotiate(ep)
+		if err != nil {
+			lastErr = fmt.Errorf("%s: %w", ep.addr, err)
+			c.log.Warn().
+				Err(err).
+				Str("endpoint", ep.addr).
+				Bool("tls", ep.useTLS).
+				Int("attempt", i+1).
+				Int("total", len(eps)).
+				Msg("Endpoint failed, trying next")
+			continue
+		}
+		return conn, rwc, compressed, ep, nil
+	}
+	return nil, nil, false, endpoint{}, fmt.Errorf("all endpoints failed (the network may be blocking or throttling the tunnel port): %w", lastErr)
+}
+
 // Connect connects to the server
 func (c *Client) Connect() error {
 	c.log.Info().Str("server", c.cfg.Server.Address).Msg("Connecting to server")
 	c.events.EmitType(EventConnecting)
 
-	// Dial server
-	conn, err := c.dialServer()
+	// Dial server: try the primary endpoint, fall back to the secondary on
+	// dial/TLS failure or a stalled compression handshake (DPI signature).
+	conn, rwc, compressed, ep, err := c.connectTransport()
 	if err != nil {
 		c.events.EmitError(err)
-		return fmt.Errorf("dial server: %w", err)
+		return fmt.Errorf("connect: %w", err)
 	}
 	c.conn = conn
-
-	// Negotiate compression before yamux
-	rwc, compressed, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
-	if err != nil {
-		conn.Close()
-		c.events.EmitError(err)
-		return fmt.Errorf("compression negotiation: %w", err)
-	}
-	if compressed {
-		c.log.Info().Msg("Compression enabled (zstd)")
-	}
+	c.activeEndpoint = ep
+	c.log.Info().Str("endpoint", ep.addr).Bool("tls", ep.useTLS).Bool("compressed", compressed).Msg("Transport established")
 
 	// Create yamux session FIRST (client mode) with optimized config
 	yamuxCfg := yamux.DefaultConfig()
@@ -1525,17 +1599,11 @@ func (c *Client) openDataConnection(idx int) error {
 }
 
 func (c *Client) tryOpenDataConnection(idx int) error {
-	// Dial server
-	conn, err := c.dialServer()
+	// Dial the same endpoint the control connection succeeded on, so data
+	// connections don't each re-probe (and stall on) a DPI-blocked primary.
+	conn, rwc, _, err := c.dialAndNegotiate(c.activeEndpoint)
 	if err != nil {
 		return fmt.Errorf("dial server: %w", err)
-	}
-
-	// Negotiate compression
-	rwc, _, err := protocol.NegotiateCompression(conn, c.cfg.Server.Compression, false)
-	if err != nil {
-		conn.Close()
-		return fmt.Errorf("compression negotiation: %w", err)
 	}
 
 	// Create yamux session (client mode)

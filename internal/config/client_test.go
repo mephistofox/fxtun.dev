@@ -73,7 +73,14 @@ func TestLoadClientConfig_Defaults(t *testing.T) {
 
 	cfg, err := LoadClientConfig("")
 	require.NoError(t, err)
-	assert.Equal(t, "fxtun.dev:4443", cfg.Server.Address)
+	// Default primary endpoint is the DPI-resilient TLS endpoint on :443, with
+	// the legacy plaintext :4443 as automatic fallback.
+	assert.Equal(t, "tunnel.fxtun.dev:443", cfg.Server.Address)
+	assert.False(t, cfg.Server.Insecure)
+	assert.True(t, cfg.Server.TLSVerify)
+	// fallback_address is opt-in (no default) to avoid leaking self-hosted
+	// tokens to the public server; SaaS configs set it explicitly.
+	assert.Empty(t, cfg.Server.FallbackAddress)
 	assert.True(t, cfg.Reconnect.Enabled)
 }
 
