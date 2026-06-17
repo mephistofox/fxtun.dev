@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.9.2](https://github.com/mephistofox/fxTunnel/compare/v3.9.1...v3.9.2) (2026-06-17)
+
+
+### Bug Fixes
+
+* **ci:** smoke-test web/admin against the public IP, not loopback ([2f40e20](https://github.com/mephistofox/fxTunnel/commit/2f40e20bb07fa556d96221cd65151924bdfd1365))
+* **web:** prepend TLS 1.2 to Windows install snippet ([bc01c2e](https://github.com/mephistofox/fxTunnel/commit/bc01c2e0452c70eec481ee63bca38a5fc8e4b351))
+
 ## [3.9.1](https://github.com/mephistofox/fxTunnel/compare/v3.9.0...v3.9.1) (2026-06-17)
 
 
