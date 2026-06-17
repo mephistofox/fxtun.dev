@@ -133,7 +133,7 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// IP Allowlist check (before auth to reduce load)
-	if !checkIPAllowlist(w, req, tunnel) {
+	if !checkIPAllowlist(w, req, tunnel, r.server.trustedProxies) {
 		return
 	}
 
@@ -512,7 +512,6 @@ func (r *HTTPRouter) serveErrorPage(w http.ResponseWriter, status int, message s
 	_, _ = w.Write(buf.Bytes())
 }
 
-
 // generateExchangeID returns a globally unique ID for inspect exchanges, safe across server restarts.
 func generateExchangeID() string {
 	b := make([]byte, 12)
@@ -531,21 +530,21 @@ func normalizeHost(host string) string {
 // buildCapturedExchangeFromResponse constructs a CapturedExchange from a parsed HTTP response.
 func (r *HTTPRouter) buildCapturedExchangeFromResponse(tunnelID, traceID string, req *http.Request, startTime time.Time, reqBody []byte, remoteAddr string, resp *http.Response, respBody []byte) *inspect.CapturedExchange {
 	ex := &inspect.CapturedExchange{
-		ID:              generateExchangeID(),
-		TunnelID:        tunnelID,
-		TraceID:         traceID,
-		Timestamp:       startTime,
-		Duration:        time.Since(startTime),
-		Method:          req.Method,
-		Path:            req.URL.RequestURI(),
-		Host:            normalizeHost(req.Host),
-		RequestHeaders:  req.Header.Clone(),
-		RequestBody:     reqBody,
-		RequestBodySize: int64(len(reqBody)),
-		RemoteAddr:      remoteAddr,
-		StatusCode:      resp.StatusCode,
-		ResponseHeaders: resp.Header.Clone(),
-		ResponseBody:    respBody,
+		ID:               generateExchangeID(),
+		TunnelID:         tunnelID,
+		TraceID:          traceID,
+		Timestamp:        startTime,
+		Duration:         time.Since(startTime),
+		Method:           req.Method,
+		Path:             req.URL.RequestURI(),
+		Host:             normalizeHost(req.Host),
+		RequestHeaders:   req.Header.Clone(),
+		RequestBody:      reqBody,
+		RequestBodySize:  int64(len(reqBody)),
+		RemoteAddr:       remoteAddr,
+		StatusCode:       resp.StatusCode,
+		ResponseHeaders:  resp.Header.Clone(),
+		ResponseBody:     respBody,
 		ResponseBodySize: int64(len(respBody)),
 	}
 

@@ -4,6 +4,23 @@ import (
 	"testing"
 )
 
+func TestChallengeRecordName(t *testing.T) {
+	if got := ChallengeRecordName("example.com"); got != "_fxtunnel-challenge.example.com" {
+		t.Errorf("ChallengeRecordName = %q", got)
+	}
+	if got := ChallengeRecordName("example.com."); got != "_fxtunnel-challenge.example.com" {
+		t.Errorf("trailing dot not trimmed: %q", got)
+	}
+}
+
+func TestVerifyTXT_EmptyTokenRejected(t *testing.T) {
+	// An un-issued (empty) token must never verify, regardless of DNS state —
+	// this is the guard that stops an unverified domain from being treated as owned.
+	if err := VerifyTXT("example.com", ""); err == nil {
+		t.Fatal("VerifyTXT must reject an empty token")
+	}
+}
+
 func TestValidateCustomDomain(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -77,7 +77,10 @@ func (m *JWTManager) GenerateAccessToken(userID int64, phone string, isAdmin boo
 // ValidateAccessToken validates an access token and returns the claims
 func (m *JWTManager) ValidateAccessToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		// Pin the exact algorithm we sign with (HS256). Accepting the whole
+		// HMAC family or relying only on the family check leaves room for
+		// alg-confusion if signing ever changes; require HS256 explicitly.
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return m.secretKey, nil

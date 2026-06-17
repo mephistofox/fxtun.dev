@@ -16,13 +16,14 @@ type CustomDomainRepository struct {
 // sqlcCustomDomainToDomain converts a sqlc.CustomDomain to a domain CustomDomain.
 func sqlcCustomDomainToDomain(d sqlc.CustomDomain) *CustomDomain {
 	return &CustomDomain{
-		ID:              d.ID,
-		UserID:          d.UserID,
-		Domain:          d.Domain,
-		TargetSubdomain: d.TargetSubdomain,
-		Verified:        d.Verified,
-		VerifiedAt:      tsToTimePtr(d.VerifiedAt),
-		CreatedAt:       tsToTime(d.CreatedAt),
+		ID:                d.ID,
+		UserID:            d.UserID,
+		Domain:            d.Domain,
+		TargetSubdomain:   d.TargetSubdomain,
+		VerificationToken: d.VerificationToken,
+		Verified:          d.Verified,
+		VerifiedAt:        tsToTimePtr(d.VerifiedAt),
+		CreatedAt:         tsToTime(d.CreatedAt),
 	}
 }
 
@@ -30,9 +31,10 @@ func sqlcCustomDomainToDomain(d sqlc.CustomDomain) *CustomDomain {
 func (r *CustomDomainRepository) Create(d *CustomDomain) error {
 	ctx := context.Background()
 	row, err := r.q.CreateCustomDomain(ctx, sqlc.CreateCustomDomainParams{
-		UserID:          d.UserID,
-		Domain:          d.Domain,
-		TargetSubdomain: d.TargetSubdomain,
+		UserID:            d.UserID,
+		Domain:            d.Domain,
+		TargetSubdomain:   d.TargetSubdomain,
+		VerificationToken: d.VerificationToken,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -147,6 +149,19 @@ func (r *CustomDomainRepository) SetVerified(id int64, verified bool) error {
 	})
 	if err != nil {
 		return fmt.Errorf("set custom domain verified: %w", err)
+	}
+	return nil
+}
+
+// SetVerificationToken stores the ownership-proof token for a custom domain.
+func (r *CustomDomainRepository) SetVerificationToken(id int64, token string) error {
+	ctx := context.Background()
+	err := r.q.SetCustomDomainVerificationToken(ctx, sqlc.SetCustomDomainVerificationTokenParams{
+		ID:                id,
+		VerificationToken: token,
+	})
+	if err != nil {
+		return fmt.Errorf("set custom domain verification token: %w", err)
 	}
 	return nil
 }

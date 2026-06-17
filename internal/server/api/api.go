@@ -12,12 +12,12 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
+	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
@@ -79,28 +79,28 @@ type CustomDomainManager interface {
 
 // Server represents the API server
 type Server struct {
-	cfg                  *config.ServerConfig
-	db                   *database.Database
-	authService          *auth.Service
-	tunnelProvider       TunnelProvider
-	inspectProvider      InspectProvider
-	customDomainManager  CustomDomainManager
-	replayProvider       ReplayProvider
-	notifier             *email.Notifier
-	telegramNotifier     *telegram.AdminNotifier
-	paymentProviders     *payment.Registry
-	router               chi.Router
-	httpServer     *http.Server
-	log            zerolog.Logger
-	baseDomain     string
-	downloadsPath  string
-	version        string
-	minVersion     string
-	deviceStore    store.DeviceStore
-	oauthStore     store.OAuthStore
-	nodeRegistry   store.NodeRegistry
-	ipBanStore     store.IPBanStore
-	shutdownCh     chan struct{}
+	cfg                 *config.ServerConfig
+	db                  *database.Database
+	authService         *auth.Service
+	tunnelProvider      TunnelProvider
+	inspectProvider     InspectProvider
+	customDomainManager CustomDomainManager
+	replayProvider      ReplayProvider
+	notifier            *email.Notifier
+	telegramNotifier    *telegram.AdminNotifier
+	paymentProviders    *payment.Registry
+	router              chi.Router
+	httpServer          *http.Server
+	log                 zerolog.Logger
+	baseDomain          string
+	downloadsPath       string
+	version             string
+	minVersion          string
+	deviceStore         store.DeviceStore
+	oauthStore          store.OAuthStore
+	nodeRegistry        store.NodeRegistry
+	ipBanStore          store.IPBanStore
+	shutdownCh          chan struct{}
 }
 
 // Option configures the API server.
@@ -133,19 +133,19 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 	memIPBan := newMemIPBanStore()
 
 	s := &Server{
-		cfg:                  cfg,
-		db:                   db,
-		authService:          authService,
-		tunnelProvider:       tunnelProvider,
-		inspectProvider:      inspectProvider,
-		customDomainManager:  customDomainManager,
-		log:            log.With().Str("component", "api").Logger(),
-		baseDomain:     cfg.Domain.Base,
-		downloadsPath:  cfg.Downloads.Path,
-		deviceStore:    memDevice,
-		oauthStore:     memOAuth,
-		ipBanStore:     memIPBan,
-		shutdownCh:     make(chan struct{}),
+		cfg:                 cfg,
+		db:                  db,
+		authService:         authService,
+		tunnelProvider:      tunnelProvider,
+		inspectProvider:     inspectProvider,
+		customDomainManager: customDomainManager,
+		log:                 log.With().Str("component", "api").Logger(),
+		baseDomain:          cfg.Domain.Base,
+		downloadsPath:       cfg.Downloads.Path,
+		deviceStore:         memDevice,
+		oauthStore:          memOAuth,
+		ipBanStore:          memIPBan,
+		shutdownCh:          make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -261,7 +261,15 @@ func (s *Server) setupRoutes() {
 				r.Use(rateLimitMiddleware(authRL))
 			}
 			r.Post("/register", s.handleRegister)
-			r.Post("/login", s.handleLogin)
+			// Login carries a stricter per-IP cap on top of the auth-group
+			// limiter to slow password / TOTP brute-forcing specifically.
+			if s.cfg.Web.RateLimit.Enabled {
+				loginRL := newIPRateLimiter(loginAttemptsPerMin)
+				loginRL.cleanup(s.shutdownCh, 5*time.Minute)
+				r.With(rateLimitMiddleware(loginRL)).Post("/login", s.handleLogin)
+			} else {
+				r.Post("/login", s.handleLogin)
+			}
 			r.Post("/refresh", s.handleRefresh)
 			r.Post("/device/code", s.handleDeviceCode)
 			r.Get("/device/token", s.handleDevicePoll)
@@ -286,10 +294,10 @@ func (s *Server) setupRoutes() {
 
 		// Payment callbacks (public, from YooKassa)
 		r.Route("/payments", func(r chi.Router) {
-			r.Post("/webhook", s.handlePaymentWebhook)        // YooKassa webhook
-			r.Post("/webhook/creem", s.handleCreemWebhook)     // Creem webhook
-			r.Get("/success", s.handlePaymentSuccess)          // Return URL redirect
-			r.Get("/fail", s.handlePaymentFail)                // Fail redirect
+			r.Post("/webhook", s.handlePaymentWebhook)     // YooKassa webhook
+			r.Post("/webhook/creem", s.handleCreemWebhook) // Creem webhook
+			r.Get("/success", s.handlePaymentSuccess)      // Return URL redirect
+			r.Get("/fail", s.handlePaymentFail)            // Fail redirect
 		})
 
 		// Edge node API (authenticated with hub_token)
@@ -470,7 +478,6 @@ func (s *Server) setupRoutes() {
 
 	s.router = r
 }
-
 
 // Start starts the API server
 func (s *Server) Start(ctx context.Context) error {

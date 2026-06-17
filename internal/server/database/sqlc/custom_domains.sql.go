@@ -34,15 +34,16 @@ func (q *Queries) CountCustomDomainsByUserID(ctx context.Context, userID int64) 
 }
 
 const createCustomDomain = `-- name: CreateCustomDomain :one
-INSERT INTO custom_domains (user_id, domain, target_subdomain, verified, created_at)
-VALUES ($1, $2, $3, FALSE, NOW())
+INSERT INTO custom_domains (user_id, domain, target_subdomain, verification_token, verified, created_at)
+VALUES ($1, $2, $3, $4, FALSE, NOW())
 RETURNING id, created_at
 `
 
 type CreateCustomDomainParams struct {
-	UserID          int64  `json:"user_id"`
-	Domain          string `json:"domain"`
-	TargetSubdomain string `json:"target_subdomain"`
+	UserID            int64  `json:"user_id"`
+	Domain            string `json:"domain"`
+	TargetSubdomain   string `json:"target_subdomain"`
+	VerificationToken string `json:"verification_token"`
 }
 
 type CreateCustomDomainRow struct {
@@ -51,7 +52,12 @@ type CreateCustomDomainRow struct {
 }
 
 func (q *Queries) CreateCustomDomain(ctx context.Context, arg CreateCustomDomainParams) (CreateCustomDomainRow, error) {
-	row := q.db.QueryRow(ctx, createCustomDomain, arg.UserID, arg.Domain, arg.TargetSubdomain)
+	row := q.db.QueryRow(ctx, createCustomDomain,
+		arg.UserID,
+		arg.Domain,
+		arg.TargetSubdomain,
+		arg.VerificationToken,
+	)
 	var i CreateCustomDomainRow
 	err := row.Scan(&i.ID, &i.CreatedAt)
 	return i, err
@@ -67,7 +73,7 @@ func (q *Queries) DeleteCustomDomain(ctx context.Context, id int64) error {
 }
 
 const getCustomDomainByDomain = `-- name: GetCustomDomainByDomain :one
-SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at
+SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at, verification_token
 FROM custom_domains WHERE domain = $1
 `
 
@@ -82,12 +88,13 @@ func (q *Queries) GetCustomDomainByDomain(ctx context.Context, domain string) (C
 		&i.Verified,
 		&i.VerifiedAt,
 		&i.CreatedAt,
+		&i.VerificationToken,
 	)
 	return i, err
 }
 
 const getCustomDomainByID = `-- name: GetCustomDomainByID :one
-SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at
+SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at, verification_token
 FROM custom_domains WHERE id = $1
 `
 
@@ -102,12 +109,13 @@ func (q *Queries) GetCustomDomainByID(ctx context.Context, id int64) (CustomDoma
 		&i.Verified,
 		&i.VerifiedAt,
 		&i.CreatedAt,
+		&i.VerificationToken,
 	)
 	return i, err
 }
 
 const listAllCustomDomains = `-- name: ListAllCustomDomains :many
-SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at
+SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at, verification_token
 FROM custom_domains ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
@@ -133,6 +141,7 @@ func (q *Queries) ListAllCustomDomains(ctx context.Context, arg ListAllCustomDom
 			&i.Verified,
 			&i.VerifiedAt,
 			&i.CreatedAt,
+			&i.VerificationToken,
 		); err != nil {
 			return nil, err
 		}
@@ -145,7 +154,7 @@ func (q *Queries) ListAllCustomDomains(ctx context.Context, arg ListAllCustomDom
 }
 
 const listCustomDomainsByUserID = `-- name: ListCustomDomainsByUserID :many
-SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at
+SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at, verification_token
 FROM custom_domains WHERE user_id = $1 ORDER BY created_at DESC
 `
 
@@ -166,6 +175,7 @@ func (q *Queries) ListCustomDomainsByUserID(ctx context.Context, userID int64) (
 			&i.Verified,
 			&i.VerifiedAt,
 			&i.CreatedAt,
+			&i.VerificationToken,
 		); err != nil {
 			return nil, err
 		}
@@ -178,7 +188,7 @@ func (q *Queries) ListCustomDomainsByUserID(ctx context.Context, userID int64) (
 }
 
 const listVerifiedCustomDomains = `-- name: ListVerifiedCustomDomains :many
-SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at
+SELECT id, user_id, domain, target_subdomain, verified, verified_at, created_at, verification_token
 FROM custom_domains WHERE verified = TRUE
 `
 
@@ -199,6 +209,7 @@ func (q *Queries) ListVerifiedCustomDomains(ctx context.Context) ([]CustomDomain
 			&i.Verified,
 			&i.VerifiedAt,
 			&i.CreatedAt,
+			&i.VerificationToken,
 		); err != nil {
 			return nil, err
 		}
@@ -208,6 +219,20 @@ func (q *Queries) ListVerifiedCustomDomains(ctx context.Context) ([]CustomDomain
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCustomDomainVerificationToken = `-- name: SetCustomDomainVerificationToken :exec
+UPDATE custom_domains SET verification_token = $2 WHERE id = $1
+`
+
+type SetCustomDomainVerificationTokenParams struct {
+	ID                int64  `json:"id"`
+	VerificationToken string `json:"verification_token"`
+}
+
+func (q *Queries) SetCustomDomainVerificationToken(ctx context.Context, arg SetCustomDomainVerificationTokenParams) error {
+	_, err := q.db.Exec(ctx, setCustomDomainVerificationToken, arg.ID, arg.VerificationToken)
+	return err
 }
 
 const setCustomDomainVerified = `-- name: SetCustomDomainVerified :exec

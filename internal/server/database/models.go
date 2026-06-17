@@ -42,18 +42,18 @@ type InviteCode struct {
 
 // User represents a registered user
 type User struct {
-	ID           int64      `json:"id"`
-	Phone        string     `json:"phone"`
-	PasswordHash string     `json:"-"`
-	DisplayName  string     `json:"display_name"`
-	IsAdmin      bool       `json:"is_admin"`
-	IsActive     bool       `json:"is_active"`
-	CreatedAt    time.Time  `json:"created_at"`
-	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
-	GitHubID     *int64     `json:"github_id,omitempty"`
-	GoogleID     *string    `json:"google_id,omitempty"`
-	Email        string     `json:"email,omitempty"`
-	AvatarURL    string     `json:"avatar_url,omitempty"`
+	ID            int64      `json:"id"`
+	Phone         string     `json:"phone"`
+	PasswordHash  string     `json:"-"`
+	DisplayName   string     `json:"display_name"`
+	IsAdmin       bool       `json:"is_admin"`
+	IsActive      bool       `json:"is_active"`
+	CreatedAt     time.Time  `json:"created_at"`
+	LastLoginAt   *time.Time `json:"last_login_at,omitempty"`
+	GitHubID      *int64     `json:"github_id,omitempty"`
+	GoogleID      *string    `json:"google_id,omitempty"`
+	Email         string     `json:"email,omitempty"`
+	AvatarURL     string     `json:"avatar_url,omitempty"`
 	PlanID        int64      `json:"plan_id"`
 	FirstTunnelAt *time.Time `json:"first_tunnel_at,omitempty"`
 }
@@ -73,12 +73,12 @@ type Plan struct {
 	InspectorEnabled   bool    `json:"inspector_enabled"`
 	IsPublic           bool    `json:"is_public"`
 	IsRecommended      bool    `json:"is_recommended"`
-	RateLimitTCP       int     `json:"rate_limit_tcp"`        // TCP connections per tunnel per minute (0=default, -1=unlimited)
-	RateLimitUDP       int     `json:"rate_limit_udp"`        // UDP packets per tunnel per second (0=default, -1=unlimited)
-	RateLimitHTTP      int     `json:"rate_limit_http"`       // HTTP requests per tunnel per minute (0=default, -1=unlimited)
+	RateLimitTCP       int     `json:"rate_limit_tcp"`  // TCP connections per tunnel per minute (0=default, -1=unlimited)
+	RateLimitUDP       int     `json:"rate_limit_udp"`  // UDP packets per tunnel per second (0=default, -1=unlimited)
+	RateLimitHTTP      int     `json:"rate_limit_http"` // HTTP requests per tunnel per minute (0=default, -1=unlimited)
 	CreemProductID     string  `json:"creem_product_id,omitempty"`
-	MaxDataSessions    int     `json:"max_data_sessions"`     // Max data sessions per client (0=default(8), -1=unlimited)
-	UDPEnabled         bool    `json:"udp_enabled"`           // false => server rejects UDP tunnel requests from this plan
+	MaxDataSessions    int     `json:"max_data_sessions"` // Max data sessions per client (0=default(8), -1=unlimited)
+	UDPEnabled         bool    `json:"udp_enabled"`       // false => server rejects UDP tunnel requests from this plan
 }
 
 // ReservedDomain represents a subdomain reserved by a user
@@ -192,33 +192,34 @@ type AuditLog struct {
 
 // Audit log action constants
 const (
-	ActionLogin           = "login"
-	ActionLogout          = "logout"
-	ActionRegister        = "register"
-	ActionPasswordChange  = "password_change"
-	ActionTokenCreated    = "token_created"
-	ActionTokenDeleted    = "token_deleted"
-	ActionDomainReserved  = "domain_reserved"
-	ActionDomainReleased  = "domain_released"
-	ActionTunnelCreated   = "tunnel_created"
-	ActionTunnelClosed    = "tunnel_closed"
-	ActionTOTPEnabled     = "totp_enabled"
-	ActionTOTPDisabled    = "totp_disabled"
-	ActionUserUpdated     = "user_updated"
-	ActionUserDeleted     = "user_deleted"
-	ActionUsersMerged     = "users_merged"
-	ActionPasswordReset   = "password_reset"
+	ActionLogin          = "login"
+	ActionLogout         = "logout"
+	ActionRegister       = "register"
+	ActionPasswordChange = "password_change"
+	ActionTokenCreated   = "token_created"
+	ActionTokenDeleted   = "token_deleted"
+	ActionDomainReserved = "domain_reserved"
+	ActionDomainReleased = "domain_released"
+	ActionTunnelCreated  = "tunnel_created"
+	ActionTunnelClosed   = "tunnel_closed"
+	ActionTOTPEnabled    = "totp_enabled"
+	ActionTOTPDisabled   = "totp_disabled"
+	ActionUserUpdated    = "user_updated"
+	ActionUserDeleted    = "user_deleted"
+	ActionUsersMerged    = "users_merged"
+	ActionPasswordReset  = "password_reset"
 )
 
 // CustomDomain represents a user-bound custom domain
 type CustomDomain struct {
-	ID              int64      `json:"id"`
-	UserID          int64      `json:"user_id"`
-	Domain          string     `json:"domain"`
-	TargetSubdomain string     `json:"target_subdomain"`
-	Verified        bool       `json:"verified"`
-	VerifiedAt      *time.Time `json:"verified_at,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID                int64      `json:"id"`
+	UserID            int64      `json:"user_id"`
+	Domain            string     `json:"domain"`
+	TargetSubdomain   string     `json:"target_subdomain"`
+	VerificationToken string     `json:"verification_token"`
+	Verified          bool       `json:"verified"`
+	VerifiedAt        *time.Time `json:"verified_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 // TLSCertificate represents a stored TLS certificate
@@ -288,19 +289,19 @@ const (
 
 // Subscription represents a user's subscription to a plan
 type Subscription struct {
-	ID                       int64              `json:"id"`
-	UserID                   int64              `json:"user_id"`
-	PlanID                   int64              `json:"plan_id"`
-	NextPlanID               *int64             `json:"next_plan_id,omitempty"`
-	Status                   SubscriptionStatus `json:"status"`
-	Recurring                bool               `json:"recurring"`
-	CurrentPeriodStart       *time.Time         `json:"current_period_start,omitempty"`
-	CurrentPeriodEnd         *time.Time         `json:"current_period_end,omitempty"`
-	YooKassaPaymentMethodID  *string            `json:"yookassa_payment_method_id,omitempty"`
-	CreemCustomerID          *string            `json:"creem_customer_id,omitempty"`
-	CreemSubscriptionID      *string            `json:"creem_subscription_id,omitempty"`
-	CreatedAt                time.Time          `json:"created_at"`
-	UpdatedAt                time.Time          `json:"updated_at"`
+	ID                      int64              `json:"id"`
+	UserID                  int64              `json:"user_id"`
+	PlanID                  int64              `json:"plan_id"`
+	NextPlanID              *int64             `json:"next_plan_id,omitempty"`
+	Status                  SubscriptionStatus `json:"status"`
+	Recurring               bool               `json:"recurring"`
+	CurrentPeriodStart      *time.Time         `json:"current_period_start,omitempty"`
+	CurrentPeriodEnd        *time.Time         `json:"current_period_end,omitempty"`
+	YooKassaPaymentMethodID *string            `json:"yookassa_payment_method_id,omitempty"`
+	CreemCustomerID         *string            `json:"creem_customer_id,omitempty"`
+	CreemSubscriptionID     *string            `json:"creem_subscription_id,omitempty"`
+	CreatedAt               time.Time          `json:"created_at"`
+	UpdatedAt               time.Time          `json:"updated_at"`
 }
 
 // IsActive returns true if the subscription is currently active

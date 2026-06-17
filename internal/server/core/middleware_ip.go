@@ -36,11 +36,14 @@ func isIPAllowed(ip net.IP, tunnel *Tunnel) bool {
 // checkIPAllowlist validates the client IP against the tunnel's IP allowlist.
 // Returns true if the request is allowed (either no restriction or IP matches).
 // Returns false and writes a 403 response if the IP is not in the allowlist.
-func checkIPAllowlist(w http.ResponseWriter, r *http.Request, tunnel *Tunnel) bool {
+//
+// trusted is the set of reverse-proxy IPs whose forwarded headers may be
+// believed; pass the server's auth.trusted_proxies set.
+func checkIPAllowlist(w http.ResponseWriter, r *http.Request, tunnel *Tunnel, trusted map[string]struct{}) bool {
 	if len(tunnel.AllowedNets) == 0 && len(tunnel.AllowedIPs) == 0 {
 		return true
 	}
-	clientIP := extractClientIP(r)
+	clientIP := extractClientIP(r, trusted)
 	if clientIP == nil || !isIPAllowed(clientIP, tunnel) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return false
@@ -48,30 +51,59 @@ func checkIPAllowlist(w http.ResponseWriter, r *http.Request, tunnel *Tunnel) bo
 	return true
 }
 
-// extractClientIP extracts the client IP from the request.
-// Priority: X-Real-IP -> X-Forwarded-For (first entry) -> RemoteAddr.
-func extractClientIP(r *http.Request) net.IP {
-	// Try X-Real-IP first
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		if ip := net.ParseIP(strings.TrimSpace(realIP)); ip != nil {
-			return ip
+// extractClientIP extracts the real client IP from the request.
+//
+// Forwarded headers (X-Real-IP / X-Forwarded-For) are honoured ONLY when the
+// immediate TCP peer is a trusted reverse proxy. A direct, untrusted
+// connection cannot spoof its source IP through these headers — otherwise an
+// attacker could bypass a tunnel's IP allowlist by sending X-Forwarded-For of
+// an allowed address. When trusted, X-Real-IP wins (nginx sets it to the real
+// client); X-Forwarded-For's first entry is a fallback only.
+func extractClientIP(r *http.Request, trusted map[string]struct{}) net.IP {
+	peer := r.RemoteAddr
+	if h, _, err := net.SplitHostPort(peer); err == nil {
+		peer = h
+	}
+
+	if _, ok := trusted[normalizeIP(peer)]; ok {
+		if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+			if ip := net.ParseIP(strings.TrimSpace(realIP)); ip != nil {
+				return ip
+			}
+		}
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			first := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
+			if ip := net.ParseIP(first); ip != nil {
+				return ip
+			}
 		}
 	}
 
-	// Try X-Forwarded-For (first entry)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first := strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
-		if ip := net.ParseIP(first); ip != nil {
-			return ip
+	// Untrusted source (or no usable header): use the TCP peer address.
+	return net.ParseIP(peer)
+}
+
+// buildTrustedProxySet normalises a list of trusted-proxy IPs into a lookup
+// set keyed by canonical IP string.
+func buildTrustedProxySet(proxies []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(proxies))
+	for _, p := range proxies {
+		if ip := normalizeIP(strings.TrimSpace(p)); ip != "" {
+			set[ip] = struct{}{}
 		}
 	}
+	return set
+}
 
-	// Fall back to RemoteAddr
-	host := r.RemoteAddr
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
+// normalizeIP canonicalises an IP literal (strips IPv6 brackets) so that
+// "[::1]" and "::1" compare equal against the trusted-proxy set.
+func normalizeIP(host string) string {
+	host = strings.TrimPrefix(host, "[")
+	host = strings.TrimSuffix(host, "]")
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.String()
 	}
-	return net.ParseIP(host)
+	return host
 }
 
 // parseAllowIPs parses a list of raw IP/CIDR strings into separate IP and CIDR slices.

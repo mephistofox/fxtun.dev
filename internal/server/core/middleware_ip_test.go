@@ -10,12 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// trustLoopback marks loopback as a trusted reverse proxy, matching the
+// default auth.trusted_proxies. With this set, X-Real-IP / X-Forwarded-For
+// from a 127.0.0.1 peer (i.e. nginx) are honoured.
+var trustLoopback = map[string]struct{}{"127.0.0.1": {}, "::1": {}}
+
 func TestCheckIPAllowlist_NoRestriction(t *testing.T) {
 	tunnel := &Tunnel{}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -29,7 +34,7 @@ func TestCheckIPAllowlist_AllowedExactIP(t *testing.T) {
 	req.RemoteAddr = "192.168.1.100:12345"
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -46,7 +51,7 @@ func TestCheckIPAllowlist_AllowedCIDR(t *testing.T) {
 	req.RemoteAddr = "10.42.0.5:9999"
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -60,7 +65,7 @@ func TestCheckIPAllowlist_Blocked(t *testing.T) {
 	req.RemoteAddr = "10.0.0.1:12345"
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.False(t, ok)
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -75,7 +80,7 @@ func TestCheckIPAllowlist_XRealIP(t *testing.T) {
 	req.Header.Set("X-Real-IP", "203.0.113.50")
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -90,10 +95,48 @@ func TestCheckIPAllowlist_IPv6MappedIPv4(t *testing.T) {
 	req.RemoteAddr = "[::ffff:192.168.1.1]:12345"
 	w := httptest.NewRecorder()
 
-	ok := checkIPAllowlist(w, req, tunnel)
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
 
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// An attacker connecting directly (untrusted source) must NOT be able to
+// bypass the allowlist by forging X-Forwarded-For / X-Real-IP of an allowed IP.
+func TestCheckIPAllowlist_SpoofedHeaderFromUntrustedSourceBlocked(t *testing.T) {
+	tunnel := &Tunnel{
+		AllowedIPs: []net.IP{net.ParseIP("203.0.113.50")},
+	}
+	for _, hdr := range []string{"X-Forwarded-For", "X-Real-IP"} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = "198.51.100.7:55555" // untrusted, NOT in trustLoopback
+		req.Header.Set(hdr, "203.0.113.50")   // spoofed allowed IP
+		w := httptest.NewRecorder()
+
+		ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
+
+		assert.False(t, ok, "%s spoof from untrusted source must be blocked", hdr)
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	}
+}
+
+// When behind a trusted proxy, X-Real-IP takes precedence over an
+// attacker-prepended X-Forwarded-For entry (nginx sets X-Real-IP to the real
+// client, and may append the client-supplied XFF).
+func TestCheckIPAllowlist_XRealIPWinsOverSpoofedXFF(t *testing.T) {
+	tunnel := &Tunnel{
+		AllowedIPs: []net.IP{net.ParseIP("203.0.113.50")},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "127.0.0.1:12345" // trusted nginx
+	req.Header.Set("X-Real-IP", "198.51.100.7")
+	req.Header.Set("X-Forwarded-For", "203.0.113.50, 198.51.100.7") // attacker prepended allowed IP
+	w := httptest.NewRecorder()
+
+	ok := checkIPAllowlist(w, req, tunnel, trustLoopback)
+
+	assert.False(t, ok, "real client (X-Real-IP) is not allowlisted; spoofed XFF must not win")
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func TestIsIPAllowed_NoRestriction(t *testing.T) {
