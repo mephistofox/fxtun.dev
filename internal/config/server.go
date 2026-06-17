@@ -23,11 +23,11 @@ const (
 // NodeSettings contains edge node configuration (used when mode=node).
 type NodeSettings struct {
 	HubURL     string `mapstructure:"hub_url"`     // hub API URL, e.g. "https://hub.fxtun.dev"
-	HubToken   string `mapstructure:"hub_token"`    // pre-shared secret for node authentication
-	Name       string `mapstructure:"name"`         // human-readable node name, e.g. "moscow-1"
-	Region     string `mapstructure:"region"`        // geographic region, e.g. "ru-msk"
-	PublicAddr string `mapstructure:"public_addr"`   // public address for client connections (host:port)
-	HTTPAddr   string `mapstructure:"http_addr"`     // public address for inter-node HTTP proxy (host:port)
+	HubToken   string `mapstructure:"hub_token"`   // pre-shared secret for node authentication
+	Name       string `mapstructure:"name"`        // human-readable node name, e.g. "moscow-1"
+	Region     string `mapstructure:"region"`      // geographic region, e.g. "ru-msk"
+	PublicAddr string `mapstructure:"public_addr"` // public address for client connections (host:port)
+	HTTPAddr   string `mapstructure:"http_addr"`   // public address for inter-node HTTP proxy (host:port)
 }
 
 // GeoIPSettings contains GeoIP database configuration for region-based node selection.
@@ -53,7 +53,7 @@ type ServerConfig struct {
 	CustomDomains CustomDomainSettings `mapstructure:"custom_domains"`
 	OAuth         OAuthSettings        `mapstructure:"oauth"`
 	YooKassa      YooKassaSettings     `mapstructure:"yookassa"`
-	Creem         CreemSettings         `mapstructure:"creem"`
+	Creem         CreemSettings        `mapstructure:"creem"`
 	Payments      PaymentsSettings     `mapstructure:"payments"`
 	SMTP          SMTPSettings         `mapstructure:"smtp"`
 	Telegram      TelegramSettings     `mapstructure:"telegram"`
@@ -72,20 +72,20 @@ type DNSSettings struct {
 
 // RedisSettings contains Redis cache configuration
 type RedisSettings struct {
-	Enabled        bool     `mapstructure:"enabled"`
-	Addr           string   `mapstructure:"addr"`
-	Password       string   `mapstructure:"password"`
-	DB             int      `mapstructure:"db"`
-	KeyPrefix      string   `mapstructure:"key_prefix"`
-	SentinelEnabled bool    `mapstructure:"sentinel_enabled"`
-	SentinelMaster string   `mapstructure:"sentinel_master"`
-	SentinelAddrs  []string `mapstructure:"sentinel_addrs"`
+	Enabled         bool     `mapstructure:"enabled"`
+	Addr            string   `mapstructure:"addr"`
+	Password        string   `mapstructure:"password"`
+	DB              int      `mapstructure:"db"`
+	KeyPrefix       string   `mapstructure:"key_prefix"`
+	SentinelEnabled bool     `mapstructure:"sentinel_enabled"`
+	SentinelMaster  string   `mapstructure:"sentinel_master"`
+	SentinelAddrs   []string `mapstructure:"sentinel_addrs"`
 }
 
 // ServerSettings contains network settings
 type ServerSettings struct {
-	ControlPort        int           `mapstructure:"control_port"`
-	HTTPPort           int           `mapstructure:"http_port"`
+	ControlPort int `mapstructure:"control_port"`
+	HTTPPort    int `mapstructure:"http_port"`
 	// HTTPBind is the address the HTTP tunnel proxy listens on. Empty = all
 	// interfaces (legacy). Set to "127.0.0.1" in production to force traffic
 	// through nginx (which terminates TLS and sets X-Real-IP).
@@ -95,6 +95,19 @@ type ServerSettings struct {
 	CompressionEnabled bool          `mapstructure:"compression_enabled"`
 	MinVersion         string        `mapstructure:"min_version"`
 	Monitor            MonitorConfig `mapstructure:"monitor"`
+	// ControlTLS optionally exposes the control plane over TLS on dedicated
+	// addresses (e.g. a second IP on :443) so the wire looks like HTTPS and
+	// survives DPI/middlebox interference. The legacy plaintext ControlPort
+	// listener keeps running unchanged for backward compatibility.
+	ControlTLS ControlTLSSettings `mapstructure:"control_tls"`
+}
+
+// ControlTLSSettings configures additional TLS control-plane listeners.
+type ControlTLSSettings struct {
+	Enabled  bool     `mapstructure:"enabled"`
+	Listen   []string `mapstructure:"listen"` // host:port addresses, e.g. ["185.173.145.56:443", "[2a01:...]:443"]
+	CertFile string   `mapstructure:"cert_file"`
+	KeyFile  string   `mapstructure:"key_file"`
 }
 
 // MonitorConfig contains abuse detection settings.
@@ -132,23 +145,23 @@ type AuthSettings struct {
 	// PhoneRegistrationTarpit: when phone_registration_enabled=false and this is true,
 	// the /api/auth/register endpoint returns a plausible 201 with fake (unusable)
 	// tokens instead of 403 — so bots waste time on accounts they can't log into.
-	PhoneRegistrationTarpit  bool          `mapstructure:"phone_registration_tarpit"`
+	PhoneRegistrationTarpit bool `mapstructure:"phone_registration_tarpit"`
 	// TarpitBanEnabled: when true, IPs that hit the registration tarpit are
 	// temporarily banned (no DB write, no bcrypt CPU spend, no Telegram spam)
 	// for TarpitBanTTL. Default: true.
-	TarpitBanEnabled         bool          `mapstructure:"tarpit_ban_enabled"`
+	TarpitBanEnabled bool `mapstructure:"tarpit_ban_enabled"`
 	// TarpitBanTTL is the duration of a tarpit-triggered IP ban. Default: 72h.
-	TarpitBanTTL             time.Duration `mapstructure:"tarpit_ban_ttl"`
+	TarpitBanTTL time.Duration `mapstructure:"tarpit_ban_ttl"`
 	// TrustedProxies lists IP addresses whose X-Real-IP / X-Forwarded-For
 	// headers may be trusted to determine the real client IP. Anything outside
 	// this list is treated as a potentially-malicious direct connection and
 	// the TCP source is used. Default: ["127.0.0.1", "::1"] (loopback only).
-	TrustedProxies           []string      `mapstructure:"trusted_proxies"`
+	TrustedProxies []string `mapstructure:"trusted_proxies"`
 }
 
 // WebSettings contains web panel configuration
 type WebSettings struct {
-	Enabled     bool            `mapstructure:"enabled"`
+	Enabled bool `mapstructure:"enabled"`
 	// Bind is the address the API listens on. Empty = all interfaces
 	// (legacy). Set to "127.0.0.1" in production so only nginx can reach it.
 	Bind        string          `mapstructure:"bind"`
@@ -297,15 +310,15 @@ type PaymentsSettings struct {
 
 // SMTPSettings contains SMTP email configuration
 type SMTPSettings struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	SSLPort  int    `mapstructure:"ssl_port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	From     string `mapstructure:"from"`
-	FromName string `mapstructure:"from_name"`
-	BaseURL  string `mapstructure:"base_url"`    // Base URL for email links (e.g. https://fxtun.ru)
+	Enabled   bool   `mapstructure:"enabled"`
+	Host      string `mapstructure:"host"`
+	Port      int    `mapstructure:"port"`
+	SSLPort   int    `mapstructure:"ssl_port"`
+	Username  string `mapstructure:"username"`
+	Password  string `mapstructure:"password"`
+	From      string `mapstructure:"from"`
+	FromName  string `mapstructure:"from_name"`
+	BaseURL   string `mapstructure:"base_url"`    // Base URL for email links (e.g. https://fxtun.ru)
 	BaseURLEN string `mapstructure:"base_url_en"` // Base URL for English emails (e.g. https://fxtun.dev)
 }
 
@@ -328,6 +341,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("server.udp_port_range.min", 20001)
 	v.SetDefault("server.udp_port_range.max", 30000)
 	v.SetDefault("server.compression_enabled", true)
+	v.SetDefault("server.control_tls.enabled", false)
 	v.SetDefault("server.monitor.enabled", true)
 	v.SetDefault("server.monitor.detection_interval", "30s")
 	v.SetDefault("server.monitor.unique_ips_threshold", 200)
