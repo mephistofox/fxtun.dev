@@ -27,23 +27,31 @@ type ClientServerSettings struct {
 	Insecure    bool   `mapstructure:"insecure"`
 	TLSVerify   bool   `mapstructure:"tls_verify"`
 	Compression bool   `mapstructure:"compression"`
+
+	// FallbackAddress is an optional secondary endpoint tried when the primary
+	// fails to dial or stalls during the compression handshake (the signature
+	// of DPI/middlebox interference on the non-standard plaintext port). New
+	// configs set Address to the DPI-resilient tunnel.*:443 TLS endpoint and
+	// FallbackAddress to the legacy host:4443 plaintext endpoint.
+	FallbackAddress  string `mapstructure:"fallback_address"`
+	FallbackInsecure bool   `mapstructure:"fallback_insecure"`
 }
 
 // TunnelConfig defines a single tunnel
 type TunnelConfig struct {
 	Name       string `mapstructure:"name" yaml:"name"`
-	Type       string `mapstructure:"type" yaml:"type"`                          // http, tcp, udp
+	Type       string `mapstructure:"type" yaml:"type"` // http, tcp, udp
 	LocalAddr  string `mapstructure:"local_addr" yaml:"local_addr,omitempty"`
 	LocalPort  int    `mapstructure:"local_port" yaml:"local_port"`
 	RemotePort int    `mapstructure:"remote_port" yaml:"remote_port,omitempty"` // For TCP/UDP, 0 = auto-assign
-	Subdomain  string `mapstructure:"subdomain" yaml:"subdomain,omitempty"`    // For HTTP tunnels
+	Subdomain  string `mapstructure:"subdomain" yaml:"subdomain,omitempty"`     // For HTTP tunnels
 
 	// Security features
-	BasicAuth     string   `mapstructure:"basic_auth"      yaml:"basic_auth,omitempty"`      // "user:password"
-	BasicAuthHash string   `mapstructure:"basic_auth_hash" yaml:"-"`                         // derived bcrypt hash, never in YAML
-	AllowIPs      []string `mapstructure:"allow_ips"       yaml:"allow_ips,omitempty"`       // CIDR list
-	AutoClose     string   `mapstructure:"auto_close"      yaml:"auto_close,omitempty"`      // "30m", "2h"
-	MaxLifetime   string   `mapstructure:"max_lifetime"    yaml:"max_lifetime,omitempty"`    // "8h"
+	BasicAuth     string   `mapstructure:"basic_auth"      yaml:"basic_auth,omitempty"`   // "user:password"
+	BasicAuthHash string   `mapstructure:"basic_auth_hash" yaml:"-"`                      // derived bcrypt hash, never in YAML
+	AllowIPs      []string `mapstructure:"allow_ips"       yaml:"allow_ips,omitempty"`    // CIDR list
+	AutoClose     string   `mapstructure:"auto_close"      yaml:"auto_close,omitempty"`   // "30m", "2h"
+	MaxLifetime   string   `mapstructure:"max_lifetime"    yaml:"max_lifetime,omitempty"` // "8h"
 }
 
 // ReconnectSettings contains reconnection configuration
@@ -58,10 +66,15 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	v := viper.New()
 
 	// Set defaults
-	v.SetDefault("server.address", "fxtun.dev:4443")
+	v.SetDefault("server.address", "tunnel.fxtun.dev:443")
 	v.SetDefault("server.insecure", false)
 	v.SetDefault("server.tls_verify", true)
 	v.SetDefault("server.compression", true)
+	// No default fallback_address: it is opt-in and shipped explicitly in
+	// SaaS-distributed configs. Defaulting it would inject the public
+	// fxtun.dev:4443 into self-hosted configs that only set server.address,
+	// causing a self-hoster's token to be replayed to the public server on a
+	// transient primary failure.
 	v.SetDefault("reconnect.enabled", true)
 	v.SetDefault("reconnect.interval", "5s")
 	v.SetDefault("reconnect.max_attempts", 0)
