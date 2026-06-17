@@ -12,6 +12,10 @@ import (
 // Compile-time check that ipRateLimiter implements store.RateChecker.
 var _ store.RateChecker = (*ipRateLimiter)(nil)
 
+// loginAttemptsPerMin caps login attempts per source IP, slowing password /
+// TOTP brute-force beyond the broader auth-group rate limit.
+const loginAttemptsPerMin = 8
+
 type limiterEntry struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time

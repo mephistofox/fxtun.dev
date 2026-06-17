@@ -32,13 +32,14 @@ type AuditLog struct {
 }
 
 type CustomDomain struct {
-	ID              int64              `json:"id"`
-	UserID          int64              `json:"user_id"`
-	Domain          string             `json:"domain"`
-	TargetSubdomain string             `json:"target_subdomain"`
-	Verified        bool               `json:"verified"`
-	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ID                int64              `json:"id"`
+	UserID            int64              `json:"user_id"`
+	Domain            string             `json:"domain"`
+	TargetSubdomain   string             `json:"target_subdomain"`
+	Verified          bool               `json:"verified"`
+	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	VerificationToken string             `json:"verification_token"`
 }
 
 type EdgeNode struct {
