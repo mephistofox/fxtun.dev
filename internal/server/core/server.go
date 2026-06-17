@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
@@ -20,13 +21,13 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/geoip"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/monitor"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
@@ -90,26 +91,47 @@ var blockedTCPPorts = map[int]bool{
 	27017: true, // MongoDB
 }
 
+// blockedUDPPorts prevents SSRF / service shadowing via UDP tunnels to
+// sensitive local services. The UDP profile differs from TCP — most notably
+// port 53, which is the server's own built-in DNS used for ACME/wildcard.
+// Admin users bypass this check.
+var blockedUDPPorts = map[int]bool{
+	53:   true, // DNS (server's built-in resolver — ACME/wildcard)
+	123:  true, // NTP
+	161:  true, // SNMP
+	389:  true, // LDAP
+	1900: true, // SSDP
+	5353: true, // mDNS
+}
+
+// portBlocked reports whether a non-admin client may not bind the given
+// remote port. Port 0 means "auto-allocate" and is always allowed; admins
+// bypass the block list entirely.
+func portBlocked(port int, isAdmin bool, blocked map[int]bool) bool {
+	return port > 0 && !isAdmin && blocked[port]
+}
+
 // Server is the main tunnel server
 type Server struct {
-	cfg    *config.ServerConfig
-	log    zerolog.Logger
+	cfg *config.ServerConfig
+	log zerolog.Logger
 
 	// Listeners
-	controlListener  net.Listener
-	httpListener     net.Listener
-	httpsListener    net.Listener
-	httpsServer      *http.Server
+	controlListener     net.Listener
+	controlTLSListeners []net.Listener
+	httpListener        net.Listener
+	httpsListener       net.Listener
+	httpsServer         *http.Server
 
 	// Client manager
 	clientMgr *ClientManager
 
 	// Tunnel managers
-	httpRouter  *HTTPRouter
-	httpServer  *http.Server
-	tcpManager  *TCPManager
-	udpManager  *UDPManager
-	inspectMgr  *inspect.Manager
+	httpRouter *HTTPRouter
+	httpServer *http.Server
+	tcpManager *TCPManager
+	udpManager *UDPManager
+	inspectMgr *inspect.Manager
 
 	// Traffic monitor
 	monitor *monitor.Monitor
@@ -139,6 +161,10 @@ type Server struct {
 	customDomains  map[string]*database.CustomDomain // domain -> entry
 	customDomainMu sync.RWMutex
 
+	// Trusted reverse-proxy IPs whose forwarded headers may be believed
+	// (data-plane equivalent of the API's trustedRealIPMiddleware).
+	trustedProxies map[string]struct{}
+
 	// Auth rate limiting per IP
 	authLimiters sync.Map // remoteIP -> *monitor.SlidingWindow
 
@@ -165,12 +191,12 @@ type Client struct {
 	lastPing     atomic.Int64
 
 	// Multi-session pool: additional data connections for parallelism
-	DataSessions  []*yamux.Session
-	DataConns     []net.Conn // underlying TCP connections for data sessions
-	DataMu        sync.RWMutex
-	sessionIdx    atomic.Uint32 // round-robin counter
-	SessionSecret       string    // secret for joining additional connections
-	SessionSecretExpiry time.Time // secret valid until this time
+	DataSessions        []*yamux.Session
+	DataConns           []net.Conn // underlying TCP connections for data sessions
+	DataMu              sync.RWMutex
+	sessionIdx          atomic.Uint32 // round-robin counter
+	SessionSecret       string        // secret for joining additional connections
+	SessionSecretExpiry time.Time     // secret valid until this time
 
 	// Database integration
 	UserID     int64              // 0 if legacy token
@@ -203,9 +229,9 @@ type Tunnel struct {
 	Created    time.Time
 
 	// Security features
-	BasicAuthHash string       // bcrypt hash
-	AllowedNets   []*net.IPNet // parsed CIDRs
-	AllowedIPs    []net.IP     // exact IPs (no CIDR)
+	BasicAuthHash string        // bcrypt hash
+	AllowedNets   []*net.IPNet  // parsed CIDRs
+	AllowedIPs    []net.IP      // exact IPs (no CIDR)
 	AutoClose     time.Duration // idle timeout
 	MaxLifetime   time.Duration // max tunnel lifetime
 	LastActivity  atomic.Int64  // UnixNano timestamp
@@ -220,13 +246,14 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Server{
-		cfg:           cfg,
-		log:           log.With().Str("component", "server").Logger(),
-		clientMgr:     NewClientManager(log.With().Str("component", "server").Logger()),
-		customDomains: make(map[string]*database.CustomDomain),
-		proxyPool:     newRemoteProxyPool(),
-		ctx:           ctx,
-		cancel:        cancel,
+		cfg:            cfg,
+		log:            log.With().Str("component", "server").Logger(),
+		clientMgr:      NewClientManager(log.With().Str("component", "server").Logger()),
+		customDomains:  make(map[string]*database.CustomDomain),
+		proxyPool:      newRemoteProxyPool(),
+		trustedProxies: buildTrustedProxySet(cfg.Auth.TrustedProxies),
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 
 	s.httpRouter = NewHTTPRouter(s, log)
@@ -530,9 +557,23 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	// Accept control connections
+	// Additional TLS control listeners (DPI-resilient HTTPS-looking endpoint,
+	// e.g. a second IP on :443). Optional; legacy plaintext 4443 keeps running.
+	if s.cfg.Server.ControlTLS.Enabled {
+		if err := s.startControlTLSListeners(); err != nil {
+			s.controlListener.Close()
+			s.httpListener.Close()
+			return fmt.Errorf("listen control tls: %w", err)
+		}
+	}
+
+	// Accept control connections (plaintext + any TLS listeners)
 	s.wg.Add(1)
-	go s.acceptControlConnections()
+	go s.acceptControlConnections(s.controlListener)
+	for _, l := range s.controlTLSListeners {
+		s.wg.Add(1)
+		go s.acceptControlConnections(l)
+	}
 
 	// Start HTTP server with keep-alive support
 	s.httpServer = &http.Server{
@@ -560,6 +601,9 @@ func (s *Server) Stop() error {
 	// Phase 1: stop accepting new connections
 	if s.controlListener != nil {
 		s.controlListener.Close()
+	}
+	for _, l := range s.controlTLSListeners {
+		l.Close()
 	}
 	if s.httpListener != nil {
 		s.httpListener.Close()
@@ -644,11 +688,38 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-func (s *Server) acceptControlConnections() {
+// startControlTLSListeners opens a TLS listener on each configured address.
+// These present a real TLS handshake so the control plane is reachable on :443
+// and indistinguishable from HTTPS to DPI/middleboxes. The shared certificate is
+// selected by SNI automatically when it carries multiple names (SAN).
+func (s *Server) startControlTLSListeners() error {
+	cert, err := tls.LoadX509KeyPair(s.cfg.Server.ControlTLS.CertFile, s.cfg.Server.ControlTLS.KeyFile)
+	if err != nil {
+		return fmt.Errorf("load control TLS certificate: %w", err)
+	}
+	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+
+	for _, addr := range s.cfg.Server.ControlTLS.Listen {
+		l, err := tls.Listen("tcp", addr, tlsCfg)
+		if err != nil {
+			// Close any TLS listeners already opened before failing.
+			for _, opened := range s.controlTLSListeners {
+				opened.Close()
+			}
+			s.controlTLSListeners = nil
+			return fmt.Errorf("listen %s: %w", addr, err)
+		}
+		s.controlTLSListeners = append(s.controlTLSListeners, l)
+		s.log.Info().Str("addr", addr).Msg("Control plane TLS listening")
+	}
+	return nil
+}
+
+func (s *Server) acceptControlConnections(l net.Listener) {
 	defer s.wg.Done()
 
 	for {
-		conn, err := s.controlListener.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			select {
 			case <-s.ctx.Done():
@@ -663,7 +734,6 @@ func (s *Server) acceptControlConnections() {
 		go s.handleControlConnection(conn)
 	}
 }
-
 
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
@@ -855,7 +925,8 @@ func (s *Server) findClientBySecret(clientID, secret string) *Client {
 	if client == nil {
 		return nil
 	}
-	if client.SessionSecret == "" || client.SessionSecret != secret {
+	if client.SessionSecret == "" ||
+		subtle.ConstantTimeCompare([]byte(client.SessionSecret), []byte(secret)) != 1 {
 		return nil
 	}
 	// Check session secret TTL
@@ -1152,7 +1223,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 	// SSRF prevention: block sensitive ports for non-admin users
-	if req.RemotePort > 0 && !c.IsAdmin && blockedTCPPorts[req.RemotePort] {
+	if portBlocked(req.RemotePort, c.IsAdmin, blockedTCPPorts) {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable,
 			fmt.Sprintf("port %d is blocked for security reasons", req.RemotePort))
 		return
@@ -1244,6 +1315,13 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 }
 
 func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
+	// SSRF prevention: block sensitive ports for non-admin users.
+	if portBlocked(req.RemotePort, c.IsAdmin, blockedUDPPorts) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable,
+			fmt.Sprintf("port %d is blocked for security reasons", req.RemotePort))
+		return
+	}
+
 	port, udpConn, err := c.server.udpManager.AllocatePort(req.RemotePort)
 	if err != nil {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
@@ -1663,4 +1741,3 @@ func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
 func (s *Server) GetStats() Stats {
 	return s.clientMgr.GetStats()
 }
-

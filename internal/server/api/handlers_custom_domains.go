@@ -33,8 +33,8 @@ func (s *Server) handleListCustomDomains(w http.ResponseWriter, r *http.Request)
 	}
 
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"domains":     domains,
-		"total":       len(domains),
+		"domains": domains,
+		"total":   len(domains),
 		"max_domains": func() int {
 			if user.Plan != nil {
 				return user.Plan.MaxCustomDomains
@@ -87,14 +87,16 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedTarget := req.TargetSubdomain + "." + s.baseDomain
-	verified := fxtls.VerifyDNS(req.Domain, expectedTarget) == nil
-
+	// Issue a unique ownership-proof token. The domain is NOT auto-verified:
+	// pointing an A-record at the shared server IP does not prove ownership
+	// (any tenant can do that). The user must publish the token as a TXT
+	// record and then call verify.
 	domain := &database.CustomDomain{
-		UserID:          user.ID,
-		Domain:          req.Domain,
-		TargetSubdomain: req.TargetSubdomain,
-		Verified:        verified,
+		UserID:            user.ID,
+		Domain:            req.Domain,
+		TargetSubdomain:   req.TargetSubdomain,
+		VerificationToken: "fxtunnel-verify=" + randomHex(24),
+		Verified:          false,
 	}
 
 	if err := s.db.CustomDomains.Create(domain); err != nil {
@@ -106,21 +108,19 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if verified && s.customDomainManager != nil {
-		s.customDomainManager.AddCustomDomain(domain)
-		if cm := s.customDomainManager.CertManager(); cm != nil {
-			cm.ObtainCert(domain.Domain)
-		}
-	}
-
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&user.ID, "custom_domain_added", map[string]interface{}{
 		"domain":           req.Domain,
 		"target_subdomain": req.TargetSubdomain,
-		"verified":         verified,
+		"verified":         false,
 	}, ipAddress)
 
-	s.respondJSON(w, http.StatusCreated, domain)
+	s.respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"domain":           domain,
+		"txt_record_name":  fxtls.ChallengeRecordName(domain.Domain),
+		"txt_record_value": domain.VerificationToken,
+		"target":           req.TargetSubdomain + "." + s.baseDomain,
+	})
 }
 
 func (s *Server) handleDeleteCustomDomain(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +189,31 @@ func (s *Server) handleVerifyCustomDomain(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Legacy rows (created before TXT verification) have no token — issue one
+	// lazily so the owner can complete verification instead of being stranded.
+	if domain.VerificationToken == "" {
+		domain.VerificationToken = "fxtunnel-verify=" + randomHex(24)
+		if err := s.db.CustomDomains.SetVerificationToken(domain.ID, domain.VerificationToken); err != nil {
+			s.respondError(w, http.StatusInternalServerError, "failed to issue verification token")
+			return
+		}
+	}
+
+	// Ownership proof MUST come first: the TXT challenge proves the user
+	// controls the domain's DNS. Without it, an A-record pointing at the
+	// shared server IP would let one tenant claim another tenant's domain.
+	if err := fxtls.VerifyTXT(domain.Domain, domain.VerificationToken); err != nil {
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"verified":         false,
+			"error":            err.Error(),
+			"txt_record_name":  fxtls.ChallengeRecordName(domain.Domain),
+			"txt_record_value": domain.VerificationToken,
+		})
+		return
+	}
+
+	// Ownership confirmed — now check the routing record (CNAME/A) so traffic
+	// actually reaches the user's tunnel.
 	expectedTarget := domain.TargetSubdomain + "." + s.baseDomain
 	if err := fxtls.VerifyDNS(domain.Domain, expectedTarget); err != nil {
 		s.respondJSON(w, http.StatusOK, map[string]interface{}{

@@ -4,9 +4,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// A token signed with a non-HS256 HMAC variant (same key) must be rejected:
+// ValidateAccessToken pins the exact algorithm to prevent alg-confusion.
+func TestJWTRejectsNonHS256(t *testing.T) {
+	m := NewJWTManager("secret", time.Hour, time.Hour)
+
+	claims := &Claims{UserID: 1, Phone: "+10000000000"}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS384, claims)
+	signed, err := tok.SignedString(m.secretKey)
+	require.NoError(t, err)
+
+	_, err = m.ValidateAccessToken(signed)
+	assert.Error(t, err, "HS384 token must be rejected when HS256 is pinned")
+}
 
 func TestJWTRoundTrip(t *testing.T) {
 	m := NewJWTManager("secret", 5*time.Minute, 24*time.Hour)

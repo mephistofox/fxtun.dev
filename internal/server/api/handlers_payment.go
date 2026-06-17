@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -368,7 +369,7 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 // handlePaymentWebhook handles YooKassa webhook notifications (POST)
 func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	s.log.Info().
-		Str("remote_addr", r.RemoteAddr).              // Post-RealIP = actual client IP from nginx
+		Str("remote_addr", r.RemoteAddr).                   // Post-RealIP = actual client IP from nginx
 		Str("original_tcp_addr", getOriginalRemoteAddr(r)). // Raw TCP = nginx 127.0.0.1
 		Str("method", r.Method).
 		Msg("YooKassa webhook received")
@@ -384,16 +385,19 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 	// Do NOT use getOriginalRemoteAddr() here — it returns the raw TCP peer
 	// address which is 127.0.0.1 (nginx itself) when traffic comes through
 	// the reverse proxy.
-	if !s.cfg.YooKassa.TestMode {
-		if !payment.IsYooKassaIP(r.RemoteAddr) {
-			s.log.Warn().
-				Str("remote_addr", r.RemoteAddr).
-				Str("original_tcp_addr", getOriginalRemoteAddr(r)).
-				Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
-				Msg("Webhook from unauthorized IP")
-			http.Error(w, "unauthorized", http.StatusForbidden)
-			return
-		}
+	// Webhook source is always IP-verified (YooKassa does not sign webhooks).
+	// In test mode we ADDITIONALLY accept loopback/private sources for local
+	// testing — but never disable the check entirely, so a public attacker
+	// cannot forge a subscription even if test mode is left on.
+	if !webhookSourceAllowed(r.RemoteAddr, s.cfg.YooKassa.TestMode) {
+		s.log.Warn().
+			Str("remote_addr", r.RemoteAddr).
+			Str("original_tcp_addr", getOriginalRemoteAddr(r)).
+			Str("x_forwarded_for", r.Header.Get("X-Forwarded-For")).
+			Bool("test_mode", s.cfg.YooKassa.TestMode).
+			Msg("Webhook from unauthorized IP")
+		http.Error(w, "unauthorized", http.StatusForbidden)
+		return
 	}
 
 	// Limit request body to 1MB to prevent abuse
@@ -436,6 +440,25 @@ func (s *Server) handlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
 		s.log.Info().Str("event", event.Event).Msg("Unknown webhook event (ignored)")
 		w.WriteHeader(http.StatusOK)
 	}
+}
+
+// webhookSourceAllowed reports whether a YooKassa webhook from remoteAddr may
+// be trusted. Production: only YooKassa's published IPs. Test mode: also
+// loopback/private addresses for local testing — but public sources are
+// always rejected, so leaving test mode on cannot enable webhook forgery.
+func webhookSourceAllowed(remoteAddr string, testMode bool) bool {
+	if payment.IsYooKassaIP(remoteAddr) {
+		return true
+	}
+	if !testMode {
+		return false
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
 }
 
 // parseYooKassaMetadata extracts user_id, subscription_id, plan_id from YooKassa payment metadata
@@ -514,11 +537,13 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 		return
 	}
 
-	// Verify payment amount matches expected amount
+	// Verify payment amount matches expected amount (two-sided: reject both
+	// under- and over-payment outside a ±1% tolerance, so a forged webhook
+	// can't claim an arbitrary amount).
 	if yooPayment.Amount.Value != "" {
 		var webhookAmount float64
 		if _, err := fmt.Sscanf(yooPayment.Amount.Value, "%f", &webhookAmount); err == nil {
-			if webhookAmount < pmt.Amount*0.99 {
+			if webhookAmount < pmt.Amount*0.99 || webhookAmount > pmt.Amount*1.01 {
 				s.log.Error().
 					Float64("expected", pmt.Amount).
 					Float64("received", webhookAmount).

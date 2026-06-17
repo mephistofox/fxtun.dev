@@ -70,6 +70,35 @@ func VerifyDNS(domain, expectedTarget string) error {
 	return VerifyARecord(domain, expectedTarget)
 }
 
+// ChallengeRecordName returns the DNS name where the ownership-proof TXT
+// record must be published for the given custom domain.
+func ChallengeRecordName(domain string) string {
+	return "_fxtunnel-challenge." + strings.TrimSuffix(domain, ".")
+}
+
+// VerifyTXT proves domain ownership: it looks up the TXT records at
+// _fxtunnel-challenge.<domain> and requires one to equal the per-domain token.
+// Unlike A/CNAME checks (which only prove the domain points at the shared
+// server IP — something any tenant can do), a unique secret TXT token can only
+// be set by whoever controls the domain's DNS, preventing cross-tenant
+// custom-domain takeover.
+func VerifyTXT(domain, token string) error {
+	if token == "" {
+		return fmt.Errorf("no verification token issued for %s", domain)
+	}
+	name := ChallengeRecordName(domain)
+	records, err := net.LookupTXT(name)
+	if err != nil {
+		return fmt.Errorf("TXT lookup failed for %s: %w", name, err)
+	}
+	for _, rec := range records {
+		if strings.TrimSpace(rec) == token {
+			return nil
+		}
+	}
+	return fmt.Errorf("ownership TXT record not found at %s (expected token value)", name)
+}
+
 // ValidateCustomDomain validates domain format for custom domain usage.
 func ValidateCustomDomain(domain, baseDomain string) error {
 	if domain == "" {
