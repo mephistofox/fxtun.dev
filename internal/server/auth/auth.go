@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	ErrInvalidCredentials     = errors.New("invalid credentials")
-	ErrUserNotActive          = errors.New("user account is not active")
-	ErrPhoneAlreadyExists     = errors.New("phone number already registered")
-	ErrTOTPRequired           = errors.New("TOTP code required")
-	ErrInvalidPhone           = errors.New("invalid phone number format")
-	ErrSuspiciousDisplayName  = errors.New("display name rejected")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrUserNotActive         = errors.New("user account is not active")
+	ErrPhoneAlreadyExists    = errors.New("phone number already registered")
+	ErrTOTPRequired          = errors.New("TOTP code required")
+	ErrInvalidPhone          = errors.New("invalid phone number format")
+	ErrSuspiciousDisplayName = errors.New("display name rejected")
+	ErrTokenReuse            = errors.New("refresh token reuse detected; sessions revoked")
 )
 
 // e164PhoneRegex matches E.164 international phone numbers: + followed by 8-15 digits, first digit non-zero.
@@ -59,12 +60,13 @@ func MaskPhone(phone string) string {
 
 // Service handles authentication operations
 type Service struct {
-	db           *database.Database
-	sessions     store.SessionStore
-	jwt          *JWTManager
-	totp         *TOTPManager
-	log          zerolog.Logger
-	maxDomains   int
+	db         *database.Database
+	sessions   store.SessionStore
+	rotated    store.RotatedTokenTracker // optional reuse detection; nil if unsupported
+	jwt        *JWTManager
+	totp       *TOTPManager
+	log        zerolog.Logger
+	maxDomains int
 }
 
 // NewService creates a new auth service
@@ -79,9 +81,16 @@ func NewService(db *database.Database, jwtSecret string, accessTTL, refreshTTL t
 	}
 }
 
-// SetSessionStore overrides the default session store (e.g. with Redis).
+// SetSessionStore overrides the default session store (e.g. with Redis). If the
+// store also supports rotated-token tracking, refresh-token reuse detection is
+// enabled automatically.
 func (s *Service) SetSessionStore(ss store.SessionStore) {
 	s.sessions = ss
+	if rt, ok := ss.(store.RotatedTokenTracker); ok {
+		s.rotated = rt
+	} else {
+		s.rotated = nil
+	}
 }
 
 // Register creates a new user account
@@ -284,6 +293,19 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 	session, err := s.sessions.GetByTokenHash(tokenHash)
 	if err != nil {
 		if errors.Is(err, database.ErrSessionNotFound) {
+			// Not an active session. If this token was recently rotated,
+			// presenting it again is reuse (a sign of theft): revoke the whole
+			// family so the stolen token and any descendants are invalidated.
+			if s.rotated != nil {
+				if uid, found, rerr := s.rotated.RotatedOwner(tokenHash); rerr == nil && found {
+					if derr := s.sessions.DeleteByUserID(uid); derr != nil {
+						s.log.Error().Err(derr).Int64("user_id", uid).Msg("Refresh token reuse detected but session revocation failed")
+					} else {
+						s.log.Warn().Int64("user_id", uid).Msg("Refresh token reuse detected; revoked all sessions")
+					}
+					return nil, nil, ErrTokenReuse
+				}
+			}
 			return nil, nil, ErrInvalidToken
 		}
 		return nil, nil, fmt.Errorf("get session: %w", err)
@@ -325,6 +347,14 @@ func (s *Service) RefreshTokens(refreshToken, userAgent, ipAddress string) (*dat
 	}
 	if err := s.sessions.Create(newSession); err != nil {
 		return nil, nil, fmt.Errorf("create session: %w", err)
+	}
+
+	// Remember the just-rotated token so that presenting it again is detected
+	// as reuse for the remaining lifetime it would otherwise have been valid.
+	if s.rotated != nil {
+		if err := s.rotated.MarkRotated(tokenHash, user.ID, s.jwt.GetRefreshTokenTTL()); err != nil {
+			s.log.Warn().Err(err).Msg("Failed to record rotated refresh token; reuse detection degraded for this token")
+		}
 	}
 
 	return user, tokenPair, nil

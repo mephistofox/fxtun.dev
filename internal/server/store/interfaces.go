@@ -11,6 +11,19 @@ import (
 // already claimed by a different user, preventing cross-node subdomain hijack.
 var ErrSubdomainTaken = errors.New("subdomain already claimed by another user")
 
+// RotatedTokenTracker is an optional capability of a SessionStore. It remembers
+// recently rotated refresh-token hashes so that presenting an already-rotated
+// token (a sign of token theft) can be detected as reuse. A SessionStore that
+// does not implement it simply has no reuse detection.
+type RotatedTokenTracker interface {
+	// MarkRotated records that tokenHash was rotated away for userID, retained
+	// for ttl (the remaining refresh-token lifetime).
+	MarkRotated(tokenHash string, userID int64, ttl time.Duration) error
+	// RotatedOwner returns the user a rotated token belonged to. found is false
+	// when the hash was never recorded (or has since expired).
+	RotatedOwner(tokenHash string) (userID int64, found bool, err error)
+}
+
 // SessionStore manages user refresh-token sessions.
 type SessionStore interface {
 	Create(session *database.Session) error
