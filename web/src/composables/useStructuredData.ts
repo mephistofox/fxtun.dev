@@ -100,7 +100,7 @@ export function useOrganizationSchema() {
             height: 630,
           },
           sameAs: [
-            'https://github.com/mephistofox/fxTunnel',
+            'https://github.com/mephistofox/fxtun.dev',
           ],
           description: t.organization,
           foundingDate: '2025-12-01',
