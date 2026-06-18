@@ -142,8 +142,22 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+          go build -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=${{ vars.UPDATE_PUBLIC_KEY }}" \
             -o ${{ matrix.artifact }} ./cmd/client
+
+      # Sign the CLI binary for self-update verification. No-op until the signing
+      # secret is configured, so it is safe before keys are provisioned.
+      - name: Sign CLI binary
+        if: matrix.type == 'cli'
+        shell: bash
+        env:
+          FXTUNNEL_UPDATE_SIGNING_KEY: ${{ secrets.FXTUNNEL_UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -n "$FXTUNNEL_UPDATE_SIGNING_KEY" ]; then
+            go run ./cmd/sign-release "${{ matrix.artifact }}"
+          else
+            echo "FXTUNNEL_UPDATE_SIGNING_KEY not set; skipping signature"
+          fi
 
       # Build GUI
       - name: Build GUI (Linux)
@@ -183,12 +197,15 @@ jobs:
             find gui/build/bin -type f -perm +111 | head -1 | xargs -I {} cp {} ${{ matrix.artifact }}
           fi
 
-      # Upload artifact
+      # Upload artifact (plus its .sig when the binary was signed)
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sig
+          if-no-files-found: warn
           retention-days: 1
 
   # Build server

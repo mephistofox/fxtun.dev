@@ -8,6 +8,11 @@ WAILS=$(shell go env GOPATH)/bin/wails
 VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+# Hex ed25519 public key baked into client builds for self-update verification.
+# Empty by default (verification disabled until release signing is provisioned).
+UPDATE_PUBKEY ?=
+UPDATE_KEY_FLAG=-X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=$(UPDATE_PUBKEY)
+CLIENT_LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
 
 all: build
 
@@ -17,7 +22,7 @@ server:
 	go build $(LDFLAGS) -o bin/$(BINARY_SERVER) ./cmd/server
 
 client:
-	go build $(LDFLAGS) -o bin/$(BINARY_CLIENT) ./cmd/client
+	go build $(CLIENT_LDFLAGS) -o bin/$(BINARY_CLIENT) ./cmd/client
 
 clean:
 	rm -rf bin/
@@ -68,11 +73,11 @@ admin-dev:
 build-clients:
 	@rm -rf downloads/fxtunnel-*
 	@mkdir -p downloads
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o downloads/fxtunnel-linux-amd64 ./cmd/client
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o downloads/fxtunnel-linux-arm64 ./cmd/client
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o downloads/fxtunnel-darwin-amd64 ./cmd/client
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o downloads/fxtunnel-darwin-arm64 ./cmd/client
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o downloads/fxtunnel-windows-amd64.exe ./cmd/client
+	GOOS=linux GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-linux-amd64 ./cmd/client
+	GOOS=linux GOARCH=arm64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-linux-arm64 ./cmd/client
+	GOOS=darwin GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-darwin-amd64 ./cmd/client
+	GOOS=darwin GOARCH=arm64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-darwin-arm64 ./cmd/client
+	GOOS=windows GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-windows-amd64.exe ./cmd/client
 
 # Build everything: client binaries for all platforms, server
 build-all: build-clients server
