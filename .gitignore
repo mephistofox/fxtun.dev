@@ -54,3 +54,7 @@ deploy/*.tgz
 admin/dist/
 web/dist/
 internal/web/dist/
+
+# Private keys — never commit (e.g. the self-update signing key)
+*.key
+fxtunnel-update.*
