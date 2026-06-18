@@ -1,10 +1,15 @@
 package store
 
 import (
+	"errors"
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 )
+
+// ErrSubdomainTaken is returned when registering a tunnel whose subdomain is
+// already claimed by a different user, preventing cross-node subdomain hijack.
+var ErrSubdomainTaken = errors.New("subdomain already claimed by another user")
 
 // SessionStore manages user refresh-token sessions.
 type SessionStore interface {
