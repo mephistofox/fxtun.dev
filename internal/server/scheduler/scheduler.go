@@ -146,8 +146,10 @@ func (s *Scheduler) processExpiredSubscriptions() {
 			Int64("user_id", sub.UserID).
 			Msg("Deactivating expired subscription")
 
-		// Mark as expired
+		// Mark as expired and drop any scheduled plan change, so a staged
+		// upgrade cannot be applied to the subscription after it has lapsed.
 		sub.Status = database.SubscriptionStatusExpired
+		sub.NextPlanID = nil
 		if err := s.db.Subscriptions.Update(sub); err != nil {
 			s.log.Error().Err(err).Int64("id", sub.ID).Msg("Failed to update subscription")
 			continue
@@ -395,6 +397,16 @@ func (s *Scheduler) applyPlanChanges() {
 
 	for _, sub := range subs {
 		if sub.NextPlanID == nil {
+			continue
+		}
+
+		// Only apply a scheduled plan change while the subscription is still
+		// active. An expired or cancelled subscription has already been
+		// downgraded to the free plan by processExpiredSubscriptions; applying
+		// its pending next_plan_id here would hand the user a paid plan they
+		// never paid for (a subscriber could stage an upgrade, let the cheap
+		// subscription lapse, and keep the pricier plan for free).
+		if sub.Status != database.SubscriptionStatusActive {
 			continue
 		}
 
