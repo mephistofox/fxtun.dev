@@ -1,10 +1,13 @@
 package daemon
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/config"
@@ -50,15 +53,20 @@ type AddTunnelRequest struct {
 type API struct {
 	mgr     TunnelManager
 	server  string
+	token   string
 	started time.Time
 	done    chan struct{}
 	mux     *http.ServeMux
 }
 
-func NewAPI(mgr TunnelManager, server string) *API {
+// NewAPI builds the local daemon API. token is the per-session bearer token
+// that every request must present; it is stored in the 0600 daemon state file
+// and shared only with same-machine CLI clients.
+func NewAPI(mgr TunnelManager, server, token string) *API {
 	a := &API{
 		mgr:     mgr,
 		server:  server,
+		token:   token,
 		started: time.Now(),
 		done:    make(chan struct{}),
 		mux:     http.NewServeMux(),
@@ -70,8 +78,55 @@ func NewAPI(mgr TunnelManager, server string) *API {
 	return a
 }
 
+// ServeHTTP guards every request before dispatching. The daemon listens only
+// on loopback, but a malicious web page could still reach it via DNS rebinding
+// or a cross-site request, so we (1) require the Host header to be loopback,
+// (2) reject any request carrying an Origin/Referer (browsers always attach
+// these; the CLI never does), and (3) require the per-session bearer token.
 func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !isLoopbackHost(r.Host) {
+		http.Error(w, `{"error":"forbidden host"}`, http.StatusForbidden)
+		return
+	}
+	if r.Header.Get("Origin") != "" || r.Header.Get("Referer") != "" {
+		http.Error(w, `{"error":"cross-site request rejected"}`, http.StatusForbidden)
+		return
+	}
+	if !a.authorized(r) {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 	a.mux.ServeHTTP(w, r)
+}
+
+// authorized checks the Authorization header against the session token in
+// constant time. An empty server token fails closed.
+func (a *API) authorized(r *http.Request) bool {
+	if a.token == "" {
+		return false
+	}
+	const prefix = "Bearer "
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, prefix) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(h[len(prefix):]), []byte(a.token)) == 1
+}
+
+// isLoopbackHost reports whether the request Host targets the local machine.
+func isLoopbackHost(host string) bool {
+	h := host
+	if hostOnly, _, err := net.SplitHostPort(host); err == nil {
+		h = hostOnly
+	}
+	h = strings.TrimSuffix(strings.TrimPrefix(h, "["), "]")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 func (a *API) Done() <-chan struct{} {

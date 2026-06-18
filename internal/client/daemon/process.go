@@ -38,7 +38,13 @@ func IsDaemonRunning(statePath string) (*State, bool) {
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(fmt.Sprintf("http://%s/status", st.APIAddr))
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/status", st.APIAddr), nil)
+	if err != nil {
+		RemoveState(statePath)
+		return nil, false
+	}
+	req.Header.Set("Authorization", "Bearer "+st.Token)
+	resp, err := client.Do(req)
 	if err != nil {
 		RemoveState(statePath)
 		return nil, false
