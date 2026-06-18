@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"golang.org/x/time/rate"
 )
@@ -86,8 +87,13 @@ func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration)
 func rateLimitMiddleware(rl store.RateChecker) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Use original TCP remote address to prevent X-Forwarded-For bypass
-			ip := getOriginalRemoteAddr(r)
+			// Key on the real client IP. trustedRealIPMiddleware has already
+			// rewritten r.RemoteAddr to the client IP when the request came
+			// through a trusted proxy, and ignores forwarded headers from
+			// untrusted sources — so this is spoof-safe. Keying on the raw TCP
+			// source instead would collapse every client behind nginx's reused
+			// keepalive upstream connections into a single shared bucket.
+			ip := auth.GetClientIP(r)
 
 			if !rl.Allow(ip) {
 				http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
