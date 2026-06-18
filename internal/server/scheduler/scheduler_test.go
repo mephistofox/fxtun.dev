@@ -300,6 +300,66 @@ func TestScheduler_RunChecksSkipsWhenLockHeld(t *testing.T) {
 	}
 }
 
+// TestScheduler_RecurringFailedRenewalDowngradesAfterGrace verifies that a
+// recurring subscription whose renewal keeps failing (period stays expired past
+// the grace window) is downgraded to free instead of retaining the paid plan
+// indefinitely; a recently-expired one is left alone for renewal to retry.
+func TestScheduler_RecurringFailedRenewalDowngradesAfterGrace(t *testing.T) {
+	db := setupTestDB(t)
+	cfg := &config.ServerConfig{}
+	log := zerolog.New(zerolog.NewTestWriter(t))
+
+	free, err := db.Plans.GetBySlug("free")
+	if err != nil {
+		t.Fatalf("free plan: %v", err)
+	}
+	pro, err := db.Plans.GetBySlug("pro")
+	if err != nil {
+		t.Fatalf("pro plan: %v", err)
+	}
+
+	mkRecurring := func(phone string, periodEnd time.Time) (*database.User, *database.Subscription) {
+		u := &database.User{Phone: phone, PasswordHash: "h", PlanID: pro.ID, IsActive: true}
+		if err := db.Users.Create(u); err != nil {
+			t.Fatalf("user: %v", err)
+		}
+		start := periodEnd.Add(-30 * 24 * time.Hour)
+		sub := &database.Subscription{
+			UserID: u.ID, PlanID: pro.ID, Status: database.SubscriptionStatusActive,
+			Recurring: true, CurrentPeriodStart: &start, CurrentPeriodEnd: &periodEnd,
+		}
+		if err := db.Subscriptions.Create(sub); err != nil {
+			t.Fatalf("sub: %v", err)
+		}
+		return u, sub
+	}
+
+	// Past the grace window (8 days expired) — should be downgraded.
+	staleUser, staleSub := mkRecurring("+79993334401", time.Now().Add(-8*24*time.Hour))
+	// Recently expired (1 hour) — renewal may still retry; must be left active.
+	freshUser, freshSub := mkRecurring("+79993334402", time.Now().Add(-1*time.Hour))
+
+	// No payment providers, so renewals are a no-op (simulating failing renewal).
+	s := New(db, cfg, nil, log)
+	s.RunOnce()
+
+	gotStale, _ := db.Subscriptions.GetByID(staleSub.ID)
+	if gotStale.Status != database.SubscriptionStatusExpired {
+		t.Fatalf("stale recurring sub: expected expired after grace, got %s", gotStale.Status)
+	}
+	if u, _ := db.Users.GetByID(staleUser.ID); u.PlanID != free.ID {
+		t.Fatalf("stale recurring user: expected downgrade to free, got plan %d", u.PlanID)
+	}
+
+	gotFresh, _ := db.Subscriptions.GetByID(freshSub.ID)
+	if gotFresh.Status != database.SubscriptionStatusActive {
+		t.Fatalf("fresh recurring sub: expected still active within grace, got %s", gotFresh.Status)
+	}
+	if u, _ := db.Users.GetByID(freshUser.ID); u.PlanID != pro.ID {
+		t.Fatalf("fresh recurring user: expected plan retained within grace, got plan %d", u.PlanID)
+	}
+}
+
 func TestScheduler_ProcessExpiredSubscriptions(t *testing.T) {
 	db := setupTestDB(t)
 	cfg := &config.ServerConfig{}
