@@ -103,10 +103,65 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 }
 
-// runChecks performs all scheduled checks
+// schedulerAdvisoryLockKey is the Postgres advisory-lock key that ensures only
+// one node runs the subscription checks at a time (avoids duplicate billing /
+// renewals when the scheduler runs on every node).
+const schedulerAdvisoryLockKey int64 = 0x6678_7363_6864 // "fxschd"
+
+// runChecks performs all scheduled checks under a cluster-wide advisory lock,
+// so that with multiple nodes only the lock holder runs them in a given tick.
 func (s *Scheduler) runChecks() {
 	s.log.Debug().Msg("Running subscription checks")
 
+	if s.db == nil || s.db.Pool() == nil {
+		s.runCheckSteps()
+		return
+	}
+
+	acquireCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	conn, err := s.db.Pool().Acquire(acquireCtx)
+	cancel()
+	if err != nil {
+		s.log.Error().Err(err).Msg("scheduler: failed to acquire lock connection")
+		return
+	}
+
+	var locked bool
+	lockCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	err = conn.QueryRow(lockCtx, "SELECT pg_try_advisory_lock($1)", schedulerAdvisoryLockKey).Scan(&locked)
+	cancel()
+	if err != nil {
+		conn.Release()
+		s.log.Error().Err(err).Msg("scheduler: advisory lock query failed")
+		return
+	}
+	if !locked {
+		conn.Release()
+		s.log.Debug().Msg("scheduler: another node holds the lock, skipping this tick")
+		return
+	}
+
+	// Release the lock when done. If the unlock fails, destroy the connection
+	// instead of returning it to the pool — a session that may still hold the
+	// advisory lock would otherwise wedge later ticks cluster-wide.
+	defer func() {
+		unlockCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, uerr := conn.Exec(unlockCtx, "SELECT pg_advisory_unlock($1)", schedulerAdvisoryLockKey)
+		cancel()
+		if uerr != nil {
+			s.log.Warn().Err(uerr).Msg("scheduler: advisory unlock failed; discarding connection")
+			_ = conn.Hijack().Close(context.Background())
+			return
+		}
+		conn.Release()
+	}()
+
+	s.runCheckSteps()
+}
+
+// runCheckSteps runs the actual subscription checks in order. The caller holds
+// the scheduler advisory lock.
+func (s *Scheduler) runCheckSteps() {
 	// 1. Process expired subscriptions (non-recurring or cancelled)
 	s.processExpiredSubscriptions()
 

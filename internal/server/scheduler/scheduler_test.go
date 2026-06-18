@@ -237,6 +237,69 @@ func TestScheduler_ExpiredSubscriptionDoesNotApplyScheduledUpgrade(t *testing.T)
 	}
 }
 
+// TestScheduler_RunChecksSkipsWhenLockHeld verifies the cluster advisory lock:
+// while another holder owns the lock, runChecks must skip (no node double-runs).
+func TestScheduler_RunChecksSkipsWhenLockHeld(t *testing.T) {
+	db := setupTestDB(t)
+	cfg := &config.ServerConfig{}
+	log := zerolog.New(zerolog.NewTestWriter(t))
+
+	paidPlan, err := db.Plans.GetBySlug("pro")
+	if err != nil {
+		t.Fatalf("pro plan: %v", err)
+	}
+	user := &database.User{Phone: "+79992223344", PasswordHash: "hash", PlanID: paidPlan.ID, IsActive: true}
+	if err := db.Users.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	expired := time.Now().Add(-1 * time.Hour)
+	start := expired.Add(-30 * 24 * time.Hour)
+	sub := &database.Subscription{
+		UserID: user.ID, PlanID: paidPlan.ID, Status: database.SubscriptionStatusActive,
+		Recurring: false, CurrentPeriodStart: &start, CurrentPeriodEnd: &expired,
+	}
+	if err := db.Subscriptions.Create(sub); err != nil {
+		t.Fatalf("create sub: %v", err)
+	}
+
+	// Hold the advisory lock on a separate connection (simulating another node).
+	ctx := context.Background()
+	conn, err := db.Pool().Acquire(ctx)
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	defer conn.Release()
+	var locked bool
+	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", schedulerAdvisoryLockKey).Scan(&locked); err != nil || !locked {
+		t.Fatalf("hold lock: locked=%v err=%v", locked, err)
+	}
+
+	s := New(db, cfg, nil, log)
+	s.RunOnce() // must skip — lock is held elsewhere
+
+	got, err := db.Subscriptions.GetByID(sub.ID)
+	if err != nil {
+		t.Fatalf("get sub: %v", err)
+	}
+	if got.Status != database.SubscriptionStatusActive {
+		t.Fatalf("expected subscription untouched while lock held, got status %s", got.Status)
+	}
+
+	// Release the lock; now runChecks should process the expired subscription.
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", schedulerAdvisoryLockKey); err != nil {
+		t.Fatalf("unlock: %v", err)
+	}
+	s.RunOnce()
+
+	got, err = db.Subscriptions.GetByID(sub.ID)
+	if err != nil {
+		t.Fatalf("get sub: %v", err)
+	}
+	if got.Status != database.SubscriptionStatusExpired {
+		t.Fatalf("expected subscription processed after lock release, got status %s", got.Status)
+	}
+}
+
 func TestScheduler_ProcessExpiredSubscriptions(t *testing.T) {
 	db := setupTestDB(t)
 	cfg := &config.ServerConfig{}
