@@ -62,6 +62,41 @@ func TestRateLimiter_DifferentIPsIndependent(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w2.Code)
 }
 
+func TestRateLimiter_KeysOnRealClientBehindTrustedProxy(t *testing.T) {
+	// Production wiring: trustedRealIPMiddleware runs first and rewrites
+	// r.RemoteAddr to the real client IP (from X-Real-IP) when the TCP source
+	// is a trusted proxy (nginx on loopback). The rate limiter must key on
+	// that real client IP — NOT on the nginx upstream connection address.
+	//
+	// nginx reuses a small pool of keepalive upstream connections, so many
+	// distinct real clients share the same TCP source (incl. ephemeral port).
+	// If the limiter keys on the upstream connection, every user collapses
+	// into one bucket and a single client can lock out everyone.
+	rl := newIPRateLimiter(1)
+	chain := trustedRealIPMiddleware([]string{"127.0.0.1"})(
+		rateLimitMiddleware(rl)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})),
+	)
+
+	// Client A, through nginx upstream connection 127.0.0.1:5000.
+	reqA := httptest.NewRequest("GET", "/", nil)
+	reqA.RemoteAddr = "127.0.0.1:5000"
+	reqA.Header.Set("X-Real-IP", "11.11.11.11")
+	wA := httptest.NewRecorder()
+	chain.ServeHTTP(wA, reqA)
+	assert.Equal(t, http.StatusOK, wA.Code, "client A first request should pass")
+
+	// Client B, through the SAME reused nginx upstream connection.
+	reqB := httptest.NewRequest("GET", "/", nil)
+	reqB.RemoteAddr = "127.0.0.1:5000"
+	reqB.Header.Set("X-Real-IP", "22.22.22.22")
+	wB := httptest.NewRecorder()
+	chain.ServeHTTP(wB, reqB)
+	assert.Equal(t, http.StatusOK, wB.Code,
+		"a different real client must not be limited by another client's usage")
+}
+
 func TestRateLimiter_UsesRemoteAddr(t *testing.T) {
 	// Rate limiter uses r.RemoteAddr which is set by trustedRealIPMiddleware upstream.
 	// It should NOT read X-Real-IP or X-Forwarded-For headers directly.
