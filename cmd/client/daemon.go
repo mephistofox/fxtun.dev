@@ -101,7 +101,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 			time.Sleep(500 * time.Millisecond)
 			if st, ok := daemon.IsDaemonRunning(statePath); ok {
 				fmt.Printf("Daemon started (PID %d)\n", st.PID)
-				printDaemonStatus(st.APIAddr)
+				printDaemonStatus(st.APIAddr, st.Token)
 				return nil
 			}
 		}
@@ -137,8 +137,14 @@ func runDaemonForeground() error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
+	apiToken, err := daemon.GenerateToken()
+	if err != nil {
+		c.Close()
+		return fmt.Errorf("failed to generate daemon token: %w", err)
+	}
+
 	mgr := daemon.NewClientManager(c)
-	api := daemon.NewAPI(mgr, cfg.Server.Address)
+	api := daemon.NewAPI(mgr, cfg.Server.Address, apiToken)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -154,6 +160,7 @@ func runDaemonForeground() error {
 		PID:       os.Getpid(),
 		APIAddr:   listener.Addr().String(),
 		Server:    cfg.Server.Address,
+		Token:     apiToken,
 		StartedAt: time.Now(),
 	}); err != nil {
 		srv.Close()
@@ -200,7 +207,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Daemon running (PID %d)\n", st.PID)
 	fmt.Printf("Server: %s\n", st.Server)
-	printDaemonStatus(st.APIAddr)
+	printDaemonStatus(st.APIAddr, st.Token)
 	return nil
 }
 
@@ -213,7 +220,12 @@ func runDown(cmd *cobra.Command, args []string) error {
 	}
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	resp, err := httpClient.Post(fmt.Sprintf("http://%s/shutdown", st.APIAddr), "", nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/shutdown", st.APIAddr), nil)
+	if err != nil {
+		return fmt.Errorf("failed to stop daemon: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+st.Token)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to stop daemon: %w", err)
 	}
@@ -231,9 +243,15 @@ func runDown(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printDaemonStatus(apiAddr string) {
+func printDaemonStatus(apiAddr, token string) {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	resp, err := httpClient.Get(fmt.Sprintf("http://%s/status", apiAddr))
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/status", apiAddr), nil)
+	if err != nil {
+		fmt.Printf("  Failed to fetch status: %v\n", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		fmt.Printf("  Failed to fetch status: %v\n", err)
 		return
@@ -286,11 +304,14 @@ func addTunnelToDaemon(tunnelCfg config.TunnelConfig) bool {
 	}
 
 	httpClient := &http.Client{Timeout: 10 * time.Second}
-	resp, err := httpClient.Post(
-		fmt.Sprintf("http://%s/tunnels", st.APIAddr),
-		"application/json",
-		bytes.NewReader(body),
-	)
+	httpReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/tunnels", st.APIAddr), bytes.NewReader(body))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to add tunnel to daemon: %v\n", err)
+		return true
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+st.Token)
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to add tunnel to daemon: %v\n", err)
 		return true

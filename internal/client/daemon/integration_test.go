@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -12,7 +13,7 @@ import (
 
 func TestDaemonAPILifecycle(t *testing.T) {
 	mgr := &mockTunnelManager{}
-	api := NewAPI(mgr, "test-server:4443")
+	api := NewAPI(mgr, "test-server:4443", testToken)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -25,11 +26,22 @@ func TestDaemonAPILifecycle(t *testing.T) {
 	base := fmt.Sprintf("http://%s", ln.Addr().String())
 	client := &http.Client{Timeout: 2 * time.Second}
 
-	// 1. GET /status — running, 0 tunnels
-	resp, err := client.Get(base + "/status")
-	if err != nil {
-		t.Fatal(err)
+	do := func(method, path string, body io.Reader) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(method, base+path, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+testToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
 	}
+
+	// 1. GET /status — running, 0 tunnels
+	resp := do(http.MethodGet, "/status", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -50,10 +62,7 @@ func TestDaemonAPILifecycle(t *testing.T) {
 		Type:      "http",
 		LocalPort: 3000,
 	})
-	resp2, err := client.Post(base+"/tunnels", "application/json", bytes.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp2 := do(http.MethodPost, "/tunnels", bytes.NewReader(body))
 	defer resp2.Body.Close()
 	if resp2.StatusCode != 200 {
 		t.Fatalf("expected 200, got %d", resp2.StatusCode)
@@ -70,10 +79,7 @@ func TestDaemonAPILifecycle(t *testing.T) {
 	}
 
 	// 3. GET /status — 1 tunnel
-	resp3, err := client.Get(base + "/status")
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp3 := do(http.MethodGet, "/status", nil)
 	defer resp3.Body.Close()
 	var status2 StatusResponse
 	if err := json.NewDecoder(resp3.Body).Decode(&status2); err != nil {
@@ -84,10 +90,7 @@ func TestDaemonAPILifecycle(t *testing.T) {
 	}
 
 	// 4. POST /shutdown
-	resp4, err := client.Post(base+"/shutdown", "application/json", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp4 := do(http.MethodPost, "/shutdown", nil)
 	defer resp4.Body.Close()
 	if resp4.StatusCode != 200 {
 		t.Fatalf("expected 200, got %d", resp4.StatusCode)
