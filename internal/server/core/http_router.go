@@ -82,6 +82,16 @@ func (r *HTTPRouter) GetTunnel(subdomain string) *Tunnel {
 	return r.tunnels[subdomain]
 }
 
+// customDomainOwnerMismatch reports whether a request that arrived via a
+// verified custom domain owned by customOwnerID is being routed to a tunnel
+// owned by a different user. customOwnerID < 0 means the request did not arrive
+// via a custom domain, so there is no ownership constraint. This stops a
+// released-and-retaken target subdomain from forwarding the domain owner's
+// traffic to a stranger's tunnel.
+func customDomainOwnerMismatch(customOwnerID, tunnelOwnerID int64) bool {
+	return customOwnerID >= 0 && customOwnerID != tunnelOwnerID
+}
+
 // ServeHTTP implements http.Handler. Go's net/http.Server handles HTTP/1.1
 // keep-alive automatically when using this interface.
 func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -96,11 +106,13 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// Extract subdomain from Host header
 	subdomain := r.extractSubdomain(req.Host)
+	customOwnerID := int64(-1) // -1: request did not arrive via a custom domain
 	if subdomain == "" {
 		// Try custom domain lookup
 		cd := r.server.LookupCustomDomain(req.Host)
 		if cd != nil && cd.Verified {
 			subdomain = cd.TargetSubdomain
+			customOwnerID = cd.UserID
 		}
 	}
 	if subdomain == "" {
@@ -114,6 +126,11 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if tunnel == nil && r.server.tunnelRegistry != nil {
 		entry, err := r.server.tunnelRegistry.LookupBySubdomain(subdomain)
 		if err == nil && entry != nil && entry.ServerID != r.server.LocalNodeID() {
+			if customDomainOwnerMismatch(customOwnerID, entry.UserID) {
+				r.log.Debug().Str("host", req.Host).Msg("Custom domain target owned by another user")
+				r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")
+				return
+			}
 			r.proxyToRemoteNode(w, req, entry)
 			return
 		}
@@ -129,6 +146,15 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if client == nil {
 		r.log.Warn().Str("client_id", tunnel.ClientID).Msg("Client not found for tunnel")
 		r.serveErrorPage(w, http.StatusBadGateway, "Tunnel unavailable")
+		return
+	}
+
+	// A verified custom domain must only route to a tunnel owned by the domain's
+	// owner; otherwise a released-and-retaken target subdomain would forward the
+	// owner's traffic (cookies, auth) to whoever claimed the subdomain next.
+	if customDomainOwnerMismatch(customOwnerID, client.UserID) {
+		r.log.Debug().Str("host", req.Host).Msg("Custom domain target owned by another user")
+		r.serveErrorPage(w, http.StatusNotFound, "Tunnel not found")
 		return
 	}
 
