@@ -141,7 +141,7 @@ onMounted(() => {
               {{ t('landing.hero.trustBadge') }}
             </p>
             <a
-              href="https://github.com/mephistofox/fxTunnel"
+              href="https://github.com/mephistofox/fxtun.dev"
               target="_blank"
               rel="noopener"
               class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-surface/50 text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"

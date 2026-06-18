@@ -511,7 +511,7 @@ function cycleTheme() {
         <span>fxtun</span>
         <a
           v-if="appVersion"
-          :href="`https://github.com/mephistofox/fxTunnel/releases/tag/${appVersion}`"
+          :href="`https://github.com/mephistofox/fxtun.dev/releases/tag/${appVersion}`"
           target="_blank"
           rel="noopener"
           class="hover:text-foreground transition-colors"
