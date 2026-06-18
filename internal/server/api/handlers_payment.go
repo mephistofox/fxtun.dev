@@ -858,6 +858,12 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// isPlanUpgrade reports whether switching from current to next raises the
+// price. Upgrades must go through paid checkout, not a free scheduled change.
+func isPlanUpgrade(current, next *database.Plan) bool {
+	return current != nil && next != nil && next.Price > current.Price
+}
+
 // handleChangePlan schedules a plan change for next period
 func (s *Server) handleChangePlan(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
@@ -908,6 +914,21 @@ func (s *Server) handleChangePlan(w http.ResponseWriter, r *http.Request) {
 			Success: true,
 			Message: "plan change cancelled",
 		})
+		return
+	}
+
+	// Reject scheduling an upgrade to a pricier plan. This endpoint only
+	// stages a change for the next billing period and takes no payment, so
+	// allowing an upgrade here would grant a paid plan for free. Upgrades must
+	// go through paid checkout; scheduled changes are downgrades/lateral only.
+	currentPlan, err := s.db.Plans.GetByID(sub.PlanID)
+	if err != nil || currentPlan == nil {
+		s.log.Error().Err(err).Msg("Failed to get current plan")
+		s.respondError(w, http.StatusInternalServerError, "failed to get current plan")
+		return
+	}
+	if isPlanUpgrade(currentPlan, newPlan) {
+		s.respondError(w, http.StatusBadRequest, "upgrades require checkout")
 		return
 	}
 

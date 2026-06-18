@@ -13,23 +13,28 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 )
 
+// setupTestDB connects to a Postgres instance given by FXTUNNEL_TEST_DSN,
+// runs migrations (via database.New) and truncates mutable tables so each
+// test starts from a clean slate while keeping the seeded plans. The test is
+// skipped when no DSN is configured, so the suite stays green in environments
+// without a database.
 func setupTestDB(t *testing.T) *database.Database {
 	t.Helper()
 
-	tmpFile, err := os.CreateTemp("", "scheduler_test_*.db")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+	dsn := os.Getenv("FXTUNNEL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("FXTUNNEL_TEST_DSN not set; skipping Postgres-backed scheduler test")
 	}
-	tmpFile.Close()
-
-	t.Cleanup(func() {
-		os.Remove(tmpFile.Name())
-	})
 
 	log := zerolog.New(zerolog.NewTestWriter(t))
-	db, err := database.New(tmpFile.Name(), log)
+	db, err := database.New(dsn, log)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
+	}
+
+	if _, err := db.Pool().Exec(context.Background(),
+		"TRUNCATE users, subscriptions, payments, audit_logs RESTART IDENTITY CASCADE"); err != nil {
+		t.Fatalf("Failed to reset test tables: %v", err)
 	}
 
 	t.Cleanup(func() {
@@ -154,6 +159,81 @@ func TestScheduler_StartAndStop(t *testing.T) {
 		// Success
 	case <-time.After(1 * time.Second):
 		t.Fatal("Scheduler did not stop in time")
+	}
+}
+
+// TestScheduler_ExpiredSubscriptionDoesNotApplyScheduledUpgrade reproduces the
+// plan-upgrade bypass: a subscription that expires at period end must drop the
+// user to the free plan, NOT have its pending next_plan_id applied. Otherwise
+// any subscriber could schedule an upgrade to a pricier plan, let the cheap
+// subscription lapse, and keep the pricier plan permanently for free.
+func TestScheduler_ExpiredSubscriptionDoesNotApplyScheduledUpgrade(t *testing.T) {
+	db := setupTestDB(t)
+	cfg := &config.ServerConfig{}
+	log := zerolog.New(zerolog.NewTestWriter(t))
+
+	freePlan, err := db.Plans.GetBySlug("free")
+	if err != nil {
+		t.Fatalf("Failed to get free plan: %v", err)
+	}
+	basePlan, err := db.Plans.GetBySlug("base")
+	if err != nil {
+		t.Fatalf("Failed to get base plan: %v", err)
+	}
+	businessPlan, err := db.Plans.GetBySlug("business")
+	if err != nil {
+		t.Fatalf("Failed to get business plan: %v", err)
+	}
+
+	// User on the cheapest paid plan.
+	user := &database.User{
+		Phone:        "+79990001122",
+		PasswordHash: "hash",
+		PlanID:       basePlan.ID,
+		IsActive:     true,
+	}
+	if err := db.Users.Create(user); err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Active, non-recurring subscription whose period has ended, with a pending
+	// upgrade to the priciest plan staged in next_plan_id.
+	expiredTime := time.Now().Add(-1 * time.Hour)
+	startTime := expiredTime.Add(-30 * 24 * time.Hour)
+	sub := &database.Subscription{
+		UserID:             user.ID,
+		PlanID:             basePlan.ID,
+		NextPlanID:         &businessPlan.ID,
+		Status:             database.SubscriptionStatusActive,
+		Recurring:          false,
+		CurrentPeriodStart: &startTime,
+		CurrentPeriodEnd:   &expiredTime,
+	}
+	if err := db.Subscriptions.Create(sub); err != nil {
+		t.Fatalf("Failed to create subscription: %v", err)
+	}
+
+	s := New(db, cfg, nil, log)
+	s.RunOnce()
+
+	updatedUser, err := db.Users.GetByID(user.ID)
+	if err != nil {
+		t.Fatalf("Failed to get user: %v", err)
+	}
+	if updatedUser.PlanID != freePlan.ID {
+		t.Errorf("expected user downgraded to free plan (%d), got %d — scheduled upgrade was applied to an expired subscription (free paid plan)",
+			freePlan.ID, updatedUser.PlanID)
+	}
+
+	updatedSub, err := db.Subscriptions.GetByID(sub.ID)
+	if err != nil {
+		t.Fatalf("Failed to get subscription: %v", err)
+	}
+	if updatedSub.Status != database.SubscriptionStatusExpired {
+		t.Errorf("expected subscription status expired, got %s", updatedSub.Status)
+	}
+	if updatedSub.NextPlanID != nil {
+		t.Errorf("expected next_plan_id cleared on expiry, still set to %d", *updatedSub.NextPlanID)
 	}
 }
 
