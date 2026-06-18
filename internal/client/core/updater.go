@@ -133,6 +133,27 @@ func SelfUpdate(downloadURL string, extraHosts ...string) error {
 	}
 	tmpFile.Close()
 
+	// Verify the binary's signature before trusting it. When an update public
+	// key is baked in, an update with a missing or invalid signature is rejected
+	// so a compromised download host cannot push a malicious binary. When no key
+	// is configured, verification is skipped (preserving prior behaviour).
+	if updateSignatureConfigured() {
+		sig, err := downloadUpdateSignature(downloadURL, extraHosts...)
+		if err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("fetch update signature: %w", err)
+		}
+		bin, err := os.ReadFile(tmpPath)
+		if err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("read update for verification: %w", err)
+		}
+		if err := verifyBinarySignature(bin, sig, updatePublicKeyHex); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("verify update: %w", err)
+		}
+	}
+
 	// Make executable
 	if err := os.Chmod(tmpPath, 0755); err != nil {
 		os.Remove(tmpPath)
@@ -146,6 +167,33 @@ func SelfUpdate(downloadURL string, extraHosts ...string) error {
 	}
 
 	return nil
+}
+
+// downloadUpdateSignature fetches the hex-encoded ed25519 signature published
+// next to the binary at <downloadURL>.sig. The signature URL is validated with
+// the same host allowlist as the binary.
+func downloadUpdateSignature(downloadURL string, extraHosts ...string) (string, error) {
+	sigURL := downloadURL + ".sig"
+	if err := ValidateUpdateURL(sigURL, extraHosts...); err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(sigURL) //nolint:gosec // URL validated above
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	sig, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(sig)), nil
 }
 
 // IsVersionIncompatible returns true if currentVersion is below minVersion.
