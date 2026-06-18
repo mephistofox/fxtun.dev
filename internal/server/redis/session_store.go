@@ -11,7 +11,10 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
-var _ store.SessionStore = (*SessionStore)(nil)
+var (
+	_ store.SessionStore        = (*SessionStore)(nil)
+	_ store.RotatedTokenTracker = (*SessionStore)(nil)
+)
 
 const maxSessionTTL = 7 * 24 * time.Hour // 7 days
 
@@ -183,6 +186,35 @@ func (s *SessionStore) DeleteByUserID(userID int64) error {
 // DeleteExpired is a no-op — Redis TTL handles expiration automatically.
 func (s *SessionStore) DeleteExpired() (int64, error) {
 	return 0, nil
+}
+
+// MarkRotated records a rotated refresh-token hash with the owning user, kept
+// for ttl so a later reuse of the same token can be detected.
+func (s *SessionStore) MarkRotated(tokenHash string, userID int64, ttl time.Duration) error {
+	if ttl <= 0 {
+		return nil
+	}
+	ctx := context.Background()
+	key := s.c.Key("session", "rotated", tokenHash)
+	return s.c.RDB().Set(ctx, key, strconv.FormatInt(userID, 10), ttl).Err()
+}
+
+// RotatedOwner returns the user a recently rotated token belonged to.
+func (s *SessionStore) RotatedOwner(tokenHash string) (int64, bool, error) {
+	ctx := context.Background()
+	key := s.c.Key("session", "rotated", tokenHash)
+	v, err := s.c.RDB().Get(ctx, key).Result()
+	if err == redis.Nil {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	userID, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return 0, false, err
+	}
+	return userID, true, nil
 }
 
 // parseSession converts a Redis hash map into a database.Session.
