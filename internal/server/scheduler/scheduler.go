@@ -181,6 +181,13 @@ func (s *Scheduler) runCheckSteps() {
 	s.cleanupSentReminders()
 }
 
+// renewalGracePeriod is how long a recurring subscription may stay past its
+// period end (i.e. renewal failing) before it is downgraded to the free plan.
+// It is sized to cover the payment providers' dunning/retry windows (YooKassa
+// autopay retries and Creem dunning) so a paying-but-delayed user is not
+// downgraded a cycle early.
+const renewalGracePeriod = 7 * 24 * time.Hour
+
 // processExpiredSubscriptions deactivates expired non-recurring subscriptions
 func (s *Scheduler) processExpiredSubscriptions() {
 	// Get subscriptions that have expired and are not set for recurring
@@ -191,9 +198,17 @@ func (s *Scheduler) processExpiredSubscriptions() {
 	}
 
 	for _, sub := range subs {
-		// Skip recurring subscriptions - they will be handled by renewal process
+		// Recurring subscriptions are normally renewed by processRecurringRenewals.
+		// But if renewals keep failing the period stays expired, so after a grace
+		// window stop granting the paid plan for free and downgrade to free.
 		if sub.Recurring && sub.Status == database.SubscriptionStatusActive {
-			continue
+			if sub.CurrentPeriodEnd == nil || time.Since(*sub.CurrentPeriodEnd) < renewalGracePeriod {
+				continue
+			}
+			s.log.Warn().
+				Int64("subscription_id", sub.ID).
+				Int64("user_id", sub.UserID).
+				Msg("Recurring subscription past renewal grace; downgrading to free")
 		}
 
 		s.log.Info().
