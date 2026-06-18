@@ -38,6 +38,11 @@ var osNames = map[string]string{
 // parseBinaryName extracts platform info from binary filename.
 // Patterns: fxtunnel-{os}-{arch}[.exe], fxtunnel-gui-{os}-{arch}[.exe]
 func parseBinaryName(filename string) (platform string, info platformInfo, ok bool) {
+	// Detached signatures live next to binaries but are not themselves a
+	// downloadable platform; they are served via the .sig suffix in handleDownload.
+	if strings.HasSuffix(filename, ".sig") {
+		return "", platformInfo{}, false
+	}
 	name := strings.TrimSuffix(filename, ".exe")
 
 	var clientType, remainder string
@@ -129,6 +134,10 @@ func (s *Server) handleListDownloads(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	platform := chi.URLParam(r, "platform")
 
+	// A ".sig" suffix requests the binary's detached update signature.
+	sigRequested := strings.HasSuffix(platform, ".sig")
+	platform = strings.TrimSuffix(platform, ".sig")
+
 	found, _, _ := s.scanDownloads()
 	info, ok := found[platform]
 	if !ok {
@@ -136,7 +145,11 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := filepath.Join(s.downloadsPath, info.Filename)
+	filename := info.Filename
+	if sigRequested {
+		filename += ".sig"
+	}
+	filePath := filepath.Join(s.downloadsPath, filename)
 
 	// Check if file exists
 	stat, err := os.Stat(filePath)
@@ -160,7 +173,6 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// Set headers for download
-	filename := info.Filename
 	if strings.HasSuffix(filename, ".exe") {
 		w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
 	} else {
