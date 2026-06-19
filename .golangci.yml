@@ -25,5 +25,11 @@ issues:
     - path: internal/gui/
       linters:
         - unused
+    # G115 flags every int -> int32/uint16/... conversion regardless of actual
+    # overflow risk. The conversions here are bounded (counts, lengths, ports),
+    # and it is too noisy to annotate each site individually.
+    - linters:
+        - gosec
+      text: "G115"
   max-issues-per-linter: 50
   max-same-issues: 10
