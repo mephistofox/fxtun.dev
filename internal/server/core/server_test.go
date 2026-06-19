@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"net"
 	"os"
-	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
@@ -21,17 +20,21 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 )
 
-// testSetup creates a server with a temp SQLite database and a DB API token.
-// Returns the server, database, and the raw token string.
+// testSetup creates a server backed by a real Postgres database (TEST_DATABASE_DSN)
+// and a DB API token. Returns the server, database, and the raw token string.
+// The test is skipped when no DSN is configured, since database.New no longer
+// supports the legacy SQLite path.
 func testSetup(t *testing.T) (*Server, *database.Database, string) {
 	t.Helper()
 
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_DSN not set; skipping database-dependent test")
+	}
 
 	log := zerolog.New(os.Stderr).Level(zerolog.Disabled)
 
-	db, err := database.New(dbPath, log)
+	db, err := database.New(dsn, log)
 	if err != nil {
 		t.Fatalf("database.New: %v", err)
 	}

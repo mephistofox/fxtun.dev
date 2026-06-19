@@ -374,42 +374,9 @@ func BenchmarkRawProxy(b *testing.B) {
 	}
 }
 
-// TestBenchEnvSetup verifies the benchmark environment works correctly.
-func TestBenchEnvSetup(t *testing.T) {
-	env := newBenchEnv(&testing.B{})
-	defer env.close()
-
-	// Test direct
-	resp, err := http.Get("http://" + env.echoAddr + "/")
-	if err != nil {
-		t.Fatalf("direct: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("direct status: %d", resp.StatusCode)
-	}
-
-	// Test tunnel
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return net.Dial("tcp", env.tunnelHTTPAddr())
-			},
-			DisableKeepAlives: true,
-		},
-	}
-	req, _ := http.NewRequest("GET", "http://"+env.tunnelHost+"/", nil)
-	req.Header.Set("X-FxTunnel-Skip-Warning", "1")
-	resp, err = client.Do(req)
-	if err != nil {
-		t.Fatalf("tunnel: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("tunnel status: %d", resp.StatusCode)
-	}
-	t.Logf("Direct: %s, Tunnel HTTP: %s", env.echoAddr, env.tunnelHTTPAddr())
-}
+// Note: the benchmark environment (newBenchEnv) is exercised by the Benchmark*
+// functions below. It must not be driven from a Test with a fabricated
+// *testing.B — that aborts via runtime.Goexit and fails the package.
 
 // BenchmarkParallelThroughput measures aggregate throughput with concurrent connections.
 func BenchmarkParallelThroughput(b *testing.B) {
