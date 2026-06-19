@@ -14,11 +14,11 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/geoip"
-	"github.com/mephistofox/fxtunnel/internal/protocol"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
@@ -544,17 +544,6 @@ func sortNodesByLoad(nodes []store.NodeEntry) {
 			j--
 		}
 	}
-}
-
-// selectBestNode picks the best edge node for a client (wrapper around
-// selectCandidates for backward compatibility).
-// Returns the selected node and the selection reason ("geo" or "least-loaded").
-func (s *Server) selectBestNode(clientIP string) (*store.NodeEntry, string) {
-	candidates, selection := s.selectCandidates(clientIP)
-	if len(candidates) == 0 {
-		return nil, ""
-	}
-	return &candidates[0], selection
 }
 
 // authenticateViaHub delegates client authentication to the hub (used in node mode).

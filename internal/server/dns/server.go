@@ -340,7 +340,7 @@ func buildRR(rec Record, qname string, ttl uint32) dns.RR {
 		return &dns.AAAA{Hdr: hdr, AAAA: ip.To16()}
 	case "MX":
 		hdr.Rrtype = dns.TypeMX
-		return &dns.MX{Hdr: hdr, Preference: uint16(rec.Priority), Mx: dns.Fqdn(rec.Value)}
+		return &dns.MX{Hdr: hdr, Preference: uint16(rec.Priority), Mx: dns.Fqdn(rec.Value)} //nolint:gosec // priority is a bounded DNS preference value
 	case "TXT":
 		hdr.Rrtype = dns.TypeTXT
 		return &dns.TXT{Hdr: hdr, Txt: splitTXT(rec.Value)}
@@ -367,9 +367,9 @@ func buildRR(rec Record, qname string, ttl uint32) dns.RR {
 		hdr.Rrtype = dns.TypeSRV
 		return &dns.SRV{
 			Hdr:      hdr,
-			Priority: uint16(rec.Priority),
-			Weight:   uint16(rec.Weight),
-			Port:     uint16(rec.Port),
+			Priority: uint16(rec.Priority), //nolint:gosec // priority is a bounded DNS SRV value
+			Weight:   uint16(rec.Weight),   //nolint:gosec // weight is a bounded DNS SRV value
+			Port:     uint16(rec.Port),     //nolint:gosec // port is bounded to 0-65535
 			Target:   dns.Fqdn(rec.Value),
 		}
 	}
@@ -406,7 +406,7 @@ func buildSOA(zone *Zone) dns.RR {
 		},
 		Ns:      "ns1." + zoneName,
 		Mbox:    "admin." + zoneName,
-		Serial:  uint32(time.Now().Unix()),
+		Serial:  uint32(time.Now().Unix()), //nolint:gosec // unix seconds fit uint32 until year 2106
 		Refresh: 3600,
 		Retry:   900,
 		Expire:  604800,

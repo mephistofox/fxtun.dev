@@ -51,8 +51,8 @@ func (r *AuditRepository) GetByUserID(userID int64, limit, offset int) ([]*Audit
 
 	rows, err := r.q.ListAuditLogsByUserID(ctx, sqlc.ListAuditLogsByUserIDParams{
 		UserID: int64ToPgint8(userID),
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  int32(limit),  //nolint:gosec // limit is bounded pagination value
+		Offset: int32(offset), //nolint:gosec // offset is bounded pagination value
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list audit logs by user id: %w", err)
@@ -75,8 +75,8 @@ func (r *AuditRepository) List(limit, offset int) ([]*AuditLog, int, error) {
 	}
 
 	rows, err := r.q.ListAuditLogs(ctx, sqlc.ListAuditLogsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  int32(limit),  //nolint:gosec // limit is bounded pagination value
+		Offset: int32(offset), //nolint:gosec // offset is bounded pagination value
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list audit logs: %w", err)
@@ -100,8 +100,8 @@ func (r *AuditRepository) ListByAction(action string, limit, offset int) ([]*Aud
 
 	rows, err := r.q.ListAuditLogsByAction(ctx, sqlc.ListAuditLogsByActionParams{
 		Action: action,
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  int32(limit),  //nolint:gosec // limit is bounded pagination value
+		Offset: int32(offset), //nolint:gosec // offset is bounded pagination value
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list audit logs by action: %w", err)

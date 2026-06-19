@@ -425,10 +425,10 @@ func (s *Server) handleMergeUsers(w http.ResponseWriter, r *http.Request) {
 
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&currentUser.ID, database.ActionUsersMerged, map[string]interface{}{
-		"primary_user_id":    req.PrimaryUserID,
-		"primary_email":      primaryUser.Email,
-		"secondary_user_id":  req.SecondaryUserID,
-		"secondary_email":    secondaryUser.Email,
+		"primary_user_id":   req.PrimaryUserID,
+		"primary_email":     primaryUser.Email,
+		"secondary_user_id": req.SecondaryUserID,
+		"secondary_email":   secondaryUser.Email,
 	}, ipAddress)
 
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
@@ -569,7 +569,7 @@ func (s *Server) handleCreatePlan(w http.ResponseWriter, r *http.Request) {
 		MaxCustomDomains: req.MaxCustomDomains, MaxTokens: req.MaxTokens,
 		MaxTunnelsPerToken: req.MaxTunnelsPerToken, BandwidthMbps: req.BandwidthMbps,
 		InspectorEnabled: req.InspectorEnabled,
-		IsPublic: req.IsPublic, IsRecommended: req.IsRecommended,
+		IsPublic:         req.IsPublic, IsRecommended: req.IsRecommended,
 		RateLimitTCP: req.RateLimitTCP, RateLimitUDP: req.RateLimitUDP, RateLimitHTTP: req.RateLimitHTTP,
 		CreemProductID: req.CreemProductID, MaxDataSessions: req.MaxDataSessions,
 	}
@@ -1249,7 +1249,7 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	// Send initial ping
-	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
+	_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	_, _ = fmt.Fprintf(w, ": ping\n\n")
 	flusher.Flush()
 
@@ -1257,13 +1257,13 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 	defer ticker.Stop()
 
 	// Send initial stats immediately
-	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
+	_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	s.sendAdminStatsEvent(w, flusher)
 
 	for {
 		select {
 		case <-ticker.C:
-			rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
+			_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 			s.sendAdminStatsEvent(w, flusher)
 		case <-r.Context().Done():
 			return
@@ -1477,18 +1477,18 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 			"wildcard": s.cfg.Domain.Wildcard,
 		},
 		"features": map[string]interface{}{
-			"tls_enabled":           s.cfg.TLS.Enabled,
-			"totp_enabled":          s.cfg.TOTP.Enabled,
-			"custom_domains":        s.cfg.CustomDomains.Enabled,
-			"inspect_enabled":       s.cfg.Inspect.Enabled,
-			"downloads_enabled":     s.cfg.Downloads.Enabled,
-			"oauth_github":          s.cfg.OAuth.GitHub.GetCredentials(s.cfg.Domain.Base) != nil,
-			"oauth_google":          s.cfg.OAuth.Google.ClientID != "",
-			"yookassa_enabled":      s.cfg.YooKassa.Enabled,
-			"creem_enabled":         s.cfg.Creem.Enabled,
-			"smtp_enabled":          s.cfg.SMTP.Enabled,
-			"telegram_enabled":      s.cfg.Telegram.Enabled,
-			"redis_enabled":         s.cfg.Redis.Enabled,
+			"tls_enabled":       s.cfg.TLS.Enabled,
+			"totp_enabled":      s.cfg.TOTP.Enabled,
+			"custom_domains":    s.cfg.CustomDomains.Enabled,
+			"inspect_enabled":   s.cfg.Inspect.Enabled,
+			"downloads_enabled": s.cfg.Downloads.Enabled,
+			"oauth_github":      s.cfg.OAuth.GitHub.GetCredentials(s.cfg.Domain.Base) != nil,
+			"oauth_google":      s.cfg.OAuth.Google.ClientID != "",
+			"yookassa_enabled":  s.cfg.YooKassa.Enabled,
+			"creem_enabled":     s.cfg.Creem.Enabled,
+			"smtp_enabled":      s.cfg.SMTP.Enabled,
+			"telegram_enabled":  s.cfg.Telegram.Enabled,
+			"redis_enabled":     s.cfg.Redis.Enabled,
 		},
 		"mode": string(s.cfg.EffectiveMode()),
 	}

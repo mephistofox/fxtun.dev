@@ -15,11 +15,6 @@ const (
 	oauthCleanupInterval = 1 * time.Minute
 )
 
-const (
-	oauthPurposeLogin = "login"
-	oauthPurposeLink  = "link"
-)
-
 type oauthStateInternal struct {
 	entry     *store.OAuthStateEntry
 	createdAt time.Time

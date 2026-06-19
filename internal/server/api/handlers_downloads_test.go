@@ -35,10 +35,10 @@ func downloadReq(t *testing.T, platform string) *http.Request {
 
 func TestHandleDownload_ServesBinaryAndSignature(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "fxtunnel-linux-amd64"), []byte("BINARY"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "fxtunnel-linux-amd64"), []byte("BINARY"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "fxtunnel-linux-amd64.sig"), []byte("deadbeef"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "fxtunnel-linux-amd64.sig"), []byte("deadbeef"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

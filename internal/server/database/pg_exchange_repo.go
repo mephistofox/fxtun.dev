@@ -54,10 +54,10 @@ func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) er
 		Host:             ex.Host,
 		RequestHeaders:   reqHeaders,
 		RequestBody:      reqBody,
-		RequestBodySize:  int32(ex.RequestBodySize),
+		RequestBodySize:  int32(ex.RequestBodySize), //nolint:gosec // body size bounded by maxExchangeBodySize (1MB)
 		ResponseHeaders:  respHeaders,
 		ResponseBody:     respBody,
-		ResponseBodySize: int32(ex.ResponseBodySize),
+		ResponseBodySize: int32(ex.ResponseBodySize), //nolint:gosec // body size bounded by maxExchangeBodySize (1MB)
 		StatusCode:       int32(ex.StatusCode),
 		RemoteAddr:       stringToPgtext(ex.RemoteAddr),
 	})
