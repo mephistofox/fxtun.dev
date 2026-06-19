@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 const testToken = "test-session-token"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 	"github.com/rs/zerolog"
 )
 

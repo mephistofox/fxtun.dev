@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // SessionRepository handles session database operations using PostgreSQL via sqlc.

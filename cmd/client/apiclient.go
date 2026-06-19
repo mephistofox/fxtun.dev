@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
 )
 
 type apiClient struct {
