@@ -46,13 +46,13 @@ type verifyTokenRequest struct {
 }
 
 type verifyTokenResponse struct {
-	Valid           bool   `json:"valid"`
-	UserID          int64  `json:"user_id,omitempty"`
-	MaxTunnels      int    `json:"max_tunnels,omitempty"`
-	MaxDataSessions int    `json:"max_data_sessions,omitempty"`
-	IsAdmin         bool   `json:"is_admin,omitempty"`
-	InspectorEnabled bool  `json:"inspector_enabled,omitempty"`
-	Error           string `json:"error,omitempty"`
+	Valid            bool   `json:"valid"`
+	UserID           int64  `json:"user_id,omitempty"`
+	MaxTunnels       int    `json:"max_tunnels,omitempty"`
+	MaxDataSessions  int    `json:"max_data_sessions,omitempty"`
+	IsAdmin          bool   `json:"is_admin,omitempty"`
+	InspectorEnabled bool   `json:"inspector_enabled,omitempty"`
+	Error            string `json:"error,omitempty"`
 }
 
 type adminNodeDTO struct {
@@ -142,7 +142,7 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 			Msg("Edge node re-registered (existing)")
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(nodeRegisterResponse{
+		_ = json.NewEncoder(w).Encode(nodeRegisterResponse{
 			NodeID: existing.NodeID,
 			Status: existing.Status,
 		})
@@ -174,7 +174,7 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 		Msg("Edge node registered (pending approval)")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(nodeRegisterResponse{
+	_ = json.NewEncoder(w).Encode(nodeRegisterResponse{
 		NodeID: nodeID,
 		Status: "pending",
 	})
@@ -204,7 +204,7 @@ func (s *Server) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 			if dbErr == nil && node != nil {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusAccepted)
-				json.NewEncoder(w).Encode(map[string]string{"status": node.Status})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": node.Status})
 				return
 			}
 			http.Error(w, `{"error":"node not found"}`, http.StatusNotFound)
@@ -267,7 +267,7 @@ func (s *Server) handleNodeTLSCert(w http.ResponseWriter, r *http.Request) {
 	s.log.Info().Str("node_id", nodeID).Str("name", node.Name).Msg("TLS cert issued to approved node")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"cert_pem": string(certPEM),
 		"key_pem":  string(keyPEM),
 	})
@@ -284,13 +284,13 @@ func (s *Server) handleVerifyClientToken(w http.ResponseWriter, r *http.Request)
 
 	if req.Token == "" {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(verifyTokenResponse{Valid: false, Error: "empty token"})
+		_ = json.NewEncoder(w).Encode(verifyTokenResponse{Valid: false, Error: "empty token"})
 		return
 	}
 
 	resp := s.verifyToken(req.Token)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) verifyToken(token string) verifyTokenResponse {
@@ -409,7 +409,7 @@ func (s *Server) handleListNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"nodes": dtos,
 		"total": len(dtos),
 	})
@@ -446,7 +446,7 @@ func (s *Server) handleApproveNode(w http.ResponseWriter, r *http.Request) {
 
 	s.log.Info().Int64("id", id).Msg("Edge node approved")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "active"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "active"})
 }
 
 func (s *Server) handleDisableNode(w http.ResponseWriter, r *http.Request) {
@@ -481,7 +481,7 @@ func (s *Server) handleDisableNode(w http.ResponseWriter, r *http.Request) {
 
 	s.log.Info().Int64("id", id).Msg("Edge node disabled")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "disabled"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "disabled"})
 }
 
 func (s *Server) handleDeleteNode(w http.ResponseWriter, r *http.Request) {

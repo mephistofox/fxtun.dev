@@ -39,7 +39,7 @@ func bundleRemotePortToPg(port int) pgtype.Int4 {
 	if port == 0 {
 		return pgtype.Int4{}
 	}
-	return pgtype.Int4{Int32: int32(port), Valid: true}
+	return pgtype.Int4{Int32: int32(port), Valid: true} //nolint:gosec // port is bounded to a valid port range
 }
 
 // Create creates a new user bundle.
@@ -49,7 +49,7 @@ func (r *UserBundleRepository) Create(bundle *UserBundle) error {
 		UserID:      bundle.UserID,
 		Name:        bundle.Name,
 		Type:        bundle.Type,
-		LocalPort:   int32(bundle.LocalPort),
+		LocalPort:   int32(bundle.LocalPort), //nolint:gosec // local port is bounded to a valid port range
 		Subdomain:   bundleSubdomainToPg(bundle.Subdomain),
 		RemotePort:  bundleRemotePortToPg(bundle.RemotePort),
 		AutoConnect: bundle.AutoConnect,
@@ -74,7 +74,7 @@ func (r *UserBundleRepository) Update(bundle *UserBundle) error {
 		UserID:      bundle.UserID,
 		Name:        bundle.Name,
 		Type:        bundle.Type,
-		LocalPort:   int32(bundle.LocalPort),
+		LocalPort:   int32(bundle.LocalPort), //nolint:gosec // local port is bounded to a valid port range
 		Subdomain:   bundleSubdomainToPg(bundle.Subdomain),
 		RemotePort:  bundleRemotePortToPg(bundle.RemotePort),
 		AutoConnect: bundle.AutoConnect,
@@ -189,7 +189,7 @@ func (r *UserBundleRepository) SyncBulk(userID int64, bundles []*UserBundle) err
 			UserID:      bundle.UserID,
 			Name:        bundle.Name,
 			Type:        bundle.Type,
-			LocalPort:   int32(bundle.LocalPort),
+			LocalPort:   int32(bundle.LocalPort), //nolint:gosec // local port is bounded to a valid port range
 			Subdomain:   bundleSubdomainToPg(bundle.Subdomain),
 			RemotePort:  bundleRemotePortToPg(bundle.RemotePort),
 			AutoConnect: bundle.AutoConnect,

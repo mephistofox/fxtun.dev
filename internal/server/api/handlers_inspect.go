@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
 )
 
 func (s *Server) checkInspectorAccess(w http.ResponseWriter, user *auth.AuthenticatedUser) bool {
@@ -210,7 +210,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 	ch := buf.Subscribe()
 	defer buf.Unsubscribe(ch)
 
-	rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
+	_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 	_, _ = fmt.Fprintf(w, ": ping\n\n")
 	flusher.Flush()
 
@@ -221,7 +221,7 @@ func (s *Server) handleInspectStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			data, _ := json.Marshal(ex.Summary())
-			rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
+			_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 			_, _ = fmt.Fprintf(w, "event: exchange\ndata: %s\n\n", data)
 			flusher.Flush()
 		case <-r.Context().Done():
