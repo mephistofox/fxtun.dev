@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -101,6 +102,7 @@ type Server struct {
 	nodeRegistry        store.NodeRegistry
 	ipBanStore          store.IPBanStore
 	shutdownCh          chan struct{}
+	shutdownOnce        sync.Once
 }
 
 // Option configures the API server.
@@ -513,7 +515,10 @@ func (s *Server) Start(ctx context.Context) error {
 // Shutdown gracefully stops the API server
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.log.Info().Msg("Stopping API server")
-	close(s.shutdownCh)
+	// Shutdown is invoked both by the Start ctx.Done watcher and explicitly from
+	// main on signal, so guard the channel close to stay idempotent (a double
+	// close panics and was crashing the server during graceful shutdown).
+	s.shutdownOnce.Do(func() { close(s.shutdownCh) })
 	if s.httpServer != nil {
 		return s.httpServer.Shutdown(ctx)
 	}

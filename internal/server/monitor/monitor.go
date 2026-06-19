@@ -13,12 +13,13 @@ type AlertFunc func(Alert)
 
 // Monitor tracks per-tunnel metrics and runs periodic detection.
 type Monitor struct {
-	cfg     Config
-	tunnels sync.Map // tunnelID -> *TunnelMetrics
-	alertFn AlertFunc
-	log     zerolog.Logger
-	stopCh  chan struct{}
-	wg      sync.WaitGroup
+	cfg      Config
+	tunnels  sync.Map // tunnelID -> *TunnelMetrics
+	alertFn  AlertFunc
+	log      zerolog.Logger
+	stopCh   chan struct{}
+	stopOnce sync.Once
+	wg       sync.WaitGroup
 }
 
 // New creates a new Monitor. If alertFn is nil, alerts are only logged.
@@ -38,7 +39,7 @@ func New(cfg Config, alertFn AlertFunc) *Monitor {
 
 // Stop shuts down the detection loop.
 func (m *Monitor) Stop() {
-	close(m.stopCh)
+	m.stopOnce.Do(func() { close(m.stopCh) })
 	m.wg.Wait()
 }
 
