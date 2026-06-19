@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.10.0](https://github.com/mephistofox/fxtun.dev/compare/v3.9.2...v3.10.0) (2026-06-19)
+
+
+### Features
+
+* **api:** serve detached update signatures from the downloads endpoint ([5c47b2c](https://github.com/mephistofox/fxtun.dev/commit/5c47b2c8adda18a0620b76b89f6dae2e15ed75e1))
+* **auth:** detect refresh-token reuse and revoke the session family ([4c3f4ca](https://github.com/mephistofox/fxtun.dev/commit/4c3f4ca72390933d1be13574285e5a8ba43ad545))
+* **client:** verify self-update binary signature before install ([ad7497d](https://github.com/mephistofox/fxtun.dev/commit/ad7497d559646e0a4794a39413e24afabc9855b4))
+
+
+### Bug Fixes
+
+* **api:** key rate limiters on real client IP behind trusted proxy ([15e4b33](https://github.com/mephistofox/fxtun.dev/commit/15e4b33f2e70907cc6925c50a863d78afc445f2d))
+* **billing:** block scheduled plan-upgrade bypass on expired subscriptions ([783576a](https://github.com/mephistofox/fxtun.dev/commit/783576a1ef514396984ddaa9f25c85cb4aa1d4ee))
+* **core:** verify custom-domain target ownership at route time ([10e3430](https://github.com/mephistofox/fxtun.dev/commit/10e3430e242737b687fb9b4d328f4277fbd785a4))
+* **daemon:** authenticate and guard the local daemon HTTP API ([8de300d](https://github.com/mephistofox/fxtun.dev/commit/8de300d54581e3cb834fb43d20e9879ac7f47f40))
+* **redis:** guard tunnel subdomain claim against cross-node hijack ([265ef8b](https://github.com/mephistofox/fxtun.dev/commit/265ef8b1fe0bc522eaf35de575c9d3d94223f0ce))
+* **scheduler:** downgrade recurring subscriptions after renewal grace period ([5b60d51](https://github.com/mephistofox/fxtun.dev/commit/5b60d51cb49e33b303fd0c3e22f21fde719982bc))
+* **scheduler:** run subscription checks under a cluster advisory lock ([9debc2c](https://github.com/mephistofox/fxtun.dev/commit/9debc2ceadf5de5f62d065c6c80c3f2f56ff9df0))
+* **web:** point github links to public mirror fxtun.dev repo ([ab6a9a3](https://github.com/mephistofox/fxtun.dev/commit/ab6a9a365f82daef209ec8a9aa8331b04c463e1e))
+
 ## [3.9.2](https://github.com/mephistofox/fxTunnel/compare/v3.9.1...v3.9.2) (2026-06-17)
 
 
