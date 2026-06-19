@@ -62,7 +62,12 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          # Build golangci-lint from source with the Go toolchain set up above
+          # (1.25) so its typechecker can analyse packages that require go 1.25.
+          # The prebuilt release binary is built with 1.24 and fails on them.
+          # Pinned to the latest v1 line, which uses this repo's v1 config.
+          version: v1.64.8
+          install-mode: goinstall
           args: --timeout=5m ./cmd/server/... ./internal/server/... ./internal/config/... ./internal/protocol/... ./internal/inspect/...
 
   build-check:
