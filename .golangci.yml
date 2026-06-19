@@ -1,6 +1,10 @@
 run:
   timeout: 5m
   modules-download-mode: readonly
+  # Lint against Go 1.24: the golangci-lint release binary is built with 1.24,
+  # so reading go.mod's 1.25.0 as the target errors out. The code uses no
+  # 1.25-only language features, so analysing as 1.24 is equivalent.
+  go: "1.24"
 
 linters:
   enable:
