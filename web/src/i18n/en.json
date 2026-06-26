@@ -360,7 +360,7 @@
         },
         {
           "q": "How much does fxTunnel cost?",
-          "a": "fxTunnel offers four plans. Free: 3 tunnels, any subdomain, HTTP + TCP, no traffic limits or session timeout — enough for individual development. Starter ($2.50/month): 5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees — you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
+          "a": "fxTunnel offers four plans. Free: 3 tunnels, any subdomain, HTTP + TCP, no traffic limits or session timeout — enough for individual development. Starter ($2.50/month): 3 tunnels, 1 reserved subdomain, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees — you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
@@ -823,7 +823,7 @@
       "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Nocodo LTD, Republic of Cyprus."
     },
     "pricing": {
-      "title": "Pricing Plans — fxTunnel {'|'} Free, Base & Pro",
+      "title": "Pricing Plans — fxTunnel {'|'} Free, Starter & Pro",
       "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels. Starter from $2.50/mo with traffic inspector + UDP. Pro from $5/mo with 15 tunnels. Business from $7.50/mo with 50 custom domains."
     },
     "about": {
@@ -979,7 +979,7 @@
       "table": {
         "price": { "label": "Price", "fxtunnel": "Free / from $2.50/mo", "competitor": "Free / from 299 RUB/mo" },
         "protocols": { "label": "Protocols", "fxtunnel": "HTTP + TCP + UDP", "competitor": "HTTP + TCP + SSHd" },
-        "tunnels": { "label": "Simultaneous tunnels", "fxtunnel": "1 (free) / up to 15", "competitor": "1 (free) / up to 10" },
+        "tunnels": { "label": "Simultaneous tunnels", "fxtunnel": "3 (free) / up to 50", "competitor": "1 (free) / up to 10" },
         "sessionTimeout": { "label": "Session timeout", "fxtunnel": "Unlimited", "competitor": "30 min (free)" },
         "requestLimits": { "label": "Request limits", "fxtunnel": "Unlimited", "competitor": "Not specified" },
         "bandwidth": { "label": "Bandwidth", "fxtunnel": "Unlimited", "competitor": "Not specified" },
@@ -992,7 +992,7 @@
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to tuna.am?",
-        "pricingText": "fxTunnel offers a free plan with 3 tunnels, any subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Starter plan is 200 RUB/month with 5 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is nearly 1,200 RUB — enough for an extra plan or hosting.",
+        "pricingText": "fxTunnel offers a free plan with 3 tunnels, any subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Starter plan is 200 RUB/month with 3 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is nearly 1,200 RUB — enough for an extra plan or hosting.",
         "protocolsTitle": "What protocols do fxTunnel and tuna.am support?",
         "protocolsText": "fxTunnel supports HTTP, TCP, and UDP tunnels. tuna.am supports HTTP, TCP, and SSHd tunnels but does not offer UDP (source: tuna.am, March 2026). If you need to expose game servers, DNS services, or VoIP applications, fxTunnel is the better choice. tuna.am has a unique SSHd tunnel type that provides a built-in SSH server without requiring your own SSH daemon — convenient for quick remote access to a machine without configuring OpenSSH. Your choice depends on priorities: UDP services or built-in SSH access.",
         "limitsTitle": "What are the free plan limits for fxTunnel vs tuna.am?",
@@ -1018,7 +1018,7 @@
       "table": {
         "price": { "label": "Price", "fxtunnel": "Free / from $2.50/mo", "competitor": "Free / from 99 RUB/mo" },
         "protocols": { "label": "Protocols", "fxtunnel": "HTTP + TCP + UDP", "competitor": "HTTP + TCP (paid only)" },
-        "tunnels": { "label": "Simultaneous tunnels", "fxtunnel": "1 (free) / up to 15", "competitor": "Not specified" },
+        "tunnels": { "label": "Simultaneous tunnels", "fxtunnel": "3 (free) / up to 50", "competitor": "Not specified" },
         "sessionTimeout": { "label": "Session timeout", "fxtunnel": "Unlimited", "competitor": "Unlimited" },
         "requestLimits": { "label": "Request limits", "fxtunnel": "Unlimited", "competitor": "100/min (free), 1000/min (paid)" },
         "bandwidth": { "label": "Daily bandwidth", "fxtunnel": "Unlimited", "competitor": "1 GB/day (free), 5 GB/day (paid)" },
@@ -1155,7 +1155,7 @@
       },
       "starter": {
         "title": "Starter — $2.50/mo",
-        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Five active tunnels let you expose a frontend, backend, and webhook receiver simultaneously. Five reserved subdomains guarantee stable URLs for demos — no other user can claim your addresses. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
+        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Three active tunnels let you expose a frontend, backend, and webhook receiver simultaneously. One reserved subdomain guarantees stable URLs for demos — no other user can claim your address. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
       },
       "pro": {
         "title": "Pro — $5/mo",
