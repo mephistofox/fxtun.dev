@@ -177,7 +177,7 @@ function cycleTheme() {
       <div class="grid grid-cols-3 gap-3 text-center text-xs">
         <div class="p-3 rounded-lg bg-muted/30">
           <div class="text-primary font-semibold">HTTP</div>
-          <div class="text-muted-foreground">TCP / UDP</div>
+          <div class="text-muted-foreground">TCP</div>
         </div>
         <div class="p-3 rounded-lg bg-muted/30">
           <div class="text-primary font-semibold">TLS</div>
