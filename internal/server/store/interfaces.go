@@ -73,6 +73,38 @@ type OAuthStore interface {
 	ExchangeCode(code string) *OAuthCodeEntry
 }
 
+// MagicLinkEntry holds an in-flight passwordless email verification.
+type MagicLinkEntry struct {
+	Email    string // normalized, lowercased recipient address
+	CodeHash string // hash of the 6-digit fallback code
+	IP       string // requester IP (for audit)
+	Lang     string // "ru" or "en", for the verification response
+}
+
+// MagicLinkStore manages passwordless magic-link tokens, the 6-digit code
+// alternative, per-email send throttling, and code-attempt limiting.
+type MagicLinkStore interface {
+	// Create stores a verification entry keyed by a fresh opaque token (returned)
+	// plus an email->token index, both retained for ttl. A new request for an
+	// email replaces any previous pending entry.
+	Create(entry *MagicLinkEntry, ttl time.Duration) (token string, err error)
+	// ConsumeToken atomically retrieves and deletes the entry for token (and its
+	// email index). Returns nil if not found or expired.
+	ConsumeToken(token string) *MagicLinkEntry
+	// LookupByToken returns the entry for a link token without consuming it, so
+	// callers can run extra checks (e.g. TOTP) before burning the one-time link.
+	LookupByToken(token string) (entry *MagicLinkEntry, ok bool)
+	// LookupByEmail returns the active token and entry for an email (used by the
+	// 6-digit code path) without consuming it. ok is false if none is pending.
+	LookupByEmail(email string) (token string, entry *MagicLinkEntry, ok bool)
+	// IncrAttempt increments and returns the failed-code attempt counter for
+	// email, retained for ttl.
+	IncrAttempt(email string, ttl time.Duration) int
+	// AllowSend reports whether a new link may be sent to email now; when it
+	// returns true it records a cooldown of the given duration.
+	AllowSend(email string, cooldown time.Duration) bool
+}
+
 // RateChecker checks if a request from an IP should be allowed.
 type RateChecker interface {
 	Allow(ip string) bool

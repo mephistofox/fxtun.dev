@@ -13,9 +13,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
+	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/server/api"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/config"
 	server "github.com/mephistofox/fxtunnel/internal/server/core"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	fxdns "github.com/mephistofox/fxtunnel/internal/server/dns"
@@ -25,8 +25,8 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/hub"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	fxredis "github.com/mephistofox/fxtunnel/internal/server/redis"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/scheduler"
+	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
@@ -412,6 +412,7 @@ func run(cmd *cobra.Command, args []string) error {
 			apiOpts = append(apiOpts,
 				api.WithDeviceStore(fxredis.NewDeviceStore(redisClient)),
 				api.WithOAuthStore(fxredis.NewOAuthStore(redisClient)),
+				api.WithMagicLinkStore(fxredis.NewMagicLinkStore(redisClient)),
 				api.WithIPBanStore(fxredis.NewIPBanStore(redisClient)),
 			)
 			// Add node registry for hub mode admin endpoints

@@ -157,6 +157,13 @@ type AuthSettings struct {
 	// this list is treated as a potentially-malicious direct connection and
 	// the TCP source is used. Default: ["127.0.0.1", "::1"] (loopback only).
 	TrustedProxies []string `mapstructure:"trusted_proxies"`
+	// MagicLinkEnabled toggles passwordless email (magic-link) login/registration.
+	// Requires SMTP to be configured; if email is unavailable the endpoints
+	// respond 503. Default: true.
+	MagicLinkEnabled bool `mapstructure:"magic_link_enabled"`
+	// MagicLinkTTL is how long a magic link and its 6-digit code stay valid.
+	// Default: 20m.
+	MagicLinkTTL time.Duration `mapstructure:"magic_link_ttl"`
 }
 
 // WebSettings contains web panel configuration
@@ -172,10 +179,11 @@ type WebSettings struct {
 
 // RateLimitConfig contains rate limiting settings
 type RateLimitConfig struct {
-	Enabled        bool `mapstructure:"enabled"`
-	AuthPerMin     int  `mapstructure:"auth_per_min"`
-	GlobalPerMin   int  `mapstructure:"global_per_min"`
-	RegisterPerMin int  `mapstructure:"register_per_min"`
+	Enabled         bool `mapstructure:"enabled"`
+	AuthPerMin      int  `mapstructure:"auth_per_min"`
+	GlobalPerMin    int  `mapstructure:"global_per_min"`
+	RegisterPerMin  int  `mapstructure:"register_per_min"`
+	MagicLinkPerMin int  `mapstructure:"magic_link_per_min"`
 }
 
 // DatabaseSettings contains database configuration
@@ -366,6 +374,8 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("auth.tarpit_ban_enabled", true)
 	v.SetDefault("auth.tarpit_ban_ttl", "72h")
 	v.SetDefault("auth.trusted_proxies", []string{"127.0.0.1", "::1"})
+	v.SetDefault("auth.magic_link_enabled", true)
+	v.SetDefault("auth.magic_link_ttl", "20m")
 	v.SetDefault("server.http_bind", "")
 	v.SetDefault("web.bind", "")
 	v.SetDefault("tls.enabled", false)
@@ -386,6 +396,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("web.rate_limit.auth_per_min", 5)
 	v.SetDefault("web.rate_limit.global_per_min", 100)
 	v.SetDefault("web.rate_limit.register_per_min", 1)
+	v.SetDefault("web.rate_limit.magic_link_per_min", 3)
 	v.SetDefault("downloads.enabled", true)
 	v.SetDefault("downloads.path", "./downloads")
 	v.SetDefault("inspect.enabled", true)

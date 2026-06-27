@@ -5,11 +5,16 @@ import { useThemeStore, type ThemeMode } from '@/stores/theme'
 import { setLocale, getLocale } from '@/i18n'
 import { useSeo } from '@/composables/useSeo'
 import Card from '@/components/ui/Card.vue'
+import MagicLinkForm from '@/components/auth/MagicLinkForm.vue'
 
 const themeStore = useThemeStore()
 const { t } = useI18n()
 
 useSeo({ titleKey: 'seo.register.title', descriptionKey: 'seo.register.description', robots: 'noindex, nofollow' })
+
+// Временно скрываем регистрацию через GitHub и Google.
+// Чтобы вернуть кнопки — поменяй на true.
+const showGithubGoogle = false
 
 function toggleLocale() {
   const current = getLocale()
@@ -110,7 +115,16 @@ function cycleTheme() {
       </div>
 
       <div class="space-y-3">
+        <MagicLinkForm mode="register" />
+
+        <div v-if="showGithubGoogle" class="flex items-center gap-3 py-1">
+          <span class="h-px flex-1 bg-border"></span>
+          <span class="text-xs uppercase text-muted-foreground">{{ t('auth.or') }}</span>
+          <span class="h-px flex-1 bg-border"></span>
+        </div>
+
         <a
+          v-if="showGithubGoogle"
           href="/api/auth/github?mode=register"
           class="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-accent/10 transition-colors"
         >
@@ -121,6 +135,7 @@ function cycleTheme() {
         </a>
 
         <a
+          v-if="showGithubGoogle"
           href="/api/auth/google?mode=register"
           class="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-accent/10 transition-colors"
         >

@@ -19,6 +19,21 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
+// MagicLinkSendRequest requests a passwordless sign-in email.
+type MagicLinkSendRequest struct {
+	Email string `json:"email" validate:"required,email,max=254"`
+	Lang  string `json:"lang,omitempty" validate:"omitempty,oneof=ru en"`
+}
+
+// MagicLinkVerifyRequest completes a passwordless sign-in, via either the link
+// token or the email + 6-digit code.
+type MagicLinkVerifyRequest struct {
+	Token    string `json:"token,omitempty" validate:"omitempty,max=128"`
+	Email    string `json:"email,omitempty" validate:"omitempty,email,max=254"`
+	Code     string `json:"code,omitempty" validate:"omitempty,len=6,numeric"`
+	TOTPCode string `json:"totp_code,omitempty" validate:"omitempty,max=16"`
+}
+
 // ChangePasswordRequest represents a password change request
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" validate:"required"`
@@ -149,7 +164,7 @@ type ReplayExchangeRequest struct {
 
 // BulkUsersRequest is used for bulk user operations
 type BulkUsersRequest struct {
-	Action  string  `json:"action"`   // "block", "unblock", "delete", "change_plan"
+	Action  string  `json:"action"` // "block", "unblock", "delete", "change_plan"
 	UserIDs []int64 `json:"user_ids"`
 	PlanID  *int64  `json:"plan_id,omitempty"` // Required for change_plan
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/email"
+	"github.com/mephistofox/fxtunnel/internal/server/emailguard"
 	"github.com/mephistofox/fxtunnel/internal/server/payment"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 	"github.com/mephistofox/fxtunnel/internal/server/telegram"
@@ -99,6 +100,8 @@ type Server struct {
 	minVersion          string
 	deviceStore         store.DeviceStore
 	oauthStore          store.OAuthStore
+	magicLinkStore      store.MagicLinkStore
+	emailGuard          *emailguard.Validator
 	nodeRegistry        store.NodeRegistry
 	ipBanStore          store.IPBanStore
 	shutdownCh          chan struct{}
@@ -118,6 +121,11 @@ func WithOAuthStore(os store.OAuthStore) Option {
 	return func(s *Server) { s.oauthStore = os }
 }
 
+// WithMagicLinkStore overrides the default in-memory magic-link store.
+func WithMagicLinkStore(ms store.MagicLinkStore) Option {
+	return func(s *Server) { s.magicLinkStore = ms }
+}
+
 // WithNodeRegistry sets the node registry for edge node management.
 func WithNodeRegistry(nr store.NodeRegistry) Option {
 	return func(s *Server) { s.nodeRegistry = nr }
@@ -132,6 +140,7 @@ func WithIPBanStore(bs store.IPBanStore) Option {
 func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger, opts ...Option) *Server {
 	memDevice := newDeviceStore()
 	memOAuth := newOAuthStore()
+	memMagicLink := newMagicLinkStore()
 	memIPBan := newMemIPBanStore()
 
 	s := &Server{
@@ -146,6 +155,8 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		downloadsPath:       cfg.Downloads.Path,
 		deviceStore:         memDevice,
 		oauthStore:          memOAuth,
+		magicLinkStore:      memMagicLink,
+		emailGuard:          emailguard.New(),
 		ipBanStore:          memIPBan,
 		shutdownCh:          make(chan struct{}),
 	}
@@ -160,6 +171,9 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 	}
 	if s.oauthStore == memOAuth {
 		go memOAuth.Cleanup(s.shutdownCh)
+	}
+	if s.magicLinkStore == memMagicLink {
+		go memMagicLink.Cleanup(s.shutdownCh)
 	}
 	if s.ipBanStore == memIPBan {
 		go memIPBan.cleanup(s.shutdownCh)
@@ -282,6 +296,28 @@ func (s *Server) setupRoutes() {
 			r.Get("/yandex", s.handleYandexAuth)
 			r.Get("/yandex/callback", s.handleYandexCallback)
 			r.Post("/exchange", s.handleOAuthExchange)
+
+			// Passwordless email (magic-link) sign-in / registration. Sending
+			// carries a stricter per-IP cap on top of the auth-group limiter
+			// (in addition to the per-email cooldown inside the handler) to
+			// throttle bulk abuse; verifying does not consume the email budget.
+			if s.cfg.Web.RateLimit.Enabled && s.cfg.Web.RateLimit.MagicLinkPerMin > 0 {
+				magicRL := newIPRateLimiter(s.cfg.Web.RateLimit.MagicLinkPerMin)
+				magicRL.cleanup(s.shutdownCh, 5*time.Minute)
+				r.With(rateLimitMiddleware(magicRL)).Post("/magic-link/send", s.handleMagicLinkSend)
+			} else {
+				r.Post("/magic-link/send", s.handleMagicLinkSend)
+			}
+			// Verifying carries the same stricter per-IP cap as login so the
+			// 6-digit code-guessing ceiling is explicit and independent of the
+			// (laxer) auth-group budget.
+			if s.cfg.Web.RateLimit.Enabled {
+				verifyRL := newIPRateLimiter(loginAttemptsPerMin)
+				verifyRL.cleanup(s.shutdownCh, 5*time.Minute)
+				r.With(rateLimitMiddleware(verifyRL)).Post("/magic-link/verify", s.handleMagicLinkVerify)
+			} else {
+				r.Post("/magic-link/verify", s.handleMagicLinkVerify)
+			}
 		})
 
 		// Downloads (public)

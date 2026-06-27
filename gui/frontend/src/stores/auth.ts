@@ -153,6 +153,59 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function sendMagicLink(
+    server: string,
+    email: string,
+    lang: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const res = await AuthService.SendMagicLink(server, email, lang)
+      if (!res.success && res.error) {
+        error.value = res.error
+      }
+      return { success: res.success, message: res.message, error: res.error }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to send email'
+      error.value = msg
+      return { success: false, error: msg }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function loginWithMagicLink(
+    server: string,
+    email: string,
+    code: string,
+    totpCode: string,
+    remember: boolean
+  ): Promise<boolean> {
+    isLoading.value = true
+    error.value = null
+    try {
+      const response = await AuthService.LoginWithMagicLink(server, email, code, totpCode, remember)
+      if (response.success) {
+        isAuthenticated.value = true
+        serverAddress.value = server
+        authMethod.value = 'token'
+        totpRequired.value = false
+      } else if (response.totp_required) {
+        totpRequired.value = true
+        error.value = null // Clear error, show TOTP field instead
+      } else {
+        error.value = response.error || 'Sign-in failed'
+      }
+      return response.success
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Sign-in failed'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   async function cancelOAuth(): Promise<void> {
     try {
       await AuthService.CancelOAuthFlow()
@@ -199,6 +252,8 @@ export const useAuthStore = defineStore('auth', () => {
     loginWithToken,
     loginWithPassword,
     loginWithOAuth,
+    sendMagicLink,
+    loginWithMagicLink,
     cancelOAuth,
     logout,
     resetTotpRequired,
