@@ -18,6 +18,7 @@ var (
 	ErrPhoneAlreadyExists    = errors.New("phone number already registered")
 	ErrTOTPRequired          = errors.New("TOTP code required")
 	ErrInvalidPhone          = errors.New("invalid phone number format")
+	ErrInvalidEmail          = errors.New("invalid email address")
 	ErrSuspiciousDisplayName = errors.New("display name rejected")
 	ErrTokenReuse            = errors.New("refresh token reuse detected; sessions revoked")
 )
@@ -814,6 +815,130 @@ func (s *Service) RegisterOrLoginYandexOAuth(info *YandexOAuthUserInfo, userAgen
 // LinkYandex links a Yandex account to an existing user
 func (s *Service) LinkYandex(userID int64, yandexID, email, avatarURL string) error {
 	return s.db.Users.LinkYandex(userID, yandexID, email, avatarURL)
+}
+
+// RegisterOrLoginByEmail authenticates a user by a verified email address
+// (passwordless magic-link flow), creating the account if none exists yet. The
+// caller MUST have already proven the user controls the address (clicked the
+// emailed link or entered the 6-digit code) — this method performs no
+// verification itself. The returned bool reports whether a new account was
+// created (true) or an existing user logged in (false).
+func (s *Service) RegisterOrLoginByEmail(email, displayName, totpCode, userAgent, ipAddress string) (*database.User, *TokenPair, bool, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" || !strings.Contains(email, "@") {
+		return nil, nil, false, ErrInvalidEmail
+	}
+
+	var isNew bool
+	user, err := s.db.Users.GetByEmail(email)
+	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
+		return nil, nil, false, fmt.Errorf("get user by email: %w", err)
+	}
+
+	if user == nil {
+		isNew = true
+		if displayName == "" {
+			displayName = email[:strings.Index(email, "@")]
+		}
+		var planID int64
+		if dp, err := s.db.Plans.GetDefault(); err == nil {
+			planID = dp.ID
+		}
+		user = &database.User{
+			DisplayName: displayName,
+			IsActive:    true,
+			IsAdmin:     false,
+			Email:       email,
+			PlanID:      planID,
+		}
+		if err := s.db.Users.CreateOAuth(user); err != nil {
+			if errors.Is(err, database.ErrUserAlreadyExists) {
+				// Lost a creation race: another request just made this account.
+				// Fall through to the login path.
+				user, err = s.db.Users.GetByEmail(email)
+				if err != nil {
+					return nil, nil, false, fmt.Errorf("get user after create race: %w", err)
+				}
+				isNew = false
+			} else {
+				return nil, nil, false, fmt.Errorf("create email user: %w", err)
+			}
+		} else {
+			_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
+				"method": "magic_link",
+			}, ipAddress)
+			s.log.Info().Int64("user_id", user.ID).Msg("Magic-link user registered")
+		}
+	}
+
+	if !user.IsActive {
+		return nil, nil, false, ErrUserNotActive
+	}
+
+	// A verified email must NOT bypass an existing account's second factor: if
+	// the user enabled TOTP, require a valid TOTP (or backup) code before
+	// issuing tokens, exactly like password login. New accounts can't have TOTP.
+	if !isNew {
+		totpEnabled, err := s.db.TOTP.IsEnabled(user.ID)
+		if err != nil {
+			return nil, nil, false, fmt.Errorf("check TOTP status: %w", err)
+		}
+		if totpEnabled {
+			if totpCode == "" {
+				return nil, nil, false, ErrTOTPRequired
+			}
+			totpSecret, err := s.db.TOTP.GetByUserID(user.ID)
+			if err != nil {
+				return nil, nil, false, fmt.Errorf("get TOTP secret: %w", err)
+			}
+			secret, err := s.totp.DecryptSecret(totpSecret.SecretEncrypted)
+			if err != nil {
+				return nil, nil, false, fmt.Errorf("decrypt TOTP secret: %w", err)
+			}
+			if !s.totp.ValidateCode(secret, totpCode) {
+				remainingCodes, valid := s.totp.ValidateBackupCode(totpCode, totpSecret.BackupCodes)
+				if !valid {
+					return nil, nil, false, ErrInvalidTOTPCode
+				}
+				if err := s.db.TOTP.UpdateBackupCodes(user.ID, remainingCodes); err != nil {
+					s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update backup codes")
+				}
+			}
+		}
+	}
+
+	// OAuth-style users have no phone; mirror the OAuth flow and use the email
+	// as the identifier so JWT subject and uniqueness stay consistent.
+	if user.Phone == "" {
+		_ = s.db.Users.UpdatePhone(user.ID, email)
+		user.Phone = email
+	}
+
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("generate tokens: %w", err)
+	}
+
+	session := &database.Session{
+		UserID:           user.ID,
+		RefreshTokenHash: refreshTokenHash,
+		UserAgent:        userAgent,
+		IPAddress:        ipAddress,
+		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
+	}
+	if err := s.sessions.Create(session); err != nil {
+		return nil, nil, false, fmt.Errorf("create session: %w", err)
+	}
+
+	_ = s.db.Users.UpdateLastLogin(user.ID)
+	_ = s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
+		"method":     "magic_link",
+		"user_agent": userAgent,
+	}, ipAddress)
+
+	s.log.Info().Int64("user_id", user.ID).Msg("Magic-link user logged in")
+
+	return user, tokenPair, isNew, nil
 }
 
 // GetMaxDomains returns the maximum number of domains per user

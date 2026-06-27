@@ -254,6 +254,7 @@ const (
 	TemplatePlanChanged             = "plan_changed"
 	TemplatePaymentSuccess          = "payment_success"
 	TemplatePaymentFailed           = "payment_failed"
+	TemplateMagicLink               = "magic_link"
 )
 
 // TemplateData holds data for email templates
@@ -271,6 +272,9 @@ type TemplateData struct {
 	CheckoutURL     string
 	SupportEmail    string
 	ErrorMessage    string
+	MagicLink       string // verification URL for passwordless login
+	Code            string // 6-digit fallback code for passwordless login
+	TTLMinutes      int    // validity window of the magic link / code, in minutes
 }
 
 // LocalizedTemplateName returns the template name for the given language.
@@ -422,6 +426,17 @@ func init() {
             </div>
             {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Перейти в личный кабинет</a>{{end}}` + emailFooterRU))
 
+	templates[TemplateMagicLink] = template.Must(template.New("magic_link").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Вход в fxTunnel</h2>
+            <p>Здравствуйте!</p>
+            <p>Вы запросили вход в fxTunnel по электронной почте. Нажмите кнопку, чтобы войти или завершить регистрацию:</p>
+            {{if .MagicLink}}<a href="{{.MagicLink}}" class="button">Подтвердить вход</a>{{end}}
+            <p style="margin-top:24px;">Или введите этот код на странице входа:</p>
+            <div style="margin:18px 0;text-align:center;">
+                <span style="display:inline-block;font-family:'Unbounded',monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#80ff00;background:#090a10;border:1px solid #1f2330;border-radius:12px;padding:16px 28px;">{{.Code}}</span>
+            </div>
+            <p>Ссылка и код действительны {{.TTLMinutes}} минут. Если вы не запрашивали вход, просто проигнорируйте это письмо — никаких действий не требуется.</p>` + emailFooterRU))
+
 	// ── English templates ──────────────────────────────────────────────
 
 	templates[TemplateSubscriptionExpiring+"_en"] = template.Must(template.New("subscription_expiring_en").Parse(emailHead + `
@@ -484,6 +499,17 @@ func init() {
                 </div>
             </div>
             {{if .DashboardURL}}<a href="{{.DashboardURL}}" class="button">Go to Dashboard</a>{{end}}` + emailFooterEN))
+
+	templates[TemplateMagicLink+"_en"] = template.Must(template.New("magic_link_en").Parse(emailHead + `
+            <h2><span class="status-dot dot-success"></span>Sign in to fxTunnel</h2>
+            <p>Hello!</p>
+            <p>You requested to sign in to fxTunnel with your email. Click the button below to sign in or finish creating your account:</p>
+            {{if .MagicLink}}<a href="{{.MagicLink}}" class="button">Confirm sign-in</a>{{end}}
+            <p style="margin-top:24px;">Or enter this code on the sign-in page:</p>
+            <div style="margin:18px 0;text-align:center;">
+                <span style="display:inline-block;font-family:'Unbounded',monospace;font-size:30px;font-weight:700;letter-spacing:8px;color:#80ff00;background:#090a10;border:1px solid #1f2330;border-radius:12px;padding:16px 28px;">{{.Code}}</span>
+            </div>
+            <p>The link and code are valid for {{.TTLMinutes}} minutes. If you didn't request this, you can safely ignore this email — no action is needed.</p>` + emailFooterEN))
 }
 
 // RenderTemplate renders an email template with data

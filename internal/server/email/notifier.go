@@ -76,6 +76,29 @@ func formatAmount(amount float64, lang string) string {
 	return fmt.Sprintf("%.0f ₽", amount)
 }
 
+// EmailEnabled reports whether the underlying email service can actually send mail.
+func (n *Notifier) EmailEnabled() bool {
+	return n.email != nil && n.email.IsEnabled()
+}
+
+// SendMagicLink sends a passwordless sign-in email with a verification link and
+// a 6-digit fallback code. lang ("ru"/"en") selects the template language.
+func (n *Notifier) SendMagicLink(to, lang, magicLink, code string, ttlMinutes int) error {
+	if n.email == nil {
+		return fmt.Errorf("email service not configured")
+	}
+	subject := "Вход в fxTunnel"
+	if lang == "en" {
+		subject = "Sign in to fxTunnel"
+	}
+	return n.email.SendTemplate(to, subject, LocalizedTemplateName(TemplateMagicLink, lang), TemplateData{
+		MagicLink:    magicLink,
+		Code:         code,
+		TTLMinutes:   ttlMinutes,
+		SupportEmail: n.supportEmail,
+	})
+}
+
 // HandleSchedulerEvent handles events from the subscription scheduler
 func (n *Notifier) HandleSchedulerEvent(event scheduler.Event) {
 	if n.email == nil || !n.email.IsEnabled() {
