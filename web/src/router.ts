@@ -129,6 +129,11 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('./views/AuthCallbackView.vue'),
   },
   {
+    path: '/auth/magic',
+    name: 'auth-magic',
+    component: () => import('./views/MagicLinkVerifyView.vue'),
+  },
+  {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('./views/DashboardView.vue'),
