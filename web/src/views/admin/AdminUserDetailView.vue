@@ -148,6 +148,10 @@ onMounted(loadDetail)
               <p class="text-xs text-muted-foreground">{{ t('admin.userDetail.google') }}</p>
               <p class="text-sm font-medium mt-0.5">{{ detail.user.google_id ? t('admin.userDetail.linked') : t('admin.userDetail.notLinked') }}</p>
             </div>
+            <div>
+              <p class="text-xs text-muted-foreground">{{ t('admin.userDetail.yandex') }}</p>
+              <p class="text-sm font-medium mt-0.5">{{ detail.user.yandex_id ? t('admin.userDetail.linked') : t('admin.userDetail.notLinked') }}</p>
+            </div>
           </div>
         </Card>
 

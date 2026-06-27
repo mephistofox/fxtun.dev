@@ -4,32 +4,36 @@ VALUES ($1, $2, $3, $4, $5, $6, NOW())
 RETURNING id, created_at;
 
 -- name: CreateOAuthUser :one
-INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, email, avatar_url, plan_id, created_at)
-VALUES ($1, '', $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, yandex_id, email, avatar_url, plan_id, created_at)
+VALUES ($1, '', $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
 RETURNING id, created_at;
 
 -- name: GetUserByID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE id = $1;
 
 -- name: GetUserByPhone :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE phone = $1;
 
 -- name: GetUserByEmail :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE email = $1;
 
 -- name: GetUserByGitHubID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE github_id = $1;
 
 -- name: GetUserByGoogleID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE google_id = $1;
 
+-- name: GetUserByYandexID :one
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
+FROM users WHERE yandex_id = $1;
+
 -- name: GetUsersByIDs :many
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE id = ANY($1::bigint[]);
 
 -- name: UpdateUser :exec
@@ -66,6 +70,12 @@ UPDATE users SET google_id = $2,
     avatar_url = COALESCE(NULLIF(avatar_url, ''), $4)
 WHERE id = $1;
 
+-- name: LinkYandex :exec
+UPDATE users SET yandex_id = $2,
+    email = COALESCE(NULLIF(email, ''), $3),
+    avatar_url = COALESCE(NULLIF(avatar_url, ''), $4)
+WHERE id = $1;
+
 -- name: SetFirstTunnelAt :execrows
 UPDATE users SET first_tunnel_at = $2 WHERE id = $1 AND first_tunnel_at IS NULL;
 
@@ -73,7 +83,7 @@ UPDATE users SET first_tunnel_at = $2 WHERE id = $1 AND first_tunnel_at IS NULL;
 SELECT COUNT(*) FROM users;
 
 -- name: ListUsersFiltered :many
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users
 WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_active'))
   AND (sqlc.narg('is_admin')::boolean IS NULL OR is_admin = sqlc.narg('is_admin'))

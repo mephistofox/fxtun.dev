@@ -110,6 +110,7 @@ type Querier interface {
 	GetUserByGoogleID(ctx context.Context, googleID pgtype.Text) (User, error)
 	GetUserByID(ctx context.Context, id int64) (User, error)
 	GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error)
+	GetUserByYandexID(ctx context.Context, yandexID pgtype.Text) (User, error)
 	GetUserStats(ctx context.Context, search pgtype.Text) (GetUserStatsRow, error)
 	GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]User, error)
 	IsSubdomainAvailable(ctx context.Context, subdomain string) (bool, error)
@@ -117,6 +118,7 @@ type Querier interface {
 	IsTOTPEnabled(ctx context.Context, userID int64) (bool, error)
 	LinkGitHub(ctx context.Context, arg LinkGitHubParams) error
 	LinkGoogle(ctx context.Context, arg LinkGoogleParams) error
+	LinkYandex(ctx context.Context, arg LinkYandexParams) error
 	ListAPITokensByUserID(ctx context.Context, userID int64) ([]ApiToken, error)
 	ListAllCustomDomains(ctx context.Context, arg ListAllCustomDomainsParams) ([]CustomDomain, error)
 	ListAllPayments(ctx context.Context, arg ListAllPaymentsParams) ([]Payment, error)

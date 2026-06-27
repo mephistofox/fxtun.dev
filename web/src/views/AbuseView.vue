@@ -113,8 +113,8 @@ function cycleTheme() {
         <h2>1. How to Report</h2>
         <p>Send an email to:</p>
         <div class="my-4 p-4 rounded-lg border border-border bg-surface/50">
-          <a href="mailto:support@fxtun.ru" class="text-lg font-mono font-semibold text-primary">
-            support@fxtun.ru
+          <a href="mailto:dev@fxcode.ru" class="text-lg font-mono font-semibold text-primary">
+            dev@fxcode.ru
           </a>
         </div>
 
@@ -148,21 +148,21 @@ function cycleTheme() {
         <h2>5. Legal & Law Enforcement</h2>
         <p>
           For legal requests, subpoenas, or law enforcement inquiries, please contact us at
-          <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+          <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
         </p>
         <table class="w-full">
           <tbody>
             <tr>
               <td class="font-medium pr-4 py-1">Company:</td>
-              <td>Nocodo LTD</td>
+              <td>Navodnyuk A.I. (sole proprietor)</td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Jurisdiction:</td>
-              <td>Republic of Cyprus</td>
+              <td>Russian Federation</td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Website:</td>
-              <td><a href="https://nocodo.tech">nocodo.tech</a></td>
+              <td><a href="https://fxtun.ru">fxtun.ru</a></td>
             </tr>
           </tbody>
         </table>

@@ -8,7 +8,8 @@ function getEffectiveLocale(): 'en' | 'ru' {
 }
 
 function getBaseUrl(): string {
-  return getEffectiveLocale() === 'ru' ? 'https://fxtun.ru' : 'https://fxtun.dev'
+  // Canonical domain is always fxtun.ru — fxtun.dev 301-redirects here.
+  return 'https://fxtun.ru'
 }
 
 const descriptions = {
@@ -55,7 +56,7 @@ const descriptions = {
 // Build schema offers from pre-fetched plans cache
 function buildSchemaOffers(locale: 'en' | 'ru') {
   const currency = locale === 'ru' ? 'RUB' : 'USD'
-  const baseUrl = locale === 'ru' ? 'https://fxtun.ru' : 'https://fxtun.dev'
+  const baseUrl = 'https://fxtun.ru'
   return plansCache.plans.map((plan) => {
     const price = locale === 'ru' ? String(plan.price_rub) : String(plan.price)
     const offer: Record<string, unknown> = {
@@ -106,7 +107,7 @@ export function useOrganizationSchema() {
           foundingDate: '2025-12-01',
           contactPoint: {
             '@type': 'ContactPoint',
-            email: 'support@fxtun.ru',
+            email: 'dev@fxcode.ru',
             contactType: 'customer support',
             availableLanguage: ['ru', 'en'],
           },

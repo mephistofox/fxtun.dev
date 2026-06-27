@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
@@ -331,7 +331,7 @@ func (s *Server) getGitHubPrimaryEmail(accessToken string) (string, error) {
 
 const (
 	googleAuthorizeURL = "https://accounts.google.com/o/oauth2/v2/auth"
-	googleTokenURL     = "https://oauth2.googleapis.com/token"        //nolint:gosec // not a credential, this is Google's OAuth endpoint URL
+	googleTokenURL     = "https://oauth2.googleapis.com/token" //nolint:gosec // not a credential, this is Google's OAuth endpoint URL
 	googleUserInfoURL  = "https://www.googleapis.com/oauth2/v2/userinfo"
 )
 
@@ -624,6 +624,276 @@ func (s *Server) buildGoogleRedirectURI(r *http.Request) string {
 	return fmt.Sprintf("https://%s/api/auth/google/callback", requestHost(r))
 }
 
+const (
+	yandexAuthorizeURL = "https://oauth.yandex.ru/authorize"
+	yandexTokenURL     = "https://oauth.yandex.ru/token" //nolint:gosec // not a credential, this is Yandex's OAuth endpoint URL
+	yandexUserInfoURL  = "https://login.yandex.ru/info?format=json"
+	yandexAvatarURL    = "https://avatars.yandex.net/get-yapic/%s/islands-200"
+)
+
+type yandexTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+}
+
+type yandexUser struct {
+	ID            string `json:"id"`
+	Login         string `json:"login"`
+	DefaultEmail  string `json:"default_email"`
+	RealName      string `json:"real_name"`
+	DisplayName   string `json:"display_name"`
+	DefaultAvatar string `json:"default_avatar_id"`
+	IsAvatarEmpty bool   `json:"is_avatar_empty"`
+}
+
+// displayName returns the best available human-readable name.
+func (u *yandexUser) bestDisplayName() string {
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	if u.RealName != "" {
+		return u.RealName
+	}
+	return u.Login
+}
+
+// avatarURL returns the user's avatar URL, or empty string if none.
+func (u *yandexUser) avatarURL() string {
+	if u.IsAvatarEmpty || u.DefaultAvatar == "" {
+		return ""
+	}
+	return fmt.Sprintf(yandexAvatarURL, u.DefaultAvatar)
+}
+
+// handleYandexAuth initiates the Yandex OAuth login flow.
+func (s *Server) handleYandexAuth(w http.ResponseWriter, r *http.Request) {
+	clientID := s.cfg.OAuth.Yandex.ClientID
+	if clientID == "" {
+		s.respondError(w, http.StatusNotImplemented, "Yandex OAuth is not configured")
+		return
+	}
+
+	entry := &store.OAuthStateEntry{Purpose: "login"}
+	if desktopRedirect := r.URL.Query().Get("redirect_uri"); desktopRedirect != "" {
+		if isLocalhostURI(desktopRedirect) {
+			entry.DesktopRedirect = desktopRedirect
+		}
+	}
+
+	state, err := s.oauthStore.CreateState(entry)
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
+
+	params := url.Values{}
+	params.Set("client_id", clientID)
+	params.Set("redirect_uri", s.buildYandexRedirectURI(r))
+	params.Set("response_type", "code")
+	params.Set("state", state)
+
+	http.Redirect(w, r, yandexAuthorizeURL+"?"+params.Encode(), http.StatusTemporaryRedirect)
+}
+
+// handleYandexLink initiates the Yandex OAuth account linking flow (authenticated).
+func (s *Server) handleYandexLink(w http.ResponseWriter, r *http.Request) {
+	clientID := s.cfg.OAuth.Yandex.ClientID
+	if clientID == "" {
+		s.respondError(w, http.StatusNotImplemented, "Yandex OAuth is not configured")
+		return
+	}
+
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	state, err := s.oauthStore.CreateState(&store.OAuthStateEntry{
+		Purpose: "link",
+		UserID:  user.ID,
+	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to create OAuth state")
+		return
+	}
+
+	params := url.Values{}
+	params.Set("client_id", clientID)
+	params.Set("redirect_uri", s.buildYandexRedirectURI(r))
+	params.Set("response_type", "code")
+	params.Set("state", state)
+
+	oauthURL := yandexAuthorizeURL + "?" + params.Encode()
+	s.respondJSON(w, http.StatusOK, map[string]string{"url": oauthURL})
+}
+
+// handleYandexCallback handles the Yandex OAuth callback.
+func (s *Server) handleYandexCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	stateParam := r.URL.Query().Get("state")
+
+	if code == "" {
+		s.redirectWithError(w, r, "missing authorization code", "")
+		return
+	}
+
+	// Validate CSRF state
+	stateEntry := s.oauthStore.ConsumeState(stateParam)
+	if stateEntry == nil {
+		s.redirectWithError(w, r, "invalid or expired OAuth state", "")
+		return
+	}
+
+	// Exchange code for access token
+	yToken, err := s.exchangeYandexCode(code, s.buildYandexRedirectURI(r))
+	if err != nil {
+		s.log.Error().Err(err).Msg("Yandex code exchange failed")
+		s.redirectWithError(w, r, "failed to exchange authorization code", stateEntry.DesktopRedirect)
+		return
+	}
+
+	// Get Yandex user info
+	yUser, err := s.getYandexUser(yToken)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Yandex user info request failed")
+		s.redirectWithError(w, r, "failed to get Yandex user info", stateEntry.DesktopRedirect)
+		return
+	}
+
+	// Account linking flow
+	if stateEntry.Purpose == "link" {
+		s.handleYandexLinkCallback(w, r, stateEntry.UserID, yUser)
+		return
+	}
+
+	// Login / register flow
+	info := &auth.YandexOAuthUserInfo{
+		YandexID:    yUser.ID,
+		Email:       yUser.DefaultEmail,
+		DisplayName: yUser.bestDisplayName(),
+		AvatarURL:   yUser.avatarURL(),
+	}
+
+	userAgent := r.UserAgent()
+	ipAddress := r.RemoteAddr
+
+	user, tokenPair, isNew, err := s.authService.RegisterOrLoginYandexOAuth(info, userAgent, ipAddress)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Yandex OAuth register/login failed")
+		s.redirectWithError(w, r, "authentication failed", stateEntry.DesktopRedirect)
+		return
+	}
+
+	if isNew && s.telegramNotifier != nil {
+		s.telegramNotifier.NotifyNewUser(user.ID, user.DisplayName, user.Email)
+	}
+
+	s.redirectWithTokens(w, r, tokenPair, stateEntry.DesktopRedirect)
+}
+
+// handleYandexLinkCallback processes the Yandex account linking after OAuth callback.
+func (s *Server) handleYandexLinkCallback(w http.ResponseWriter, r *http.Request, userID int64, yUser *yandexUser) {
+	// Check if another user already has this Yandex ID
+	existingUser, err := s.db.Users.GetByYandexID(yUser.ID)
+	if err == nil && existingUser.ID != userID {
+		// This Yandex account is linked to a different user — refuse to proceed
+		s.log.Warn().Int64("user_id", userID).Int64("existing_user_id", existingUser.ID).Str("yandex_id", yUser.ID).Msg("Yandex account already linked to another user")
+		s.redirectWithError(w, r, "this Yandex account is already linked to another user", "")
+		return
+	}
+
+	// If already linked to the same user, just redirect success
+	if err == nil && existingUser.ID == userID {
+		http.Redirect(w, r, "/profile?yandex_linked=true", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Link the Yandex account to the current user
+	if err := s.authService.LinkYandex(userID, yUser.ID, yUser.DefaultEmail, yUser.avatarURL()); err != nil {
+		s.log.Error().Err(err).Int64("user_id", userID).Msg("Yandex account linking failed")
+		s.redirectWithError(w, r, "failed to link Yandex account", "")
+		return
+	}
+
+	http.Redirect(w, r, "/profile?yandex_linked=true", http.StatusTemporaryRedirect)
+}
+
+// exchangeYandexCode exchanges an authorization code for an access token.
+func (s *Server) exchangeYandexCode(code, redirectURI string) (string, error) {
+	data := url.Values{}
+	data.Set("client_id", s.cfg.OAuth.Yandex.ClientID)
+	data.Set("client_secret", s.cfg.OAuth.Yandex.ClientSecret)
+	data.Set("code", code)
+	data.Set("redirect_uri", redirectURI)
+	data.Set("grant_type", "authorization_code")
+
+	req, err := http.NewRequest("POST", yandexTokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("send request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+
+	var tokenResp yandexTokenResponse
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+
+	if tokenResp.AccessToken == "" {
+		return "", fmt.Errorf("empty access token in response")
+	}
+
+	return tokenResp.AccessToken, nil
+}
+
+// getYandexUser fetches the authenticated user's info from Yandex.
+func (s *Server) getYandexUser(accessToken string) (*yandexUser, error) {
+	req, err := http.NewRequest("GET", yandexUserInfoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "OAuth "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("send request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	var user yandexUser
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	if user.ID == "" {
+		return nil, fmt.Errorf("empty user id in response")
+	}
+
+	return &user, nil
+}
+
+// buildYandexRedirectURI constructs the Yandex OAuth callback URL from the request host.
+func (s *Server) buildYandexRedirectURI(r *http.Request) string {
+	return fmt.Sprintf("https://%s/api/auth/yandex/callback", requestHost(r))
+}
+
 // buildRedirectURI constructs the OAuth callback URL from the request host.
 func (s *Server) buildRedirectURI(r *http.Request) string {
 	return fmt.Sprintf("https://%s/api/auth/github/callback", requestHost(r))
@@ -651,7 +921,15 @@ func (s *Server) redirectWithError(w http.ResponseWriter, r *http.Request, messa
 	http.Redirect(w, r, redirectTarget+"?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
-// isLocalhostURI checks if a URI starts with http://localhost: or http://127.0.0.1:
+// isLocalhostURI reports whether uri is a plain-http loopback URL (desktop OAuth callback).
+// It parses the URL and asserts the host is exactly localhost/127.0.0.1 with no userinfo,
+// so crafted values like "http://localhost:@evil.com/cb" (which a prefix check would accept,
+// leaking the one-time exchange code to an attacker) are rejected.
 func isLocalhostURI(uri string) bool {
-	return strings.HasPrefix(uri, "http://localhost:") || strings.HasPrefix(uri, "http://127.0.0.1:")
+	u, err := url.Parse(uri)
+	if err != nil || u.Scheme != "http" || u.User != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1"
 }

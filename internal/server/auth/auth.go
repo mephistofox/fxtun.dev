@@ -717,6 +717,105 @@ func (s *Service) LinkGoogle(userID int64, googleID, email, avatarURL string) er
 	return s.db.Users.LinkGoogle(userID, googleID, email, avatarURL)
 }
 
+// YandexOAuthUserInfo contains user information from Yandex OAuth
+type YandexOAuthUserInfo struct {
+	YandexID    string
+	Email       string
+	DisplayName string
+	AvatarURL   string
+}
+
+// RegisterOrLoginYandexOAuth authenticates a user via Yandex OAuth, creating the account if needed.
+// The returned bool indicates whether a new user was created (true) or an existing user logged in (false).
+func (s *Service) RegisterOrLoginYandexOAuth(info *YandexOAuthUserInfo, userAgent, ipAddress string) (*database.User, *TokenPair, bool, error) {
+	var isNew bool
+
+	// Try to find existing user by Yandex ID
+	user, err := s.db.Users.GetByYandexID(info.YandexID)
+	if err != nil && !errors.Is(err, database.ErrUserNotFound) {
+		return nil, nil, false, fmt.Errorf("get user by yandex id: %w", err)
+	}
+
+	if user == nil {
+		isNew = true
+		// Create new OAuth user
+		var yandexPlanID int64
+		if dp, err := s.db.Plans.GetDefault(); err == nil {
+			yandexPlanID = dp.ID
+		}
+		user = &database.User{
+			DisplayName: info.DisplayName,
+			IsActive:    true,
+			IsAdmin:     false,
+			YandexID:    &info.YandexID,
+			Email:       info.Email,
+			AvatarURL:   info.AvatarURL,
+			PlanID:      yandexPlanID,
+		}
+		if err := s.db.Users.CreateOAuth(user); err != nil {
+			return nil, nil, false, fmt.Errorf("create oauth user: %w", err)
+		}
+
+		_ = s.db.Audit.Log(&user.ID, database.ActionRegister, map[string]interface{}{
+			"method":    "yandex",
+			"yandex_id": info.YandexID,
+		}, ipAddress)
+
+		s.log.Info().Int64("user_id", user.ID).Str("yandex_id", info.YandexID).Msg("Yandex OAuth user registered")
+	}
+
+	if !user.IsActive {
+		return nil, nil, false, ErrUserNotActive
+	}
+
+	// Update email from OAuth if user has no email
+	if user.Email == "" && info.Email != "" {
+		_ = s.db.Users.UpdateEmail(user.ID, info.Email)
+		user.Email = info.Email
+	}
+
+	// Set phone to email if phone is empty (OAuth users have no phone)
+	if user.Phone == "" && info.Email != "" {
+		_ = s.db.Users.UpdatePhone(user.ID, info.Email)
+		user.Phone = info.Email
+	}
+
+	// Generate tokens
+	tokenPair, refreshTokenHash, err := s.jwt.GenerateTokenPair(user.ID, userIdentifier(user), user.IsAdmin)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("generate tokens: %w", err)
+	}
+
+	// Create session
+	session := &database.Session{
+		UserID:           user.ID,
+		RefreshTokenHash: refreshTokenHash,
+		UserAgent:        userAgent,
+		IPAddress:        ipAddress,
+		ExpiresAt:        time.Now().Add(s.jwt.GetRefreshTokenTTL()),
+	}
+	if err := s.sessions.Create(session); err != nil {
+		return nil, nil, false, fmt.Errorf("create session: %w", err)
+	}
+
+	// Update last login
+	_ = s.db.Users.UpdateLastLogin(user.ID)
+
+	_ = s.db.Audit.Log(&user.ID, database.ActionLogin, map[string]interface{}{
+		"method":     "yandex",
+		"user_agent": userAgent,
+	}, ipAddress)
+
+	s.log.Info().Int64("user_id", user.ID).Str("yandex_id", info.YandexID).Msg("Yandex OAuth user logged in")
+
+	return user, tokenPair, isNew, nil
+}
+
+// LinkYandex links a Yandex account to an existing user
+func (s *Service) LinkYandex(userID int64, yandexID, email, avatarURL string) error {
+	return s.db.Users.LinkYandex(userID, yandexID, email, avatarURL)
+}
+
 // GetMaxDomains returns the maximum number of domains per user
 func (s *Service) GetMaxDomains() int {
 	return s.maxDomains

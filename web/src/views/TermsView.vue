@@ -157,7 +157,7 @@ const lastUpdated = '13.02.2026'
           <p>
             Вы несёте полную ответственность за все действия, совершённые через ваш аккаунт.
             При подозрении на несанкционированный доступ немедленно свяжитесь с нами:
-            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>5. Бесплатный и платные тарифы</h2>
@@ -226,7 +226,7 @@ const lastUpdated = '13.02.2026'
           <p>
             Данные аккаунта хранятся в течение срока действия аккаунта плюс 12 месяцев после удаления.
             Метаданные подключений хранятся до 90 дней. Вы можете запросить полное удаление данных,
-            обратившись по адресу <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            обратившись по адресу <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
           <h3>8.4. Содержимое трафика</h3>
           <p>
@@ -258,7 +258,7 @@ const lastUpdated = '13.02.2026'
           </ul>
           <p>
             Возвраты осуществляются на исходный способ оплаты в течение 14 рабочих дней.
-            Для оформления возврата обратитесь по адресу <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            Для оформления возврата обратитесь по адресу <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>10. Доступность Сервиса и SLA</h2>
@@ -348,7 +348,7 @@ const lastUpdated = '13.02.2026'
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+                <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
               </tr>
             </tbody>
           </table>
@@ -358,13 +358,13 @@ const lastUpdated = '13.02.2026'
         <h2>1. Introduction</h2>
         <p>
           These Terms of Service ("Terms") govern your access to and use of the fxtun service
-          ("Service"), including the website at <a href="https://fxtun.dev">fxtun.dev</a>,
+          ("Service"), including the website at <a href="https://fxtun.ru">fxtun.ru</a>,
           desktop applications, command-line tools, and all related APIs.
         </p>
         <p>
-          The Service is operated by <strong>Nocodo LTD</strong>, a company incorporated and
-          registered in the Republic of Cyprus (hereinafter "Company", "we", "us", or "our").
-          Company website: <a href="https://nocodo.tech">nocodo.tech</a>.
+          The Service is operated by <strong>Navodnyuk A.I. (sole proprietor)</strong>, a sole proprietor
+          registered in the Russian Federation (hereinafter "Company", "we", "us", or "our").
+          Company website: <a href="https://fxtun.ru">fxtun.ru</a>.
         </p>
         <p>
           By creating an account or using the Service, you ("User", "you", or "your") agree to
@@ -403,7 +403,7 @@ const lastUpdated = '13.02.2026'
         <p>
           You are solely responsible for all activity that occurs under your account. You must
           notify us immediately at
-          <a href="mailto:support@fxtun.ru">support@fxtun.ru</a> if you suspect
+          <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a> if you suspect
           unauthorized access to your account.
         </p>
 
@@ -418,7 +418,7 @@ const lastUpdated = '13.02.2026'
         <p>
           Paid plans (Base and Pro) offer additional capacity, reserved subdomains, custom domains,
           and priority features. Current pricing is available at
-          <a href="https://fxtun.dev/#pricing">fxtun.dev/#pricing</a>.
+          <a href="https://fxtun.ru/#pricing">fxtun.ru/#pricing</a>.
         </p>
         <p>
           Subscriptions are billed monthly. Payment is processed through third-party payment
@@ -446,7 +446,7 @@ const lastUpdated = '13.02.2026'
         <h2>7. Intellectual Property</h2>
         <p>
           The Service, including its software, design, logos, documentation, and all related
-          intellectual property, is owned by Nocodo LTD or its licensors. These Terms do not
+          intellectual property, is owned by Navodnyuk A.I. (sole proprietor) or its licensors. These Terms do not
           grant you any right, title, or interest in the Service except for the limited right
           to use it as described herein.
         </p>
@@ -475,7 +475,7 @@ const lastUpdated = '13.02.2026'
         <p>
           We retain your account data for the duration of your account plus 12 months after
           deletion. Connection metadata is retained for up to 90 days. You may request full
-          data deletion by contacting <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+          data deletion by contacting <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
         </p>
         <h3>8.4. Traffic Content</h3>
         <p>
@@ -508,7 +508,7 @@ const lastUpdated = '13.02.2026'
         </ul>
         <p>
           Refunds are issued to the original payment method within 14 business days.
-          To request a refund, contact <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+          To request a refund, contact <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
         </p>
 
         <h2>10. Service Availability and SLA</h2>
@@ -526,7 +526,7 @@ const lastUpdated = '13.02.2026'
 
         <h2>11. Limitation of Liability</h2>
         <p>
-          To the maximum extent permitted by applicable law, Nocodo LTD shall not be liable
+          To the maximum extent permitted by applicable law, Navodnyuk A.I. (sole proprietor) shall not be liable
           for any indirect, incidental, special, consequential, or punitive damages, including
           but not limited to loss of profits, data, business opportunities, or goodwill,
           arising out of or related to your use of the Service.
@@ -538,7 +538,7 @@ const lastUpdated = '13.02.2026'
 
         <h2>12. Indemnification</h2>
         <p>
-          You agree to indemnify and hold harmless Nocodo LTD, its officers, directors, employees,
+          You agree to indemnify and hold harmless Navodnyuk A.I. (sole proprietor), its officers, directors, employees,
           and agents from any claims, damages, losses, liabilities, and expenses (including
           reasonable legal fees) arising from your use of the Service or violation of these Terms.
         </p>
@@ -566,13 +566,13 @@ const lastUpdated = '13.02.2026'
         <h2>15. Governing Law and Dispute Resolution</h2>
         <p>
           These Terms are governed by and construed in accordance with the laws of the
-          Republic of Cyprus, without regard to its conflict of law provisions.
+          Russian Federation, without regard to its conflict of law provisions.
         </p>
         <p>
           Any disputes arising from or relating to these Terms or the Service shall first be
           attempted to be resolved through good-faith negotiation. If unresolved within 30 days,
           disputes shall be submitted to the exclusive jurisdiction of the courts of the
-          Republic of Cyprus.
+          Russian Federation.
         </p>
 
         <h2>16. Severability</h2>
@@ -586,23 +586,23 @@ const lastUpdated = '13.02.2026'
           <tbody>
             <tr>
               <td class="font-medium pr-4 py-1">Company:</td>
-              <td>Nocodo LTD</td>
+              <td>Navodnyuk A.I. (sole proprietor)</td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Jurisdiction:</td>
-              <td>Republic of Cyprus</td>
+              <td>Russian Federation</td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Website:</td>
-              <td><a href="https://nocodo.tech">nocodo.tech</a></td>
+              <td><a href="https://fxtun.ru">fxtun.ru</a></td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Email:</td>
-              <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+              <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Service:</td>
-              <td><a href="https://fxtun.dev">fxtun.dev</a></td>
+              <td><a href="https://fxtun.ru">fxtun.ru</a></td>
             </tr>
           </tbody>
         </table>

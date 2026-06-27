@@ -273,6 +273,157 @@ func TestGoogleLinkCallback_SuccessNewLink(t *testing.T) {
 	}
 }
 
+func TestYandexLinkCallback_ConflictWhenLinkedToAnotherUser(t *testing.T) {
+	env := setupTestEnv(t)
+
+	user1 := env.createTestUser(t, "+7111111111", "password1", "User One")
+	user2 := env.createTestUser(t, "+7222222222", "password2", "User Two")
+
+	// Link Yandex ID "yandex-123" to user2
+	if err := env.AuthService.LinkYandex(user2.User.ID, "yandex-123", "user2@yandex.ru", ""); err != nil {
+		t.Fatalf("failed to link yandex to user2: %v", err)
+	}
+
+	// Now try to link the same Yandex ID to user1 — should get error redirect
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/auth/yandex/callback", nil)
+
+	yUser := &yandexUser{
+		ID:           "yandex-123",
+		DefaultEmail: "user2@yandex.ru",
+		DisplayName:  "Test User",
+	}
+
+	env.APIServer.handleYandexLinkCallback(w, r, user1.User.ID, yUser)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("expected 307 redirect, got %d", resp.StatusCode)
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		t.Fatalf("expected Location header: %v", err)
+	}
+
+	errMsg := loc.Query().Get("error")
+	if errMsg != "this Yandex account is already linked to another user" {
+		t.Fatalf("unexpected error message: %q", errMsg)
+	}
+}
+
+func TestYandexLinkCallback_SuccessWhenLinkedToSameUser(t *testing.T) {
+	env := setupTestEnv(t)
+
+	user1 := env.createTestUser(t, "+7333333333", "password1", "User One")
+
+	if err := env.AuthService.LinkYandex(user1.User.ID, "yandex-456", "user1@yandex.ru", ""); err != nil {
+		t.Fatalf("failed to link yandex to user1: %v", err)
+	}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/auth/yandex/callback", nil)
+
+	yUser := &yandexUser{
+		ID:           "yandex-456",
+		DefaultEmail: "user1@yandex.ru",
+		DisplayName:  "User One",
+	}
+
+	env.APIServer.handleYandexLinkCallback(w, r, user1.User.ID, yUser)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("expected 307 redirect, got %d", resp.StatusCode)
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		t.Fatalf("expected Location header: %v", err)
+	}
+
+	if loc.Query().Get("error") != "" {
+		t.Fatalf("expected no error, got: %s", loc.Query().Get("error"))
+	}
+	if loc.Query().Get("yandex_linked") != "true" {
+		t.Fatal("expected yandex_linked=true in redirect URL")
+	}
+}
+
+func TestYandexLinkCallback_SuccessNewLink(t *testing.T) {
+	env := setupTestEnv(t)
+
+	user1 := env.createTestUser(t, "+7444444444", "password1", "User One")
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/api/auth/yandex/callback", nil)
+
+	yUser := &yandexUser{
+		ID:           "yandex-new-789",
+		DefaultEmail: "new@yandex.ru",
+		DisplayName:  "New User",
+	}
+
+	env.APIServer.handleYandexLinkCallback(w, r, user1.User.ID, yUser)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("expected 307 redirect, got %d", resp.StatusCode)
+	}
+
+	loc, err := resp.Location()
+	if err != nil {
+		t.Fatalf("expected Location header: %v", err)
+	}
+
+	if loc.Query().Get("error") != "" {
+		t.Fatalf("expected no error, got: %s", loc.Query().Get("error"))
+	}
+	if loc.Query().Get("yandex_linked") != "true" {
+		t.Fatal("expected yandex_linked=true in redirect URL")
+	}
+
+	// Verify the link was actually created in the database
+	linkedUser, err := env.DB.Users.GetByYandexID("yandex-new-789")
+	if err != nil {
+		t.Fatalf("expected to find user by yandex ID: %v", err)
+	}
+	if linkedUser.ID != user1.User.ID {
+		t.Fatalf("expected yandex ID linked to user %d, got %d", user1.User.ID, linkedUser.ID)
+	}
+}
+
+// TestIsLocalhostURI guards the desktop OAuth redirect_uri allowlist against
+// userinfo-host bypasses (e.g. http://localhost:@evil.com) that a naive prefix
+// check would accept, leaking the one-time exchange code to an attacker.
+func TestIsLocalhostURI(t *testing.T) {
+	cases := []struct {
+		uri  string
+		want bool
+	}{
+		{"http://localhost:8080/callback", true},
+		{"http://127.0.0.1:54321/callback", true},
+		{"http://localhost/callback", true},
+		{"http://localhost:@evil.com/callback", false},
+		{"http://localhost.evil.com:8080/cb", false},
+		{"http://evil.com/callback", false},
+		{"https://localhost:8080/callback", false},
+		{"javascript:alert(1)//localhost:1", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := isLocalhostURI(c.uri); got != c.want {
+			t.Errorf("isLocalhostURI(%q) = %v, want %v", c.uri, got, c.want)
+		}
+	}
+}
+
 // TestGitHubLinkCallback_NoMergeOccurs verifies that the auto-merge vulnerability is fixed:
 // when a GitHub ID is linked to another user, no data is transferred between accounts.
 func TestGitHubLinkCallback_NoMergeOccurs(t *testing.T) {
@@ -323,4 +474,3 @@ func TestGitHubLinkCallback_NoMergeOccurs(t *testing.T) {
 		t.Fatalf("expected user2 to still have 1 token, got %d", len(user2Tokens))
 	}
 }
-

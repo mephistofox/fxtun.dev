@@ -279,6 +279,8 @@ func (s *Server) setupRoutes() {
 			r.Get("/github/callback", s.handleGitHubCallback)
 			r.Get("/google", s.handleGoogleAuth)
 			r.Get("/google/callback", s.handleGoogleCallback)
+			r.Get("/yandex", s.handleYandexAuth)
+			r.Get("/yandex/callback", s.handleYandexCallback)
 			r.Post("/exchange", s.handleOAuthExchange)
 		})
 
@@ -339,6 +341,7 @@ func (s *Server) setupRoutes() {
 			r.Post("/auth/device/authorize", s.handleDeviceAuthorize)
 			r.Post("/auth/github/link", s.handleGitHubLink)
 			r.Post("/auth/google/link", s.handleGoogleLink)
+			r.Post("/auth/yandex/link", s.handleYandexLink)
 
 			// TOTP
 			r.Route("/auth/totp", func(r chi.Router) {

@@ -244,7 +244,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             Вы можете запросить полное удаление данных, обратившись по адресу
-            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>7. Безопасность данных</h2>
@@ -268,7 +268,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             Для реализации своих прав обратитесь по адресу
-            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>9. Положения для резидентов ЕС (GDPR)</h2>
@@ -329,7 +329,7 @@ const lastUpdated = '17.02.2026'
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+                <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
               </tr>
             </tbody>
           </table>
@@ -338,11 +338,11 @@ const lastUpdated = '17.02.2026'
         <template v-else>
           <h2>1. Introduction</h2>
           <p>
-            This Privacy Policy describes how <strong>Nocodo LTD</strong>
-            (hereinafter "Company", "we", "us", or "our"), a company registered in the
-            Republic of Cyprus, collects, uses, discloses, and safeguards information of users
+            This Privacy Policy describes how <strong>Navodnyuk A.I. (sole proprietor)</strong>
+            (hereinafter "Company", "we", "us", or "our"), a sole proprietor registered in the
+            Russian Federation, collects, uses, discloses, and safeguards information of users
             of the fxTunnel service (the "Service"), including the website at
-            <a href="https://fxtun.dev">fxtun.dev</a>,
+            <a href="https://fxtun.ru">fxtun.ru</a>,
             desktop applications, command-line tools, and all related APIs.
           </p>
           <p>
@@ -471,7 +471,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             You may request full data deletion by contacting
-            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>7. Data Security</h2>
@@ -495,7 +495,7 @@ const lastUpdated = '17.02.2026'
           </ul>
           <p>
             To exercise your rights, contact
-            <a href="mailto:support@fxtun.ru">support@fxtun.ru</a>.
+            <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
           </p>
 
           <h2>9. EU-Specific Provisions (GDPR)</h2>
@@ -544,23 +544,23 @@ const lastUpdated = '17.02.2026'
             <tbody>
               <tr>
                 <td class="font-medium pr-4 py-1">Company:</td>
-                <td>Nocodo LTD</td>
+                <td>Navodnyuk A.I. (sole proprietor)</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Jurisdiction:</td>
-                <td>Republic of Cyprus</td>
+                <td>Russian Federation</td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Website:</td>
-                <td><a href="https://nocodo.tech">nocodo.tech</a></td>
+                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Email:</td>
-                <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+                <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
               </tr>
               <tr>
                 <td class="font-medium pr-4 py-1">Service:</td>
-                <td><a href="https://fxtun.dev">fxtun.dev</a></td>
+                <td><a href="https://fxtun.ru">fxtun.ru</a></td>
               </tr>
             </tbody>
           </table>

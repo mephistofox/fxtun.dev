@@ -47,8 +47,8 @@ func (q *Queries) CountUsersFiltered(ctx context.Context, arg CountUsersFiltered
 }
 
 const createOAuthUser = `-- name: CreateOAuthUser :one
-INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, email, avatar_url, plan_id, created_at)
-VALUES ($1, '', $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+INSERT INTO users (phone, password_hash, display_name, is_admin, is_active, github_id, google_id, yandex_id, email, avatar_url, plan_id, created_at)
+VALUES ($1, '', $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
 RETURNING id, created_at
 `
 
@@ -59,6 +59,7 @@ type CreateOAuthUserParams struct {
 	IsActive    bool        `json:"is_active"`
 	GithubID    pgtype.Int8 `json:"github_id"`
 	GoogleID    pgtype.Text `json:"google_id"`
+	YandexID    pgtype.Text `json:"yandex_id"`
 	Email       pgtype.Text `json:"email"`
 	AvatarUrl   pgtype.Text `json:"avatar_url"`
 	PlanID      pgtype.Int8 `json:"plan_id"`
@@ -77,6 +78,7 @@ func (q *Queries) CreateOAuthUser(ctx context.Context, arg CreateOAuthUserParams
 		arg.IsActive,
 		arg.GithubID,
 		arg.GoogleID,
+		arg.YandexID,
 		arg.Email,
 		arg.AvatarUrl,
 		arg.PlanID,
@@ -130,7 +132,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE email = $1
 `
 
@@ -152,12 +154,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (User, 
 		&i.GoogleID,
 		&i.PlanID,
 		&i.FirstTunnelAt,
+		&i.YandexID,
 	)
 	return i, err
 }
 
 const getUserByGitHubID = `-- name: GetUserByGitHubID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE github_id = $1
 `
 
@@ -179,12 +182,13 @@ func (q *Queries) GetUserByGitHubID(ctx context.Context, githubID pgtype.Int8) (
 		&i.GoogleID,
 		&i.PlanID,
 		&i.FirstTunnelAt,
+		&i.YandexID,
 	)
 	return i, err
 }
 
 const getUserByGoogleID = `-- name: GetUserByGoogleID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE google_id = $1
 `
 
@@ -206,12 +210,13 @@ func (q *Queries) GetUserByGoogleID(ctx context.Context, googleID pgtype.Text) (
 		&i.GoogleID,
 		&i.PlanID,
 		&i.FirstTunnelAt,
+		&i.YandexID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE id = $1
 `
 
@@ -233,12 +238,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.GoogleID,
 		&i.PlanID,
 		&i.FirstTunnelAt,
+		&i.YandexID,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE phone = $1
 `
 
@@ -260,6 +266,35 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, 
 		&i.GoogleID,
 		&i.PlanID,
 		&i.FirstTunnelAt,
+		&i.YandexID,
+	)
+	return i, err
+}
+
+const getUserByYandexID = `-- name: GetUserByYandexID :one
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
+FROM users WHERE yandex_id = $1
+`
+
+func (q *Queries) GetUserByYandexID(ctx context.Context, yandexID pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByYandexID, yandexID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.IsAdmin,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.LastLoginAt,
+		&i.GithubID,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.PlanID,
+		&i.FirstTunnelAt,
+		&i.YandexID,
 	)
 	return i, err
 }
@@ -297,7 +332,7 @@ func (q *Queries) GetUserStats(ctx context.Context, search pgtype.Text) (GetUser
 }
 
 const getUsersByIDs = `-- name: GetUsersByIDs :many
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users WHERE id = ANY($1::bigint[])
 `
 
@@ -325,6 +360,7 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, dollar_1 []int64) ([]User, 
 			&i.GoogleID,
 			&i.PlanID,
 			&i.FirstTunnelAt,
+			&i.YandexID,
 		); err != nil {
 			return nil, err
 		}
@@ -384,8 +420,32 @@ func (q *Queries) LinkGoogle(ctx context.Context, arg LinkGoogleParams) error {
 	return err
 }
 
+const linkYandex = `-- name: LinkYandex :exec
+UPDATE users SET yandex_id = $2,
+    email = COALESCE(NULLIF(email, ''), $3),
+    avatar_url = COALESCE(NULLIF(avatar_url, ''), $4)
+WHERE id = $1
+`
+
+type LinkYandexParams struct {
+	ID        int64       `json:"id"`
+	YandexID  pgtype.Text `json:"yandex_id"`
+	Email     pgtype.Text `json:"email"`
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+}
+
+func (q *Queries) LinkYandex(ctx context.Context, arg LinkYandexParams) error {
+	_, err := q.db.Exec(ctx, linkYandex,
+		arg.ID,
+		arg.YandexID,
+		arg.Email,
+		arg.AvatarUrl,
+	)
+	return err
+}
+
 const listUsersFiltered = `-- name: ListUsersFiltered :many
-SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at
+SELECT id, phone, password_hash, display_name, is_admin, is_active, created_at, last_login_at, github_id, email, avatar_url, google_id, plan_id, first_tunnel_at, yandex_id
 FROM users
 WHERE ($3::boolean IS NULL OR is_active = $3)
   AND ($4::boolean IS NULL OR is_admin = $4)
@@ -434,6 +494,7 @@ func (q *Queries) ListUsersFiltered(ctx context.Context, arg ListUsersFilteredPa
 			&i.GoogleID,
 			&i.PlanID,
 			&i.FirstTunnelAt,
+			&i.YandexID,
 		); err != nil {
 			return nil, err
 		}

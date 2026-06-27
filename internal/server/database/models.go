@@ -52,6 +52,7 @@ type User struct {
 	LastLoginAt   *time.Time `json:"last_login_at,omitempty"`
 	GitHubID      *int64     `json:"github_id,omitempty"`
 	GoogleID      *string    `json:"google_id,omitempty"`
+	YandexID      *string    `json:"yandex_id,omitempty"`
 	Email         string     `json:"email,omitempty"`
 	AvatarURL     string     `json:"avatar_url,omitempty"`
 	PlanID        int64      `json:"plan_id"`

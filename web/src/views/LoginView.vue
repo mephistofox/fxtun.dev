@@ -142,6 +142,17 @@ function cycleTheme() {
           </svg>
           {{ t('auth.signInWithGoogle') }}
         </a>
+
+        <a
+          href="/api/auth/yandex"
+          class="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-accent/10 transition-colors"
+        >
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="11" fill="#FC3F1D"/>
+            <path d="M13.3 6.6h-1.04c-1.9 0-2.9 .97-2.9 2.4 0 1.61.7 2.36 2.13 3.33l1.18.8-3.4 5.07h2.27l3.05-4.55V18.2h1.86V6.6H13.3zm-.75 5.99l-.53-.36c-.97-.65-1.43-1.15-1.43-2.23 0-1.16.81-1.95 2.45-1.95h.78v4.54h-.74z" fill="#fff"/>
+          </svg>
+          {{ t('auth.signInWithYandex') }}
+        </a>
       </div>
 
       <!-- Tunnel illustration -->

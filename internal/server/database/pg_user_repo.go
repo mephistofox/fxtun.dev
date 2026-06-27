@@ -32,6 +32,7 @@ func sqlcUserToDomain(u sqlc.User) *User {
 		LastLoginAt:   tsToTimePtr(u.LastLoginAt),
 		GitHubID:      int8ToInt64Ptr(u.GithubID),
 		GoogleID:      textToStringPtr(u.GoogleID),
+		YandexID:      textToStringPtr(u.YandexID),
 		Email:         textToString(u.Email),
 		AvatarURL:     textToString(u.AvatarUrl),
 		PlanID:        int8ToInt64(u.PlanID),
@@ -144,6 +145,19 @@ func (r *UserRepository) GetByGoogleID(googleID string) (*User, error) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("get user by google id: %w", err)
+	}
+	return sqlcUserToDomain(u), nil
+}
+
+// GetByYandexID retrieves a user by Yandex ID.
+func (r *UserRepository) GetByYandexID(yandexID string) (*User, error) {
+	ctx := context.Background()
+	u, err := r.q.GetUserByYandexID(ctx, stringToPgtext(yandexID))
+	if err != nil {
+		if isNotFound(err) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("get user by yandex id: %w", err)
 	}
 	return sqlcUserToDomain(u), nil
 }
@@ -280,6 +294,24 @@ func (r *UserRepository) LinkGoogle(userID int64, googleID, email, avatarURL str
 	return nil
 }
 
+// LinkYandex links a Yandex account to an existing user.
+func (r *UserRepository) LinkYandex(userID int64, yandexID, email, avatarURL string) error {
+	ctx := context.Background()
+	err := r.q.LinkYandex(ctx, sqlc.LinkYandexParams{
+		ID:        userID,
+		YandexID:  stringToPgtext(yandexID),
+		Email:     stringToPgtext(email),
+		AvatarUrl: stringToPgtext(avatarURL),
+	})
+	if err != nil {
+		if isUniqueViolation(err) {
+			return fmt.Errorf("yandex account already linked to another user")
+		}
+		return fmt.Errorf("link yandex: %w", err)
+	}
+	return nil
+}
+
 // CreateOAuth creates a new user via OAuth (no phone/password required).
 func (r *UserRepository) CreateOAuth(user *User) error {
 	ctx := context.Background()
@@ -290,6 +322,7 @@ func (r *UserRepository) CreateOAuth(user *User) error {
 		IsActive:    user.IsActive,
 		GithubID:    int64PtrToPgint8(user.GitHubID),
 		GoogleID:    stringPtrToPgtext(user.GoogleID),
+		YandexID:    stringPtrToPgtext(user.YandexID),
 		Email:       stringToPgtext(user.Email),
 		AvatarUrl:   stringToPgtext(user.AvatarURL),
 		PlanID:      int64ToPgint8(user.PlanID),
@@ -398,11 +431,11 @@ func buildFilterParams(params UserListParams) (isActive pgtype.Bool, isAdmin pgt
 
 // allowedSortColumns is a whitelist of columns that can be used for sorting users.
 var allowedSortColumns = map[string]string{
-	"created_at":   "created_at",
+	"created_at":    "created_at",
 	"last_login_at": "last_login_at",
-	"email":        "email",
-	"display_name": "display_name",
-	"id":           "id",
+	"email":         "email",
+	"display_name":  "display_name",
+	"id":            "id",
 }
 
 // List returns users with filtering, search, and pagination.
@@ -579,6 +612,7 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 		UPDATE users SET
 			github_id = COALESCE(github_id, (SELECT github_id FROM users WHERE id = $1)),
 			google_id = COALESCE(google_id, (SELECT google_id FROM users WHERE id = $1)),
+			yandex_id = COALESCE(yandex_id, (SELECT yandex_id FROM users WHERE id = $1)),
 			email = CASE WHEN email = '' OR email IS NULL THEN (SELECT email FROM users WHERE id = $1) ELSE email END,
 			avatar_url = CASE WHEN avatar_url = '' OR avatar_url IS NULL THEN (SELECT avatar_url FROM users WHERE id = $1) ELSE avatar_url END
 		WHERE id = $2

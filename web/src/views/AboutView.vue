@@ -95,7 +95,7 @@ useSubpageSchema({
               <tbody>
                 <tr>
                   <td class="font-medium pr-4 py-1">{{ t('about.contactEmail') }}:</td>
-                  <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+                  <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
                 </tr>
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
@@ -155,7 +155,7 @@ useSubpageSchema({
               <tbody>
                 <tr>
                   <td class="font-medium pr-4 py-1">{{ t('about.contactEmail') }}:</td>
-                  <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+                  <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
                 </tr>
                 <tr>
                   <td class="font-medium pr-4 py-1">GitHub Issues:</td>
