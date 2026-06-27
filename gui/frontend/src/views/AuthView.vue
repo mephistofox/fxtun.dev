@@ -17,6 +17,10 @@ const token = ref('')
 const remember = ref(true)
 const showError = ref(false)
 
+// Временно скрываем вход через GitHub и Google (оставляем только Yandex / токен).
+// Чтобы вернуть кнопки — поменяй на true.
+const showGithubGoogle = false
+
 watch(() => authStore.error, (error) => {
   if (error) {
     showError.value = true
@@ -128,7 +132,7 @@ async function handleSubmit() {
               </button>
             </div>
             <div v-else key="oauth-buttons" class="space-y-3">
-              <div class="flex gap-3">
+              <div v-if="showGithubGoogle" class="flex gap-3">
                 <Button
                   type="button"
                   variant="outline"
