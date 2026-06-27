@@ -5,9 +5,9 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import { Button, Card, Input, Label, Alert, AlertDescription } from '@/components/ui'
-import { Wifi, Server, Key, Zap, ArrowRight, Github, Loader2 } from 'lucide-vue-next'
+import { Wifi, Server, Key, Zap, ArrowRight, Github, Loader2, Mail } from 'lucide-vue-next'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
@@ -16,6 +16,13 @@ const serverAddress = ref('')
 const token = ref('')
 const remember = ref(true)
 const showError = ref(false)
+
+// Magic-link (passwordless email) sign-in state.
+const magicEmail = ref('')
+const magicCode = ref('')
+const magicTotp = ref('')
+const magicStep = ref<'email' | 'code'>('email')
+const magicInfo = ref('')
 
 // Временно скрываем вход через GitHub и Google (оставляем только Yandex / токен).
 // Чтобы вернуть кнопки — поменяй на true.
@@ -55,6 +62,43 @@ async function handleSubmit() {
     await settingsStore.saveServerAddress(serverAddress.value)
     router.push('/dashboard')
   }
+}
+
+function magicLang(): string {
+  return locale.value === 'en' ? 'en' : 'ru'
+}
+
+async function handleMagicSend() {
+  if (!magicEmail.value.trim()) return
+  magicInfo.value = ''
+  const res = await authStore.sendMagicLink(serverAddress.value, magicEmail.value.trim(), magicLang())
+  if (res.success) {
+    magicInfo.value = res.message || t('auth.magicLinkSent')
+    magicStep.value = 'code'
+  }
+}
+
+async function handleMagicVerify() {
+  if (magicCode.value.trim().length !== 6) return
+  const success = await authStore.loginWithMagicLink(
+    serverAddress.value,
+    magicEmail.value.trim(),
+    magicCode.value.trim(),
+    magicTotp.value.trim(),
+    remember.value
+  )
+  if (success) {
+    await settingsStore.saveServerAddress(serverAddress.value)
+    router.push('/dashboard')
+  }
+}
+
+function magicReset() {
+  magicStep.value = 'email'
+  magicCode.value = ''
+  magicTotp.value = ''
+  magicInfo.value = ''
+  authStore.resetTotpRequired()
 }
 </script>
 
@@ -132,6 +176,76 @@ async function handleSubmit() {
               </button>
             </div>
             <div v-else key="oauth-buttons" class="space-y-3">
+              <!-- Passwordless email (magic-link) sign-in -->
+              <div class="space-y-3">
+                <template v-if="magicStep === 'email'">
+                  <Input
+                    v-model="magicEmail"
+                    type="email"
+                    :placeholder="t('auth.emailPlaceholder')"
+                    class="bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/20 text-sm"
+                    @keyup.enter="handleMagicSend"
+                  />
+                  <Button
+                    type="button"
+                    class="w-full h-11 gap-2"
+                    :loading="authStore.isLoading"
+                    :disabled="authStore.isLoading || !magicEmail.trim()"
+                    @click="handleMagicSend"
+                  >
+                    <Mail class="h-5 w-5" />
+                    {{ t('auth.signInWithEmail') }}
+                  </Button>
+                </template>
+                <template v-else>
+                  <p class="text-xs text-muted-foreground text-center">{{ magicInfo || t('auth.magicLinkSent') }}</p>
+                  <Input
+                    v-model="magicCode"
+                    inputmode="numeric"
+                    maxlength="6"
+                    :placeholder="t('auth.magicLinkCodePlaceholder')"
+                    class="bg-muted/30 border-border/50 text-center font-mono tracking-[0.4em] text-lg"
+                    @keyup.enter="handleMagicVerify"
+                  />
+                  <Input
+                    v-if="authStore.totpRequired"
+                    v-model="magicTotp"
+                    inputmode="numeric"
+                    maxlength="8"
+                    :placeholder="t('auth.totpCode')"
+                    class="bg-muted/30 border-border/50 text-center font-mono tracking-[0.3em] text-lg"
+                    @keyup.enter="handleMagicVerify"
+                  />
+                  <Button
+                    type="button"
+                    class="w-full h-11 gap-2"
+                    :loading="authStore.isLoading"
+                    :disabled="authStore.isLoading || magicCode.trim().length !== 6"
+                    @click="handleMagicVerify"
+                  >
+                    {{ t('auth.magicLinkVerify') }}
+                  </Button>
+                  <div class="flex items-center justify-between text-xs">
+                    <button type="button" class="text-muted-foreground hover:text-foreground" @click="magicReset">
+                      {{ t('auth.magicLinkChangeEmail') }}
+                    </button>
+                    <button type="button" class="text-primary hover:underline" :disabled="authStore.isLoading" @click="handleMagicSend">
+                      {{ t('auth.magicLinkResend') }}
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Divider -->
+                <div class="relative">
+                  <div class="absolute inset-0 flex items-center">
+                    <span class="w-full border-t border-border/50" />
+                  </div>
+                  <div class="relative flex justify-center text-xs uppercase">
+                    <span class="bg-card px-2 text-muted-foreground">{{ t('auth.or') }}</span>
+                  </div>
+                </div>
+              </div>
+
               <div v-if="showGithubGoogle" class="flex gap-3">
                 <Button
                   type="button"

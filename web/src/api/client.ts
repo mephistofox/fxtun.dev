@@ -152,6 +152,10 @@ export const authApi = {
   refresh: (refreshToken: string) => api.post<TokenPair>('/auth/refresh', { refresh_token: refreshToken }),
   exchangeCode: (code: string) => api.post<TokenPair & { expires_in: number }>('/auth/exchange', { code }),
   initOAuthLink: (provider: string) => api.post<{ url: string }>(`/auth/${provider}/link`),
+  sendMagicLink: (email: string, lang?: string) =>
+    api.post<{ status: string; message: string }>('/auth/magic-link/send', { email, lang }),
+  verifyMagicLink: (data: { token?: string; email?: string; code?: string; totp_code?: string }) =>
+    api.post<TokenPair & { user: User; expires_in: number }>('/auth/magic-link/verify', data),
 }
 
 export const profileApi = {

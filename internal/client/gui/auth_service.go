@@ -654,6 +654,125 @@ func (s *AuthService) bringWindowToFront() {
 	wailsRuntime.WindowSetAlwaysOnTop(s.app.ctx, false)
 }
 
+// MagicLinkSendResult is returned to the frontend after requesting a sign-in email.
+type MagicLinkSendResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SendMagicLink requests a passwordless sign-in email (link + 6-digit code) for
+// the given address. The desktop app then asks the user to type the code.
+func (s *AuthService) SendMagicLink(serverAddr, email, lang string) (*MagicLinkSendResult, error) {
+	apiURL := s.buildAPIURL(serverAddr, "/api/auth/magic-link/send")
+
+	jsonBody, err := json.Marshal(map[string]string{"email": email, "lang": lang})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(apiURL, "application/json", bytes.NewReader(jsonBody))
+	if err != nil {
+		return &MagicLinkSendResult{Error: err.Error()}, nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(body, &errResp)
+		msg := errResp.Error
+		if msg == "" {
+			msg = fmt.Sprintf("request failed with status %d", resp.StatusCode)
+		}
+		return &MagicLinkSendResult{Error: msg}, nil
+	}
+
+	var okResp struct {
+		Message string `json:"message"`
+	}
+	_ = json.Unmarshal(body, &okResp)
+	return &MagicLinkSendResult{Success: true, Message: okResp.Message}, nil
+}
+
+// verifyMagicLinkCode exchanges email + 6-digit code (and optional TOTP code)
+// for tokens via the server API. On a server error it also returns the machine
+// error code (e.g. "TOTP_REQUIRED") so the caller can prompt for a second factor.
+func (s *AuthService) verifyMagicLinkCode(serverAddr, email, code, totpCode string) (*authTokens, string, error) {
+	apiURL := s.buildAPIURL(serverAddr, "/api/auth/magic-link/verify")
+
+	reqBody := map[string]string{"email": email, "code": code}
+	if totpCode != "" {
+		reqBody["totp_code"] = totpCode
+	}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, "", fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(apiURL, "application/json", bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, "", fmt.Errorf("verify request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		var errResp struct {
+			Error string `json:"error"`
+			Code  string `json:"code"`
+		}
+		_ = json.Unmarshal(body, &errResp)
+		if errResp.Error != "" {
+			return nil, errResp.Code, fmt.Errorf("%s", errResp.Error)
+		}
+		return nil, errResp.Code, fmt.Errorf("verify failed with status %d", resp.StatusCode)
+	}
+
+	var vr struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(body, &vr); err != nil {
+		return nil, "", fmt.Errorf("parse response: %w", err)
+	}
+	return &authTokens{AccessToken: vr.AccessToken, RefreshToken: vr.RefreshToken}, "", nil
+}
+
+// LoginWithMagicLink verifies the emailed 6-digit code (and optional TOTP code)
+// and, on success, logs in with the returned tokens (creating the account on
+// first sign-in).
+func (s *AuthService) LoginWithMagicLink(serverAddr, email, code, totpCode string, remember bool) (*LoginResponse, error) {
+	tokens, errCode, err := s.verifyMagicLinkCode(serverAddr, email, code, totpCode)
+	if err != nil {
+		resp := &LoginResponse{Success: false, Error: err.Error(), ErrorCode: errCode}
+		if errCode == "TOTP_REQUIRED" {
+			resp.Error = "TOTP code required"
+			resp.TOTPRequired = true
+		}
+		return resp, nil
+	}
+	return s.Login(LoginRequest{
+		Method:        AuthMethodToken,
+		ServerAddress: serverAddr,
+		Token:         tokens.AccessToken,
+		RefreshToken:  tokens.RefreshToken,
+		Remember:      remember,
+	})
+}
+
 // buildAPIURL constructs an API URL from the server address. The API lives on
 // the web host (e.g. fxtun.dev), not the control/tunnel endpoint.
 func (s *AuthService) buildAPIURL(serverAddr, path string) string {
