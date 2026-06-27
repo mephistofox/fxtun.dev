@@ -44,13 +44,15 @@ const cspMessageCompiler: MessageCompiler = (message) => {
 export function getDomainLocale(): 'en' | 'ru' | null {
   if (import.meta.env.SSR) return null
   const host = window.location.hostname
+  // fxtun.dev is consolidated into fxtun.ru — both domains serve the
+  // Russian-first site (fxtun.dev 301-redirects to fxtun.ru at the edge).
   if (host === 'fxtun.ru' || host.endsWith('.fxtun.ru')) return 'ru'
-  if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'en'
+  if (host === 'fxtun.dev' || host.endsWith('.fxtun.dev')) return 'ru'
   return null
 }
 
 function getDefaultLocale(): 'en' | 'ru' {
-  if (import.meta.env.SSR) return 'en'
+  if (import.meta.env.SSR) return 'ru'
   return getDomainLocale()
     ?? (localStorage.getItem('locale') as 'en' | 'ru' | null)
     ?? (['ru', 'uk', 'be'].includes(navigator.language.split('-')[0]) ? 'ru' : 'en')
@@ -75,9 +77,7 @@ if (!import.meta.env.SSR) {
 
 export function getBlogUrl(): string {
   if (import.meta.env.SSR) return '/blog'
-  const locale = getLocale()
-  const domain = locale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
-  return `${window.location.protocol}//${domain}/blog`
+  return `${window.location.protocol}//fxtun.ru/blog`
 }
 
 export function setLocale(locale: 'en' | 'ru') {

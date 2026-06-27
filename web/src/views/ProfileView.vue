@@ -27,6 +27,8 @@ const payments = ref<Payment[]>([])
 const githubLinkSuccess = ref(false)
 // Google linking
 const googleLinkSuccess = ref(false)
+// Yandex linking
+const yandexLinkSuccess = ref(false)
 
 // Profile form
 const displayName = ref(authStore.user?.display_name || '')
@@ -137,6 +139,10 @@ onMounted(() => {
   }
   if (route.query.google_linked === 'true') {
     googleLinkSuccess.value = true
+    authStore.refreshProfile()
+  }
+  if (route.query.yandex_linked === 'true') {
+    yandexLinkSuccess.value = true
     authStore.refreshProfile()
   }
 })
@@ -320,6 +326,29 @@ onMounted(() => {
                 </div>
                 <button v-else :disabled="oauthLinkLoading" @click="linkOAuthAccount('google')" class="prof-oauth-link-btn">
                   {{ t('profile.linkGoogle') }}
+                </button>
+              </div>
+
+              <!-- Yandex row -->
+              <div class="prof-oauth-row">
+                <div class="prof-oauth-left">
+                  <div class="prof-oauth-icon">
+                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="11" fill="#FC3F1D"/>
+                      <path d="M13.3 6.6h-1.04c-1.9 0-2.9 .97-2.9 2.4 0 1.61.7 2.36 2.13 3.33l1.18.8-3.4 5.07h2.27l3.05-4.55V18.2h1.86V6.6H13.3zm-.75 5.99l-.53-.36c-.97-.65-1.43-1.15-1.43-2.23 0-1.16.81-1.95 2.45-1.95h.78v4.54h-.74z" fill="#fff"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="prof-oauth-name">Yandex</div>
+                    <div v-if="yandexLinkSuccess" class="prof-oauth-success">{{ t('profile.yandexLinkSuccess') }}</div>
+                  </div>
+                </div>
+                <div v-if="authStore.user?.yandex_id" class="prof-oauth-linked">
+                  <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                  {{ t('profile.yandexLinked') }}
+                </div>
+                <button v-else :disabled="oauthLinkLoading" @click="linkOAuthAccount('yandex')" class="prof-oauth-link-btn">
+                  {{ t('profile.linkYandex') }}
                 </button>
               </div>
             </div>

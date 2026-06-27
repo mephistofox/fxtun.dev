@@ -489,6 +489,8 @@
     "signUpWithGitHub": "Continue with GitHub",
     "signInWithGoogle": "Continue with Google",
     "signUpWithGoogle": "Continue with Google",
+    "signInWithYandex": "Continue with Yandex",
+    "signUpWithYandex": "Continue with Yandex",
     "signInWithPhone": "Sign in with phone",
     "signUpWithPhone": "Sign up with phone",
     "encryption": "encrypted",
@@ -739,6 +741,11 @@
     "googleNotLinked": "Link your Google account to enable OAuth sign-in.",
     "linkGoogle": "Link Google Account",
     "googleLinkSuccess": "Google account linked successfully",
+    "yandexSection": "Yandex Account",
+    "yandexLinked": "Yandex account linked",
+    "yandexNotLinked": "Link your Yandex account to enable OAuth sign-in.",
+    "linkYandex": "Link Yandex Account",
+    "yandexLinkSuccess": "Yandex account linked successfully",
     "subscriptionSection": "Subscription",
     "subscriptionActive": "Active",
     "subscriptionCancelled": "Cancelled",
@@ -816,11 +823,11 @@
     },
     "terms": {
       "title": "Terms of Service — fxTunnel",
-      "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Nocodo LTD."
+      "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Navodnyuk A.I."
     },
     "privacy": {
       "title": "Privacy Policy — fxTunnel",
-      "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Nocodo LTD, Republic of Cyprus."
+      "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Navodnyuk A.I., Russian Federation."
     },
     "pricing": {
       "title": "Pricing Plans — fxTunnel {'|'} Free, Starter & Pro",
@@ -1060,7 +1067,7 @@
       { "q": "Can I cancel my subscription anytime?", "a": "Yes. You can cancel at any time from your profile. Your paid features remain active until the end of the billing period. No cancellation fees." },
       { "q": "Is there a free trial for paid plans?", "a": "There is no trial period, but the Free plan is available indefinitely. You can start with Free and upgrade when you need more tunnels, reserved subdomains, or the traffic inspector." },
       { "q": "What happens if I downgrade my plan?", "a": "When you downgrade, the new plan takes effect at the end of your current billing period. Excess reserved subdomains and custom domains will be released automatically." },
-      { "q": "Do you offer refunds?", "a": "Yes. Full refund before the paid period starts, proportional refund after. Refunds are processed within 14 business days via the original payment method. Contact support@fxtun.ru." }
+      { "q": "Do you offer refunds?", "a": "Yes. Full refund before the paid period starts, proportional refund after. Refunds are processed within 14 business days via the original payment method. Contact dev@fxcode.ru." }
     ]
   },
   "downloadsPage": {
@@ -1264,6 +1271,7 @@
       "never": "Never",
       "github": "GitHub",
       "google": "Google",
+      "yandex": "Yandex",
       "linked": "Linked",
       "notLinked": "Not linked"
     },

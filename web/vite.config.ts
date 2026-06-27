@@ -17,7 +17,7 @@ export default defineConfig({
       minifyJS: true,
     }),
     Sitemap({
-      hostname: "https://fxtun.dev",
+      hostname: "https://fxtun.ru",
       dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,

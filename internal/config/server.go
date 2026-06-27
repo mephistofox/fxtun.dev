@@ -232,6 +232,7 @@ type CustomDomainSettings struct {
 type OAuthSettings struct {
 	GitHub GitHubOAuthSettings `mapstructure:"github"`
 	Google GoogleOAuthSettings `mapstructure:"google"`
+	Yandex YandexOAuthSettings `mapstructure:"yandex"`
 }
 
 // GitHubOAuthSettings contains GitHub OAuth configuration with per-domain credentials
@@ -259,6 +260,12 @@ func (g *GitHubOAuthSettings) GetCredentials(host string) *GitHubDomainCredentia
 
 // GoogleOAuthSettings contains Google OAuth configuration (single app for all domains)
 type GoogleOAuthSettings struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+}
+
+// YandexOAuthSettings contains Yandex OAuth configuration (single app for all domains)
+type YandexOAuthSettings struct {
 	ClientID     string `mapstructure:"client_id"`
 	ClientSecret string `mapstructure:"client_secret"`
 }

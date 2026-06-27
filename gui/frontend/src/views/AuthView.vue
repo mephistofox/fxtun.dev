@@ -156,6 +156,20 @@ async function handleSubmit() {
                 </Button>
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                class="w-full h-11 gap-2 border-border/50 bg-muted/30 hover:bg-muted/50"
+                :disabled="authStore.isLoading"
+                @click="handleOAuth('yandex')"
+              >
+                <svg class="h-5 w-5" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="11" fill="#FC3F1D" />
+                  <path fill="#fff" d="M13.3 6.6h-1.04c-1.9 0-2.9 .97-2.9 2.4 0 1.61.7 2.36 2.13 3.33l1.18.8-3.4 5.07h2.27l3.05-4.55V18.2h1.86V6.6H13.3zm-.75 5.99l-.53-.36c-.97-.65-1.43-1.15-1.43-2.23 0-1.16.81-1.95 2.45-1.95h.78v4.54h-.74z" />
+                </svg>
+                Yandex
+              </Button>
+
               <!-- Divider -->
               <div class="relative">
                 <div class="absolute inset-0 flex items-center">

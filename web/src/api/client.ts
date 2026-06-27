@@ -78,6 +78,7 @@ export interface User {
   is_admin: boolean
   github_id?: number
   google_id?: string
+  yandex_id?: string
   created_at: string
 }
 
@@ -249,6 +250,7 @@ export interface AdminUser {
   avatar_url?: string
   github_id?: string
   google_id?: string
+  yandex_id?: string
 }
 
 export interface AuditLog {

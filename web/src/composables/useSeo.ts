@@ -2,7 +2,7 @@ import { useHead, useSeoMeta } from '@unhead/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { i18n, getDomainLocale } from '../i18n'
+import { i18n } from '../i18n'
 
 interface SeoOptions {
   titleKey?: string
@@ -19,10 +19,10 @@ export function useSeo(options: SeoOptions = {}) {
   const route = useRoute()
 
   // Effective locale: forcedLocale from route meta takes priority.
-  // During SSG, default to 'en' for non-prefixed routes (used by fxtun.dev)
-  // to prevent state leaks from shared i18n instance across renders.
+  // During SSG, default to 'ru' for non-prefixed routes — the site is
+  // Russian-first and consolidated onto fxtun.ru (fxtun.dev 301-redirects here).
   const effectiveLocale = (route.meta.forcedLocale as 'en' | 'ru') ??
-    (import.meta.env.SSR ? 'en' : locale.value)
+    (import.meta.env.SSR ? 'ru' : locale.value)
 
   // Always sync i18n state for current route (prevents SSG state leaks
   // where /ru route sets global locale to 'ru' and non-prefixed routes inherit it)
@@ -38,10 +38,8 @@ export function useSeo(options: SeoOptions = {}) {
 
   const title = computed(() => options.title || (options.titleKey ? te(options.titleKey) : 'fxtun'))
   const description = computed(() => options.description || (options.descriptionKey ? te(options.descriptionKey) : te('seo.defaultDescription')))
-  // During SSG getDomainLocale() returns null (no window), so use effectiveLocale
-  // which is set from route meta forcedLocale (e.g. 'ru' for /ru/* routes).
-  const domainLocale = import.meta.env.SSR ? effectiveLocale : getDomainLocale()
-  const ogDomain = domainLocale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
+  // Canonical domain is always fxtun.ru — fxtun.dev 301-redirects here.
+  const ogDomain = 'fxtun.ru'
   const image = options.image || `https://${ogDomain}/og-image.jpg`
 
   const isLangPrefix = computed(() =>
@@ -54,19 +52,19 @@ export function useSeo(options: SeoOptions = {}) {
     return route.path
   })
 
-  const enCanonical = computed(() => `https://fxtun.dev${cleanPath.value}`)
+  // English lives under /en on fxtun.ru; Russian is the canonical root.
+  const enCanonical = computed(() => `https://fxtun.ru/en${cleanPath.value === '/' ? '' : cleanPath.value}`)
   const ruCanonical = computed(() => `https://fxtun.ru${cleanPath.value}`)
 
   const canonical = computed(() => {
     if (isLangPrefix.value) {
       return route.path.startsWith('/ru') ? ruCanonical.value : enCanonical.value
     }
-    const domain = domainLocale === 'ru' ? 'fxtun.ru' : 'fxtun.dev'
-    return `https://${domain}${cleanPath.value}`
+    return ruCanonical.value
   })
 
   // Show hreflang on all routes — every page needs bidirectional hreflang
-  // for correct language targeting between fxtun.ru (ru) and fxtun.dev (en).
+  // for correct language targeting between the ru (root) and en (/en) variants.
   const showHreflang = computed(() => true)
 
   useHead({
@@ -76,7 +74,7 @@ export function useSeo(options: SeoOptions = {}) {
       ...(showHreflang.value ? [
         { rel: 'alternate', hreflang: 'en', href: enCanonical.value },
         { rel: 'alternate', hreflang: 'ru', href: ruCanonical.value },
-        { rel: 'alternate', hreflang: 'x-default', href: enCanonical.value },
+        { rel: 'alternate', hreflang: 'x-default', href: ruCanonical.value },
       ] : []),
     ]),
   })
@@ -98,7 +96,7 @@ export function useSeo(options: SeoOptions = {}) {
     ogUrl: canonical,
     ogType: options.type || 'website',
     ogSiteName: 'fxtun',
-    ogLocale: domainLocale === 'ru' ? 'ru_RU' : 'en_US',
+    ogLocale: effectiveLocale === 'ru' ? 'ru_RU' : 'en_US',
     twitterCard: 'summary_large_image',
     twitterTitle: title,
     twitterDescription: description,

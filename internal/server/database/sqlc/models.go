@@ -194,6 +194,7 @@ type User struct {
 	GoogleID      pgtype.Text        `json:"google_id"`
 	PlanID        pgtype.Int8        `json:"plan_id"`
 	FirstTunnelAt pgtype.Timestamptz `json:"first_tunnel_at"`
+	YandexID      pgtype.Text        `json:"yandex_id"`
 }
 
 type UserBundle struct {

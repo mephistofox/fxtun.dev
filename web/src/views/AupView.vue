@@ -210,15 +210,15 @@ const lastUpdated = '18.02.2026'
           <tbody>
             <tr>
               <td class="font-medium pr-4 py-1">Company:</td>
-              <td>Nocodo LTD</td>
+              <td>Navodnyuk A.I. (sole proprietor)</td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Email:</td>
-              <td><a href="mailto:support@fxtun.ru">support@fxtun.ru</a></td>
+              <td><a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a></td>
             </tr>
             <tr>
               <td class="font-medium pr-4 py-1">Website:</td>
-              <td><a href="https://fxtun.dev">fxtun.dev</a></td>
+              <td><a href="https://fxtun.ru">fxtun.ru</a></td>
             </tr>
           </tbody>
         </table>
