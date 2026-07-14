@@ -57,6 +57,12 @@ func New(cfg Config, tunnels TunnelLookup, nodes NodeLookup, log zerolog.Logger)
 	for i := range zf.Zones {
 		z := &zf.Zones[i]
 		name := strings.ToLower(strings.TrimSuffix(z.Name, ".")) + "."
+		for _, rec := range z.Records {
+			if rec.Name == "*" {
+				z.hasWildcard = true
+				break
+			}
+		}
 		zones[name] = z
 	}
 	return &Server{
@@ -133,16 +139,35 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
+	// nameExists tracks whether the queried name owns records of ANY type. It
+	// decides the empty-answer response below: a name that exists but has no
+	// record of the queried type is NODATA (NOERROR), while a name that does
+	// not exist at all is NXDOMAIN. Returning NXDOMAIN for an existing name
+	// (e.g. an AAAA query on a name that only has an A record) poisons resolver
+	// negative caches for EVERY type of that name (RFC 2308 §5), making it stop
+	// resolving entirely for the negative-cache TTL.
+	nameExists := subdomain == "" // the apex always exists
+
 	// SOA query at apex — synthesize from zone.
 	if subdomain == "" && (q.Qtype == dns.TypeSOA || q.Qtype == dns.TypeANY) {
 		m.Answer = append(m.Answer, buildSOA(zone))
 	}
 
 	// Dynamic tunnel lookup. Only consult the registry for actual subdomains
-	// (not the apex) and only when the zone enables tunnels.
-	if zone.TunnelsEnabled && subdomain != "" {
-		if q.Qtype == dns.TypeA || q.Qtype == dns.TypeANY {
-			if ip := s.lookupTunnel(subdomain); ip != "" {
+	// (not the apex) and only when the zone enables tunnels. A registered
+	// tunnel shadows any static/wildcard record for the same name and makes the
+	// name exist for every query type even though we only ever answer A. We do
+	// the lookup for A/ANY queries (which need the answer) and, in zones with
+	// no wildcard, for other types too (needed to classify NODATA vs NXDOMAIN);
+	// in a wildcard zone the wildcard already establishes existence, so we skip
+	// the extra registry hit on non-address types.
+	tunnelHit := false
+	if zone.TunnelsEnabled && subdomain != "" &&
+		(q.Qtype == dns.TypeA || q.Qtype == dns.TypeANY || !zone.hasWildcard) {
+		if ip := s.lookupTunnel(subdomain); ip != "" {
+			nameExists = true
+			tunnelHit = true
+			if q.Qtype == dns.TypeA || q.Qtype == dns.TypeANY {
 				if parsed := net.ParseIP(ip).To4(); parsed != nil {
 					rr := &dns.A{
 						Hdr: dns.RR_Header{
@@ -154,46 +179,25 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 						A: parsed,
 					}
 					m.Answer = append(m.Answer, rr)
-					_ = w.WriteMsg(m)
-					return
 				}
 			}
 		}
 	}
 
-	// Static records — exact match first.
-	for _, rec := range zone.Records {
-		if rec.Name == "*" {
-			continue // wildcards handled separately below as a fallback
-		}
-		fullName := strings.ToLower(rec.FullName(zone.Name))
-		if fullName != qName {
-			continue
-		}
-		if !matchType(rec.Type, q.Qtype) {
-			continue
-		}
-		ttl := rec.TTL
-		if ttl == 0 {
-			ttl = zone.TTL
-		}
-		if ttl == 0 {
-			ttl = 300
-		}
-		if rr := buildRR(rec, q.Name, ttl); rr != nil {
-			m.Answer = append(m.Answer, rr)
-		}
-	}
-
-	// Wildcard fallback — only for subdomain queries (never the apex), and only
-	// when no exact-match record was found. Mirrors RFC 1034 §4.3.3 wildcard
-	// semantics. Provides a friendly "tunnel not found" 404 from the nginx +
-	// fxtunnel chain instead of a DNS error for non-existent tunnel subdomains.
-	if len(m.Answer) == 0 && subdomain != "" {
+	// Static and wildcard records. A registered tunnel shadows both (matching
+	// the previous tunnel-priority behavior), so only consult them when no
+	// tunnel matched.
+	if !tunnelHit {
+		// Static records — exact match first.
 		for _, rec := range zone.Records {
-			if rec.Name != "*" {
+			if rec.Name == "*" {
+				continue // wildcards handled separately below as a fallback
+			}
+			fullName := strings.ToLower(rec.FullName(zone.Name))
+			if fullName != qName {
 				continue
 			}
+			nameExists = true // the name owns at least one record of some type
 			if !matchType(rec.Type, q.Qtype) {
 				continue
 			}
@@ -208,12 +212,49 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 				m.Answer = append(m.Answer, rr)
 			}
 		}
+
+		// Wildcard fallback — only for subdomain queries (never the apex), and
+		// only when no exact-match record was found. Mirrors RFC 1034 §4.3.3
+		// wildcard semantics. Provides a friendly "tunnel not found" 404 from
+		// the nginx + fxtunnel chain instead of a DNS error for non-existent
+		// tunnel subdomains.
+		if len(m.Answer) == 0 && subdomain != "" {
+			for _, rec := range zone.Records {
+				if rec.Name != "*" {
+					continue
+				}
+				// A wildcard record makes the queried name exist via synthesis
+				// (RFC 4592), even when its type does not match the query —
+				// that yields NODATA, not NXDOMAIN.
+				nameExists = true
+				if !matchType(rec.Type, q.Qtype) {
+					continue
+				}
+				ttl := rec.TTL
+				if ttl == 0 {
+					ttl = zone.TTL
+				}
+				if ttl == 0 {
+					ttl = 300
+				}
+				if rr := buildRR(rec, q.Name, ttl); rr != nil {
+					m.Answer = append(m.Answer, rr)
+				}
+			}
+		}
 	}
 
-	// No answers — return NXDOMAIN with SOA in authority section
-	// (RFC 2308 negative caching) so resolvers cache the negative result briefly.
+	// Empty answer. Distinguish NODATA (name exists, no record of the queried
+	// type) from NXDOMAIN (name does not exist at all). Both carry the SOA in
+	// the authority section for RFC 2308 negative caching, but NXDOMAIN may
+	// only be returned for a truly non-existent name — returning it for an
+	// existing name poisons the resolver's negative cache for ALL record types
+	// of that name, so the name stops resolving entirely (e.g. an AAAA query
+	// dropping the cached A record under Happy Eyeballs).
 	if len(m.Answer) == 0 {
-		m.SetRcode(r, dns.RcodeNameError)
+		if !nameExists {
+			m.SetRcode(r, dns.RcodeNameError)
+		}
 		m.Ns = append(m.Ns, buildSOA(zone))
 	}
 
