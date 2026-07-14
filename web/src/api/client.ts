@@ -194,7 +194,7 @@ export const downloadsApi = {
 }
 
 export const plansApi = {
-  listPublic: () => api.get<{ plans: Plan[] }>('/plans/public'),
+  listPublic: () => api.get<{ plans: Plan[]; recurring_enabled?: boolean }>('/plans/public'),
 }
 
 // Custom domains
