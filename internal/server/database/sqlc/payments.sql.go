@@ -235,6 +235,48 @@ func (q *Queries) ListAllPayments(ctx context.Context, arg ListAllPaymentsParams
 	return items, nil
 }
 
+const listFailedRecurringPaymentsBySubscriptionSince = `-- name: ListFailedRecurringPaymentsBySubscriptionSince :many
+SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
+FROM payments WHERE subscription_id = $1 AND is_recurring = TRUE AND status = 'failed' AND created_at >= $2 ORDER BY created_at DESC
+`
+
+type ListFailedRecurringPaymentsBySubscriptionSinceParams struct {
+	SubscriptionID pgtype.Int8        `json:"subscription_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListFailedRecurringPaymentsBySubscriptionSince(ctx context.Context, arg ListFailedRecurringPaymentsBySubscriptionSinceParams) ([]Payment, error) {
+	rows, err := q.db.Query(ctx, listFailedRecurringPaymentsBySubscriptionSince, arg.SubscriptionID, arg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Payment{}
+	for rows.Next() {
+		var i Payment
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.SubscriptionID,
+			&i.InvoiceID,
+			&i.Amount,
+			&i.Status,
+			&i.IsRecurring,
+			&i.YookassaData,
+			&i.Provider,
+			&i.ProviderData,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPaymentsByUserID = `-- name: ListPaymentsByUserID :many
 SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
 FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3

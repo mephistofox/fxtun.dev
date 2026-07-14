@@ -132,6 +132,7 @@ type Querier interface {
 	ListExchangesByHostAndUser(ctx context.Context, arg ListExchangesByHostAndUserParams) ([]ListExchangesByHostAndUserRow, error)
 	ListExchangesByTunnelID(ctx context.Context, arg ListExchangesByTunnelIDParams) ([]ListExchangesByTunnelIDRow, error)
 	ListExpiringTLSCerts(ctx context.Context, expiresAt pgtype.Timestamptz) ([]TlsCertificate, error)
+	ListFailedRecurringPaymentsBySubscriptionSince(ctx context.Context, arg ListFailedRecurringPaymentsBySubscriptionSinceParams) ([]Payment, error)
 	ListHistoryByUserID(ctx context.Context, arg ListHistoryByUserIDParams) ([]UserHistory, error)
 	ListPaymentsByUserID(ctx context.Context, arg ListPaymentsByUserIDParams) ([]Payment, error)
 	ListPlans(ctx context.Context) ([]Plan, error)

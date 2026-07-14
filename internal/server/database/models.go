@@ -299,6 +299,7 @@ type Subscription struct {
 	CurrentPeriodStart      *time.Time         `json:"current_period_start,omitempty"`
 	CurrentPeriodEnd        *time.Time         `json:"current_period_end,omitempty"`
 	YooKassaPaymentMethodID *string            `json:"yookassa_payment_method_id,omitempty"`
+	YooKassaCardLast4       *string            `json:"yookassa_card_last4,omitempty"`
 	CreemCustomerID         *string            `json:"creem_customer_id,omitempty"`
 	CreemSubscriptionID     *string            `json:"creem_subscription_id,omitempty"`
 	CreatedAt               time.Time          `json:"created_at"`

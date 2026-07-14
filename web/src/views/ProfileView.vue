@@ -22,6 +22,7 @@ const showGithubGoogle = false
 // Subscription
 const subscription = ref<Subscription | null>(null)
 const cancellingSubscription = ref(false)
+const unbindingCard = ref(false)
 const subscriptionError = ref('')
 
 // Payment history
@@ -107,6 +108,22 @@ async function cancelSubscription() {
     subscriptionError.value = err.response?.data?.error || t('profile.failedToCancelSubscription')
   } finally {
     cancellingSubscription.value = false
+  }
+}
+
+async function unbindCard() {
+  if (!confirm(t('profile.confirmUnbindCard'))) return
+
+  unbindingCard.value = true
+  subscriptionError.value = ''
+  try {
+    await subscriptionApi.unbindCard()
+    await loadSubscription()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { error?: string } } }
+    subscriptionError.value = err.response?.data?.error || t('profile.failedToUnbindCard')
+  } finally {
+    unbindingCard.value = false
   }
 }
 
@@ -198,11 +215,24 @@ onMounted(() => {
                     {{ t('profile.autoRenewal') }}:
                     <strong :class="subscription.recurring ? 'prof-val-on' : ''">{{ subscription.recurring ? t('common.yes') : t('common.no') }}</strong>
                   </span>
+                  <span v-if="isRuDomain && subscription.card_bound" class="prof-hero-sub-meta">
+                    {{ t('profile.paymentCard') }}:
+                    <strong>{{ subscription.card_last4 ? `•••• ${subscription.card_last4}` : t('profile.cardSaved') }}</strong>
+                  </span>
                   <span v-if="subscription.next_plan" class="prof-hero-sub-meta">
                     {{ t('profile.nextPlan') }}: <strong class="prof-val-primary">{{ subscription.next_plan.name }}</strong>
                   </span>
                 </div>
                 <div class="prof-hero-sub-actions">
+                  <Button
+                    v-if="isRuDomain && subscription.card_bound"
+                    variant="outline"
+                    size="sm"
+                    :loading="unbindingCard"
+                    @click="unbindCard"
+                  >
+                    {{ t('profile.unbindCard') }}
+                  </Button>
                   <Button
                     v-if="subscription.status === 'active' && subscription.recurring"
                     variant="destructive"
