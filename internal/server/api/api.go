@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -104,6 +105,7 @@ type Server struct {
 	emailGuard          *emailguard.Validator
 	nodeRegistry        store.NodeRegistry
 	ipBanStore          store.IPBanStore
+	yandexHTTPClient    *http.Client
 	shutdownCh          chan struct{}
 	shutdownOnce        sync.Once
 }
@@ -136,6 +138,48 @@ func WithIPBanStore(bs store.IPBanStore) Option {
 	return func(s *Server) { s.ipBanStore = bs }
 }
 
+// newEgressHTTPClient returns an HTTP client with a request timeout whose outgoing
+// connections are bound to the given local source IP. When egressIP is empty or
+// unparsable the client uses the default route (no source binding).
+func newEgressHTTPClient(egressIP string, log zerolog.Logger) *http.Client {
+	client := &http.Client{Timeout: 30 * time.Second}
+	if egressIP == "" {
+		return client
+	}
+
+	ip := net.ParseIP(egressIP)
+	if ip == nil {
+		log.Error().Str("egress_ip", egressIP).Msg("invalid OAuth egress IP, using default route")
+		return client
+	}
+
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+		LocalAddr: &net.TCPAddr{IP: ip},
+	}
+
+	// Force the address family to match the bound source IP. Otherwise a dual-stack
+	// destination (e.g. login.yandex.ru resolves to both A and AAAA) may be dialed
+	// over IPv6, silently bypassing the IPv4 egress binding.
+	forced := "tcp4"
+	if ip.To4() == nil {
+		forced = "tcp6"
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		if network == "tcp" {
+			network = forced
+		}
+		return dialer.DialContext(ctx, network, addr)
+	}
+	client.Transport = transport
+
+	log.Info().Str("egress_ip", egressIP).Str("network", forced).Msg("OAuth egress bound to source IP")
+	return client
+}
+
 // New creates a new API server
 func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Service, tunnelProvider TunnelProvider, inspectProvider InspectProvider, customDomainManager CustomDomainManager, log zerolog.Logger, opts ...Option) *Server {
 	memDevice := newDeviceStore()
@@ -158,6 +202,7 @@ func New(cfg *config.ServerConfig, db *database.Database, authService *auth.Serv
 		magicLinkStore:      memMagicLink,
 		emailGuard:          emailguard.New(),
 		ipBanStore:          memIPBan,
+		yandexHTTPClient:    newEgressHTTPClient(cfg.OAuth.Yandex.EgressIP, log),
 		shutdownCh:          make(chan struct{}),
 	}
 
