@@ -835,7 +835,7 @@ func (s *Server) exchangeYandexCode(code, redirectURI string) (string, error) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.yandexHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("send request: %w", err)
 	}
@@ -867,7 +867,7 @@ func (s *Server) getYandexUser(accessToken string) (*yandexUser, error) {
 	req.Header.Set("Authorization", "OAuth "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.yandexHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
