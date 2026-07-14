@@ -304,6 +304,12 @@ type YooKassaSettings struct {
 	SecretKey string `mapstructure:"secret_key"`
 	TestMode  bool   `mapstructure:"test_mode"`
 	ReturnURL string `mapstructure:"return_url"`
+	// RecurringEnabled gates auto-renewal (save_payment_method). A production
+	// YooKassa shop rejects recurring payments until the YooMoney manager enables
+	// the feature ("This store can't make recurring payments"), so this stays
+	// false until then; while false, checkout is forced to one-time. Flip to true
+	// once the shop is approved for autopayments — no code change needed.
+	RecurringEnabled bool `mapstructure:"recurring_enabled"`
 	// SourceIP optionally binds outbound YooKassa API calls to a specific local
 	// IP. Prod's primary egress IP is filtered upstream toward YooKassa's
 	// networks, so payments must leave via a clean secondary IP. Empty = default.
@@ -413,6 +419,7 @@ func LoadServerConfig(configPath string) (*ServerConfig, error) {
 	v.SetDefault("inspect.max_body_size", 262144)
 	v.SetDefault("yookassa.enabled", false)
 	v.SetDefault("yookassa.test_mode", false)
+	v.SetDefault("yookassa.recurring_enabled", false)
 	v.SetDefault("creem.enabled", false)
 	v.SetDefault("creem.test_mode", false)
 	v.SetDefault("smtp.enabled", false)

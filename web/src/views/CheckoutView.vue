@@ -12,9 +12,13 @@ const { t } = useI18n()
 
 const plans = ref<Plan[]>([])
 const selectedPlanId = ref<number | null>(null)
-// Recurring is the default on YooKassa (RU): the card is saved and the plan
-// auto-renews monthly. Users can opt out to a one-time payment via the toggle.
-const recurring = ref(true)
+// Whether the YooKassa shop supports auto-renewal yet (server-gated: the shop
+// must be approved for autopayments by the YooMoney manager). Until then the
+// toggle is disabled and every payment is one-time.
+const recurringEnabled = ref(false)
+// When recurring is available it is the default (card saved, monthly renewal);
+// users can opt out to a one-time payment via the toggle.
+const recurring = ref(false)
 const loading = ref(false)
 const error = ref('')
 const submitting = ref(false)
@@ -30,6 +34,9 @@ async function loadPlans() {
   try {
     const response = await plansApi.listPublic()
     plans.value = response.data.plans.filter(p => p.price > 0)
+    recurringEnabled.value = response.data.recurring_enabled ?? false
+    // Default to a subscription only when the shop actually supports it.
+    recurring.value = recurringEnabled.value
 
     // Pre-select plan from query
     const planId = Number(route.query.plan)
@@ -172,20 +179,23 @@ onMounted(() => {
       </div>
 
       <!-- Recurring toggle (YooKassa only — Creem handles renewals automatically) -->
-      <Card v-if="selectedPlan && isRuDomain" class="p-6 mt-6">
+      <Card v-if="selectedPlan && isRuDomain" :class="recurringEnabled ? 'p-6 mt-6' : 'p-6 mt-6 opacity-60'">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="font-medium">{{ t('checkout.autoRenewal') }}</h3>
-            <p class="text-sm text-muted-foreground">{{ t('checkout.autoRenewalHint') }}</p>
+            <p class="text-sm text-muted-foreground">
+              {{ recurringEnabled ? t('checkout.autoRenewalHint') : t('checkout.autoRenewalDisabled') }}
+            </p>
           </div>
           <button
             type="button"
             role="switch"
             :aria-checked="recurring"
             :aria-label="t('checkout.autoRenewal')"
-            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/40"
-            :class="recurring ? 'bg-primary' : 'bg-muted'"
-            @click="recurring = !recurring"
+            :disabled="!recurringEnabled"
+            class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/40"
+            :class="[recurring ? 'bg-primary' : 'bg-muted', recurringEnabled ? 'cursor-pointer' : 'cursor-not-allowed']"
+            @click="recurringEnabled && (recurring = !recurring)"
           >
             <span
               class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
