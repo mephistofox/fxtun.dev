@@ -1,5 +1,35 @@
 # Changelog
 
+## [3.11.0](https://github.com/mephistofox/fxTunnel/compare/v3.10.0...v3.11.0) (2026-07-14)
+
+
+### Features
+
+* **auth:** add yandex oauth and consolidate domain to fxtun.ru ([13dfa99](https://github.com/mephistofox/fxTunnel/commit/13dfa9904f05e810a12221c1efc0a4872e2384da))
+* **auth:** hide GitHub and Google OAuth buttons in web and client ([f9b86c0](https://github.com/mephistofox/fxTunnel/commit/f9b86c05bae24492caa95c01540f81f3606a6476))
+* **auth:** passwordless email magic-link login + hide GitHub/Google OAuth ([ac6a3f0](https://github.com/mephistofox/fxTunnel/commit/ac6a3f039f84257b126ac9de0ca5e46cb53f81cf))
+* **auth:** passwordless email magic-link login with disposable-email guard ([6176997](https://github.com/mephistofox/fxTunnel/commit/617699727fbadf29c657b69e0c0a6e53aa6012f0))
+* **payments:** YooKassa recurring auto-renewal subscriptions ([21d09a2](https://github.com/mephistofox/fxTunnel/commit/21d09a2d6b0eec77efe851b26226cae53c4514b3))
+* **payments:** YooKassa recurring auto-renewal subscriptions ([d519a65](https://github.com/mephistofox/fxTunnel/commit/d519a65664661b361a8f2eca23cbe80f70260d0a))
+
+
+### Bug Fixes
+
+* **api:** make server Shutdown idempotent to avoid double-close panic ([5021640](https://github.com/mephistofox/fxTunnel/commit/5021640a899847ac672b6c2da458cdef9805ef12))
+* **auth:** route Yandex OAuth egress via secondary IP, fix linked-account display ([3b594f5](https://github.com/mephistofox/fxTunnel/commit/3b594f56e4c9b4e7d1dc6121b92004f26aca3258))
+* **auth:** route Yandex OAuth egress via secondary IP, fix linked-account display ([00d167a](https://github.com/mephistofox/fxTunnel/commit/00d167a3b2aece72fa02f33a21116e8060875318))
+* **db:** renumber card-last4 migration to 00011 (goose version collision) ([8890f35](https://github.com/mephistofox/fxTunnel/commit/8890f356b54674c23068eb2bf43e8d0676886de7))
+* **db:** renumber card-last4 migration to 00011 to resolve goose version collision ([1bdd63f](https://github.com/mephistofox/fxTunnel/commit/1bdd63f76a12f0dac5d32df2f5b063037bdba0e2))
+* **deploy:** roll back the server binary via atomic rename ([3edee0e](https://github.com/mephistofox/fxTunnel/commit/3edee0e3aa0a52e4e0aa57c5dbf9c7c5224938a3))
+* **deploy:** scan only the new process logs in deploy verification ([0f30169](https://github.com/mephistofox/fxTunnel/commit/0f3016978ca7ea724bbc48af08b97fce34351aaf))
+* **dns:** return NODATA not NXDOMAIN for existing names ([f91ca4f](https://github.com/mephistofox/fxTunnel/commit/f91ca4fbdc8ec19d48b06e564617b518aba2a816))
+* **dns:** return NODATA not NXDOMAIN for existing names ([11f3d27](https://github.com/mephistofox/fxTunnel/commit/11f3d27986ad679532199edeaf35cbd8ddd6fa58))
+* **payment:** bind yookassa http client to configurable source ip ([c3e5399](https://github.com/mephistofox/fxTunnel/commit/c3e539954fa259fcd38a7ec7838feb3f9292855e))
+* **payment:** bind yookassa http client to configurable source ip ([df2c774](https://github.com/mephistofox/fxTunnel/commit/df2c774ea9b74a70f2ae5dbbf638f2958bb157ea))
+* **payments:** recover from stuck pending checkout + close double-charge races ([#79](https://github.com/mephistofox/fxTunnel/issues/79)) ([8d12808](https://github.com/mephistofox/fxTunnel/commit/8d128083cc1705f50477d07cc4cffda3baf99ca0))
+* **web:** align plan copy and pricing matrix with live api ([6bd5a72](https://github.com/mephistofox/fxTunnel/commit/6bd5a72aa2f061fa5b80d5663d3d24f366a809eb))
+* **web:** drop UDP from free plan protocol copy ([b63b232](https://github.com/mephistofox/fxTunnel/commit/b63b23251a9ebf1dbc99b34996942d0221993c90))
+
 ## [3.10.0](https://github.com/mephistofox/fxTunnel/compare/v3.9.2...v3.10.0) (2026-06-19)
 
 
