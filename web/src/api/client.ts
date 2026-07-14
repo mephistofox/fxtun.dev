@@ -502,6 +502,8 @@ export interface Subscription {
   next_plan?: Plan
   status: 'pending' | 'active' | 'cancelled' | 'expired'
   recurring: boolean
+  card_bound: boolean
+  card_last4?: string
   current_period_start?: string
   current_period_end?: string
   created_at: string
@@ -538,6 +540,7 @@ export const subscriptionApi = {
   checkout: (planId: number, recurring: boolean) =>
     api.post<CheckoutResponse>('/subscription/checkout', { plan_id: planId, recurring }),
   cancel: () => api.post<{ success: boolean; message: string }>('/subscription/cancel'),
+  unbindCard: () => api.post<{ success: boolean; message: string }>('/subscription/unbind-card'),
   changePlan: (planId: number) =>
     api.post<{ success: boolean; message: string }>('/subscription/change', { plan_id: planId }),
   getPayments: () => api.get<PaymentsListResponse>('/subscription/payments'),

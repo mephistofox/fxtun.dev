@@ -185,6 +185,27 @@ type Payment struct {
 	CancellationDetails *CancellationDetails  `json:"cancellation_details,omitempty"`
 }
 
+// SavedCardLast4 returns the last 4 digits of the bank card that was saved for
+// recurring payments, or "" when the payment did not save a card. Only bank_card
+// methods expose card digits; other saved methods (e.g. yoo_money) return "".
+// The value is validated to be exactly 4 digits: webhooks are only IP-verified
+// (not signed), so an unexpected string is dropped rather than displayed.
+func (p *Payment) SavedCardLast4() string {
+	if p == nil || p.PaymentMethod == nil || !p.PaymentMethod.Saved || p.PaymentMethod.Card == nil {
+		return ""
+	}
+	last4 := p.PaymentMethod.Card.Last4
+	if len(last4) != 4 {
+		return ""
+	}
+	for _, c := range last4 {
+		if c < '0' || c > '9' {
+			return ""
+		}
+	}
+	return last4
+}
+
 // CancellationDetails for canceled payments
 type CancellationDetails struct {
 	Party  string `json:"party"`  // "yoo_money", "payment_network", "merchant"
@@ -447,11 +468,12 @@ func (y *YooKassa) CreateCheckoutSession(params CheckoutParams) (*CheckoutResult
 		},
 		SavePaymentMethod: params.Recurring,
 		Metadata: map[string]string{
-			"invoice_id":      fmt.Sprintf("%d", params.InvoiceID),
-			"user_id":         fmt.Sprintf("%d", params.UserID),
-			"subscription_id": fmt.Sprintf("%d", params.SubscriptionID),
-			"plan_id":         fmt.Sprintf("%d", params.PlanID),
-			"email":           params.Email,
+			"invoice_id":           fmt.Sprintf("%d", params.InvoiceID),
+			"user_id":              fmt.Sprintf("%d", params.UserID),
+			"merchant_customer_id": fmt.Sprintf("%d", params.UserID),
+			"subscription_id":      fmt.Sprintf("%d", params.SubscriptionID),
+			"plan_id":              fmt.Sprintf("%d", params.PlanID),
+			"email":                params.Email,
 		},
 	}
 
