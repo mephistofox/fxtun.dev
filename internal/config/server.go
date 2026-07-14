@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -299,6 +300,10 @@ type YooKassaSettings struct {
 	SecretKey string `mapstructure:"secret_key"`
 	TestMode  bool   `mapstructure:"test_mode"`
 	ReturnURL string `mapstructure:"return_url"`
+	// SourceIP optionally binds outbound YooKassa API calls to a specific local
+	// IP. Prod's primary egress IP is filtered upstream toward YooKassa's
+	// networks, so payments must leave via a clean secondary IP. Empty = default.
+	SourceIP string `mapstructure:"source_ip"`
 }
 
 // CreemSettings contains Creem.io payment configuration
@@ -561,6 +566,12 @@ func (c *ServerConfig) Validate() error {
 		hasACME := c.CustomDomains.Enabled
 		if !hasStaticCerts && !hasACME {
 			return fmt.Errorf("TLS enabled but neither cert_file/key_file nor custom_domains.enabled is set")
+		}
+	}
+
+	if c.YooKassa.Enabled && c.YooKassa.SourceIP != "" {
+		if net.ParseIP(c.YooKassa.SourceIP) == nil {
+			return fmt.Errorf("invalid yookassa.source_ip %q: must be a valid IP address", c.YooKassa.SourceIP)
 		}
 	}
 
