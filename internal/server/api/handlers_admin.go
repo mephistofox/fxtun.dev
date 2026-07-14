@@ -549,7 +549,12 @@ func (s *Server) handleListPublicPlans(w http.ResponseWriter, r *http.Request) {
 	for i, p := range plans {
 		planDTOs[i] = dto.PlanFromModel(p)
 	}
-	s.respondJSON(w, http.StatusOK, map[string]interface{}{"plans": planDTOs})
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"plans": planDTOs,
+		// Lets the checkout page offer auto-renewal only when the YooKassa shop
+		// actually supports it; otherwise the toggle stays off/disabled.
+		"recurring_enabled": s.cfg.YooKassa.RecurringEnabled,
+	})
 }
 
 // handleCreatePlan creates a new plan
