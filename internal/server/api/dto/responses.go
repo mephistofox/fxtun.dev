@@ -340,9 +340,19 @@ type SubscriptionDTO struct {
 	NextPlan           *PlanDTO   `json:"next_plan,omitempty"`
 	Status             string     `json:"status"`
 	Recurring          bool       `json:"recurring"`
+	CardBound          bool       `json:"card_bound"`
+	CardLast4          string     `json:"card_last4,omitempty"`
 	CurrentPeriodStart *time.Time `json:"current_period_start,omitempty"`
 	CurrentPeriodEnd   *time.Time `json:"current_period_end,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
+}
+
+// derefString returns the pointed-to string, or "" when the pointer is nil.
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // SubscriptionFromModel converts a database Subscription to SubscriptionDTO
@@ -356,6 +366,8 @@ func SubscriptionFromModel(s *database.Subscription) *SubscriptionDTO {
 		NextPlanID:         s.NextPlanID,
 		Status:             string(s.Status),
 		Recurring:          s.Recurring,
+		CardBound:          s.YooKassaPaymentMethodID != nil && *s.YooKassaPaymentMethodID != "",
+		CardLast4:          derefString(s.YooKassaCardLast4),
 		CurrentPeriodStart: s.CurrentPeriodStart,
 		CurrentPeriodEnd:   s.CurrentPeriodEnd,
 		CreatedAt:          s.CreatedAt,

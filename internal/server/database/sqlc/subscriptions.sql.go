@@ -23,8 +23,8 @@ func (q *Queries) CountAllSubscriptions(ctx context.Context) (int64, error) {
 }
 
 const createSubscription = `-- name: CreateSubscription :one
-INSERT INTO subscriptions (user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+INSERT INTO subscriptions (user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, yookassa_card_last4, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
 RETURNING id, created_at, updated_at
 `
 
@@ -39,6 +39,7 @@ type CreateSubscriptionParams struct {
 	YookassaPaymentMethodID pgtype.Text        `json:"yookassa_payment_method_id"`
 	CreemCustomerID         pgtype.Text        `json:"creem_customer_id"`
 	CreemSubscriptionID     pgtype.Text        `json:"creem_subscription_id"`
+	YookassaCardLast4       pgtype.Text        `json:"yookassa_card_last4"`
 }
 
 type CreateSubscriptionRow struct {
@@ -59,6 +60,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		arg.YookassaPaymentMethodID,
 		arg.CreemCustomerID,
 		arg.CreemSubscriptionID,
+		arg.YookassaCardLast4,
 	)
 	var i CreateSubscriptionRow
 	err := row.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
@@ -75,7 +77,7 @@ func (q *Queries) DeleteSubscription(ctx context.Context, id int64) error {
 }
 
 const getActiveSubscriptionByUserID = `-- name: GetActiveSubscriptionByUserID :one
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'cancelled') ORDER BY created_at DESC LIMIT 1
 `
 
@@ -96,12 +98,13 @@ func (q *Queries) GetActiveSubscriptionByUserID(ctx context.Context, userID int6
 		&i.CreemSubscriptionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.YookassaCardLast4,
 	)
 	return i, err
 }
 
 const getExpiredSubscriptions = `-- name: GetExpiredSubscriptions :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE status IN ('active', 'cancelled') AND current_period_end < NOW()
 `
 
@@ -128,6 +131,7 @@ func (q *Queries) GetExpiredSubscriptions(ctx context.Context) ([]Subscription, 
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -140,7 +144,7 @@ func (q *Queries) GetExpiredSubscriptions(ctx context.Context) ([]Subscription, 
 }
 
 const getExpiringSubscriptions = `-- name: GetExpiringSubscriptions :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE status = 'active' AND recurring = TRUE AND current_period_end <= $1
 `
 
@@ -167,6 +171,7 @@ func (q *Queries) GetExpiringSubscriptions(ctx context.Context, currentPeriodEnd
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -179,7 +184,7 @@ func (q *Queries) GetExpiringSubscriptions(ctx context.Context, currentPeriodEnd
 }
 
 const getPendingSubscriptionByUserID = `-- name: GetPendingSubscriptionByUserID :one
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE user_id = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT 1
 `
 
@@ -200,12 +205,13 @@ func (q *Queries) GetPendingSubscriptionByUserID(ctx context.Context, userID int
 		&i.CreemSubscriptionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.YookassaCardLast4,
 	)
 	return i, err
 }
 
 const getSubscriptionByCreemID = `-- name: GetSubscriptionByCreemID :one
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE creem_subscription_id = $1
 `
 
@@ -226,12 +232,13 @@ func (q *Queries) GetSubscriptionByCreemID(ctx context.Context, creemSubscriptio
 		&i.CreemSubscriptionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.YookassaCardLast4,
 	)
 	return i, err
 }
 
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE id = $1
 `
 
@@ -252,12 +259,13 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id int64) (Subscripti
 		&i.CreemSubscriptionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.YookassaCardLast4,
 	)
 	return i, err
 }
 
 const getSubscriptionsForRenewalReminder = `-- name: GetSubscriptionsForRenewalReminder :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE status = 'active' AND recurring = TRUE AND current_period_end >= $1 AND current_period_end < $2
 `
 
@@ -289,6 +297,7 @@ func (q *Queries) GetSubscriptionsForRenewalReminder(ctx context.Context, arg Ge
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -301,7 +310,7 @@ func (q *Queries) GetSubscriptionsForRenewalReminder(ctx context.Context, arg Ge
 }
 
 const getSubscriptionsWithPendingPlanChange = `-- name: GetSubscriptionsWithPendingPlanChange :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE next_plan_id IS NOT NULL AND current_period_end < NOW()
 `
 
@@ -328,6 +337,7 @@ func (q *Queries) GetSubscriptionsWithPendingPlanChange(ctx context.Context) ([]
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -340,7 +350,7 @@ func (q *Queries) GetSubscriptionsWithPendingPlanChange(ctx context.Context) ([]
 }
 
 const listAllSubscriptions = `-- name: ListAllSubscriptions :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
@@ -372,6 +382,7 @@ func (q *Queries) ListAllSubscriptions(ctx context.Context, arg ListAllSubscript
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -384,7 +395,7 @@ func (q *Queries) ListAllSubscriptions(ctx context.Context, arg ListAllSubscript
 }
 
 const listSubscriptionsByUserID = `-- name: ListSubscriptionsByUserID :many
-SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at
+SELECT id, user_id, plan_id, next_plan_id, status, recurring, current_period_start, current_period_end, yookassa_payment_method_id, creem_customer_id, creem_subscription_id, created_at, updated_at, yookassa_card_last4
 FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC
 `
 
@@ -411,6 +422,7 @@ func (q *Queries) ListSubscriptionsByUserID(ctx context.Context, userID int64) (
 			&i.CreemSubscriptionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.YookassaCardLast4,
 		); err != nil {
 			return nil, err
 		}
@@ -423,7 +435,7 @@ func (q *Queries) ListSubscriptionsByUserID(ctx context.Context, userID int64) (
 }
 
 const updateSubscription = `-- name: UpdateSubscription :exec
-UPDATE subscriptions SET plan_id = $2, next_plan_id = $3, status = $4, recurring = $5, current_period_start = $6, current_period_end = $7, yookassa_payment_method_id = $8, creem_customer_id = $9, creem_subscription_id = $10, updated_at = NOW()
+UPDATE subscriptions SET plan_id = $2, next_plan_id = $3, status = $4, recurring = $5, current_period_start = $6, current_period_end = $7, yookassa_payment_method_id = $8, creem_customer_id = $9, creem_subscription_id = $10, yookassa_card_last4 = $11, updated_at = NOW()
 WHERE id = $1
 `
 
@@ -438,6 +450,7 @@ type UpdateSubscriptionParams struct {
 	YookassaPaymentMethodID pgtype.Text        `json:"yookassa_payment_method_id"`
 	CreemCustomerID         pgtype.Text        `json:"creem_customer_id"`
 	CreemSubscriptionID     pgtype.Text        `json:"creem_subscription_id"`
+	YookassaCardLast4       pgtype.Text        `json:"yookassa_card_last4"`
 }
 
 func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) error {
@@ -452,6 +465,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		arg.YookassaPaymentMethodID,
 		arg.CreemCustomerID,
 		arg.CreemSubscriptionID,
+		arg.YookassaCardLast4,
 	)
 	return err
 }

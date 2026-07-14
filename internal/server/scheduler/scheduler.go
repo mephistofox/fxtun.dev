@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -188,6 +189,22 @@ func (s *Scheduler) runCheckSteps() {
 // downgraded a cycle early.
 const renewalGracePeriod = 7 * 24 * time.Hour
 
+// autopayRetryBackoff returns how long to wait after the Nth failed autopayment
+// attempt in the current billing cycle before trying again. The scheduler ticks
+// hourly, so without spacing a declining card would be charged every hour for
+// the whole grace window; instead retries land at roughly period-end, +1d, +3d,
+// +5d, staying inside renewalGracePeriod before the subscription is downgraded.
+func autopayRetryBackoff(failedAttempts int) time.Duration {
+	switch {
+	case failedAttempts <= 0:
+		return 0
+	case failedAttempts == 1:
+		return 24 * time.Hour
+	default:
+		return 48 * time.Hour
+	}
+}
+
 // processExpiredSubscriptions deactivates expired non-recurring subscriptions
 func (s *Scheduler) processExpiredSubscriptions() {
 	// Get subscriptions that have expired and are not set for recurring
@@ -208,7 +225,14 @@ func (s *Scheduler) processExpiredSubscriptions() {
 			s.log.Warn().
 				Int64("subscription_id", sub.ID).
 				Int64("user_id", sub.UserID).
-				Msg("Recurring subscription past renewal grace; downgrading to free")
+				Msg("Recurring subscription past renewal grace; detaching card and downgrading to free")
+
+			// Dunning exhausted: stop trying and detach the declining card so no
+			// further autopayments are attempted. The user must re-subscribe (and
+			// re-enter a card) to continue; the expired email prompts them.
+			sub.Recurring = false
+			sub.YooKassaPaymentMethodID = nil
+			sub.YooKassaCardLast4 = nil
 		}
 
 		s.log.Info().
@@ -298,6 +322,28 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
+		// Space out dunning retries. The tick runs hourly, so count how many
+		// autopayments already failed this billing cycle and back off before
+		// charging a declining card again.
+		cycleStart := time.Now().Add(-renewalGracePeriod)
+		if sub.CurrentPeriodStart != nil {
+			cycleStart = *sub.CurrentPeriodStart
+		}
+		failedAttempts, err := s.db.Payments.ListFailedRecurringSince(sub.ID, cycleStart)
+		if err != nil {
+			s.log.Error().Err(err).Int64("subscription_id", sub.ID).Msg("Failed to check prior autopayment attempts")
+			continue
+		}
+		if n := len(failedAttempts); n > 0 {
+			if since := time.Since(failedAttempts[0].CreatedAt); since < autopayRetryBackoff(n) {
+				s.log.Debug().
+					Int64("subscription_id", sub.ID).
+					Int("failed_attempts", n).
+					Msg("Backing off autopayment retry")
+				continue
+			}
+		}
+
 		s.log.Info().
 			Int64("subscription_id", sub.ID).
 			Int64("user_id", sub.UserID).
@@ -358,10 +404,32 @@ func (s *Scheduler) processRecurringRenewals() {
 		pmt.YooKassaData = string(yookassaData)
 		_ = s.db.Payments.Update(pmt)
 
-		// Check if payment succeeded immediately (autopayments may succeed without user confirmation)
-		if yooPayment.Status == "succeeded" {
+		// Autopayments with a saved method usually resolve immediately.
+		switch yooPayment.Status {
+		case "succeeded":
 			s.handleAutopaymentSuccess(sub, pmt, yooPayment, plan)
-		} else {
+		case "canceled":
+			// Declined synchronously (e.g. insufficient funds). Mark failed so the
+			// retry-spacing logic counts it; the webhook would otherwise do this.
+			reason := "payment canceled"
+			if yooPayment.CancellationDetails != nil && yooPayment.CancellationDetails.Reason != "" {
+				reason = yooPayment.CancellationDetails.Reason
+			}
+			s.log.Warn().
+				Int64("subscription_id", sub.ID).
+				Int64("invoice_id", invoiceID).
+				Str("reason", reason).
+				Msg("Autopayment declined")
+			pmt.Status = database.PaymentStatusFailed
+			_ = s.db.Payments.Update(pmt)
+			s.emit(Event{
+				Type:         EventSubscriptionRenewFailed,
+				UserID:       sub.UserID,
+				Subscription: sub,
+				Plan:         plan,
+				Error:        errors.New(reason),
+			})
+		default:
 			s.log.Info().
 				Int64("subscription_id", sub.ID).
 				Int64("invoice_id", invoiceID).
@@ -385,12 +453,13 @@ func (s *Scheduler) createAutopayment(sub *database.Subscription, plan *database
 		Capture:         true,
 		PaymentMethodID: *sub.YooKassaPaymentMethodID,
 		Metadata: map[string]string{
-			"invoice_id":      fmt.Sprintf("%d", invoiceID),
-			"user_id":         fmt.Sprintf("%d", sub.UserID),
-			"subscription_id": fmt.Sprintf("%d", sub.ID),
-			"plan_id":         fmt.Sprintf("%d", plan.ID),
-			"autopayment":     "true",
-			"email":           s.getUserEmail(sub.UserID),
+			"invoice_id":           fmt.Sprintf("%d", invoiceID),
+			"user_id":              fmt.Sprintf("%d", sub.UserID),
+			"merchant_customer_id": fmt.Sprintf("%d", sub.UserID),
+			"subscription_id":      fmt.Sprintf("%d", sub.ID),
+			"plan_id":              fmt.Sprintf("%d", plan.ID),
+			"autopayment":          "true",
+			"email":                s.getUserEmail(sub.UserID),
 		},
 	}
 
@@ -427,6 +496,11 @@ func (s *Scheduler) handleAutopaymentSuccess(sub *database.Subscription, pmt *da
 	// Update payment method if new one was saved
 	if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
 		sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+		if last4 := yooPayment.SavedCardLast4(); last4 != "" {
+			sub.YooKassaCardLast4 = &last4
+		} else {
+			sub.YooKassaCardLast4 = nil
+		}
 	}
 
 	if err := s.db.Subscriptions.Update(sub); err != nil {
