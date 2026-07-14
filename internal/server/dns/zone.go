@@ -13,6 +13,12 @@ type Zone struct {
 	TunnelsEnabled bool     `yaml:"tunnels_enabled"`
 	TTL            uint32   `yaml:"ttl"`
 	Records        []Record `yaml:"records"`
+
+	// hasWildcard is precomputed at load time: true when the zone has a "*"
+	// record. A wildcard synthesizes existence for every subdomain, so the DNS
+	// handler can skip the dynamic tunnel registry lookup on non-address query
+	// types (the wildcard already establishes the name exists for NODATA).
+	hasWildcard bool
 }
 
 // Record describes a single DNS record entry from the zone file.
