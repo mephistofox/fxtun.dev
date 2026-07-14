@@ -48,6 +48,9 @@ func (r *SubscriptionRepository) Create(sub *Subscription) error {
 		CreemSubscriptionID:     stringPtrToPgtext(sub.CreemSubscriptionID),
 	})
 	if err != nil {
+		if isConstraintViolation(err, "uniq_pending_subscription_per_user") {
+			return ErrPendingSubscriptionExists
+		}
 		return fmt.Errorf("create subscription: %w", err)
 	}
 	sub.ID = row.ID

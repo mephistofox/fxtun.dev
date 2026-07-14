@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -175,11 +176,28 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing pending subscription (separate query since GetByUserID only returns active/cancelled)
-	pendingSub, _ := s.db.Subscriptions.GetPendingByUserID(user.ID)
-	if pendingSub != nil {
-		s.respondError(w, http.StatusBadRequest, "pending payment already exists, please complete or wait")
+	// Check for existing pending subscription (separate query since GetByUserID only returns active/cancelled).
+	// A pending subscription means the user started a checkout earlier and abandoned
+	// the payment window. Rather than locking them out until the hourly stale cleanup
+	// runs (scheduler.cleanupStalePendingPayments), supersede it: cancel the abandoned
+	// provider-side payment and mark the old records dead, then fall through to create
+	// a fresh checkout below. See supersedePendingCheckout for the double-charge safety
+	// argument.
+	pendingSub, err := s.db.Subscriptions.GetPendingByUserID(user.ID)
+	if err != nil {
+		s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to check pending subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to create payment")
 		return
+	}
+	if pendingSub != nil {
+		if err := s.supersedePendingCheckout(pendingSub); err != nil {
+			s.log.Error().Err(err).
+				Int64("user_id", user.ID).
+				Int64("subscription_id", pendingSub.ID).
+				Msg("Failed to supersede pending checkout")
+			s.respondError(w, http.StatusInternalServerError, "failed to create payment")
+			return
+		}
 	}
 
 	// Generate invoice ID
@@ -204,6 +222,14 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		Recurring: recurring,
 	}
 	if err := s.db.Subscriptions.Create(sub); err != nil {
+		if errors.Is(err, database.ErrPendingSubscriptionExists) {
+			// A concurrent checkout for the same user won the race and already holds
+			// the single allowed pending subscription. Ask the client to retry rather
+			// than create a second live provider payment (double-charge risk).
+			s.log.Warn().Int64("user_id", user.ID).Msg("Concurrent checkout race: pending subscription already exists")
+			s.respondError(w, http.StatusConflict, "payment already in progress, please refresh and try again")
+			return
+		}
 		s.log.Error().Err(err).Msg("Failed to create subscription")
 		s.respondError(w, http.StatusInternalServerError, "failed to create subscription")
 		return
@@ -266,8 +292,17 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save provider data
-	providerData, _ := json.Marshal(result.Metadata)
+	// Save provider data. Persist the provider-side payment ID alongside the
+	// provider metadata so an abandoned checkout can later be cancelled (see
+	// supersedePendingCheckout) if the user starts a new one.
+	providerMeta := map[string]string{}
+	for k, v := range result.Metadata {
+		providerMeta[k] = v
+	}
+	if result.ProviderPaymentID != "" {
+		providerMeta["provider_payment_id"] = result.ProviderPaymentID
+	}
+	providerData, _ := json.Marshal(providerMeta)
 	pmt.ProviderData = string(providerData)
 	if err := s.db.Payments.Update(pmt); err != nil {
 		s.log.Error().Err(err).Msg("Failed to update payment with provider data")
@@ -364,6 +399,68 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 		}
 		s.telegramNotifier.NotifyNewSubscription(sub.UserID, userName, planName, pmt.Amount, providerName)
 	}
+}
+
+// supersedePendingCheckout voids an abandoned pending checkout so a fresh one can
+// be created in its place. It cancels the provider-side payment (best effort, so
+// the abandoned window can no longer be paid), marks the pending payment(s) failed
+// and the pending subscription expired.
+//
+// Double-charge safety: a superseded checkout must never activate a subscription.
+// Two layers guarantee this — (1) the provider payment is cancelled so it usually
+// cannot be completed at all, and (2) the payment is marked failed and both webhook
+// handlers refuse to activate a failed payment. Layer 2 alone is sufficient for
+// providers that cannot cancel individual payments (e.g. Creem).
+//
+// Marking the payment failed is load-bearing, so it fails CLOSED: if the old
+// payment(s) cannot be marked failed, this returns an error and the caller must
+// abort the new checkout. Otherwise the abandoned payment would stay pending and a
+// later completion could still activate a subscription → double charge. Cancelling
+// the provider-side payment stays best-effort (non-fatal).
+func (s *Server) supersedePendingCheckout(pendingSub *database.Subscription) error {
+	pendingPayments, err := s.db.Payments.GetPendingBySubscriptionID(pendingSub.ID)
+	if err != nil {
+		return fmt.Errorf("list pending payments for subscription %d: %w", pendingSub.ID, err)
+	}
+	for _, p := range pendingPayments {
+		// Best-effort cancel of the provider-side payment. Non-fatal: the failed
+		// status below plus the webhook guard still block activation.
+		if ppID := providerPaymentID(p); ppID != "" && s.paymentProviders != nil {
+			if provider, perr := s.paymentProviders.Get(p.Provider); perr == nil {
+				if cerr := provider.CancelPayment(ppID); cerr != nil {
+					s.log.Warn().Err(cerr).Str("provider", p.Provider).Str("provider_payment_id", ppID).Msg("Failed to cancel superseded provider payment")
+				}
+			}
+		}
+		p.Status = database.PaymentStatusFailed
+		if err := s.db.Payments.Update(p); err != nil {
+			return fmt.Errorf("mark superseded payment %d failed: %w", p.ID, err)
+		}
+	}
+
+	pendingSub.Status = database.SubscriptionStatusExpired
+	if err := s.db.Subscriptions.Update(pendingSub); err != nil {
+		return fmt.Errorf("expire superseded subscription %d: %w", pendingSub.ID, err)
+	}
+
+	s.log.Info().
+		Int64("user_id", pendingSub.UserID).
+		Int64("old_subscription_id", pendingSub.ID).
+		Msg("Superseded abandoned pending checkout")
+	return nil
+}
+
+// providerPaymentID returns the provider-side payment ID persisted in the
+// payment's ProviderData at checkout creation, or "" if unavailable.
+func providerPaymentID(p *database.Payment) string {
+	if p.ProviderData == "" {
+		return ""
+	}
+	var data map[string]string
+	if err := json.Unmarshal([]byte(p.ProviderData), &data); err != nil {
+		return ""
+	}
+	return data["provider_payment_id"]
 }
 
 // handlePaymentWebhook handles YooKassa webhook notifications (POST)
@@ -537,6 +634,29 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 		return
 	}
 
+	// Superseded/stale checkout: the payment was marked failed — either because the
+	// user abandoned it and started a new one (supersedePendingCheckout, which also
+	// cancels the provider payment) or because the hourly stale cleanup failed it.
+	// Refuse to activate — otherwise a completed abandoned payment would grant a
+	// second subscription and double-charge the user. Logged at Error + audited
+	// because funds may have been captured (the stale-cleanup path does not cancel
+	// the provider payment), so a captured-but-not-activated payment needs manual
+	// review/refund. Return 200 so YooKassa stops retrying the webhook.
+	if pmt.Status == database.PaymentStatusFailed {
+		s.log.Error().
+			Int64("invoice_id", invoiceID).
+			Int64("user_id", pmt.UserID).
+			Str("yookassa_payment_id", yooPayment.ID).
+			Msg("Succeeded webhook for a payment already marked failed — not activating; funds may need manual review")
+		_ = s.db.Audit.Log(&pmt.UserID, "payment_succeeded_but_superseded", map[string]interface{}{
+			"invoice_id":          invoiceID,
+			"yookassa_payment_id": yooPayment.ID,
+			"provider":            "yookassa",
+		}, "webhook")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// Verify payment amount matches expected amount (two-sided: reject both
 	// under- and over-payment outside a ±1% tolerance, so a forged webhook
 	// can't claim an arbitrary amount).
@@ -630,6 +750,28 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 	w.WriteHeader(http.StatusOK)
 }
 
+// alignReusedSubscriptionPlan makes a pending subscription that is being reused
+// during recovery match the plan of the payment being recovered. The reused
+// subscription (kept because of the one-pending-per-user invariant) may reference a
+// different plan than what was actually paid; aligning it ensures the user is
+// activated on the plan they paid for. Non-fatal on write failure.
+func (s *Server) alignReusedSubscriptionPlan(sub *database.Subscription, planID int64) *database.Subscription {
+	if planID == 0 || sub.PlanID == planID {
+		return sub
+	}
+	s.log.Warn().
+		Int64("user_id", sub.UserID).
+		Int64("subscription_id", sub.ID).
+		Int64("existing_plan_id", sub.PlanID).
+		Int64("recovered_plan_id", planID).
+		Msg("Reused pending subscription has a different plan; aligning to the recovered payment's plan")
+	sub.PlanID = planID
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Int64("subscription_id", sub.ID).Msg("Failed to align reused subscription plan")
+	}
+	return sub
+}
+
 // recoverPaymentFromWebhook recreates a payment record from YooKassa webhook metadata
 // when the original was deleted by stale cleanup
 func (s *Server) recoverPaymentFromWebhook(invoiceID, userID, subID, planID int64, yooPayment *payment.Payment) (*database.Payment, error) {
@@ -656,7 +798,17 @@ func (s *Server) recoverPaymentFromWebhook(invoiceID, userID, subID, planID int6
 			Status: database.SubscriptionStatusPending,
 		}
 		if err := s.db.Subscriptions.Create(sub); err != nil {
-			return nil, fmt.Errorf("create recovery subscription: %w", err)
+			// The one-pending-per-user invariant already holds a pending
+			// subscription for this user; reuse it instead of failing recovery.
+			if errors.Is(err, database.ErrPendingSubscriptionExists) {
+				existing, gerr := s.db.Subscriptions.GetPendingByUserID(userID)
+				if gerr != nil || existing == nil {
+					return nil, fmt.Errorf("create recovery subscription: pending exists but unavailable: %w", err)
+				}
+				sub = s.alignReusedSubscriptionPlan(existing, planID)
+			} else {
+				return nil, fmt.Errorf("create recovery subscription: %w", err)
+			}
 		}
 		subscriptionID = &sub.ID
 		s.log.Info().
@@ -705,7 +857,17 @@ func (s *Server) recoverSubscription(pmt *database.Payment, planID int64, yooPay
 	}
 
 	if err := s.db.Subscriptions.Create(sub); err != nil {
-		return nil, fmt.Errorf("create recovery subscription: %w", err)
+		// The one-pending-per-user invariant already holds a pending subscription
+		// for this user; reuse it instead of failing recovery.
+		if errors.Is(err, database.ErrPendingSubscriptionExists) {
+			existing, gerr := s.db.Subscriptions.GetPendingByUserID(pmt.UserID)
+			if gerr != nil || existing == nil {
+				return nil, fmt.Errorf("create recovery subscription: pending exists but unavailable: %w", err)
+			}
+			sub = s.alignReusedSubscriptionPlan(existing, planID)
+		} else {
+			return nil, fmt.Errorf("create recovery subscription: %w", err)
+		}
 	}
 
 	// Link payment to new subscription
@@ -1039,6 +1201,20 @@ func (s *Server) handleCreemPaymentSucceeded(evt payment.WebhookEvent) {
 
 	if pmt.Status == database.PaymentStatusSuccess {
 		s.log.Info().Int64("invoice_id", evt.InvoiceID).Msg("Payment already processed")
+		return
+	}
+
+	// Superseded/stale checkout: marked failed when the user started a new one (or by
+	// the hourly stale cleanup). Refuse to activate so an abandoned-but-completed
+	// session cannot double-charge the user. Error + audit because funds may have
+	// been captured and need manual review/refund.
+	if pmt.Status == database.PaymentStatusFailed {
+		s.log.Error().Int64("invoice_id", evt.InvoiceID).Str("provider_payment_id", evt.ProviderPaymentID).Msg("Succeeded Creem webhook for a payment already marked failed — not activating; funds may need manual review")
+		_ = s.db.Audit.Log(&pmt.UserID, "payment_succeeded_but_superseded", map[string]interface{}{
+			"invoice_id":          evt.InvoiceID,
+			"provider_payment_id": evt.ProviderPaymentID,
+			"provider":            "creem",
+		}, "webhook")
 		return
 	}
 

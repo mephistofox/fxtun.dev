@@ -144,9 +144,21 @@ func mapToJSON(m map[string]interface{}) []byte {
 
 // Error helpers
 
+// ErrPendingSubscriptionExists is returned by SubscriptionRepository.Create when
+// the uniq_pending_subscription_per_user index rejects a second concurrent pending
+// subscription for the same user.
+var ErrPendingSubscriptionExists = errors.New("pending subscription already exists for user")
+
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+// isConstraintViolation reports whether err is a unique violation (23505) raised
+// by the named index/constraint specifically.
+func isConstraintViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == constraint
 }
 
 func isNotFound(err error) bool {

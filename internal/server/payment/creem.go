@@ -188,6 +188,14 @@ func (c *Creem) CancelSubscription(providerSubscriptionID string) error {
 	return nil
 }
 
+// CancelPayment is a no-op for Creem (implements payment.Provider): Creem hosted
+// checkout sessions cannot be voided via API and simply expire on their own. An
+// abandoned-but-completed session is instead neutralised by the failed-payment
+// guard in the webhook handlers, which refuses to activate a superseded payment.
+func (c *Creem) CancelPayment(providerPaymentID string) error {
+	return nil
+}
+
 // verifySignature verifies the HMAC-SHA256 webhook signature
 func (c *Creem) verifySignature(body []byte, signature string) error {
 	if c.config.WebhookSecret == "" {
