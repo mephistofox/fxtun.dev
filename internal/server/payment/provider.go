@@ -67,4 +67,11 @@ type Provider interface {
 
 	// CancelSubscription cancels a subscription by provider-specific ID
 	CancelSubscription(providerSubscriptionID string) error
+
+	// CancelPayment voids a not-yet-completed provider-side payment so it can no
+	// longer be paid. Used when a user abandons a checkout and starts a new one,
+	// to prevent the abandoned payment from later succeeding and double-charging.
+	// Best-effort: providers that cannot cancel individual payments (their
+	// sessions simply expire) may return nil without doing anything.
+	CancelPayment(providerPaymentID string) error
 }

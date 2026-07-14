@@ -326,8 +326,17 @@ func (y *YooKassa) CapturePayment(paymentID string, amount *Amount, idempotencyK
 	return &payment, nil
 }
 
-// CancelPayment cancels a payment
-func (y *YooKassa) CancelPayment(paymentID string, idempotencyKey string) (*Payment, error) {
+// CancelPayment voids a not-yet-completed YooKassa payment so it can no longer
+// be paid (implements payment.Provider). The idempotency key is derived from the
+// payment ID so retries are safe, and cancelling an already-cancelled or
+// completed payment is a no-op on YooKassa's side.
+func (y *YooKassa) CancelPayment(providerPaymentID string) error {
+	_, err := y.cancelPaymentByID(providerPaymentID, "cancel-"+providerPaymentID)
+	return err
+}
+
+// cancelPaymentByID performs the raw YooKassa payment-cancel API call.
+func (y *YooKassa) cancelPaymentByID(paymentID string, idempotencyKey string) (*Payment, error) {
 	httpReq, err := http.NewRequest("POST", YooKassaAPIURL+"/payments/"+paymentID+"/cancel", nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
