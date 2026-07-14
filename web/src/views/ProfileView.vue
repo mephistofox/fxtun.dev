@@ -15,6 +15,10 @@ const { t } = useI18n()
 
 const profile = ref<ProfileResponse | null>(null)
 
+// Временно скрываем привязку GitHub и Google (оставляем только Yandex).
+// Чтобы вернуть — поменяй на true.
+const showGithubGoogle = false
+
 // Subscription
 const subscription = ref<Subscription | null>(null)
 const cancellingSubscription = ref(false)
@@ -283,7 +287,7 @@ onMounted(() => {
 
             <div class="prof-oauth-list">
               <!-- GitHub row -->
-              <div class="prof-oauth-row">
+              <div v-if="showGithubGoogle" class="prof-oauth-row">
                 <div class="prof-oauth-left">
                   <div class="prof-oauth-icon">
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -305,7 +309,7 @@ onMounted(() => {
               </div>
 
               <!-- Google row -->
-              <div class="prof-oauth-row">
+              <div v-if="showGithubGoogle" class="prof-oauth-row">
                 <div class="prof-oauth-left">
                   <div class="prof-oauth-icon prof-oauth-icon-google">
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24">
