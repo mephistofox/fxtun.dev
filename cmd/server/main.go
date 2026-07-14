@@ -525,6 +525,7 @@ func run(cmd *cobra.Command, args []string) error {
 				SecretKey: cfg.YooKassa.SecretKey,
 				TestMode:  cfg.YooKassa.TestMode,
 				ReturnURL: cfg.YooKassa.ReturnURL,
+				SourceIP:  cfg.YooKassa.SourceIP,
 			})
 			providers.Register(yookassa)
 		}
