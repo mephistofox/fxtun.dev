@@ -35,6 +35,11 @@ type YooKassaConfig struct {
 	SecretKey string
 	TestMode  bool
 	ReturnURL string
+	// SourceIP optionally binds all outbound YooKassa API connections to a
+	// specific local address. Prod's primary egress IP is filtered upstream
+	// toward YooKassa's networks (TLS handshake times out), so payments must
+	// leave via a clean secondary IP. Empty = default source selection.
+	SourceIP string
 }
 
 // YooKassa handles YooKassa payment operations
@@ -47,8 +52,38 @@ type YooKassa struct {
 func NewYooKassa(config YooKassaConfig) *YooKassa {
 	return &YooKassa{
 		config: config,
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: newHTTPClient(config.SourceIP),
 	}
+}
+
+// localBoundDialer returns a dialer bound to sourceIP, or nil when sourceIP is
+// empty or not a valid IP (in which case the caller uses default source
+// selection). Timeouts mirror http.DefaultTransport's default dialer.
+func localBoundDialer(sourceIP string) *net.Dialer {
+	ip := net.ParseIP(sourceIP)
+	if ip == nil {
+		return nil
+	}
+	return &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		LocalAddr: &net.TCPAddr{IP: ip},
+	}
+}
+
+// newHTTPClient builds the HTTP client for YooKassa API calls. When sourceIP is
+// set, outbound connections are bound to that local address; otherwise the
+// zero-config default client (default source selection) is used.
+func newHTTPClient(sourceIP string) *http.Client {
+	client := &http.Client{Timeout: 30 * time.Second}
+	dialer := localBoundDialer(sourceIP)
+	if dialer == nil {
+		return client
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = dialer.DialContext
+	client.Transport = transport
+	return client
 }
 
 // Amount represents money amount
@@ -92,15 +127,15 @@ type PaymentMethod struct {
 
 // CreatePaymentRequest represents payment creation request
 type CreatePaymentRequest struct {
-	Amount            Amount            `json:"amount"`
-	Description       string            `json:"description,omitempty"`
-	Confirmation      *Confirmation     `json:"confirmation,omitempty"`
-	Capture           bool              `json:"capture"`                       // true = immediate capture
-	SavePaymentMethod bool              `json:"save_payment_method,omitempty"` // for recurring payments
-	PaymentMethodID   string            `json:"payment_method_id,omitempty"`   // for autopayment with saved method
+	Amount            Amount             `json:"amount"`
+	Description       string             `json:"description,omitempty"`
+	Confirmation      *Confirmation      `json:"confirmation,omitempty"`
+	Capture           bool               `json:"capture"`                       // true = immediate capture
+	SavePaymentMethod bool               `json:"save_payment_method,omitempty"` // for recurring payments
+	PaymentMethodID   string             `json:"payment_method_id,omitempty"`   // for autopayment with saved method
 	PaymentMethodData *PaymentMethodData `json:"payment_method_data,omitempty"`
-	Metadata          map[string]string `json:"metadata,omitempty"`
-	Receipt           *Receipt          `json:"receipt,omitempty"`
+	Metadata          map[string]string  `json:"metadata,omitempty"`
+	Receipt           *Receipt           `json:"receipt,omitempty"`
 }
 
 // PaymentMethodData for specifying payment method type
@@ -125,29 +160,29 @@ type ReceiptItem struct {
 	Description    string `json:"description"`
 	Quantity       string `json:"quantity"`
 	Amount         Amount `json:"amount"`
-	VATCode        int    `json:"vat_code"`         // 1 = no VAT (for self-employed)
-	PaymentSubject string `json:"payment_subject"`  // "service"
-	PaymentMode    string `json:"payment_mode"`     // "full_payment"
+	VATCode        int    `json:"vat_code"`        // 1 = no VAT (for self-employed)
+	PaymentSubject string `json:"payment_subject"` // "service"
+	PaymentMode    string `json:"payment_mode"`    // "full_payment"
 }
 
 // Payment represents payment object from API
 type Payment struct {
-	ID                string                `json:"id"`
-	Status            string                `json:"status"` // pending, waiting_for_capture, succeeded, canceled
-	Amount            Amount                `json:"amount"`
-	IncomeAmount      *Amount               `json:"income_amount,omitempty"`
-	Description       string                `json:"description,omitempty"`
-	Recipient         *Recipient            `json:"recipient,omitempty"`
-	PaymentMethod     *PaymentMethod        `json:"payment_method,omitempty"`
-	Confirmation      *ConfirmationResponse `json:"confirmation,omitempty"`
-	CapturedAt        string                `json:"captured_at,omitempty"`
-	CreatedAt         string                `json:"created_at"`
-	ExpiresAt         string                `json:"expires_at,omitempty"`
-	Metadata          map[string]string     `json:"metadata,omitempty"`
-	Paid              bool                  `json:"paid"`
-	Refundable        bool                  `json:"refundable"`
-	Test              bool                  `json:"test"`
-	CancellationDetails *CancellationDetails `json:"cancellation_details,omitempty"`
+	ID                  string                `json:"id"`
+	Status              string                `json:"status"` // pending, waiting_for_capture, succeeded, canceled
+	Amount              Amount                `json:"amount"`
+	IncomeAmount        *Amount               `json:"income_amount,omitempty"`
+	Description         string                `json:"description,omitempty"`
+	Recipient           *Recipient            `json:"recipient,omitempty"`
+	PaymentMethod       *PaymentMethod        `json:"payment_method,omitempty"`
+	Confirmation        *ConfirmationResponse `json:"confirmation,omitempty"`
+	CapturedAt          string                `json:"captured_at,omitempty"`
+	CreatedAt           string                `json:"created_at"`
+	ExpiresAt           string                `json:"expires_at,omitempty"`
+	Metadata            map[string]string     `json:"metadata,omitempty"`
+	Paid                bool                  `json:"paid"`
+	Refundable          bool                  `json:"refundable"`
+	Test                bool                  `json:"test"`
+	CancellationDetails *CancellationDetails  `json:"cancellation_details,omitempty"`
 }
 
 // CancellationDetails for canceled payments
