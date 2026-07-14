@@ -277,6 +277,10 @@ type GoogleOAuthSettings struct {
 type YandexOAuthSettings struct {
 	ClientID     string `mapstructure:"client_id"`
 	ClientSecret string `mapstructure:"client_secret"`
+	// EgressIP, if set, binds all outgoing requests to Yandex (token exchange and
+	// user info) to this local source IP. Used to route Yandex traffic through the
+	// secondary IP that has upstream egress. Empty means use the default route.
+	EgressIP string `mapstructure:"egress_ip"`
 }
 
 // extractDomain removes port from host if present

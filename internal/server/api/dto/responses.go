@@ -25,8 +25,8 @@ type PlanDTO struct {
 	ID                 int64   `json:"id"`
 	Slug               string  `json:"slug"`
 	Name               string  `json:"name"`
-	Price              float64 `json:"price"`               // Price in USD
-	PriceRUB           float64 `json:"price_rub"`           // Price in RUB (converted on backend)
+	Price              float64 `json:"price"`     // Price in USD
+	PriceRUB           float64 `json:"price_rub"` // Price in RUB (converted on backend)
 	MaxTunnels         int     `json:"max_tunnels"`
 	MaxDomains         int     `json:"max_domains"`
 	MaxCustomDomains   int     `json:"max_custom_domains"`
@@ -84,6 +84,7 @@ type UserDTO struct {
 	Plan        *PlanDTO   `json:"plan,omitempty"`
 	GitHubID    *int64     `json:"github_id,omitempty"`
 	GoogleID    *string    `json:"google_id,omitempty"`
+	YandexID    *string    `json:"yandex_id,omitempty"`
 	Email       string     `json:"email,omitempty"`
 	AvatarURL   string     `json:"avatar_url,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -101,6 +102,7 @@ func UserFromModel(u *database.User) *UserDTO {
 		PlanID:      u.PlanID,
 		GitHubID:    u.GitHubID,
 		GoogleID:    u.GoogleID,
+		YandexID:    u.YandexID,
 		Email:       u.Email,
 		AvatarURL:   u.AvatarURL,
 		CreatedAt:   u.CreatedAt,
@@ -118,13 +120,13 @@ type AuthResponse struct {
 
 // ProfileResponse represents a user profile response
 type ProfileResponse struct {
-	User            *UserDTO          `json:"user"`
-	TOTPEnabled     bool              `json:"totp_enabled"`
-	ReservedDomains []*DomainDTO      `json:"reserved_domains"`
-	MaxDomains      int               `json:"max_domains"`
-	TokenCount      int               `json:"token_count"`
-	TunnelCount     int               `json:"tunnel_count"`
-	Plan            *PlanDTO          `json:"plan,omitempty"`
+	User            *UserDTO     `json:"user"`
+	TOTPEnabled     bool         `json:"totp_enabled"`
+	ReservedDomains []*DomainDTO `json:"reserved_domains"`
+	MaxDomains      int          `json:"max_domains"`
+	TokenCount      int          `json:"token_count"`
+	TunnelCount     int          `json:"tunnel_count"`
+	Plan            *PlanDTO     `json:"plan,omitempty"`
 }
 
 // TokenDTO represents an API token in API responses
@@ -234,9 +236,9 @@ type DownloadDTO struct {
 
 // DownloadsListResponse represents a list of available downloads
 type DownloadsListResponse struct {
-	Clients    []*DownloadDTO `json:"clients"`     // CLI clients (deprecated, use cli field)
-	CLI        []*DownloadDTO `json:"cli"`         // CLI clients
-	GUI        []*DownloadDTO `json:"gui"`         // GUI clients
+	Clients []*DownloadDTO `json:"clients"` // CLI clients (deprecated, use cli field)
+	CLI     []*DownloadDTO `json:"cli"`     // CLI clients
+	GUI     []*DownloadDTO `json:"gui"`     // GUI clients
 }
 
 // StatsResponse represents server statistics
