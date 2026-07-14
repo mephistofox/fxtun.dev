@@ -336,6 +336,13 @@ func TestScheduler_RecurringFailedRenewalDowngradesAfterGrace(t *testing.T) {
 
 	// Past the grace window (8 days expired) — should be downgraded.
 	staleUser, staleSub := mkRecurring("+79993334401", time.Now().Add(-8*24*time.Hour))
+	// Give the stale sub a saved card so we can assert dunning detaches it.
+	pmID, last4 := "pm_stale", "4242"
+	staleSub.YooKassaPaymentMethodID = &pmID
+	staleSub.YooKassaCardLast4 = &last4
+	if err := db.Subscriptions.Update(staleSub); err != nil {
+		t.Fatalf("update stale sub with card: %v", err)
+	}
 	// Recently expired (1 hour) — renewal may still retry; must be left active.
 	freshUser, freshSub := mkRecurring("+79993334402", time.Now().Add(-1*time.Hour))
 
@@ -346,6 +353,16 @@ func TestScheduler_RecurringFailedRenewalDowngradesAfterGrace(t *testing.T) {
 	gotStale, _ := db.Subscriptions.GetByID(staleSub.ID)
 	if gotStale.Status != database.SubscriptionStatusExpired {
 		t.Fatalf("stale recurring sub: expected expired after grace, got %s", gotStale.Status)
+	}
+	// Dunning exhausted: the declining card must be detached and recurring off.
+	if gotStale.YooKassaPaymentMethodID != nil {
+		t.Errorf("stale recurring sub: expected card detached, got %v", *gotStale.YooKassaPaymentMethodID)
+	}
+	if gotStale.YooKassaCardLast4 != nil {
+		t.Errorf("stale recurring sub: expected card last4 cleared, got %v", *gotStale.YooKassaCardLast4)
+	}
+	if gotStale.Recurring {
+		t.Errorf("stale recurring sub: expected recurring disabled after dunning")
 	}
 	if u, _ := db.Users.GetByID(staleUser.ID); u.PlanID != free.ID {
 		t.Fatalf("stale recurring user: expected downgrade to free, got plan %d", u.PlanID)

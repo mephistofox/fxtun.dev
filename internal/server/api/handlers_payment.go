@@ -734,6 +734,11 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 			// Save payment_method_id for recurring payments
 			if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
 				sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+				if last4 := yooPayment.SavedCardLast4(); last4 != "" {
+					sub.YooKassaCardLast4 = &last4
+				} else {
+					sub.YooKassaCardLast4 = nil
+				}
 			}
 		}
 
@@ -854,6 +859,11 @@ func (s *Server) recoverSubscription(pmt *database.Payment, planID int64, yooPay
 	// Save payment_method_id if available
 	if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
 		sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+		if last4 := yooPayment.SavedCardLast4(); last4 != "" {
+			sub.YooKassaCardLast4 = &last4
+		} else {
+			sub.YooKassaCardLast4 = nil
+		}
 	}
 
 	if err := s.db.Subscriptions.Create(sub); err != nil {
@@ -989,6 +999,7 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	sub.Recurring = false
 	// Clear payment method to prevent autopayments
 	sub.YooKassaPaymentMethodID = nil
+	sub.YooKassaCardLast4 = nil
 
 	// Cancel Creem subscription if applicable
 	if sub.CreemSubscriptionID != nil && *sub.CreemSubscriptionID != "" {
@@ -1017,6 +1028,60 @@ func (s *Server) handleCancelSubscription(w http.ResponseWriter, r *http.Request
 	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
 		Success: true,
 		Message: "subscription will not renew",
+	})
+}
+
+// handleUnbindCard removes the saved YooKassa payment method from the user's
+// subscription so no further autopayments can be charged. Unlike cancel, the
+// subscription stays active until the end of the already-paid period; it simply
+// will not auto-renew. YooKassa requires that users can detach their card
+// without contacting support before recurring payments may be enabled.
+func (s *Server) handleUnbindCard(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		s.respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	sub, err := s.db.Subscriptions.GetByUserID(user.ID)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to get subscription")
+		s.respondError(w, http.StatusInternalServerError, "failed to get subscription")
+		return
+	}
+
+	if sub == nil {
+		s.respondError(w, http.StatusNotFound, "no subscription")
+		return
+	}
+
+	// Idempotent: nothing bound means nothing to detach.
+	if sub.YooKassaPaymentMethodID == nil || *sub.YooKassaPaymentMethodID == "" {
+		s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+			Success: true,
+			Message: "no card bound",
+		})
+		return
+	}
+
+	// Detach the card and stop auto-renewal, but keep access until period end.
+	sub.YooKassaPaymentMethodID = nil
+	sub.YooKassaCardLast4 = nil
+	sub.Recurring = false
+
+	if err := s.db.Subscriptions.Update(sub); err != nil {
+		s.log.Error().Err(err).Msg("Failed to unbind card")
+		s.respondError(w, http.StatusInternalServerError, "failed to unbind card")
+		return
+	}
+
+	_ = s.db.Audit.Log(&user.ID, "subscription_card_unbound", map[string]interface{}{
+		"subscription_id": sub.ID,
+	}, auth.GetClientIP(r))
+
+	s.respondJSON(w, http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "card unbound; subscription will not renew",
 	})
 }
 

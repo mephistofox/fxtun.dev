@@ -158,6 +158,7 @@ type Subscription struct {
 	CreemSubscriptionID     pgtype.Text        `json:"creem_subscription_id"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	YookassaCardLast4       pgtype.Text        `json:"yookassa_card_last4"`
 }
 
 type TlsCertificate struct {

@@ -25,6 +25,7 @@ func sqlcSubscriptionToDomain(s sqlc.Subscription) *Subscription {
 		CurrentPeriodStart:      tsToTimePtr(s.CurrentPeriodStart),
 		CurrentPeriodEnd:        tsToTimePtr(s.CurrentPeriodEnd),
 		YooKassaPaymentMethodID: textToStringPtr(s.YookassaPaymentMethodID),
+		YooKassaCardLast4:       textToStringPtr(s.YookassaCardLast4),
 		CreemCustomerID:         textToStringPtr(s.CreemCustomerID),
 		CreemSubscriptionID:     textToStringPtr(s.CreemSubscriptionID),
 		CreatedAt:               tsToTime(s.CreatedAt),
@@ -44,6 +45,7 @@ func (r *SubscriptionRepository) Create(sub *Subscription) error {
 		CurrentPeriodStart:      timePtrToPgtz(sub.CurrentPeriodStart),
 		CurrentPeriodEnd:        timePtrToPgtz(sub.CurrentPeriodEnd),
 		YookassaPaymentMethodID: stringPtrToPgtext(sub.YooKassaPaymentMethodID),
+		YookassaCardLast4:       stringPtrToPgtext(sub.YooKassaCardLast4),
 		CreemCustomerID:         stringPtrToPgtext(sub.CreemCustomerID),
 		CreemSubscriptionID:     stringPtrToPgtext(sub.CreemSubscriptionID),
 	})
@@ -221,6 +223,7 @@ func (r *SubscriptionRepository) Update(sub *Subscription) error {
 		CurrentPeriodStart:      timePtrToPgtz(sub.CurrentPeriodStart),
 		CurrentPeriodEnd:        timePtrToPgtz(sub.CurrentPeriodEnd),
 		YookassaPaymentMethodID: stringPtrToPgtext(sub.YooKassaPaymentMethodID),
+		YookassaCardLast4:       stringPtrToPgtext(sub.YooKassaCardLast4),
 		CreemCustomerID:         stringPtrToPgtext(sub.CreemCustomerID),
 		CreemSubscriptionID:     stringPtrToPgtext(sub.CreemSubscriptionID),
 	})

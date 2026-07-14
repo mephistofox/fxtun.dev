@@ -117,6 +117,26 @@ func (r *PaymentRepository) GetPendingBySubscriptionID(subscriptionID int64) ([]
 	return payments, nil
 }
 
+// ListFailedRecurringSince returns failed recurring (autopayment) payments for a
+// subscription created at or after the given time, newest first. It lets the
+// scheduler space out dunning retries by counting prior failed attempts in the
+// current billing cycle without a dedicated attempts table.
+func (r *PaymentRepository) ListFailedRecurringSince(subscriptionID int64, since time.Time) ([]*Payment, error) {
+	ctx := context.Background()
+	rows, err := r.q.ListFailedRecurringPaymentsBySubscriptionSince(ctx, sqlc.ListFailedRecurringPaymentsBySubscriptionSinceParams{
+		SubscriptionID: int64ToPgint8(subscriptionID),
+		CreatedAt:      timeToPgtz(since),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list failed recurring payments by subscription id: %w", err)
+	}
+	payments := make([]*Payment, 0, len(rows))
+	for _, p := range rows {
+		payments = append(payments, sqlcPaymentToDomain(p))
+	}
+	return payments, nil
+}
+
 // ListAll returns all payments with pagination and total count.
 func (r *PaymentRepository) ListAll(limit, offset int) ([]*Payment, int, error) {
 	ctx := context.Background()

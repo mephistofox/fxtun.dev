@@ -488,6 +488,7 @@ func (s *Server) setupRoutes() {
 				r.Get("/", s.handleGetSubscription)
 				r.Post("/checkout", s.handleCheckout)
 				r.Post("/cancel", s.handleCancelSubscription)
+				r.Post("/unbind-card", s.handleUnbindCard)
 				r.Post("/change", s.handleChangePlan)
 				r.Get("/payments", s.handleGetPayments)
 			})

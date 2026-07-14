@@ -26,6 +26,10 @@ SELECT COUNT(*) FROM payments WHERE user_id = $1;
 SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
 FROM payments WHERE subscription_id = $1 AND status = 'pending' ORDER BY created_at DESC;
 
+-- name: ListFailedRecurringPaymentsBySubscriptionSince :many
+SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
+FROM payments WHERE subscription_id = $1 AND is_recurring = TRUE AND status = 'failed' AND created_at >= $2 ORDER BY created_at DESC;
+
 -- name: ListAllPayments :many
 SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
 FROM payments ORDER BY created_at DESC LIMIT $1 OFFSET $2;
