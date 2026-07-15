@@ -154,6 +154,21 @@ onMounted(() => {
             <p class="text-xs text-muted-foreground mt-1">{{ t('landing.advanced.reconnect.desc') }}</p>
           </div>
         </div>
+
+        <!-- Nodes near you (RU/CIS edge) -->
+        <div class="flex items-start gap-4 p-5 rounded-xl bg-surface/50 border border-border">
+          <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+            <!-- Map pin / location icon -->
+            <svg aria-hidden="true" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="font-medium text-sm">{{ t('landing.advanced.geoRu.title') }}</p>
+            <p class="text-xs text-muted-foreground mt-1">{{ t('landing.advanced.geoRu.desc') }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>

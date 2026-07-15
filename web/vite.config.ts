@@ -18,13 +18,15 @@ export default defineConfig({
     }),
     Sitemap({
       hostname: "https://fxtun.ru",
-      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,
       robots: [{ userAgent: "*", allow: "/" }],
       changefreq: {
         "/": "weekly",
         "/pricing": "weekly",
+        "/ngrok-alternative": "monthly",
+        "/features": "monthly",
         "/compare/*": "monthly",
         "/about": "monthly",
         "/downloads": "monthly",
@@ -38,6 +40,8 @@ export default defineConfig({
       priority: {
         "/": 1.0,
         "/pricing": 0.9,
+        "/ngrok-alternative": 0.8,
+        "/features": 0.8,
         "/compare/*": 0.8,
         "/about": 0.7,
         "/downloads": 0.8,
@@ -51,6 +55,8 @@ export default defineConfig({
       lastmod: {
         "/": new Date("2026-03-28"),
         "/pricing": new Date("2026-03-27"),
+        "/ngrok-alternative": new Date("2026-07-15"),
+        "/features": new Date("2026-07-15"),
         "/about": new Date("2026-03-20"),
         "/downloads": new Date("2026-03-28"),
         "/compare/ngrok": new Date("2026-03-27"),
@@ -102,7 +108,7 @@ export default defineConfig({
     formatting: "minify",
     beastiesOptions: { fonts: false, preloadFonts: false },
     includedRoutes() {
-      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
+      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
       const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
       return [...pages, ...ruPages, ...enPages];
