@@ -1,5 +1,37 @@
 # Changelog
 
+## [3.11.0](https://github.com/mephistofox/fxtun.dev/compare/v3.10.0...v3.11.0) (2026-07-15)
+
+
+### Features
+
+* **auth:** add yandex oauth and consolidate domain to fxtun.ru ([8460353](https://github.com/mephistofox/fxtun.dev/commit/8460353998e8e72f747a9547af9e5c69081c5cec))
+* **auth:** hide GitHub and Google OAuth buttons in web and client ([8c09aef](https://github.com/mephistofox/fxtun.dev/commit/8c09aefc703ff57c15bbeddcd81017d4cf7f8970))
+* **auth:** passwordless email magic-link login + hide GitHub/Google OAuth ([3981248](https://github.com/mephistofox/fxtun.dev/commit/3981248655cb7a72d67bd548bc0a42164d1bb99b))
+* **auth:** passwordless email magic-link login with disposable-email guard ([d5caa5f](https://github.com/mephistofox/fxtun.dev/commit/d5caa5f01bd064e0335c3194dc6a324f3e97e2eb))
+* **payments:** YooKassa recurring auto-renewal subscriptions ([3619320](https://github.com/mephistofox/fxtun.dev/commit/36193203b77e9cdc4ad37a240693d3e5c8929d0b))
+* **payments:** YooKassa recurring auto-renewal subscriptions ([e1df5c6](https://github.com/mephistofox/fxtun.dev/commit/e1df5c6472113de0bbc60e4d55a2302281f8a9fc))
+
+
+### Bug Fixes
+
+* **api:** make server Shutdown idempotent to avoid double-close panic ([93c4d82](https://github.com/mephistofox/fxtun.dev/commit/93c4d8296e5e831d45ee33303736d04e70bcbf5b))
+* **auth:** route Yandex OAuth egress via secondary IP, fix linked-account display ([9c91fed](https://github.com/mephistofox/fxtun.dev/commit/9c91feda21765f57beb020bca2c18e25473fe532))
+* **auth:** route Yandex OAuth egress via secondary IP, fix linked-account display ([3399d80](https://github.com/mephistofox/fxtun.dev/commit/3399d80fddc73e3e6334f5234d75483061ccf74d))
+* **client:** headless auth without Secret Service ([d5a8570](https://github.com/mephistofox/fxtun.dev/commit/d5a85700acc67d39f322140a0060d3b7bfc5bab6))
+* **client:** support headless auth without Secret Service ([#4](https://github.com/mephistofox/fxtun.dev/issues/4)) ([33e0333](https://github.com/mephistofox/fxtun.dev/commit/33e033336a9149e1e128d23ef84fb9d78e7c2acc))
+* **db:** renumber card-last4 migration to 00011 (goose version collision) ([f9b10ce](https://github.com/mephistofox/fxtun.dev/commit/f9b10ce744af4d40fff77241564acf3be3a8b877))
+* **db:** renumber card-last4 migration to 00011 to resolve goose version collision ([21650c7](https://github.com/mephistofox/fxtun.dev/commit/21650c725bdbd7ed677034568c93cd9c8b6dde09))
+* **dns:** return NODATA not NXDOMAIN for existing names ([fb7a7f7](https://github.com/mephistofox/fxtun.dev/commit/fb7a7f712eb3cba565cca86b410c197541dff402))
+* **dns:** return NODATA not NXDOMAIN for existing names ([057d6c0](https://github.com/mephistofox/fxtun.dev/commit/057d6c0f5e5728e335269a6efbfd4c2b7a930b1f))
+* **payment:** bind yookassa http client to configurable source ip ([cca47b6](https://github.com/mephistofox/fxtun.dev/commit/cca47b6f06e585753cd76c61a130e673511bbcfa))
+* **payment:** bind yookassa http client to configurable source ip ([46e6ba2](https://github.com/mephistofox/fxtun.dev/commit/46e6ba21f8845fa4c4a3a01b14ec2db715e82c78))
+* **payments:** gate YooKassa recurring behind shop approval (unblock checkout) ([d1bef61](https://github.com/mephistofox/fxtun.dev/commit/d1bef61872594ac2ce34cb65127ff2345a16117d))
+* **payments:** gate YooKassa recurring behind shop approval to unblock checkout ([1ce6109](https://github.com/mephistofox/fxtun.dev/commit/1ce6109505de291c7960560f77683f1d7d9ecd73))
+* **payments:** recover from stuck pending checkout + close double-charge races ([#79](https://github.com/mephistofox/fxtun.dev/issues/79)) ([435f865](https://github.com/mephistofox/fxtun.dev/commit/435f8652d309a5cf2038f281208ba6a1b3e97cb6))
+* **web:** align plan copy and pricing matrix with live api ([efd573d](https://github.com/mephistofox/fxtun.dev/commit/efd573d418f787586be756293084da489c67976e))
+* **web:** drop UDP from free plan protocol copy ([1435258](https://github.com/mephistofox/fxtun.dev/commit/1435258fffad4619e122ab39f7ba3e8aed5cedbe))
+
 ## [3.11.1](https://github.com/mephistofox/fxTunnel/compare/v3.11.0...v3.11.1) (2026-07-15)
 
 
