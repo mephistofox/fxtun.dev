@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.11.1](https://github.com/mephistofox/fxTunnel/compare/v3.11.0...v3.11.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* **client:** headless auth without Secret Service ([eafcd39](https://github.com/mephistofox/fxTunnel/commit/eafcd398e9aca92389338b5bf55383937274553f))
+* **client:** support headless auth without Secret Service ([#4](https://github.com/mephistofox/fxTunnel/issues/4)) ([65a7ba5](https://github.com/mephistofox/fxTunnel/commit/65a7ba52c21337dfce427bd46d2bc6e83a08a31c))
+* **payments:** gate YooKassa recurring behind shop approval (unblock checkout) ([fdfd882](https://github.com/mephistofox/fxTunnel/commit/fdfd882c1b57db032c109f035a8e67c968f66eac))
+* **payments:** gate YooKassa recurring behind shop approval to unblock checkout ([2442ff4](https://github.com/mephistofox/fxTunnel/commit/2442ff49f135d5b90b04cc0e500403c586bfe182))
+
 ## [3.11.0](https://github.com/mephistofox/fxTunnel/compare/v3.10.0...v3.11.0) (2026-07-14)
 
 
