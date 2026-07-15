@@ -102,6 +102,10 @@ Authentication:
   fxtunnel login                       Save API token (interactive or -t)
   fxtunnel logout                      Remove saved credentials
 
+  Headless servers without a system keyring can pass the token per command
+  (-t <token>) or via the FXTUNNEL_TOKEN environment variable. 'login' falls
+  back to ~/.fxtunnel/client.yaml when no keyring is available.
+
 Configuration:
   -c, --config <path>                  Use config file for multiple tunnels
   -s, --server <host:port>             Server address (default port: 4443)
@@ -194,7 +198,11 @@ Security options:
 		Use:   "login",
 		Short: "Save authentication token",
 		Long: `Save your API token to the system keyring for future use.
-Use -t to provide token directly, or enter it interactively.`,
+Use -t to provide token directly, or enter it interactively.
+
+On headless systems without a system keyring (no org.freedesktop.secrets),
+the token is saved to ~/.fxtunnel/client.yaml instead. You can also skip
+login entirely and pass -t <token> or set FXTUNNEL_TOKEN per command.`,
 		RunE: runLogin,
 	}
 	rootCmd.AddCommand(loginCmd)
@@ -471,6 +479,15 @@ func runUDP(cmd *cobra.Command, args []string) error {
 }
 
 func resolveCredentials() {
+	// Environment variables (CI / headless servers) before the keyring, which
+	// may be unavailable on headless Linux without a Secret Service.
+	if token == "" {
+		token = os.Getenv(envToken)
+	}
+	if serverAddr == "" {
+		serverAddr = os.Getenv(envServerAddr)
+	}
+
 	if token == "" || serverAddr == "" {
 		kr := keyring.New()
 		if creds, err := kr.LoadCredentials(); err == nil {
@@ -479,6 +496,20 @@ func resolveCredentials() {
 			}
 			if serverAddr == "" && creds.ServerAddress != "" {
 				serverAddr = creds.ServerAddress
+			}
+		}
+	}
+
+	// File fallback: on headless hosts the token is saved to client.yaml when
+	// the keyring is absent. Without this, `fxtunnel http 8080` would connect
+	// with an empty token after a keyring-less `login`.
+	if token == "" || serverAddr == "" {
+		if fileTok, fileAddr, ok := credentialsFromFile(); ok {
+			if token == "" {
+				token = fileTok
+			}
+			if serverAddr == "" && fileAddr != "" {
+				serverAddr = fileAddr
 			}
 		}
 	}
@@ -571,17 +602,7 @@ func loginWithBrowser() error {
 		switch result.Status {
 		case "authorized":
 			fmt.Println("Authorized!")
-			kr := keyring.New()
-			creds := keyring.Credentials{
-				Token:         result.Token,
-				AuthMethod:    "token",
-				ServerAddress: serverAddr,
-			}
-			if err := kr.SaveCredentials(creds); err != nil {
-				return fmt.Errorf("failed to save credentials: %w", err)
-			}
-			fmt.Println("Token saved. You can now use fxtunnel without --token flag.")
-			return nil
+			return persistCredentials(result.Token, serverAddr)
 		case "expired":
 			return fmt.Errorf("session expired — please try again")
 		}
@@ -607,19 +628,7 @@ func resolveWebURL() string {
 }
 
 func saveToken(t string) error {
-	kr := keyring.New()
-	creds := keyring.Credentials{
-		Token:      t,
-		AuthMethod: "token",
-	}
-	if serverAddr != "" {
-		creds.ServerAddress = serverAddr
-	}
-	if err := kr.SaveCredentials(creds); err != nil {
-		return fmt.Errorf("failed to save token: %w", err)
-	}
-	fmt.Println("Token saved. You can now use fxtunnel without --token flag.")
-	return nil
+	return persistCredentials(t, serverAddr)
 }
 
 func openBrowser(url string) error {
@@ -637,8 +646,12 @@ func openBrowser(url string) error {
 
 func runLogout(cmd *cobra.Command, args []string) error {
 	kr := keyring.New()
-	if err := kr.Clear(); err != nil {
-		return fmt.Errorf("failed to remove credentials: %w", err)
+	krErr := kr.Clear()
+	// Also strip the plaintext token written by the keyring-less file fallback,
+	// otherwise checkAuth would keep authenticating from ~/.fxtunnel/client.yaml.
+	fileErr := clearCredentialsFile()
+	if krErr != nil && fileErr != nil {
+		return fmt.Errorf("failed to remove credentials: keyring: %v; file: %w", krErr, fileErr)
 	}
 	fmt.Println("Credentials removed.")
 	return nil
