@@ -94,9 +94,9 @@ onUnmounted(() => {
             <a href="#protocols" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.protocols') }}
             </a>
-            <a href="#features" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <RouterLink to="/features" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.features') }}
-            </a>
+            </RouterLink>
             <a href="#pricing" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               {{ t('landing.nav.pricing') }}
             </a>
@@ -207,13 +207,13 @@ onUnmounted(() => {
               >
                 {{ t('landing.nav.protocols') }}
               </a>
-              <a
-                href="#features"
+              <RouterLink
+                to="/features"
                 @click="isMobileMenuOpen = false"
                 class="px-4 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
               >
                 {{ t('landing.nav.features') }}
-              </a>
+              </RouterLink>
               <a
                 href="#pricing"
                 @click="isMobileMenuOpen = false"

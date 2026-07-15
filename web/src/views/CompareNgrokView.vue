@@ -7,8 +7,9 @@ import { useFaqSchema } from '@/composables/useStructuredData'
 const { t, tm } = useI18n()
 
 const tableRows = [
-  'price', 'subdomains', 'requestLimits', 'sessionTimeout', 'protocols',
+  'price', 'rublePayment', 'subdomains', 'requestLimits', 'sessionTimeout', 'protocols',
   'gui', 'inspector', 'openSource', 'customDomains', 'bandwidth',
+  'ruServers', 'autoReconnect', 'ruSupport',
 ] as const
 
 interface FaqItem {

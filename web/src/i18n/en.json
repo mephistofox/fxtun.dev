@@ -13,12 +13,12 @@
     },
     "hero": {
       "badge": "HTTP · TCP · UDP",
-      "titleLine1": "Your localhost,",
-      "titleLine2": "live",
-      "titleLine3": "in seconds",
-      "subtitle": "One command to expose any local service to the internet. HTTP, TCP, UDP — with a desktop app, traffic inspector, and custom domains.",
+      "titleLine1": "The ngrok",
+      "titleLine2": "alternative",
+      "titleLine3": "that just works",
+      "subtitle": "One command and your localhost is on the internet. HTTP, TCP, UDP, traffic inspector, custom domains. Open source, from $2.50 a month.",
       "getStarted": "Start Tunneling Free",
-      "trustBadge": "Free forever — sign in with Yandex or email",
+      "trustBadge": "Free forever - sign in with Yandex or email",
       "terminalCaption": "This is what working with fxTunnel actually looks like",
       "learnMore": "See How It Works",
       "quickStart": "Get started in one command:",
@@ -33,7 +33,14 @@
       },
       "openSourceGithub": "Open source on GitHub",
       "githubStars": "{count} stars",
-      "trustedByDevelopers": "Open source · Trusted by developers worldwide"
+      "trustedByDevelopers": "Open source · Trusted by developers worldwide",
+      "ctaReassure": "No card required. Free forever.",
+      "trustBar": {
+        "rubles": "Local card payments",
+        "support": "Human support",
+        "openSource": "Open source",
+        "servers": "Servers in Russia"
+      }
     },
     "features": {
       "label": "Why fxTunnel",
@@ -48,7 +55,7 @@
       },
       "protocols": {
         "title": "HTTP, TCP & UDP",
-        "desc": "Three protocols in one service. Web apps, SSH, databases, game servers, DNS — expose anything.",
+        "desc": "Three protocols in one service. Web apps, SSH, databases, game servers, DNS - expose anything.",
         "highlight1": "HTTP with custom subdomains",
         "highlight2": "TCP for SSH, databases, APIs",
         "highlight3": "UDP for gaming and real-time"
@@ -57,7 +64,7 @@
         "title": "Desktop App",
         "desc": "The only tunneling service with a native desktop client. Manage tunnels visually, no terminal needed.",
         "highlight1": "Visual tunnel management",
-        "highlight2": "System tray — always running",
+        "highlight2": "System tray - always running",
         "highlight3": "Auto-reconnect on disconnect"
       },
       "fast": {
@@ -83,7 +90,7 @@
       "subtitle": "Advanced features that make fxTunnel ready for real-world use.",
       "customDomains": {
         "title": "Custom Domains",
-        "desc": "Bring your own domain with automatic HTTPS. CNAME for subdomains, A record for apex domains — Let's Encrypt certificates provisioned automatically.",
+        "desc": "Bring your own domain with automatic HTTPS. CNAME for subdomains, A record for apex domains - Let's Encrypt certificates provisioned automatically.",
         "demo": {
           "title": "Custom Domain Setup",
           "yourDomain": "Your domain",
@@ -112,15 +119,19 @@
       },
       "websocket": {
         "title": "WebSocket Support",
-        "desc": "Full bidirectional WebSocket passthrough. No configuration needed — just works."
+        "desc": "Full bidirectional WebSocket passthrough. No configuration needed - just works."
       },
       "lowLatency": {
         "title": "Low Latency",
-        "desc": "yamux stream multiplexing keeps a single TCP connection alive and reuses it for every request — no TCP/TLS handshake per request."
+        "desc": "yamux stream multiplexing keeps a single TCP connection alive and reuses it for every request - no TCP/TLS handshake per request."
       },
       "reconnect": {
         "title": "Auto-Reconnect",
         "desc": "Automatic reconnection on connection loss. Your tunnels stay online 24/7."
+      },
+      "geoRu": {
+        "title": "Servers in Russia",
+        "desc": "Our servers are hosted in Russia, so traffic stays local and users across RU/CIS get lower latency."
       }
     },
     "howItWorks": {
@@ -169,7 +180,7 @@
     "useCases": {
       "label": "Use Cases",
       "title": "Built for Developers",
-      "subtitle": "From local development to production debugging — one tool for every scenario.",
+      "subtitle": "From local development to production debugging - one tool for every scenario.",
       "webhooks": {
         "title": "Webhooks",
         "desc": "Receive Stripe, GitHub, or Twilio webhooks on localhost. No more deploying to test payment flows.",
@@ -177,7 +188,7 @@
       },
       "demos": {
         "title": "Client Demos",
-        "desc": "Share work in progress with clients or teammates — just send a link. No deployment needed.",
+        "desc": "Share work in progress with clients or teammates - just send a link. No deployment needed.",
         "command": "fxtunnel http 5173 --domain demo-v2"
       },
       "ssh": {
@@ -217,6 +228,9 @@
       "inspector": "Traffic Inspector",
       "openSource": "Open source",
       "customDomains": "Custom domains",
+      "rublePayment": "Ruble / local payment",
+      "ruServers": "Servers in Russia",
+      "autoReconnect": "Auto-reconnect",
       "yes": "Yes",
       "no": "No",
       "none": "None",
@@ -234,7 +248,10 @@
           "guiClient": "Yes",
           "inspector": "From $2.50/mo",
           "openSource": "Yes",
-          "customDomains": "From $2.50/mo"
+          "customDomains": "From $2.50/mo",
+          "rublePayment": "Yes - local cards",
+          "ruServers": "Yes",
+          "autoReconnect": "Yes, stable URL"
         },
         "ngrok": {
           "price": "Free / $8/mo",
@@ -245,7 +262,10 @@
           "guiClient": "No",
           "inspector": "$8/mo, 72h retention",
           "openSource": "No",
-          "customDomains": "$0.01/hr"
+          "customDomains": "$0.01/hr",
+          "rublePayment": "No",
+          "ruServers": "No",
+          "autoReconnect": "Partial"
         },
         "localhostrun": {
           "price": "Free / $9/mo",
@@ -256,13 +276,16 @@
           "guiClient": "No",
           "inspector": "No",
           "openSource": "No",
-          "customDomains": "$9/mo"
+          "customDomains": "$9/mo",
+          "rublePayment": "No",
+          "ruServers": "No",
+          "autoReconnect": "No"
         }
       }
     },
     "midCta": {
       "afterHowItWorks": "Ready to try? Set up your first tunnel in under a minute.",
-      "afterUseCases": "Whatever you build — fxTunnel gets it online instantly.",
+      "afterUseCases": "Whatever you build - fxTunnel gets it online instantly.",
       "afterComparison": "See the difference? Start free and upgrade when you need more.",
       "startFree": "Start Free",
       "seePricing": "See Pricing"
@@ -293,7 +316,7 @@
       "tunnels": "active tunnel;;active tunnels",
       "tunnelsDesc": "Simultaneous connections to your local services",
       "anySubdomain": "Any subdomain",
-      "anySubdomainDesc": "Pick myapp.fxtun.dev — no random URLs",
+      "anySubdomainDesc": "Pick myapp.fxtun.dev - no random URLs",
       "domains": "reserved subdomain;;reserved subdomains",
       "domainsDesc": "Your permanent subdomains, even when offline",
       "customDomains": "custom domain;;custom domains",
@@ -301,7 +324,7 @@
       "tokens": "access key;;access keys",
       "tokensDesc": "For connecting different devices or projects",
       "inspector": "HTTP Inspector",
-      "inspectorUnlimited": "HTTP Inspector — unlimited",
+      "inspectorUnlimited": "HTTP Inspector - unlimited",
       "inspectorDesc": "View and replay requests in real-time",
       "udpAvailable": "UDP tunnels included",
       "udpUnavailable": "UDP requires a paid plan",
@@ -324,11 +347,11 @@
       "items": [
         {
           "q": "What is fxTunnel?",
-          "a": "fxTunnel is a reverse tunneling service that exposes your local servers to the internet via HTTP subdomains, TCP ports, or UDP ports. The client establishes an encrypted connection to the fxTunnel server using yamux stream multiplexing over TLS, then incoming traffic from the internet is transparently forwarded to your local port. Three tunnel types are supported: HTTP with custom subdomains (e.g., myapp.fxtun.dev), TCP with dedicated ports, and UDP for real-time applications. Unlike ngrok, fxTunnel offers a native desktop application for Windows, macOS, and Linux, free subdomains of your choice, no session timeouts, and no traffic limits. To get started, install the client and run 'fxtunnel http 3000 --subdomain demo' — your local server is publicly accessible within seconds."
+          "a": "fxTunnel is a reverse tunneling service that exposes your local servers to the internet via HTTP subdomains, TCP ports, or UDP ports. The client establishes an encrypted connection to the fxTunnel server using yamux stream multiplexing over TLS, then incoming traffic from the internet is transparently forwarded to your local port. Three tunnel types are supported: HTTP with custom subdomains (e.g., myapp.fxtun.dev), TCP with dedicated ports, and UDP for real-time applications. Unlike ngrok, fxTunnel offers a native desktop application for Windows, macOS, and Linux, free subdomains of your choice, no session timeouts, and no traffic limits. To get started, install the client and run 'fxtunnel http 3000 --subdomain demo' - your local server is publicly accessible within seconds."
         },
         {
           "q": "What is the best free alternative to ngrok?",
-          "a": "fxTunnel is one of the best free alternatives to ngrok thanks to a unique combination of features. On the free plan you get 3 tunnels with any subdomain of your choice (e.g., myapi.fxtun.dev), while ngrok assigns random URLs on its free tier. fxTunnel has no request or bandwidth limits — ngrok limits free users to 20,000 requests per month and 1 GB of traffic (source: ngrok.com/pricing). fxTunnel sessions run indefinitely with automatic reconnection, whereas ngrok limits free sessions to 2 hours. fxTunnel is the only tunneling service with a native desktop GUI application — UDP support is available from the Starter plan ($2.50/month). Paid plans start at $2.50/month — more than 3 times cheaper than ngrok at $8/month."
+          "a": "fxTunnel is one of the best free alternatives to ngrok thanks to a unique combination of features. On the free plan you get 3 tunnels with any subdomain of your choice (e.g., myapi.fxtun.dev), while ngrok assigns random URLs on its free tier. fxTunnel has no request or bandwidth limits - ngrok limits free users to 20,000 requests per month and 1 GB of traffic (source: ngrok.com/pricing). fxTunnel sessions run indefinitely with automatic reconnection, whereas ngrok limits free sessions to 2 hours. fxTunnel is the only tunneling service with a native desktop GUI application - UDP support is available from the Starter plan ($2.50/month). Paid plans start at $2.50/month - more than 3 times cheaper than ngrok at $8/month."
         },
         {
           "q": "What tunneling service has a desktop app?",
@@ -340,11 +363,11 @@
         },
         {
           "q": "How do I test webhooks locally?",
-          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a permanent public URL like webhooks.fxtun.dev that forwards all incoming traffic to your local server on port 3000. Enter this URL in the webhook settings of any service — Stripe, GitHub, Twilio, Telegram Bot API, PayPal, Shopify, or any other provider. All requests will be instantly forwarded to your local server. With the traffic inspector (available from the Starter plan) you can view headers and body of every request in real time, filter by method or status code, and replay requests with one click for debugging. Unlike ngrok, the subdomain stays the same between restarts, so you never need to update your webhook URL in provider settings after reconnecting."
+          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a permanent public URL like webhooks.fxtun.dev that forwards all incoming traffic to your local server on port 3000. Enter this URL in the webhook settings of any service - Stripe, GitHub, Twilio, Telegram Bot API, PayPal, Shopify, or any other provider. All requests will be instantly forwarded to your local server. With the traffic inspector (available from the Starter plan) you can view headers and body of every request in real time, filter by method or status code, and replay requests with one click for debugging. Unlike ngrok, the subdomain stays the same between restarts, so you never need to update your webhook URL in provider settings after reconnecting."
         },
         {
           "q": "Can I use custom domains with fxTunnel?",
-          "a": "Yes, on paid plans (starting at the Starter plan for $2.50/month) you can connect your own domains with automatic HTTPS. To set it up, add a CNAME record pointing to your fxTunnel address (e.g., api.yourdomain.com CNAME fxtun.dev), or an A record for apex domains. fxTunnel will automatically issue and renew an SSL certificate via Let's Encrypt — no manual certificate management required. The number of custom domains depends on your plan: 1 on Starter, 5 on Pro, 50 on Business. Custom domains are ideal for production webhooks, API demos for clients, staging environments, and integration testing where a fixed professional domain matters more than a fxtun.dev subdomain. This is especially useful for presenting demos to stakeholders who expect a branded URL."
+          "a": "Yes, on paid plans (starting at the Starter plan for $2.50/month) you can connect your own domains with automatic HTTPS. To set it up, add a CNAME record pointing to your fxTunnel address (e.g., api.yourdomain.com CNAME fxtun.dev), or an A record for apex domains. fxTunnel will automatically issue and renew an SSL certificate via Let's Encrypt - no manual certificate management required. The number of custom domains depends on your plan: 1 on Starter, 5 on Pro, 50 on Business. Custom domains are ideal for production webhooks, API demos for clients, staging environments, and integration testing where a fixed professional domain matters more than a fxtun.dev subdomain. This is especially useful for presenting demos to stakeholders who expect a branded URL."
         },
         {
           "q": "Does fxTunnel have bandwidth limits?",
@@ -352,27 +375,27 @@
         },
         {
           "q": "Is there a session timeout?",
-          "a": "No, fxTunnel tunnels run indefinitely on all plans, including free. Unlike competitors — ngrok limits free sessions to 2 hours, tuna.am to 30 minutes, Pinggy to 60 minutes — fxTunnel does not disconnect sessions on a timeout. The client maintains keep-alive ping/pong to detect connection drops and automatically reconnects when the connection is lost. This is critical for long-running tunnels: CI/CD servers, IoT devices, webhooks that must be available 24/7, home servers, and staging environments. The desktop app can start automatically on system boot, ensuring your tunnels are always online without manual intervention. You can also configure this via CLI with 'fxtunnel http 3000 --reconnect' for persistent tunnel operation."
+          "a": "No, fxTunnel tunnels run indefinitely on all plans, including free. Unlike competitors - ngrok limits free sessions to 2 hours, tuna.am to 30 minutes, Pinggy to 60 minutes - fxTunnel does not disconnect sessions on a timeout. The client maintains keep-alive ping/pong to detect connection drops and automatically reconnects when the connection is lost. This is critical for long-running tunnels: CI/CD servers, IoT devices, webhooks that must be available 24/7, home servers, and staging environments. The desktop app can start automatically on system boot, ensuring your tunnels are always online without manual intervention. You can also configure this via CLI with 'fxtunnel http 3000 --reconnect' for persistent tunnel operation."
         },
         {
           "q": "Is fxTunnel open source?",
-          "a": "Yes, fxTunnel is open source. The Go server, CLI client, desktop GUI (built with Wails), and web frontend are all available on GitHub. You can audit the code, contribute pull requests, report issues, or fork the project. The codebase is about 15,000 lines of Go and a Vue 3 + TypeScript frontend. Open source gives you transparency about how your traffic is handled — you can verify there are no hidden telemetry endpoints, no traffic logging beyond what is documented, and no vendor lock-in. Most commercial competitors — ngrok, Cloudflare Tunnel, Pinggy, tuna.am, xTunnel — are closed-source SaaS, so you must trust them blindly. With fxTunnel, you can verify."
+          "a": "Yes, fxTunnel is open source. The Go server, CLI client, desktop GUI (built with Wails), and web frontend are all available on GitHub. You can audit the code, contribute pull requests, report issues, or fork the project. The codebase is about 15,000 lines of Go and a Vue 3 + TypeScript frontend. Open source gives you transparency about how your traffic is handled - you can verify there are no hidden telemetry endpoints, no traffic logging beyond what is documented, and no vendor lock-in. Most commercial competitors - ngrok, Cloudflare Tunnel, Pinggy, tuna.am, xTunnel - are closed-source SaaS, so you must trust them blindly. With fxTunnel, you can verify."
         },
         {
           "q": "How much does fxTunnel cost?",
-          "a": "fxTunnel offers four plans. Free: 3 tunnels, any subdomain, HTTP + TCP, no traffic limits or session timeout — enough for individual development. Starter ($2.50/month): 3 tunnels, 1 reserved subdomain, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees — you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
+          "a": "fxTunnel offers four plans. Free: 3 tunnels, any subdomain, HTTP + TCP, no traffic limits or session timeout - enough for individual development. Starter ($2.50/month): 3 tunnels, 1 reserved subdomain, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees - you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
-          "a": "The key difference is ecosystem independence. Cloudflare Tunnel is free but requires a Cloudflare account and transferring your domain's DNS to Cloudflare — your traffic passes through their network and you depend on their platform. fxTunnel is fully independent: it works with any DNS provider and registrar. On protocols: Cloudflare Tunnel supports HTTP and TCP but not UDP; fxTunnel supports HTTP, TCP, and UDP. On interface: Cloudflare Tunnel is managed via the cloudflared CLI and web dashboard, while fxTunnel offers a native desktop application. fxTunnel also provides a traffic inspector (not available in Cloudflare Tunnel) and is open source — you can audit the code on GitHub. Cloudflare Tunnel is better for enterprise scenarios with global CDN requirements; fxTunnel is better for development, testing, and smaller production workloads. Additionally, Cloudflare Tunnel does not support custom subdomains on the fly — only fixed routes configured through the dashboard."
+          "a": "The key difference is ecosystem independence. Cloudflare Tunnel is free but requires a Cloudflare account and transferring your domain's DNS to Cloudflare - your traffic passes through their network and you depend on their platform. fxTunnel is fully independent: it works with any DNS provider and registrar. On protocols: Cloudflare Tunnel supports HTTP and TCP but not UDP; fxTunnel supports HTTP, TCP, and UDP. On interface: Cloudflare Tunnel is managed via the cloudflared CLI and web dashboard, while fxTunnel offers a native desktop application. fxTunnel also provides a traffic inspector (not available in Cloudflare Tunnel) and is open source - you can audit the code on GitHub. Cloudflare Tunnel is better for enterprise scenarios with global CDN requirements; fxTunnel is better for development, testing, and smaller production workloads. Additionally, Cloudflare Tunnel does not support custom subdomains on the fly - only fixed routes configured through the dashboard."
         },
         {
           "q": "How do I expose localhost to the internet?",
-          "a": "Install the fxTunnel client (available for Windows, macOS, Linux) and run one command: 'fxtunnel http 3000' — within a second you get a public HTTPS URL like myapp.fxtun.dev that forwards all incoming traffic to your local server on port 3000. For TCP services use 'fxtunnel tcp 22', for UDP use 'fxtunnel udp 53'. You can specify a custom subdomain: 'fxtunnel http 3000 --subdomain demo'. If you prefer a GUI, the desktop application lets you create a tunnel in two clicks without the command line. The client automatically reconnects on connection loss and can be configured for auto-start on system boot via the configuration file. This is useful for sharing work-in-progress with teammates, testing mobile apps against a local backend, or receiving webhooks during development."
+          "a": "Install the fxTunnel client (available for Windows, macOS, Linux) and run one command: 'fxtunnel http 3000' - within a second you get a public HTTPS URL like myapp.fxtun.dev that forwards all incoming traffic to your local server on port 3000. For TCP services use 'fxtunnel tcp 22', for UDP use 'fxtunnel udp 53'. You can specify a custom subdomain: 'fxtunnel http 3000 --subdomain demo'. If you prefer a GUI, the desktop application lets you create a tunnel in two clicks without the command line. The client automatically reconnects on connection loss and can be configured for auto-start on system boot via the configuration file. This is useful for sharing work-in-progress with teammates, testing mobile apps against a local backend, or receiving webhooks during development."
         },
         {
           "q": "Does fxTunnel support HTTPS?",
-          "a": "Yes, all HTTP tunnels automatically get HTTPS with no additional configuration. The fxTunnel server uses a wildcard TLS certificate for the base domain (*.fxtun.dev), so any subdomain is immediately accessible over HTTPS. This is essential for testing webhooks (Stripe, GitHub, and other services require HTTPS endpoints), OAuth callbacks, and Progressive Web Apps. Custom domains (on paid plans) also get HTTPS automatically: fxTunnel uses Let's Encrypt for automatic SSL certificate issuance and renewal. You do not need to manually create certificates, configure nginx, or manage renewals — everything happens automatically on first connection to a custom domain. Your local server can continue running plain HTTP on localhost while fxTunnel handles TLS termination at the edge."
+          "a": "Yes, all HTTP tunnels automatically get HTTPS with no additional configuration. The fxTunnel server uses a wildcard TLS certificate for the base domain (*.fxtun.dev), so any subdomain is immediately accessible over HTTPS. This is essential for testing webhooks (Stripe, GitHub, and other services require HTTPS endpoints), OAuth callbacks, and Progressive Web Apps. Custom domains (on paid plans) also get HTTPS automatically: fxTunnel uses Let's Encrypt for automatic SSL certificate issuance and renewal. You do not need to manually create certificates, configure nginx, or manage renewals - everything happens automatically on first connection to a custom domain. Your local server can continue running plain HTTP on localhost while fxTunnel handles TLS termination at the edge."
         },
         {
           "q": "What is the traffic inspector?",
@@ -380,9 +403,183 @@
         },
         {
           "q": "Does fxTunnel work with WebSockets?",
-          "a": "Yes, fxTunnel fully supports WebSocket connections through HTTP tunnels. When a client connects via WebSocket (ws:// or wss://), fxTunnel transparently proxies the Upgrade header and establishes a bidirectional channel between the external client and your local server. No additional configuration or flags are needed — WebSocket works out of the box on any subdomain. This is critical for real-time applications: chat systems (Socket.IO, ws library), push notifications, live dashboard updates, collaborative editing tools, and browser-based game clients. Connections remain active without timeout, and ping/pong keep-alive is supported. WebSocket traffic is also visible in the traffic inspector (on paid plans), which simplifies debugging real-time applications by showing frame-level data alongside regular HTTP requests."
+          "a": "Yes, fxTunnel fully supports WebSocket connections through HTTP tunnels. When a client connects via WebSocket (ws:// or wss://), fxTunnel transparently proxies the Upgrade header and establishes a bidirectional channel between the external client and your local server. No additional configuration or flags are needed - WebSocket works out of the box on any subdomain. This is critical for real-time applications: chat systems (Socket.IO, ws library), push notifications, live dashboard updates, collaborative editing tools, and browser-based game clients. Connections remain active without timeout, and ping/pong keep-alive is supported. WebSocket traffic is also visible in the traffic inspector (on paid plans), which simplifies debugging real-time applications by showing frame-level data alongside regular HTTP requests."
         }
       ]
+    },
+    "ngrokAlt": {
+      "h1": "The ngrok alternative",
+      "intro": "fxTunnel puts your localhost on the internet as simply as ngrok - open source, with a generous free tier and a desktop app.",
+      "wedges": [
+        {
+          "title": "Pay in your currency",
+          "desc": "Local cards, no foreign-card workarounds, proper receipts."
+        },
+        {
+          "title": "Human support",
+          "desc": "Docs and support in your language, from people who build the product."
+        },
+        {
+          "title": "Fair pricing",
+          "desc": "From $2.50/mo. Free tier with no request limits and no session timeout."
+        },
+        {
+          "title": "Open source + desktop app",
+          "desc": "The whole stack is on GitHub, and there is a real desktop GUI - unique among tunnels."
+        }
+      ],
+      "quickStartTitle": "Up in one command",
+      "quickStartCommand": "fxtun http 3000",
+      "comparisonTitle": "fxTunnel vs ngrok",
+      "comparisonButton": "Full ngrok comparison",
+      "faq": [
+        {
+          "q": "How do you pay for ngrok from Russia?",
+          "a": "You can't - ngrok doesn't accept Russian cards. fxTunnel takes local payments with proper receipts, so it's a working ngrok replacement for developers who can't use ngrok's billing."
+        },
+        {
+          "q": "What can replace ngrok in 2026?",
+          "a": "fxTunnel covers the same jobs - HTTP, TCP and UDP tunnels, custom subdomains and domains, a traffic inspector - and adds local payments, support in your language and nodes closer to you."
+        },
+        {
+          "q": "Is it free?",
+          "a": "Yes, there is a free tier forever: 3 tunnels, your own subdomain, no request limits and no session timeout. The inspector and UDP are on paid plans, from $2.50 a month."
+        },
+        {
+          "q": "Can I use my own domain?",
+          "a": "Yes. Your own subdomain myapp.fxtun.ru works right away when you create a tunnel, and your own domain connects via a CNAME or A record with automatic HTTPS."
+        },
+        {
+          "q": "How reliable is it?",
+          "a": "The client reconnects on its own when the network drops, the URL stays the same, and it picks the closest node by latency. The connection is encrypted with TLS."
+        }
+      ],
+      "ctaTitle": "Try it instead of ngrok",
+      "ctaButton": "Start free"
+    },
+    "featuresPage": {
+      "h1": "Everything fxTunnel does",
+      "intro": "More than a tunnel. Protocols, domains, inspector, security and a desktop app in one place.",
+      "categories": [
+        {
+          "title": "Protocols",
+          "items": [
+            {
+              "title": "HTTP, TCP and UDP",
+              "desc": "One command: fxtun http 3000, fxtun tcp 22, fxtun udp 25565. HTTP and TCP on every plan, UDP on paid plans."
+            },
+            {
+              "title": "WebSocket out of the box",
+              "desc": "Bidirectional WebSocket passes through transparently, nothing to configure."
+            }
+          ]
+        },
+        {
+          "title": "Domains",
+          "items": [
+            {
+              "title": "Any subdomain right away",
+              "desc": "Pick myapp.fxtun.ru when you start a tunnel, no random URLs. Skip it and we generate a readable name."
+            },
+            {
+              "title": "Subdomains forever",
+              "desc": "Reserve a subdomain for yourself - it stays yours, even when the tunnel is offline."
+            },
+            {
+              "title": "Custom domains with HTTPS",
+              "desc": "Connect mydomain.com via a CNAME or A record. A Let's Encrypt certificate is issued automatically, ownership is confirmed with a TXT record."
+            }
+          ]
+        },
+        {
+          "title": "Traffic inspector",
+          "items": [
+            {
+              "title": "See every request",
+              "desc": "Method, path, headers, body, status and timing - in the web and in the desktop app."
+            },
+            {
+              "title": "Replay and edit requests",
+              "desc": "Replay a request in one click or edit it before sending - handy for catching webhooks."
+            }
+          ]
+        },
+        {
+          "title": "Desktop app",
+          "items": [
+            {
+              "title": "GUI for Windows, macOS and Linux",
+              "desc": "The only tunnel with a full desktop app. Mouse control, tray operation, auto-reconnect."
+            }
+          ]
+        },
+        {
+          "title": "Client and launch",
+          "items": [
+            {
+              "title": "One command",
+              "desc": "fxtun http 3000 - and you're online. Cross-platform CLI."
+            },
+            {
+              "title": "Several tunnels at once",
+              "desc": "Describe tunnels in YAML and run them as a daemon: fxtun up, status, down."
+            },
+            {
+              "title": "Token in the system keyring",
+              "desc": "Log in with fxtun login, the token is stored in the OS keyring. The client self-updates."
+            }
+          ]
+        },
+        {
+          "title": "Security",
+          "items": [
+            {
+              "title": "End-to-end TLS",
+              "desc": "Traffic is encrypted all the way."
+            },
+            {
+              "title": "Basic Auth per tunnel",
+              "desc": "Lock a tunnel with a login and password: fxtun http 3000 --auth user:pass."
+            },
+            {
+              "title": "IP filtering",
+              "desc": "Allow only the subnets you need: --allow-ip. Plus auto-close on idle and a lifetime limit."
+            },
+            {
+              "title": "Token scopes",
+              "desc": "Restrict a token by subdomains, IP and number of tunnels."
+            }
+          ]
+        },
+        {
+          "title": "Sign-in",
+          "items": [
+            {
+              "title": "Yandex, Google, GitHub, email",
+              "desc": "Sign in via OAuth or a magic link to your inbox. Two-factor (TOTP) is available."
+            }
+          ]
+        },
+        {
+          "title": "More",
+          "items": [
+            {
+              "title": "Tunnel sets",
+              "desc": "Save named configs with auto-connect, synced to your account."
+            },
+            {
+              "title": "History and API tokens",
+              "desc": "Connection history with traffic and API token management."
+            },
+            {
+              "title": "Open source",
+              "desc": "Server, CLI, desktop and web - all on GitHub. You can self-host too."
+            }
+          ]
+        }
+      ],
+      "ctaTitle": "Ready to try?",
+      "ctaButton": "Start free"
     },
     "footer": {
       "tagline": "Secure tunneling",
@@ -625,7 +822,7 @@
     "dnsGuideApex": "For root domains (e.g. example.com): create an A record",
     "dnsGuideSteps": "1. Go to your domain registrar's DNS settings\n2. Add a new record (CNAME or A)\n3. Wait for DNS propagation (up to 24h)\n4. Click Verify",
     "reserveFirst": "Reserve a subdomain first",
-    "reserveFirstHint": "A custom domain is linked to a reserved subdomain. If you don't have one yet — create it.",
+    "reserveFirstHint": "A custom domain is linked to a reserved subdomain. If you don't have one yet - create it.",
     "reserveNow": "Reserve",
     "verified": "Verified",
     "pending": "Pending",
@@ -658,7 +855,7 @@
     "tokenNamePlaceholder": "My laptop",
     "allowedSubdomains": "Allowed addresses",
     "allowedSubdomainsHint": "Which subdomains this key can use. Asterisk * means any. You can use patterns: dev-*, test-*.",
-    "allowedSubdomainsPlaceholder": "* — any subdomains",
+    "allowedSubdomainsPlaceholder": "* - any subdomains",
     "maxTunnels": "Connection limit",
     "maxTunnelsHint": "How many tunnels can be opened at the same time with this key.",
     "subdomains": "Addresses",
@@ -824,68 +1021,76 @@
     "defaultDescription": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector.",
     "defaultKeywords": "ngrok alternative, free tunneling, localhost tunnel, reverse tunnel, port forwarding, expose localhost, HTTP tunnel, TCP tunnel, UDP tunnel, webhook testing, desktop tunnel client, open source tunnel",
     "landing": {
-      "title": "fxTunnel — Free ngrok Alternative {'|'} HTTP, TCP & UDP Tunneling",
+      "title": "fxTunnel - Free ngrok Alternative {'|'} HTTP, TCP & UDP Tunneling",
       "description": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector. Open source."
     },
     "login": {
-      "title": "Sign In — fxTunnel",
+      "title": "Sign In - fxTunnel",
       "description": "Sign in to your fxTunnel account to manage tunnels, domains, and tokens."
     },
     "register": {
-      "title": "Sign Up — fxTunnel",
+      "title": "Sign Up - fxTunnel",
       "description": "Create a free fxTunnel account. Get 3 tunnels with custom subdomains, no session timeout."
     },
     "offer": {
-      "title": "Public Offer — fxTunnel",
+      "title": "Public Offer - fxTunnel",
       "description": "fxTunnel public offer agreement and terms of service."
     },
     "terms": {
-      "title": "Terms of Service — fxTunnel",
+      "title": "Terms of Service - fxTunnel",
       "description": "fxTunnel terms of service, privacy policy, and acceptable use policy. Operated by Navodnyuk A.I."
     },
     "privacy": {
-      "title": "Privacy Policy — fxTunnel",
+      "title": "Privacy Policy - fxTunnel",
       "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Navodnyuk A.I., Russian Federation."
     },
     "pricing": {
-      "title": "Pricing Plans — fxTunnel {'|'} Free, Starter & Pro",
+      "title": "Pricing Plans - fxTunnel {'|'} Free, Starter & Pro",
       "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels. Starter from $2.50/mo with traffic inspector + UDP. Pro from $5/mo with 15 tunnels. Business from $7.50/mo with 50 custom domains."
     },
     "about": {
-      "title": "About fxTunnel — Developer Tunneling Tool",
+      "title": "About fxTunnel - Developer Tunneling Tool",
       "description": "fxTunnel is an indie tunneling service built by a solo developer. Free ngrok alternative with desktop GUI, HTTP+TCP+UDP support."
     },
     "compareNgrok": {
-      "title": "fxTunnel vs ngrok — Comparison 2026",
+      "title": "fxTunnel vs ngrok - Comparison 2026",
       "description": "Detailed comparison of fxTunnel and ngrok. Free subdomains, no request limits, desktop GUI, UDP support. See which tunneling tool is right for you."
     },
     "compareCloudflare": {
-      "title": "fxTunnel vs Cloudflare Tunnel — Comparison 2026",
+      "title": "fxTunnel vs Cloudflare Tunnel - Comparison 2026",
       "description": "fxTunnel vs Cloudflare Tunnel comparison. HTTP+TCP+UDP protocols, no ecosystem lock-in, desktop GUI. Choose the right tunnel solution."
     },
     "compareTuna": {
-      "title": "fxTunnel vs tuna.am — Comparison 2026",
+      "title": "fxTunnel vs tuna.am - Comparison 2026",
       "description": "Detailed comparison of fxTunnel and tuna.am. Pricing, protocols, limits, desktop GUI, open source. Find the best Russian tunneling service for your needs."
     },
     "compareXtunnel": {
-      "title": "fxTunnel vs xTunnel — Comparison 2026",
+      "title": "fxTunnel vs xTunnel - Comparison 2026",
       "description": "fxTunnel vs xTunnel (xtunnel.ru) comparison. No request limits, UDP support, desktop GUI, traffic inspector. Choose the right ngrok alternative."
     },
     "downloads": {
-      "title": "Download fxTunnel — CLI & GUI Client for Windows, macOS, Linux",
+      "title": "Download fxTunnel - CLI & GUI Client for Windows, macOS, Linux",
       "description": "Download the free fxTunnel CLI or desktop app. One-command install. Windows, macOS, Linux. HTTP, TCP & UDP tunnels."
     },
     "abuse": {
-      "title": "Report Abuse — fxTunnel",
+      "title": "Report Abuse - fxTunnel",
       "description": "Report a tunnel used for abusive, illegal, or malicious activity. fxTunnel acts on legitimate abuse reports."
     },
     "aup": {
-      "title": "Acceptable Use Policy — fxTunnel",
+      "title": "Acceptable Use Policy - fxTunnel",
       "description": "fxTunnel Acceptable Use Policy. What you may and may not do with our tunneling service."
     },
     "disclaimer": {
-      "title": "Disclaimer — fxTunnel",
+      "title": "Disclaimer - fxTunnel",
       "description": "fxTunnel service disclaimer, limitations of liability, and warranty information."
+    },
+    "ngrokAlternative": {
+      "title": "The ngrok alternative that works everywhere | fxTunnel",
+      "description": "An open-source ngrok alternative: HTTP, TCP and UDP tunnels, traffic inspector, custom domains and a desktop app. From $2.50 a month."
+    },
+    "features": {
+      "title": "fxTunnel features - protocols, domains, inspector, security",
+      "description": "Everything fxTunnel does: HTTP/TCP/UDP tunnels, custom subdomains and domains, traffic inspector with replay, desktop app, auth and IP filtering, auto-reconnect."
     }
   },
   "about": {
@@ -896,26 +1101,26 @@
     "projectText1": "fxTunnel is an indie project created by a solo developer. The idea was born from frustration with existing reverse tunneling solutions: ngrok became too expensive and pivoted to an 'API gateway platform', Cloudflare Tunnel locks you into their ecosystem and doesn't support UDP, and Pinggy and serveo have session limitations. None of them offered a desktop application.",
     "projectText2": "fxTunnel solves these problems: free custom subdomains of your choice, zero request or bandwidth limits, no session timeouts, support for three protocols (HTTP, TCP, and UDP), and a native desktop application for Windows, macOS, and Linux. The project launched in 2025 and is actively developed.",
     "missionTitle": "Mission",
-    "missionText": "Make reverse tunneling accessible, straightforward, and convenient for every developer. fxTunnel doesn't try to become a 'platform for everything' — it's a focused tool that does one thing and does it well. Minimal overhead allows us to offer a generous free tier and low prices on paid plans.",
+    "missionText": "Make reverse tunneling accessible, straightforward, and convenient for every developer. fxTunnel doesn't try to become a 'platform for everything' - it's a focused tool that does one thing and does it well. Minimal overhead allows us to offer a generous free tier and low prices on paid plans.",
     "developerTitle": "Developer",
-    "developerText1": "The project is built and maintained by a solo developer — fxcode.ru. Over 5 years of professional Go development: high-load services, infrastructure utilities, DevOps tooling, CLI applications. Open source contributor in the Go ecosystem. Philosophy: build developer tools that solve real problems — no unnecessary complexity, no marketing buzzwords, no VC funding, no bloated teams.",
+    "developerText1": "The project is built and maintained by a solo developer - fxcode.ru. Over 5 years of professional Go development: high-load services, infrastructure utilities, DevOps tooling, CLI applications. Open source contributor in the Go ecosystem. Philosophy: build developer tools that solve real problems - no unnecessary complexity, no marketing buzzwords, no VC funding, no bloated teams.",
     "developerGithub": "GitHub",
     "techTitle": "Technology Stack",
     "techText": "fxTunnel is built on a modern stack emphasizing performance, minimal dependencies, and easy deployment.",
     "techItems": {
-      "backend": "Go 1.24+ — server and CLI client, single binary with no external dependencies",
-      "frontend": "Vue 3 + TypeScript — web UI with SSG for SEO and fast loading",
-      "multiplexing": "yamux — stream multiplexing over a single TCP connection for minimal latency",
-      "database": "PostgreSQL + Redis — durable storage via sqlc and fast in-memory runtime state",
-      "desktop": "Wails — native desktop app (Go + Vue3) for Windows, macOS, and Linux",
-      "security": "TLS 1.3, Let's Encrypt — automatic HTTPS for all tunnels and custom domains"
+      "backend": "Go 1.24+ - server and CLI client, single binary with no external dependencies",
+      "frontend": "Vue 3 + TypeScript - web UI with SSG for SEO and fast loading",
+      "multiplexing": "yamux - stream multiplexing over a single TCP connection for minimal latency",
+      "database": "PostgreSQL + Redis - durable storage via sqlc and fast in-memory runtime state",
+      "desktop": "Wails - native desktop app (Go + Vue3) for Windows, macOS, and Linux",
+      "security": "TLS 1.3, Let's Encrypt - automatic HTTPS for all tunnels and custom domains"
     },
     "openSourceTitle": "Open Source",
-    "openSourceText": "fxTunnel is an open-source project. The Go codebase is around 15,000 lines, with a Vue 3 and TypeScript frontend. The repository is available on GitHub: review the architecture, report bugs, suggest improvements, or contribute pull requests. Open source means transparency about how your traffic is handled — no hidden telemetry, no surprises. Contributions of any scale are welcome — from bug reports and typo fixes to implementing new features and protocols.",
+    "openSourceText": "fxTunnel is an open-source project. The Go codebase is around 15,000 lines, with a Vue 3 and TypeScript frontend. The repository is available on GitHub: review the architecture, report bugs, suggest improvements, or contribute pull requests. Open source means transparency about how your traffic is handled - no hidden telemetry, no surprises. Contributions of any scale are welcome - from bug reports and typo fixes to implementing new features and protocols.",
     "whyTitle": "Why Another Tunnel?",
-    "whyText": "ngrok got expensive: $8/month for basic features and a 20,000 request limit on the free tier. Cloudflare Tunnel locks you into the Cloudflare ecosystem and has no UDP support. Pinggy limits free sessions to 60 minutes. And none of these services offer a desktop application. fxTunnel fills this gap — an affordable, multi-protocol tunneling service with a native GUI client for Windows, macOS, and Linux. No request limits, no session timeouts, with custom subdomains available on the free plan.",
+    "whyText": "ngrok got expensive: $8/month for basic features and a 20,000 request limit on the free tier. Cloudflare Tunnel locks you into the Cloudflare ecosystem and has no UDP support. Pinggy limits free sessions to 60 minutes. And none of these services offer a desktop application. fxTunnel fills this gap - an affordable, multi-protocol tunneling service with a native GUI client for Windows, macOS, and Linux. No request limits, no session timeouts, with custom subdomains available on the free plan.",
     "historyTitle": "Project History",
-    "historyText": "December 2025 — the initial idea and a weekend prototype: a basic Go server with HTTP tunnels over yamux. January 2026 — alpha release: authentication, web UI, CLI client. February 2026 — beta: TCP and UDP tunnels added, desktop app built with Wails, traffic inspector. March 2026 — public launch with pricing plans and payment processing. In three months the project grew from a weekend experiment into a full product with a website, documentation, and a growing user base.",
+    "historyText": "December 2025 - the initial idea and a weekend prototype: a basic Go server with HTTP tunnels over yamux. January 2026 - alpha release: authentication, web UI, CLI client. February 2026 - beta: TCP and UDP tunnels added, desktop app built with Wails, traffic inspector. March 2026 - public launch with pricing plans and payment processing. In three months the project grew from a weekend experiment into a full product with a website, documentation, and a growing user base.",
     "contactTitle": "Contact",
     "contactEmail": "Email",
     "contactGithubIssues": "Bug reports and feature requests"
@@ -940,15 +1145,19 @@
         "inspector": { "label": "Traffic inspector", "fxtunnel": "From $2.50/mo", "competitor": "$8/mo, 72h retention" },
         "openSource": { "label": "Open source", "fxtunnel": "Yes (on GitHub)", "competitor": "No (closed-source SaaS)" },
         "customDomains": { "label": "Custom domains", "fxtunnel": "From $2.50/mo", "competitor": "$0.01/connection-hr" },
-        "bandwidth": { "label": "Bandwidth", "fxtunnel": "Unlimited", "competitor": "1 GB/mo (free)" }
+        "bandwidth": { "label": "Bandwidth", "fxtunnel": "Unlimited", "competitor": "1 GB/mo (free)" },
+        "rublePayment": { "label": "Ruble / local payment", "fxtunnel": "Yes - local cards", "competitor": "No" },
+        "ruServers": { "label": "Servers in Russia", "fxtunnel": "Yes", "competitor": "No" },
+        "autoReconnect": { "label": "Auto-reconnect", "fxtunnel": "Yes, stable URL", "competitor": "Partial" },
+        "ruSupport": { "label": "Support in your language", "fxtunnel": "Yes", "competitor": "No" }
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to ngrok?",
-        "pricingText": "fxTunnel offers a free tier with 3 tunnels and any custom subdomain you want. Paid plans start at just $2.50/month. ngrok's free tier gives you random URLs only, and the first paid plan costs $8/month — over 3x more expensive (source: ngrok.com/pricing, March 2026). For teams and businesses, the savings add up fast: even on fxTunnel's minimum paid plan you get reserved subdomains, custom domains, and a traffic inspector. ngrok charges custom domains separately at $0.01 per connection-hour, which can quickly exceed a flat fxTunnel subscription with constant use.",
+        "pricingText": "fxTunnel offers a free tier with 3 tunnels and any custom subdomain you want. Paid plans start at just $2.50/month. ngrok's free tier gives you random URLs only, and the first paid plan costs $8/month - over 3x more expensive (source: ngrok.com/pricing, March 2026). For teams and businesses, the savings add up fast: even on fxTunnel's minimum paid plan you get reserved subdomains, custom domains, and a traffic inspector. ngrok charges custom domains separately at $0.01 per connection-hour, which can quickly exceed a flat fxTunnel subscription with constant use.",
         "subdomainsTitle": "Can you use custom subdomains for free?",
-        "subdomainsText": "On fxTunnel's free plan, you can pick any subdomain you want — like myapp.fxtun.dev. ngrok assigns random URLs like abc123.ngrok-free.app on the free plan, and custom subdomains require a paid subscription starting at $8/month. No more sharing ugly random links with clients and colleagues. This is especially important when demoing projects to stakeholders, integrating webhooks, or exposing public API endpoints — a readable and stable address makes a professional impression.",
+        "subdomainsText": "On fxTunnel's free plan, you can pick any subdomain you want - like myapp.fxtun.dev. ngrok assigns random URLs like abc123.ngrok-free.app on the free plan, and custom subdomains require a paid subscription starting at $8/month. No more sharing ugly random links with clients and colleagues. This is especially important when demoing projects to stakeholders, integrating webhooks, or exposing public API endpoints - a readable and stable address makes a professional impression.",
         "limitsTitle": "Are there request limits on fxTunnel vs ngrok?",
-        "limitsText": "fxTunnel has zero request or bandwidth limits on any plan, including free. ngrok limits free users to 20,000 requests per month and 1 GB bandwidth (source: ngrok.com/pricing, March 2026). That's roughly 660 requests per day — easily exhausted in a couple of hours of active debugging. For webhook testing, demo sharing, or API development, hitting these limits can interrupt your workflow. ngrok's paid plans remove these caps, but at a significant premium.",
+        "limitsText": "fxTunnel has zero request or bandwidth limits on any plan, including free. ngrok limits free users to 20,000 requests per month and 1 GB bandwidth (source: ngrok.com/pricing, March 2026). That's roughly 660 requests per day - easily exhausted in a couple of hours of active debugging. For webhook testing, demo sharing, or API development, hitting these limits can interrupt your workflow. ngrok's paid plans remove these caps, but at a significant premium.",
         "protocolsTitle": "What protocols do fxTunnel and ngrok support?",
         "protocolsText": "fxTunnel supports HTTP, TCP, and UDP tunnels. ngrok supports HTTP and TCP but has no UDP support. If you need to expose game servers, DNS services, VoIP, or any UDP-based application, fxTunnel is your only choice among managed tunneling services. UDP tunnels in fxTunnel use a dedicated port that is assigned on creation and remains stable throughout the session, which is critical for protocols sensitive to address changes.",
         "guiTitle": "Does fxTunnel have a desktop app?",
@@ -960,9 +1169,10 @@
       },
       "faq": [
         { "q": "Can I migrate from ngrok to fxTunnel?", "a": "Yes. Install the fxTunnel client, create an account, and replace your ngrok commands. The CLI syntax is similar: 'fxtunnel http 3000' instead of 'ngrok http 3000'. Your webhooks and integrations just need the new URL." },
-        { "q": "Does fxTunnel work with the same tools as ngrok?", "a": "Yes. fxTunnel works with any tool that uses webhooks or needs a public URL — Stripe, GitHub, Twilio, Slack, and more. Just point the webhook URL to your fxTunnel address." },
+        { "q": "Does fxTunnel work with the same tools as ngrok?", "a": "Yes. fxTunnel works with any tool that uses webhooks or needs a public URL - Stripe, GitHub, Twilio, Slack, and more. Just point the webhook URL to your fxTunnel address." },
         { "q": "Is fxTunnel as reliable as ngrok?", "a": "fxTunnel uses yamux multiplexing over TLS for reliable, low-latency connections. Auto-reconnect ensures your tunnels stay online 24/7. The Go-based server is lightweight and handles thousands of concurrent connections." },
-        { "q": "Why is fxTunnel cheaper than ngrok?", "a": "fxTunnel is built by a solo developer with minimal overhead. No VC funding, no bloated team — just a focused product that does one thing well. The savings are passed directly to users." }
+        { "q": "Why is fxTunnel cheaper than ngrok?", "a": "fxTunnel is built by a solo developer with minimal overhead. No VC funding, no bloated team - just a focused product that does one thing well. The savings are passed directly to users." },
+        { "q": "How do you pay for ngrok from Russia?", "a": "You can't pay ngrok directly with a Russian card. fxTunnel accepts local payments with proper receipts, which makes it a practical ngrok replacement where ngrok's billing does not work." }
       ]
     },
     "cloudflare": {
@@ -980,23 +1190,23 @@
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to Cloudflare Tunnel?",
-        "pricingText": "Cloudflare Tunnel is free, but it requires a Cloudflare account and your domain must be managed through Cloudflare DNS (source: cloudflare.com/products/tunnel, March 2026). fxTunnel is also free to start, and you keep full independence — no ecosystem lock-in, no mandatory DNS migration. Use any domain registrar you prefer. That said, Cloudflare offers a global CDN network and DDoS protection as part of its free tier, making it a strong choice for high-traffic production sites.",
+        "pricingText": "Cloudflare Tunnel is free, but it requires a Cloudflare account and your domain must be managed through Cloudflare DNS (source: cloudflare.com/products/tunnel, March 2026). fxTunnel is also free to start, and you keep full independence - no ecosystem lock-in, no mandatory DNS migration. Use any domain registrar you prefer. That said, Cloudflare offers a global CDN network and DDoS protection as part of its free tier, making it a strong choice for high-traffic production sites.",
         "protocolsTitle": "What protocols do fxTunnel and Cloudflare Tunnel support?",
         "protocolsText": "Cloudflare Tunnel supports HTTP and TCP traffic, but not UDP (source: cloudflare.com/products/tunnel, March 2026). fxTunnel supports all three protocols: HTTP, TCP, and UDP. Need to expose a game server, DNS, or another UDP service? Only fxTunnel handles UDP with dedicated port allocation. This difference is especially felt by IoT developers, VoIP telephony providers, and game server operators, where UDP is the only acceptable transport.",
         "independenceTitle": "Do you need Cloudflare to use fxTunnel?",
-        "independenceText": "With Cloudflare Tunnel, your domain DNS must be on Cloudflare, your traffic routes through their network, and you depend on their platform. fxTunnel is fully independent — use any DNS provider, any domain registrar, and keep full control of where your traffic flows. For many projects, single-provider lock-in creates strategic risks: if Cloudflare changes terms or experiences an outage, migrating tunnels and DNS simultaneously becomes a double headache.",
+        "independenceText": "With Cloudflare Tunnel, your domain DNS must be on Cloudflare, your traffic routes through their network, and you depend on their platform. fxTunnel is fully independent - use any DNS provider, any domain registrar, and keep full control of where your traffic flows. For many projects, single-provider lock-in creates strategic risks: if Cloudflare changes terms or experiences an outage, migrating tunnels and DNS simultaneously becomes a double headache.",
         "guiTitle": "Do fxTunnel or Cloudflare Tunnel have a GUI?",
-        "guiText": "Cloudflare Tunnel requires the cloudflared CLI and dashboard configuration, meaning you switch between terminal and browser to create a tunnel. fxTunnel offers a native desktop application with visual tunnel management, system tray integration, and auto-reconnect — everything in one window, no terminal or web dashboard needed. The app is available for Windows, macOS, and Linux.",
+        "guiText": "Cloudflare Tunnel requires the cloudflared CLI and dashboard configuration, meaning you switch between terminal and browser to create a tunnel. fxTunnel offers a native desktop application with visual tunnel management, system tray integration, and auto-reconnect - everything in one window, no terminal or web dashboard needed. The app is available for Windows, macOS, and Linux.",
         "openSourceTitle": "Is fxTunnel open source?",
-        "openSourceText": "Yes. fxTunnel's Go server, CLI client, desktop GUI, and web frontend are all open source on GitHub. You can audit the code, contribute pull requests, or fork the project. Cloudflare Tunnel's server is proprietary — only the cloudflared client is open source, so you cannot verify how Cloudflare processes your traffic on the edge. For organizations with audit requirements or teams that simply prefer transparency, open source provides verifiable trust.",
+        "openSourceText": "Yes. fxTunnel's Go server, CLI client, desktop GUI, and web frontend are all open source on GitHub. You can audit the code, contribute pull requests, or fork the project. Cloudflare Tunnel's server is proprietary - only the cloudflared client is open source, so you cannot verify how Cloudflare processes your traffic on the edge. For organizations with audit requirements or teams that simply prefer transparency, open source provides verifiable trust.",
         "verdictTitle": "The Bottom Line",
         "verdictText": "Choose fxTunnel if you value ecosystem independence, need UDP support, a traffic inspector, or an open-source codebase you can audit. Cloudflare Tunnel is the better choice if you already use Cloudflare for DNS and CDN and want a free HTTP/TCP tunnel backed by a global delivery network, DDoS protection, and a built-in WAF. Both services are free to start, but they solve different problems."
       },
       "faq": [
-        { "q": "Why choose fxTunnel over Cloudflare Tunnel?", "a": "If you need UDP tunneling, don't want to migrate DNS to Cloudflare, want a desktop GUI, or need traffic inspection — fxTunnel is the better choice. Cloudflare Tunnel supports HTTP and TCP but not UDP, and locks you into the Cloudflare ecosystem." },
+        { "q": "Why choose fxTunnel over Cloudflare Tunnel?", "a": "If you need UDP tunneling, don't want to migrate DNS to Cloudflare, want a desktop GUI, or need traffic inspection - fxTunnel is the better choice. Cloudflare Tunnel supports HTTP and TCP but not UDP, and locks you into the Cloudflare ecosystem." },
         { "q": "Is Cloudflare Tunnel really free?", "a": "Yes, but with strings attached. Your domain must use Cloudflare DNS, you're locked into their ecosystem, and you only get HTTP and TCP support (no UDP). fxTunnel's free plan gives you HTTP, TCP, any subdomain, and no ecosystem requirements (UDP is available on paid plans)." },
-        { "q": "Can fxTunnel handle the same traffic as Cloudflare?", "a": "For development, staging, and small-to-medium production workloads — absolutely. fxTunnel has no bandwidth limits. For large enterprise deployments needing global CDN and edge caching, Cloudflare may be more suitable." },
-        { "q": "Does fxTunnel support Cloudflare-managed domains?", "a": "Yes. You can use fxTunnel with any domain, including those on Cloudflare DNS. Just point a CNAME record to your fxTunnel address. Unlike Cloudflare Tunnel, fxTunnel doesn't require Cloudflare DNS — it works with any provider." }
+        { "q": "Can fxTunnel handle the same traffic as Cloudflare?", "a": "For development, staging, and small-to-medium production workloads - absolutely. fxTunnel has no bandwidth limits. For large enterprise deployments needing global CDN and edge caching, Cloudflare may be more suitable." },
+        { "q": "Does fxTunnel support Cloudflare-managed domains?", "a": "Yes. You can use fxTunnel with any domain, including those on Cloudflare DNS. Just point a CNAME record to your fxTunnel address. Unlike Cloudflare Tunnel, fxTunnel doesn't require Cloudflare DNS - it works with any provider." }
       ]
     },
     "tuna": {
@@ -1010,29 +1220,29 @@
         "bandwidth": { "label": "Bandwidth", "fxtunnel": "Unlimited", "competitor": "Not specified" },
         "subdomains": { "label": "Custom subdomains", "fxtunnel": "Any subdomain free", "competitor": "Dynamic only (free)" },
         "customDomains": { "label": "Custom domains", "fxtunnel": "From $2.50/mo", "competitor": "From 299 RUB/mo (1 domain)" },
-        "gui": { "label": "Desktop GUI", "fxtunnel": "Yes (Win/Mac/Linux)", "competitor": "Yes — Tuna Desktop" },
+        "gui": { "label": "Desktop GUI", "fxtunnel": "Yes (Win/Mac/Linux)", "competitor": "Yes - Tuna Desktop" },
         "inspector": { "label": "Traffic inspector", "fxtunnel": "From $2.50/mo", "competitor": "Available on all plans" },
         "openSource": { "label": "Open source", "fxtunnel": "Yes (on GitHub)", "competitor": "No (closed-source SaaS)" },
         "extraFeatures": { "label": "Extra features", "fxtunnel": "Tunneling focused", "competitor": "Secrets, webhooks, monitoring, bastion, password manager" }
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to tuna.am?",
-        "pricingText": "fxTunnel offers a free plan with 3 tunnels, any subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Starter plan is 200 RUB/month with 3 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is nearly 1,200 RUB — enough for an extra plan or hosting.",
+        "pricingText": "fxTunnel offers a free plan with 3 tunnels, any subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Starter plan is 200 RUB/month with 3 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is nearly 1,200 RUB - enough for an extra plan or hosting.",
         "protocolsTitle": "What protocols do fxTunnel and tuna.am support?",
-        "protocolsText": "fxTunnel supports HTTP, TCP, and UDP tunnels. tuna.am supports HTTP, TCP, and SSHd tunnels but does not offer UDP (source: tuna.am, March 2026). If you need to expose game servers, DNS services, or VoIP applications, fxTunnel is the better choice. tuna.am has a unique SSHd tunnel type that provides a built-in SSH server without requiring your own SSH daemon — convenient for quick remote access to a machine without configuring OpenSSH. Your choice depends on priorities: UDP services or built-in SSH access.",
+        "protocolsText": "fxTunnel supports HTTP, TCP, and UDP tunnels. tuna.am supports HTTP, TCP, and SSHd tunnels but does not offer UDP (source: tuna.am, March 2026). If you need to expose game servers, DNS services, or VoIP applications, fxTunnel is the better choice. tuna.am has a unique SSHd tunnel type that provides a built-in SSH server without requiring your own SSH daemon - convenient for quick remote access to a machine without configuring OpenSSH. Your choice depends on priorities: UDP services or built-in SSH access.",
         "limitsTitle": "What are the free plan limits for fxTunnel vs tuna.am?",
         "limitsText": "fxTunnel's free plan has no session timeout, no request limits, and no bandwidth caps. tuna.am's free \"Novice\" plan restricts sessions to 30 minutes, offers only 1 HTTP tunnel with dynamic subdomains, and does not include TCP support (source: tuna.am, March 2026). For developers who need reliable, always-on tunnels for webhook testing or demo sharing, fxTunnel's free plan is significantly more practical. The 30-minute timeout on tuna.am means that when testing webhooks or long CI processes, you'll need to restart the tunnel and update the URL in external services.",
         "platformTitle": "How do fxTunnel and tuna.am platforms compare?",
-        "platformText": "tuna.am positions itself as a full developer platform — beyond tunnels, it offers secret management, webhook inspection, bug reports, monitoring, SSH bastion, and a password manager. This is a real advantage if you need an all-in-one tool and are willing to pay for the ecosystem. fxTunnel focuses purely on tunneling — doing one thing and doing it well. The Unix philosophy: one tool, one job, maximum reliability. You can combine fxTunnel with any other services of your choice.",
+        "platformText": "tuna.am positions itself as a full developer platform - beyond tunnels, it offers secret management, webhook inspection, bug reports, monitoring, SSH bastion, and a password manager. This is a real advantage if you need an all-in-one tool and are willing to pay for the ecosystem. fxTunnel focuses purely on tunneling - doing one thing and doing it well. The Unix philosophy: one tool, one job, maximum reliability. You can combine fxTunnel with any other services of your choice.",
         "guiTitle": "Do fxTunnel and tuna.am have desktop apps?",
-        "guiText": "Both services offer desktop GUI applications — a rarity in the tunneling market. fxTunnel's desktop app is built with Wails (Go + Vue3) and provides full tunnel management, system tray integration, auto-reconnect, and a built-in traffic inspector. Tuna Desktop is also available for Windows, macOS, and Linux and integrates with the rest of the platform. This is one area where both services are significantly ahead of competitors like ngrok and Cloudflare Tunnel, offering developers a visual workflow.",
+        "guiText": "Both services offer desktop GUI applications - a rarity in the tunneling market. fxTunnel's desktop app is built with Wails (Go + Vue3) and provides full tunnel management, system tray integration, auto-reconnect, and a built-in traffic inspector. Tuna Desktop is also available for Windows, macOS, and Linux and integrates with the rest of the platform. This is one area where both services are significantly ahead of competitors like ngrok and Cloudflare Tunnel, offering developers a visual workflow.",
         "openSourceTitle": "Is fxTunnel or tuna.am open source?",
-        "openSourceText": "fxTunnel is open source — the Go server, CLI client, desktop GUI, and web frontend are all on GitHub. You can audit the code, file issues, or contribute pull requests. tuna.am is a closed-source SaaS. For teams that value transparency about how their tunneled traffic is processed, or for engineering organizations with audit requirements, open source is a meaningful difference.",
+        "openSourceText": "fxTunnel is open source - the Go server, CLI client, desktop GUI, and web frontend are all on GitHub. You can audit the code, file issues, or contribute pull requests. tuna.am is a closed-source SaaS. For teams that value transparency about how their tunneled traffic is processed, or for engineering organizations with audit requirements, open source is a meaningful difference.",
         "verdictTitle": "The Bottom Line",
         "verdictText": "Choose fxTunnel if you need reliable tunnels with UDP support, no timeout on the free plan, and an open-source codebase you can audit. tuna.am is the better choice if you need an all-in-one platform with secret management, SSH bastion, and monitoring in a single interface, and you're willing to pay for the ecosystem. For pure tunneling, fxTunnel offers better value; for a DevOps Swiss army knife, tuna.am delivers more breadth."
       },
       "faq": [
-        { "q": "Which is better for tunnels only — fxTunnel or tuna.am?", "a": "If you only need tunneling, fxTunnel offers better value: lower prices, no session timeout on the free plan, UDP support, and an open-source codebase you can audit. tuna.am is better if you want an all-in-one platform with secrets management, monitoring, and SSH bastion in addition to tunnels." },
+        { "q": "Which is better for tunnels only - fxTunnel or tuna.am?", "a": "If you only need tunneling, fxTunnel offers better value: lower prices, no session timeout on the free plan, UDP support, and an open-source codebase you can audit. tuna.am is better if you want an all-in-one platform with secrets management, monitoring, and SSH bastion in addition to tunnels." },
         { "q": "Does tuna.am support UDP tunnels?", "a": "No. tuna.am supports HTTP, TCP, and SSHd tunnels but not UDP. fxTunnel is one of the few services that supports all three protocols: HTTP, TCP, and UDP." },
         { "q": "Can I use both services for free?", "a": "Yes. fxTunnel's free plan gives you 3 tunnels with any subdomain and no time limit. tuna.am's free plan gives you 1 HTTP tunnel limited to 30 minutes per session with a dynamic subdomain." },
         { "q": "Is tuna.am's platform worth the extra cost?", "a": "If you actively need secret management, webhook capture, monitoring, and SSH bastion features, tuna.am's all-in-one approach can save you from managing multiple tools. If you just need reliable tunneling, fxTunnel delivers more for less." }
@@ -1049,14 +1259,14 @@
         "bandwidth": { "label": "Daily bandwidth", "fxtunnel": "Unlimited", "competitor": "1 GB/day (free), 5 GB/day (paid)" },
         "subdomains": { "label": "Custom subdomains", "fxtunnel": "Any subdomain free", "competitor": "Not available" },
         "customDomains": { "label": "Custom domains", "fxtunnel": "From $2.50/mo", "competitor": "Not available" },
-        "gui": { "label": "Desktop GUI", "fxtunnel": "Yes (Win/Mac/Linux)", "competitor": "No — CLI only" },
+        "gui": { "label": "Desktop GUI", "fxtunnel": "Yes (Win/Mac/Linux)", "competitor": "No - CLI only" },
         "inspector": { "label": "Traffic inspector", "fxtunnel": "From $2.50/mo", "competitor": "No" },
         "openSource": { "label": "Open source", "fxtunnel": "Yes (on GitHub)", "competitor": "No (closed-source SaaS)" },
         "permanentAddress": { "label": "Permanent address", "fxtunnel": "Free (any subdomain)", "competitor": "From 99 RUB/mo" }
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to xTunnel?",
-        "pricingText": "xTunnel offers a simple pricing model: free with limitations, 99 RUB/month for the Personal plan, and 299 RUB/month for Professional (source: xtunnel.dev, March 2026). fxTunnel's free plan already includes a permanent subdomain of your choice with no time limits. fxTunnel's Starter plan at 200 RUB/month gives you 3 tunnels with reserved subdomains, custom domains, and a traffic inspector — features xTunnel does not offer at any price. xTunnel Personal at 99 RUB/month gives a permanent address and TCP, but no custom subdomains, domains, or inspector. The difference in feature sets is clear.",
+        "pricingText": "xTunnel offers a simple pricing model: free with limitations, 99 RUB/month for the Personal plan, and 299 RUB/month for Professional (source: xtunnel.dev, March 2026). fxTunnel's free plan already includes a permanent subdomain of your choice with no time limits. fxTunnel's Starter plan at 200 RUB/month gives you 3 tunnels with reserved subdomains, custom domains, and a traffic inspector - features xTunnel does not offer at any price. xTunnel Personal at 99 RUB/month gives a permanent address and TCP, but no custom subdomains, domains, or inspector. The difference in feature sets is clear.",
         "protocolsTitle": "What protocols do fxTunnel and xTunnel support?",
         "protocolsText": "fxTunnel supports HTTP and TCP on every plan including free, with UDP available on paid plans. xTunnel's free plan only supports HTTP; TCP requires a paid subscription starting at 99 RUB/month (source: xtunnel.dev, March 2026). Neither the Personal nor Professional plan includes UDP support. If you need to expose game servers, DNS, or VoIP services, fxTunnel is the only option. Additionally, fxTunnel provides TCP and UDP with dedicated ports that persist throughout the session, which matters for stable integrations.",
         "limitsTitle": "What are the limits on fxTunnel vs xTunnel?",
@@ -1064,14 +1274,14 @@
         "guiTitle": "Does xTunnel have a desktop app?",
         "guiText": "xTunnel is a CLI-only tool with no graphical interface. fxTunnel offers a native desktop application for Windows, macOS, and Linux. Manage tunnels visually, monitor connection status in the system tray, and enjoy auto-reconnect without opening a terminal. For developers working with multiple tunnels simultaneously, the GUI lets you see all connections in one window, switch between configurations quickly, and get notifications about connection drops.",
         "inspectorTitle": "Do fxTunnel and xTunnel have traffic inspectors?",
-        "inspectorText": "xTunnel does not offer a traffic inspector. fxTunnel includes a built-in traffic inspector (from the Starter plan) that lets you view, filter, search, and replay HTTP requests in real time. For debugging webhooks, API integrations, and payment callbacks, the inspector saves hours of manual log analysis. Without an inspector, you'd need to add logging to your code or use third-party proxies — extra complexity that fxTunnel eliminates.",
+        "inspectorText": "xTunnel does not offer a traffic inspector. fxTunnel includes a built-in traffic inspector (from the Starter plan) that lets you view, filter, search, and replay HTTP requests in real time. For debugging webhooks, API integrations, and payment callbacks, the inspector saves hours of manual log analysis. Without an inspector, you'd need to add logging to your code or use third-party proxies - extra complexity that fxTunnel eliminates.",
         "openSourceTitle": "Is fxTunnel or xTunnel open source?",
-        "openSourceText": "fxTunnel's entire stack — Go server, CLI, desktop GUI, web frontend — is open source on GitHub. xTunnel is a closed-source SaaS. fxTunnel also offers reserved subdomains, custom domain support, and Let's Encrypt HTTPS — features not available on xTunnel. For developers who want to audit the code that handles their traffic, contribute fixes, or extend functionality, open source is the deciding factor.",
+        "openSourceText": "fxTunnel's entire stack - Go server, CLI, desktop GUI, web frontend - is open source on GitHub. xTunnel is a closed-source SaaS. fxTunnel also offers reserved subdomains, custom domain support, and Let's Encrypt HTTPS - features not available on xTunnel. For developers who want to audit the code that handles their traffic, contribute fixes, or extend functionality, open source is the deciding factor.",
         "verdictTitle": "The Bottom Line",
-        "verdictText": "Choose fxTunnel if you need custom subdomains, UDP tunnels, a desktop GUI, a traffic inspector, or an open-source codebase — none of these are available on xTunnel at any price. xTunnel may work if you need the simplest and cheapest HTTP tunnel from 99 RUB/month with web-based management and minimal setup. For anything beyond basic HTTP, fxTunnel offers substantially more."
+        "verdictText": "Choose fxTunnel if you need custom subdomains, UDP tunnels, a desktop GUI, a traffic inspector, or an open-source codebase - none of these are available on xTunnel at any price. xTunnel may work if you need the simplest and cheapest HTTP tunnel from 99 RUB/month with web-based management and minimal setup. For anything beyond basic HTTP, fxTunnel offers substantially more."
       },
       "faq": [
-        { "q": "Is xTunnel really free?", "a": "Yes, but with significant limitations: temporary public address (changes on each restart), HTTP only (no TCP), 100 requests per minute, and 1 GB per day bandwidth cap. fxTunnel's free plan has no such restrictions — you get a permanent subdomain of your choice with unlimited requests and bandwidth." },
+        { "q": "Is xTunnel really free?", "a": "Yes, but with significant limitations: temporary public address (changes on each restart), HTTP only (no TCP), 100 requests per minute, and 1 GB per day bandwidth cap. fxTunnel's free plan has no such restrictions - you get a permanent subdomain of your choice with unlimited requests and bandwidth." },
         { "q": "Does xTunnel support custom subdomains or domains?", "a": "No. xTunnel generates temporary or permanent public addresses but does not let you choose a custom subdomain or bring your own domain. fxTunnel lets you pick any subdomain for free (e.g., myapp.fxtun.dev) and supports custom domains from the Starter plan." },
         { "q": "Why choose fxTunnel over xTunnel?", "a": "fxTunnel offers more features at every price point: custom subdomains (free), UDP support, desktop GUI, traffic inspector, open source, no request limits, and no bandwidth caps. xTunnel is a simpler service suitable for basic HTTP tunnel needs." },
         { "q": "Can I migrate from xTunnel to fxTunnel?", "a": "Yes. Install the fxTunnel client, create a free account, and use similar commands: 'fxtunnel http 3000' instead of 'xtunnel http 3000'. You immediately get a permanent custom subdomain with no request or bandwidth limits." }
@@ -1091,19 +1301,19 @@
   "downloadsPage": {
     "heroTitle": "Download fxTunnel",
     "heroSubtitle": "CLI and desktop app for Windows, macOS, and Linux",
-    "description": "fxTunnel offers two ways to work with tunnels: a CLI client for the terminal and a desktop application with a graphical interface. The CLI is a single binary with zero dependencies that runs on every platform and is perfect for automation, CI/CD pipelines, and server environments. Installation takes one command via curl or PowerShell. The desktop app is built with Wails (Go + Vue 3) and provides a visual interface for managing tunnels, a built-in traffic inspector, and connection history — no terminal required. Both clients support all three protocols — HTTP, TCP, and UDP — with auto-reconnect, custom subdomains, and end-to-end TLS encryption. Download the right version for your operating system and get started in seconds.",
+    "description": "fxTunnel offers two ways to work with tunnels: a CLI client for the terminal and a desktop application with a graphical interface. The CLI is a single binary with zero dependencies that runs on every platform and is perfect for automation, CI/CD pipelines, and server environments. Installation takes one command via curl or PowerShell. The desktop app is built with Wails (Go + Vue 3) and provides a visual interface for managing tunnels, a built-in traffic inspector, and connection history - no terminal required. Both clients support all three protocols - HTTP, TCP, and UDP - with auto-reconnect, custom subdomains, and end-to-end TLS encryption. Download the right version for your operating system and get started in seconds.",
     "cliTitle": "CLI Client",
     "cliDescription": "Command-line tool for tunnel management. Single binary with zero dependencies, runs on any platform. Perfect for automation, CI/CD, and servers. Install with one command via curl or irm.",
     "guiTitle": "Desktop App",
-    "guiDescription": "Native Wails app (Go + Vue 3) with visual tunnel management, built-in traffic inspector, and connection history. No terminal needed — everything through a graphical interface.",
+    "guiDescription": "Native Wails app (Go + Vue 3) with visual tunnel management, built-in traffic inspector, and connection history. No terminal needed - everything through a graphical interface.",
     "quickStartTitle": "Quick Install",
     "quickStartLinux": "curl -fsSL https://fxtun.dev/install.sh | sh",
     "quickStartWindows": "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://fxtun.dev/install.ps1 | iex",
     "platformsTitle": "Supported Platforms",
     "platforms": {
-      "linux": "Linux (x64, ARM64) — CLI + GUI",
-      "macos": "macOS (Intel, Apple Silicon) — CLI + GUI (coming soon)",
-      "windows": "Windows (x64) — CLI + GUI"
+      "linux": "Linux (x64, ARM64) - CLI + GUI",
+      "macos": "macOS (Intel, Apple Silicon) - CLI + GUI (coming soon)",
+      "windows": "Windows (x64) - CLI + GUI"
     },
     "version": "1.2.0",
     "releaseDate": "March 2026",
@@ -1119,7 +1329,7 @@
     "afterInstallSteps": [
       "Sign up at fxtun.dev and get your access token",
       "Start your first tunnel: fxtunnel http 3000 --token your_token",
-      "Open the assigned URL in your browser — your localhost is now accessible from the internet"
+      "Open the assigned URL in your browser - your localhost is now accessible from the internet"
     ],
     "ctaTitle": "Ready to get started?",
     "ctaText": "Sign up for free and download the client.",
@@ -1146,7 +1356,7 @@
       },
       {
         "q": "Do I need administrator privileges to install?",
-        "a": "No. The CLI installs to a user directory (~/.local/bin on Linux/macOS). The GUI app also does not require admin privileges — just run the downloaded file."
+        "a": "No. The CLI installs to a user directory (~/.local/bin on Linux/macOS). The GUI app also does not require admin privileges - just run the downloaded file."
       }
     ]
   },
@@ -1176,28 +1386,28 @@
     "whoIsItFor": {
       "free": {
         "title": "Free plan",
-        "text": "Perfect for students, hobby projects, and getting started with tunneling. You get three active HTTP and TCP tunnels, choose any available subdomain (e.g., myapp.fxtun.dev), and work with zero limits on requests, bandwidth, or session duration. UDP tunnels are reserved for paid plans. The Free plan never expires — use it for testing webhooks, demoing a local project to a client, or debugging payment gateway integrations without any time pressure."
+        "text": "Perfect for students, hobby projects, and getting started with tunneling. You get three active HTTP and TCP tunnels, choose any available subdomain (e.g., myapp.fxtun.dev), and work with zero limits on requests, bandwidth, or session duration. UDP tunnels are reserved for paid plans. The Free plan never expires - use it for testing webhooks, demoing a local project to a client, or debugging payment gateway integrations without any time pressure."
       },
       "starter": {
-        "title": "Starter — $2.50/mo",
-        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Three active tunnels let you expose a frontend, backend, and webhook receiver simultaneously. One reserved subdomain guarantees stable URLs for demos — no other user can claim your address. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
+        "title": "Starter - $2.50/mo",
+        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Three active tunnels let you expose a frontend, backend, and webhook receiver simultaneously. One reserved subdomain guarantees stable URLs for demos - no other user can claim your address. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
       },
       "pro": {
-        "title": "Pro — $5/mo",
+        "title": "Pro - $5/mo",
         "text": "Built for small teams and developers juggling multiple projects. 15 active tunnels, 15 reserved subdomains, and 10 access keys mean each team member gets their own key. Five custom domains for different clients or projects. The built-in traffic inspector lets you view, filter, and replay HTTP requests, replacing manual log analysis when debugging APIs and webhooks."
       },
       "business": {
-        "title": "Business — $7.50/mo",
+        "title": "Business - $7.50/mo",
         "text": "The top tier for agencies, dev studios, and teams managing large portfolios. 50 tunnels and 50 reserved subdomains cover the needs of even the busiest shops. 50 custom domains for different clients or projects, 50 access keys for the whole team. Unlimited traffic inspector, full HTTP, TCP, and UDP support. If your business needs reliable infrastructure for client demos and integration testing, Business has you covered."
       }
     },
     "subdomainTitle": "Subdomains: free and reserved",
-    "subdomainText": "On every plan, including Free, you can pick any available subdomain when creating a tunnel — for example, myapp.fxtun.dev or api-test.fxtun.dev. This is a fundamental difference from ngrok, which assigns a random URL like abc123.ngrok-free.app on its free tier. However, a free subdomain is not locked to your account: once you disconnect the tunnel, another user can claim the same address. Reserved subdomains (starting from the Starter plan) are permanently bound to your account — no one else can use them, even when your tunnel is offline. This is essential for stable demo URLs, third-party service integrations, and webhooks where the address must never change.",
+    "subdomainText": "On every plan, including Free, you can pick any available subdomain when creating a tunnel - for example, myapp.fxtun.dev or api-test.fxtun.dev. This is a fundamental difference from ngrok, which assigns a random URL like abc123.ngrok-free.app on its free tier. However, a free subdomain is not locked to your account: once you disconnect the tunnel, another user can claim the same address. Reserved subdomains (starting from the Starter plan) are permanently bound to your account - no one else can use them, even when your tunnel is offline. This is essential for stable demo URLs, third-party service integrations, and webhooks where the address must never change.",
     "commonFeaturesTitle": "What's included in every plan",
-    "commonFeaturesText": "Every fxTunnel plan, including Free, provides a full set of core capabilities. HTTP and TCP tunnels on every plan (UDP on paid plans from $2.50/mo) let you expose web apps, SSH servers, game servers, and IoT devices. A desktop application for Windows, macOS, and Linux with a graphical interface, a CLI for automation, and automatic TLS for HTTPS traffic. No limits on request count or bandwidth. No session timeouts — your tunnel stays alive as long as you need it. Auto-reconnect on connection drops: the client restores the session on its own, without manual intervention."
+    "commonFeaturesText": "Every fxTunnel plan, including Free, provides a full set of core capabilities. HTTP and TCP tunnels on every plan (UDP on paid plans from $2.50/mo) let you expose web apps, SSH servers, game servers, and IoT devices. A desktop application for Windows, macOS, and Linux with a graphical interface, a CLI for automation, and automatic TLS for HTTPS traffic. No limits on request count or bandwidth. No session timeouts - your tunnel stays alive as long as you need it. Auto-reconnect on connection drops: the client restores the session on its own, without manual intervention."
   },
   "notFound": {
-    "title": "404 — Page Not Found | fxTunnel",
+    "title": "404 - Page Not Found | fxTunnel",
     "heading": "Page Not Found",
     "description": "The page you're looking for doesn't exist or has been moved.",
     "backHome": "Back to Home"

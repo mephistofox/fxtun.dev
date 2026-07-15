@@ -12,6 +12,9 @@ const competitors = ['fxtunnel', 'ngrok', 'localhostrun'] as const
 
 const features = [
   'price',
+  'rublePayment',
+  'ruServers',
+  'autoReconnect',
   'freeSubdomain',
   'requestLimits',
   'sessionTimeout',
@@ -24,7 +27,7 @@ const features = [
 
 // Highlight fxtun advantages (cells where we're better)
 const advantages: Record<string, Set<string>> = {
-  fxtunnel: new Set(['freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'openSource']),
+  fxtunnel: new Set(['rublePayment', 'ruServers', 'autoReconnect', 'freeSubdomain', 'requestLimits', 'sessionTimeout', 'protocols', 'guiClient', 'inspector', 'openSource']),
 }
 
 function isAdvantage(competitor: string, feature: string): boolean {

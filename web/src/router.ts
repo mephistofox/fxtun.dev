@@ -45,6 +45,16 @@ const publicRoutes: RouteRecordRaw[] = [
     component: () => import('./views/AboutView.vue'),
   },
   {
+    path: '/ngrok-alternative',
+    name: 'ngrok-alternative',
+    component: () => import('./views/NgrokAlternativeView.vue'),
+  },
+  {
+    path: '/features',
+    name: 'features',
+    component: () => import('./views/FeaturesView.vue'),
+  },
+  {
     path: '/compare/ngrok',
     name: 'compare-ngrok',
     component: () => import('./views/CompareNgrokView.vue'),
