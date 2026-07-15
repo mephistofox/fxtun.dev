@@ -14,9 +14,9 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 // CertManager manages TLS certificates with ACME and in-memory caching.

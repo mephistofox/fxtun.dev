@@ -11,7 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
 )
 
 // apiClient provides a centralized HTTP client with automatic token refresh.

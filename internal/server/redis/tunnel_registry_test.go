@@ -10,7 +10,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 // testRegistry connects to the Redis given by FXTUNNEL_TEST_REDIS, flushes it,

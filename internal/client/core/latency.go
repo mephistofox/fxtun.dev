@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
 )
 
 const latencyProbeTimeout = 800 * time.Millisecond

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 )
 
 func newTestInspector() *Inspector {

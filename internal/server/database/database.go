@@ -11,7 +11,7 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 //go:embed migrations/*.sql

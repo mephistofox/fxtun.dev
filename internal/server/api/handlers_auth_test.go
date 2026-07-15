@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
 )
 
 func TestHealth_Returns200(t *testing.T) {

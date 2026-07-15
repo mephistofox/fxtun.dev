@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 )
 
 // maxCaptureRead is the absolute maximum bytes read into memory for a single

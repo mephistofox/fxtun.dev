@@ -18,7 +18,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 )
 
 // Inspector is an embedded HTTP server that exposes a REST API for the local

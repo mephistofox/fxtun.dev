@@ -8,9 +8,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	clientcore "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
-	servercore "github.com/mephistofox/fxtunnel/internal/server/core"
+	clientcore "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	servercore "github.com/mephistofox/fxtun.dev/internal/server/core"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 var _ store.TLSCache = (*TLSCache)(nil)

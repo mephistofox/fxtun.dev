@@ -13,7 +13,7 @@
   <a href="https://goreportcard.com/report/github.com/mephistofox/fxtun.dev"><img src="https://goreportcard.com/badge/github.com/mephistofox/fxtun.dev?style=flat-square" alt="Go Report Card"></a>
   <a href="https://github.com/mephistofox/fxtun.dev/releases"><img src="https://img.shields.io/github/downloads/mephistofox/fxtun.dev/total?style=flat-square&logo=github" alt="Загрузки"></a>
   <img src="https://img.shields.io/badge/go-1.24+-00ADD8?style=flat-square&logo=go" alt="Go Version">
-  <a href="https://ghcr.io/mephistofox/fxtunnel"><img src="https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker" alt="Docker"></a>
+  <a href="https://ghcr.io/mephistofox/fxtun.dev"><img src="https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square&logo=docker" alt="Docker"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20with%20Attribution-yellow?style=flat-square" alt="Лицензия"></a>
   <a href="https://github.com/mephistofox/fxtun.dev/stargazers"><img src="https://img.shields.io/github/stars/mephistofox/fxtun.dev?style=flat-square&logo=github" alt="Stars"></a>
 </p>
@@ -123,7 +123,7 @@ docker run -d \
   -p 10000-20000:10000-20000 \
   -v ./data:/app/data \
   -v ./configs/server.yaml:/app/configs/server.yaml \
-  ghcr.io/mephistofox/fxtunnel:latest
+  ghcr.io/mephistofox/fxtun.dev:latest
 ```
 
 Или сборка из исходников:

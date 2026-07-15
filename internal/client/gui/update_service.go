@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
 )
 
 // UpdateService provides update checking and downloading for the GUI.

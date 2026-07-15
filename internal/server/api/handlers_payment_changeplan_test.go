@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
 )
 
 // TestIsPlanUpgrade guards the rule behind handleChangePlan: scheduling a plan

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // ClientManager adapts a client.Client to the TunnelManager interface.

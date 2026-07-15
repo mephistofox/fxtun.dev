@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
 )
 
 // captureHandler stores r.RemoteAddr and the OriginalRemoteAddrKey value
