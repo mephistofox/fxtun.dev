@@ -320,6 +320,66 @@ func (q *Queries) ListPaymentsByUserID(ctx context.Context, arg ListPaymentsByUs
 	return items, nil
 }
 
+const listPendingPaymentsByProviderInWindow = `-- name: ListPendingPaymentsByProviderInWindow :many
+SELECT id, user_id, subscription_id, invoice_id, amount, status, is_recurring, yookassa_data, provider, provider_data, created_at
+FROM payments WHERE status = 'pending' AND provider = $1 AND created_at >= $2 AND created_at <= $3 ORDER BY created_at ASC
+`
+
+type ListPendingPaymentsByProviderInWindowParams struct {
+	Provider    string             `json:"provider"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedAt_2 pgtype.Timestamptz `json:"created_at_2"`
+}
+
+func (q *Queries) ListPendingPaymentsByProviderInWindow(ctx context.Context, arg ListPendingPaymentsByProviderInWindowParams) ([]Payment, error) {
+	rows, err := q.db.Query(ctx, listPendingPaymentsByProviderInWindow, arg.Provider, arg.CreatedAt, arg.CreatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Payment{}
+	for rows.Next() {
+		var i Payment
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.SubscriptionID,
+			&i.InvoiceID,
+			&i.Amount,
+			&i.Status,
+			&i.IsRecurring,
+			&i.YookassaData,
+			&i.Provider,
+			&i.ProviderData,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markPaymentSucceededIfPending = `-- name: MarkPaymentSucceededIfPending :execrows
+UPDATE payments SET status = 'success', yookassa_data = $2 WHERE id = $1 AND status = 'pending'
+`
+
+type MarkPaymentSucceededIfPendingParams struct {
+	ID           int64       `json:"id"`
+	YookassaData pgtype.Text `json:"yookassa_data"`
+}
+
+func (q *Queries) MarkPaymentSucceededIfPending(ctx context.Context, arg MarkPaymentSucceededIfPendingParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markPaymentSucceededIfPending, arg.ID, arg.YookassaData)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updatePayment = `-- name: UpdatePayment :exec
 UPDATE payments SET subscription_id = $2, status = $3, yookassa_data = $4, provider = $5, provider_data = $6
 WHERE id = $1

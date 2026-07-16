@@ -353,8 +353,9 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// activateSubscription activates a subscription after successful payment
-func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.Payment, providerName string) {
+// activateSubscription activates a subscription after successful payment. source
+// records what triggered activation (e.g. "webhook", "reconciler") for auditing.
+func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.Payment, providerName, source string) {
 	now := time.Now()
 	periodEnd := now.AddDate(0, 1, 0) // +1 month
 	sub.Status = database.SubscriptionStatusActive
@@ -386,7 +387,7 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 		"plan_id":         sub.PlanID,
 		"subscription_id": sub.ID,
 		"provider":        providerName,
-	}, "webhook")
+	}, source)
 
 	// Send payment success email notification
 	if s.notifier != nil {
@@ -641,59 +642,64 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 		}
 	}
 
-	// Already processed
-	if pmt.Status == database.PaymentStatusSuccess {
-		s.log.Info().Int64("invoice_id", invoiceID).Msg("Payment already processed")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// Superseded/stale checkout: the payment was marked failed — either because the
-	// user abandoned it and started a new one (supersedePendingCheckout, which also
-	// cancels the provider payment) or because the hourly stale cleanup failed it.
-	// Refuse to activate — otherwise a completed abandoned payment would grant a
-	// second subscription and double-charge the user. Logged at Error + audited
-	// because funds may have been captured (the stale-cleanup path does not cancel
-	// the provider payment), so a captured-but-not-activated payment needs manual
-	// review/refund. Return 200 so YooKassa stops retrying the webhook.
-	if pmt.Status == database.PaymentStatusFailed {
-		s.log.Error().
-			Int64("invoice_id", invoiceID).
-			Int64("user_id", pmt.UserID).
-			Str("yookassa_payment_id", yooPayment.ID).
-			Msg("Succeeded webhook for a payment already marked failed — not activating; funds may need manual review")
-		_ = s.db.Audit.Log(&pmt.UserID, "payment_succeeded_but_superseded", map[string]interface{}{
-			"invoice_id":          invoiceID,
-			"yookassa_payment_id": yooPayment.ID,
-			"provider":            "yookassa",
-		}, "webhook")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// Verify payment amount matches expected amount (two-sided: reject both
-	// under- and over-payment outside a ±1% tolerance, so a forged webhook
-	// can't claim an arbitrary amount).
-	if yooPayment.Amount.Value != "" {
-		var webhookAmount float64
-		if _, err := fmt.Sscanf(yooPayment.Amount.Value, "%f", &webhookAmount); err == nil {
-			if webhookAmount < pmt.Amount*0.99 || webhookAmount > pmt.Amount*1.01 {
-				s.log.Error().
-					Float64("expected", pmt.Amount).
-					Float64("received", webhookAmount).
-					Int64("invoice_id", invoiceID).
-					Int64("user_id", pmt.UserID).
-					Msg("Payment amount mismatch")
-				http.Error(w, "amount mismatch", http.StatusBadRequest)
-				return
-			}
+	// Apply the succeeded payment (shared with the background reconciler).
+	if _, err := s.applySucceededPayment(pmt, yooPayment, metaPlanID, "webhook"); err != nil {
+		if errors.Is(err, errPaymentAmountMismatch) {
+			http.Error(w, "amount mismatch", http.StatusBadRequest)
+			return
 		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 
-	// Update payment status
-	pmt.Status = database.PaymentStatusSuccess
+	w.WriteHeader(http.StatusOK)
+}
 
-	// Save YooKassa data including payment_method_id for recurring
+// errPaymentAmountMismatch is returned when the provider-reported amount differs
+// from the recorded invoice amount beyond tolerance (possible forged webhook).
+var errPaymentAmountMismatch = errors.New("payment amount mismatch")
+
+// paymentApplyResult classifies how applySucceededPayment resolved.
+type paymentApplyResult int
+
+const (
+	paymentApplied     paymentApplyResult = iota // newly activated
+	paymentAlreadyDone                           // idempotent no-op (already success)
+	paymentSuperseded                            // was marked failed earlier; not activated
+)
+
+// applySucceededPayment records an already-known payment as succeeded and
+// activates its subscription. It is HTTP-free and idempotent so both the webhook
+// handler and the background reconciler can call it; concurrent calls converge
+// because a payment already in success/failed short-circuits. metaPlanID is only
+// used to recreate a subscription that was deleted. Returns an error on genuine
+// failures (amount mismatch → errPaymentAmountMismatch, DB errors, missing link).
+func (s *Server) applySucceededPayment(pmt *database.Payment, yooPayment *payment.Payment, metaPlanID int64, source string) (paymentApplyResult, error) {
+	// Fast-path short-circuits on the in-memory snapshot to avoid needless work.
+	// These are advisory; the atomic claim below is what actually prevents races.
+	if pmt.Status == database.PaymentStatusSuccess {
+		return paymentAlreadyDone, nil
+	}
+	if pmt.Status == database.PaymentStatusFailed {
+		return s.auditSupersededPayment(pmt, yooPayment), nil
+	}
+
+	// Verify the provider amount matches the recorded invoice (two-sided ±1%), so
+	// a forged webhook can't claim an arbitrary amount. Fail closed: a missing or
+	// unparseable amount is treated as a mismatch.
+	var reportedAmount float64
+	if _, err := fmt.Sscanf(yooPayment.Amount.Value, "%f", &reportedAmount); err != nil ||
+		reportedAmount < pmt.Amount*0.99 || reportedAmount > pmt.Amount*1.01 {
+		s.log.Error().
+			Float64("expected", pmt.Amount).
+			Str("received", yooPayment.Amount.Value).
+			Int64("invoice_id", pmt.InvoiceID).
+			Int64("user_id", pmt.UserID).
+			Msg("Payment amount mismatch")
+		return 0, errPaymentAmountMismatch
+	}
+
+	// Build YooKassa data (incl. payment_method_id for recurring).
 	yookassaData := map[string]interface{}{
 		"yookassa_payment_id": yooPayment.ID,
 		"paid":                yooPayment.Paid,
@@ -707,66 +713,75 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 		}
 	}
 	data, _ := json.Marshal(yookassaData)
+
+	// Atomically claim the pending→success transition. Only the winner activates,
+	// so a concurrent webhook/reconciler (or a supersede racing this call) cannot
+	// double-activate or revive a payment that was superseded in the meantime.
+	won, err := s.db.Payments.MarkSucceededIfPending(pmt.ID, string(data))
+	if err != nil {
+		return 0, fmt.Errorf("claim payment %d: %w", pmt.ID, err)
+	}
+	if !won {
+		// Someone else transitioned it concurrently. Classify from the fresh row.
+		if cur, _ := s.db.Payments.GetByID(pmt.ID); cur != nil && cur.Status == database.PaymentStatusFailed {
+			return s.auditSupersededPayment(pmt, yooPayment), nil
+		}
+		return paymentAlreadyDone, nil
+	}
+	pmt.Status = database.PaymentStatusSuccess
 	pmt.YooKassaData = string(data)
 
-	if err := s.db.Payments.Update(pmt); err != nil {
-		s.log.Error().Err(err).Int64("user_id", pmt.UserID).Msg("Failed to update payment")
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
+	// Activate the linked subscription.
+	if pmt.SubscriptionID == nil {
+		return 0, fmt.Errorf("payment %d (invoice %d) has no subscription_id", pmt.ID, pmt.InvoiceID)
 	}
-
-	// Activate subscription
-	if pmt.SubscriptionID != nil {
-		sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
-		if err != nil {
-			s.log.Error().Err(err).
-				Int64("subscription_id", *pmt.SubscriptionID).
-				Int64("user_id", pmt.UserID).
-				Int64("invoice_id", invoiceID).
-				Msg("Failed to get subscription for activation")
-			http.Error(w, "subscription lookup failed", http.StatusInternalServerError)
-			return
-		}
-		if sub == nil {
-			s.log.Error().
-				Int64("subscription_id", *pmt.SubscriptionID).
-				Int64("user_id", pmt.UserID).
-				Int64("invoice_id", invoiceID).
-				Msg("Subscription not found — was deleted. Creating new subscription")
-
-			// Recover: create new subscription
-			sub, err = s.recoverSubscription(pmt, metaPlanID, yooPayment)
-			if err != nil {
-				s.log.Error().Err(err).
-					Int64("user_id", pmt.UserID).
-					Int64("invoice_id", invoiceID).
-					Msg("Failed to recover subscription")
-				http.Error(w, "subscription recovery failed", http.StatusInternalServerError)
-				return
-			}
-		} else {
-			// Save payment_method_id for recurring payments
-			if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
-				sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
-				if last4 := yooPayment.SavedCardLast4(); last4 != "" {
-					sub.YooKassaCardLast4 = &last4
-				} else {
-					sub.YooKassaCardLast4 = nil
-				}
-			}
-		}
-
-		s.activateSubscription(sub, pmt, "yookassa")
-	} else {
-		s.log.Error().
-			Int64("invoice_id", invoiceID).
+	sub, err := s.db.Subscriptions.GetByID(*pmt.SubscriptionID)
+	if err != nil {
+		return 0, fmt.Errorf("get subscription %d: %w", *pmt.SubscriptionID, err)
+	}
+	if sub == nil {
+		// Subscription was deleted — recreate from the payment/metadata.
+		s.log.Warn().
+			Int64("subscription_id", *pmt.SubscriptionID).
 			Int64("user_id", pmt.UserID).
-			Msg("Payment has no subscription_id — cannot activate subscription")
-		http.Error(w, "no subscription linked", http.StatusInternalServerError)
-		return
+			Int64("invoice_id", pmt.InvoiceID).
+			Msg("Subscription not found — recreating for succeeded payment")
+		sub, err = s.recoverSubscription(pmt, metaPlanID, yooPayment)
+		if err != nil {
+			return 0, fmt.Errorf("recover subscription: %w", err)
+		}
+	} else if yooPayment.PaymentMethod != nil && yooPayment.PaymentMethod.Saved {
+		// Bind the saved card for future autopayments.
+		sub.YooKassaPaymentMethodID = &yooPayment.PaymentMethod.ID
+		if last4 := yooPayment.SavedCardLast4(); last4 != "" {
+			sub.YooKassaCardLast4 = &last4
+		} else {
+			sub.YooKassaCardLast4 = nil
+		}
 	}
 
-	w.WriteHeader(http.StatusOK)
+	s.activateSubscription(sub, pmt, "yookassa", source)
+	return paymentApplied, nil
+}
+
+// auditSupersededPayment logs and audits a succeeded payment that had already
+// been marked failed (abandoned/superseded or stale-cleaned). It is NOT
+// activated — otherwise a completed abandoned payment would grant a second
+// subscription and double-charge the user. Funds may have been captured (the
+// stale-cleanup path does not cancel the provider payment), so it needs manual
+// review/refund. Returns paymentSuperseded for the caller.
+func (s *Server) auditSupersededPayment(pmt *database.Payment, yooPayment *payment.Payment) paymentApplyResult {
+	s.log.Error().
+		Int64("invoice_id", pmt.InvoiceID).
+		Int64("user_id", pmt.UserID).
+		Str("yookassa_payment_id", yooPayment.ID).
+		Msg("Succeeded payment already marked failed — not activating; funds may need manual review")
+	_ = s.db.Audit.Log(&pmt.UserID, "payment_succeeded_but_superseded", map[string]interface{}{
+		"invoice_id":          pmt.InvoiceID,
+		"yookassa_payment_id": yooPayment.ID,
+		"provider":            "yookassa",
+	}, "system")
+	return paymentSuperseded
 }
 
 // alignReusedSubscriptionPlan makes a pending subscription that is being reused
@@ -1316,7 +1331,7 @@ func (s *Server) handleCreemPaymentSucceeded(evt payment.WebhookEvent) {
 			if evt.ProviderSubscriptionID != "" {
 				sub.CreemSubscriptionID = &evt.ProviderSubscriptionID
 			}
-			s.activateSubscription(sub, pmt, "creem")
+			s.activateSubscription(sub, pmt, "creem", "webhook")
 		}
 	}
 }
