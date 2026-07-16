@@ -582,6 +582,12 @@ func run(cmd *cobra.Command, args []string) error {
 
 			go subscriptionScheduler.Start(ctx)
 			log.Info().Msg("Subscription scheduler started")
+
+			// Reconcile YooKassa payments whose webhook was never delivered, so
+			// activation does not depend on best-effort webhook delivery.
+			if cfg.YooKassa.Enabled {
+				go apiServer.StartPaymentReconciler(ctx)
+			}
 		}
 	}
 

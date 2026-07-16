@@ -137,6 +137,44 @@ func (r *PaymentRepository) ListFailedRecurringSince(subscriptionID int64, since
 	return payments, nil
 }
 
+// ListPendingByProviderInWindow returns pending payments for a provider whose
+// created_at falls within [from, to], oldest first. The reconciler uses it to
+// find payments that may have succeeded on the provider side but whose webhook
+// never arrived, without touching brand-new ones the webhook may still deliver.
+func (r *PaymentRepository) ListPendingByProviderInWindow(provider string, from, to time.Time) ([]*Payment, error) {
+	ctx := context.Background()
+	rows, err := r.q.ListPendingPaymentsByProviderInWindow(ctx, sqlc.ListPendingPaymentsByProviderInWindowParams{
+		Provider:    provider,
+		CreatedAt:   timeToPgtz(from),
+		CreatedAt_2: timeToPgtz(to),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list pending payments by provider in window: %w", err)
+	}
+	payments := make([]*Payment, 0, len(rows))
+	for _, p := range rows {
+		payments = append(payments, sqlcPaymentToDomain(p))
+	}
+	return payments, nil
+}
+
+// MarkSucceededIfPending atomically transitions a payment from pending to
+// success (and stores yookassa_data), returning true only for the caller that
+// won the transition. It lets the webhook and the reconciler race safely: only
+// the winner activates the subscription, so there is no double-activation and a
+// concurrently-superseded (failed) payment is never revived.
+func (r *PaymentRepository) MarkSucceededIfPending(id int64, yookassaData string) (bool, error) {
+	ctx := context.Background()
+	rows, err := r.q.MarkPaymentSucceededIfPending(ctx, sqlc.MarkPaymentSucceededIfPendingParams{
+		ID:           id,
+		YookassaData: stringToPgtext(yookassaData),
+	})
+	if err != nil {
+		return false, fmt.Errorf("mark payment succeeded if pending: %w", err)
+	}
+	return rows == 1, nil
+}
+
 // ListAll returns all payments with pagination and total count.
 func (r *PaymentRepository) ListAll(limit, offset int) ([]*Payment, int, error) {
 	ctx := context.Background()

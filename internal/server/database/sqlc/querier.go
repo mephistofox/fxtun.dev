@@ -135,12 +135,14 @@ type Querier interface {
 	ListFailedRecurringPaymentsBySubscriptionSince(ctx context.Context, arg ListFailedRecurringPaymentsBySubscriptionSinceParams) ([]Payment, error)
 	ListHistoryByUserID(ctx context.Context, arg ListHistoryByUserIDParams) ([]UserHistory, error)
 	ListPaymentsByUserID(ctx context.Context, arg ListPaymentsByUserIDParams) ([]Payment, error)
+	ListPendingPaymentsByProviderInWindow(ctx context.Context, arg ListPendingPaymentsByProviderInWindowParams) ([]Payment, error)
 	ListPlans(ctx context.Context) ([]Plan, error)
 	ListPublicPlans(ctx context.Context) ([]Plan, error)
 	ListReservedDomainsByUserID(ctx context.Context, userID int64) ([]ReservedDomain, error)
 	ListSubscriptionsByUserID(ctx context.Context, userID int64) ([]Subscription, error)
 	ListUsersFiltered(ctx context.Context, arg ListUsersFilteredParams) ([]User, error)
 	ListVerifiedCustomDomains(ctx context.Context) ([]CustomDomain, error)
+	MarkPaymentSucceededIfPending(ctx context.Context, arg MarkPaymentSucceededIfPendingParams) (int64, error)
 	SaveExchange(ctx context.Context, arg SaveExchangeParams) error
 	SetCustomDomainVerificationToken(ctx context.Context, arg SetCustomDomainVerificationTokenParams) error
 	SetCustomDomainVerified(ctx context.Context, arg SetCustomDomainVerifiedParams) error
