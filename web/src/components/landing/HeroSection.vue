@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 import AnimatedTerminal from './AnimatedTerminal.vue'
 import TopoBackground from './TopoBackground.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const isVisible = ref(false)
 const isMounted = ref(false)
@@ -268,8 +268,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- RU trust bar - thin strip under the hero -->
-    <div class="relative z-10 border-t border-border/60 bg-surface/30 backdrop-blur-sm">
+    <!-- RU trust bar - thin strip under the hero (RU market only) -->
+    <div v-if="locale === 'ru'" class="relative z-10 border-t border-border/60 bg-surface/30 backdrop-blur-sm">
       <div class="container mx-auto px-4 py-3">
         <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <span class="whitespace-nowrap">{{ t('landing.hero.trustBar.rubles') }}</span>

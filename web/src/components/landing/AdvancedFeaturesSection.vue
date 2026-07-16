@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import InspectorDemo from './InspectorDemo.vue'
 import DomainSetupDemo from './DomainSetupDemo.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
@@ -155,8 +155,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Nodes near you (RU/CIS edge) -->
-        <div class="flex items-start gap-4 p-5 rounded-xl bg-surface/50 border border-border">
+        <!-- Nodes near you (RU/CIS edge) - RU market only -->
+        <div v-if="locale === 'ru'" class="flex items-start gap-4 p-5 rounded-xl bg-surface/50 border border-border">
           <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
             <!-- Map pin / location icon -->
             <svg aria-hidden="true" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

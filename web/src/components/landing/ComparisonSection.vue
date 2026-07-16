@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const isVisible = ref(false)
 const sectionRef = ref<HTMLElement | null>(null)
 
 const competitors = ['fxtunnel', 'ngrok', 'localhostrun'] as const
 
-const features = [
+// Ruble payment / RU servers rows are only relevant to the RU market.
+const allFeatures = [
   'price',
   'rublePayment',
   'ruServers',
@@ -24,6 +25,12 @@ const features = [
   'openSource',
   'customDomains',
 ] as const
+
+const features = computed(() =>
+  locale.value === 'ru'
+    ? allFeatures
+    : allFeatures.filter((f) => f !== 'rublePayment' && f !== 'ruServers'),
+)
 
 // Highlight fxtun advantages (cells where we're better)
 const advantages: Record<string, Set<string>> = {
