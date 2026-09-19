@@ -33,7 +33,7 @@ main() {
     DOWNLOAD_URL="${BASE_URL}/cli-${OS}-${ARCH}"
     TARGET="${TMP_DIR}/${BINARY_NAME}"
 
-    download "$DOWNLOAD_URL" "$TARGET"
+    download_or_die "$DOWNLOAD_URL" "$TARGET"
 
     verify_signature "$TARGET" "${DOWNLOAD_URL}.sig"
 
@@ -121,7 +121,7 @@ verify_signature() {
         return 0
     fi
 
-    if ! download "$sig_url" "${file}.sighex" 2>/dev/null; then
+    if ! download "$sig_url" "${file}.sighex" >/dev/null 2>&1; then
         echo "Warning: this build is unsigned, installing without verification" >&2
         return 0
     fi
@@ -156,6 +156,13 @@ download() {
     fi
 
     if [ ! -f "$output" ] || [ ! -s "$output" ]; then
+        return 1
+    fi
+}
+
+# download_or_die is the plain "must succeed" variant used for the binary.
+download_or_die() {
+    if ! download "$1" "$2"; then
         echo "Error: download failed" >&2
         exit 1
     fi
