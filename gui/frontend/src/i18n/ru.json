@@ -60,6 +60,7 @@
     "magicLinkResend": "Отправить ещё раз",
     "magicLinkChangeEmail": "Изменить почту",
     "or": "ИЛИ",
+    "signInWithYandex": "Войти с Яндекс ID",
     "orConnectWithToken": "или подключиться по токену",
     "oauthWaiting": "Ожидание авторизации в браузере...",
     "oauthCancel": "Отмена",

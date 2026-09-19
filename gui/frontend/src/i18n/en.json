@@ -60,6 +60,7 @@
     "magicLinkResend": "Resend",
     "magicLinkChangeEmail": "Change email",
     "or": "OR",
+    "signInWithYandex": "Log in with Yandex ID",
     "orConnectWithToken": "or connect with token",
     "oauthWaiting": "Waiting for authorization in browser...",
     "oauthCancel": "Cancel",
