@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -185,13 +186,27 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 }
 
+// installScriptHost returns a host safe to interpolate into the install
+// scripts. Those scripts are piped straight into a shell, and Go's own Host
+// validation permits characters like $ ( ) & ; that a shell acts on — so a
+// request carrying a crafted Host would otherwise hand the victim a script
+// containing command substitution. Anything that is not a plain hostname falls
+// back to the configured domain.
+func (s *Server) installScriptHost(r *http.Request) string {
+	domain := requestHost(r)
+	if domain == "" || !plainHostname.MatchString(domain) {
+		return s.baseDomain
+	}
+	return domain
+}
+
+// plainHostname matches a bare DNS hostname: letters, digits, dots, hyphens.
+var plainHostname = regexp.MustCompile(`^[A-Za-z0-9.-]+$`)
+
 // handleInstallScript serves a shell install script with the domain derived from the request Host
 func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
 	// Use request host to match the domain the user is accessing
-	domain := requestHost(r)
-	if domain == "" {
-		domain = s.baseDomain
-	}
+	domain := s.installScriptHost(r)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -211,10 +226,7 @@ func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
 
 // handleInstallPS1 serves a PowerShell install script for Windows
 func (s *Server) handleInstallPS1(w http.ResponseWriter, r *http.Request) {
-	domain := requestHost(r)
-	if domain == "" {
-		domain = s.baseDomain
-	}
+	domain := s.installScriptHost(r)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")

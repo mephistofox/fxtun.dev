@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -639,15 +640,33 @@ func saveToken(t string) error {
 	return persistCredentials(t, serverAddr)
 }
 
-func openBrowser(url string) error {
+// safeBrowserURL reports whether a URL may be handed to the OS browser opener.
+//
+// The address comes from the server's JSON response, and on Windows it is
+// passed to `cmd /c start`, which Go only quotes when the argument contains
+// spaces or quotes. A URL like "https://x/?a=1&calc" would reach cmd.exe
+// unquoted and run calc — a hostile or mistyped --server turns into code
+// execution on the client.
+func safeBrowserURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return false
+	}
+	return !strings.ContainsAny(raw, "&|;$`<>^\"'\n\r\t ")
+}
+
+func openBrowser(rawURL string) error {
+	if !safeBrowserURL(rawURL) {
+		return fmt.Errorf("refusing to open unsafe URL: %s", rawURL)
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", rawURL)
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", url)
+		cmd = exec.Command("cmd", "/c", "start", rawURL)
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.Command("xdg-open", rawURL)
 	}
 	return cmd.Start()
 }
