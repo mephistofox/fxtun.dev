@@ -10,6 +10,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtunnel/internal/server/reserved"
 )
 
 var subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
@@ -66,6 +67,14 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 	// Validate subdomain format
 	if !subdomainRegex.MatchString(req.Subdomain) {
 		s.respondErrorWithCode(w, http.StatusBadRequest, "INVALID_SUBDOMAIN", "subdomain must be 3-32 characters, alphanumeric and hyphens only")
+		return
+	}
+
+	// The tunnel control plane already refuses these, but reserving one was
+	// never checked: a user could hold admin or www indefinitely and keep the
+	// name away from everyone else, even without being able to serve on it.
+	if reserved.IsReserved(req.Subdomain) {
+		s.respondErrorWithCode(w, http.StatusBadRequest, "SUBDOMAIN_RESERVED", "this subdomain is reserved")
 		return
 	}
 

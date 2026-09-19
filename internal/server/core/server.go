@@ -30,6 +30,7 @@ import (
 	"github.com/mephistofox/fxtunnel/internal/server/database"
 	"github.com/mephistofox/fxtunnel/internal/server/geoip"
 	"github.com/mephistofox/fxtunnel/internal/server/monitor"
+	"github.com/mephistofox/fxtunnel/internal/server/reserved"
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
@@ -37,15 +38,6 @@ import (
 var (
 	// subdomainRegex validates subdomain format
 	subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
-
-	// reservedSubdomains are subdomains that cannot be claimed by tunnel clients
-	reservedSubdomains = map[string]bool{
-		"api": true, "www": true, "admin": true, "mail": true,
-		"smtp": true, "imap": true, "pop": true, "ftp": true,
-		"ns1": true, "ns2": true, "ns3": true, "ns4": true,
-		"autoconfig": true, "autodiscover": true, "_dmarc": true,
-		"status": true, "metrics": true, "grafana": true,
-	}
 )
 
 const (
@@ -1226,7 +1218,7 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 	}
 
 	// Block reserved subdomains
-	if reservedSubdomains[subdomain] {
+	if reserved.IsReserved(subdomain) {
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "subdomain is reserved")
 		return
 	}
