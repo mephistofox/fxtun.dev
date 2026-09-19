@@ -70,7 +70,7 @@ export default {
         '3xl': '1.5rem',
       },
       fontFamily: {
-        display: ['Unbounded', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Unbounded', 'Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
