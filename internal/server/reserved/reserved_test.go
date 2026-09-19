@@ -16,6 +16,14 @@ func TestIsReserved(t *testing.T) {
 		}
 	}
 
+	// Numbered infrastructure names are open-ended: ns5 must be refused even
+	// though nobody listed it.
+	for _, name := range []string{"ns5", "ns12", "mx2", "dns3", "www2", "smtp10"} {
+		if !IsReserved(name) {
+			t.Errorf("IsReserved(%q) = false, want true — numbered infra names must be covered", name)
+		}
+	}
+
 	// Hostnames are case-insensitive, so a check that is not would be
 	// sidestepped by capitalising a letter.
 	for _, name := range []string{"Admin", "WWW", "TuNnEl", "  admin  "} {

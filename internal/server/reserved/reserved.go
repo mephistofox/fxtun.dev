@@ -7,7 +7,10 @@
 // user sit on an infrastructure name and keep it from everyone else.
 package reserved
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // subdomains are refused for tunnels and for reservations alike.
 //
@@ -55,9 +58,16 @@ var subdomains = map[string]bool{
 	"fxtun": true, "fxtunnel": true,
 }
 
+// numberedInfraNames matches the families that are conventionally numbered:
+// name servers and mail exchangers. Listing ns1 through ns4 by hand leaves ns5
+// open, and the next person to add a name server would not think to update
+// this file.
+var numberedInfraNames = regexp.MustCompile(`^(ns|dns|mx|smtp|mail|pop|imap|www)[0-9]+$`)
+
 // IsReserved reports whether a subdomain is off limits. Comparison is
 // case-insensitive: hostnames are, and a check that is not would be trivially
 // sidestepped with Admin instead of admin.
 func IsReserved(subdomain string) bool {
-	return subdomains[strings.ToLower(strings.TrimSpace(subdomain))]
+	name := strings.ToLower(strings.TrimSpace(subdomain))
+	return subdomains[name] || numberedInfraNames.MatchString(name)
 }
