@@ -297,6 +297,7 @@ func runConfig(cmd *cobra.Command, args []string) error {
 
 	// Normalize server address (add default port if missing)
 	cfg.Server.Address = normalizeServerAddr(cfg.Server.Address)
+	config.ApplyDefaultFallback(&cfg.Server)
 
 	if len(cfg.Tunnels) == 0 {
 		_ = cmd.Help()
@@ -736,6 +737,7 @@ func buildConfig(tunnel config.TunnelConfig) *config.ClientConfig {
 			MaxEntries:  1000,
 		},
 	}
+	config.ApplyDefaultFallback(&cfg.Server)
 
 	if noInspect {
 		cfg.Inspect.Enabled = false
@@ -765,7 +767,7 @@ func getInstalledWebsite() string {
 // normalizeServerAddr adds default port if not specified
 func normalizeServerAddr(addr string) string {
 	if addr == "" {
-		return "tunnel.fxtun.dev:443"
+		return "tunnel.fxtun.ru:443"
 	}
 	// Check if port is already specified
 	if !strings.Contains(addr, ":") {
