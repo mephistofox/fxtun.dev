@@ -8,7 +8,8 @@ var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
 
-	ErrTokenNotFound = errors.New("token not found")
+	ErrTokenNotFound    = errors.New("token not found")
+	ErrMaxTokensReached = errors.New("maximum tokens reached")
 
 	ErrSessionNotFound = errors.New("session not found")
 

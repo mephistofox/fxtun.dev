@@ -313,6 +313,7 @@ type AdminTunnelsListResponse struct {
 // DeviceCodeResponse represents a device flow code response
 type DeviceCodeResponse struct {
 	SessionID string `json:"session_id"`
+	UserCode  string `json:"user_code"`
 	AuthURL   string `json:"auth_url"`
 	ExpiresIn int    `json:"expires_in"`
 }

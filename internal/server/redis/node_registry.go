@@ -38,6 +38,8 @@ func (r *NodeRegistry) RegisterNode(entry store.NodeEntry) error {
 	pipe.HSet(ctx, infoKey, fields)
 	pipe.Expire(ctx, infoKey, nodeTTL)
 	pipe.SAdd(ctx, activeSetKey, entry.NodeID)
+	// Without a TTL the active set outlives every node entry it points at.
+	pipe.Expire(ctx, activeSetKey, nodeTTL)
 
 	_, err := pipe.Exec(ctx)
 	return err
@@ -136,6 +138,7 @@ func (r *NodeRegistry) HeartbeatNode(nodeID string, tunnelCount, clientCount int
 	)
 	pipe.Expire(ctx, infoKey, nodeTTL)
 	pipe.SAdd(ctx, activeSetKey, nodeID) // ensure node stays in active set
+	pipe.Expire(ctx, activeSetKey, nodeTTL)
 
 	_, err := pipe.Exec(ctx)
 	return err

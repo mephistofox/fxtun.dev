@@ -98,12 +98,12 @@ func (q *Queries) FailStalePendingPayments(ctx context.Context, createdAt pgtype
 }
 
 const getNextInvoiceID = `-- name: GetNextInvoiceID :one
-SELECT COALESCE(MAX(invoice_id), 100000) + 1 AS next_id FROM payments
+SELECT nextval('payments_invoice_id_seq')::bigint AS next_id
 `
 
-func (q *Queries) GetNextInvoiceID(ctx context.Context) (int32, error) {
+func (q *Queries) GetNextInvoiceID(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, getNextInvoiceID)
-	var next_id int32
+	var next_id int64
 	err := row.Scan(&next_id)
 	return next_id, err
 }

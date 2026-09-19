@@ -151,10 +151,6 @@ func (a *apiClient) post(path string, body interface{}) ([]byte, int, error) {
 	return a.doRequest("POST", path, body)
 }
 
-func (a *apiClient) put(path string, body interface{}) ([]byte, int, error) {
-	return a.doRequest("PUT", path, body)
-}
-
 func (a *apiClient) delete(path string) ([]byte, int, error) {
 	return a.doRequest("DELETE", path, nil)
 }

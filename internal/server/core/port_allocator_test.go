@@ -111,3 +111,41 @@ func TestPortAllocator_ConcurrentAccess(t *testing.T) {
 	}
 	assert.Len(t, seen, 1000)
 }
+
+func TestPortAllocator_AllocateAndBindSkipsRefusedPorts(t *testing.T) {
+	a := newTestAllocator()
+
+	var tried []int
+	port, err := a.AllocateAndBind(0, func(p int) error {
+		tried = append(tried, p)
+		if p < 10002 {
+			return assert.AnError // OS refuses the port (taken by something else)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 10002, port)
+	assert.Equal(t, []int{10000, 10001, 10002}, tried)
+
+	// The ports walked past must be free again once the call returns.
+	p, err := a.Allocate(10000)
+	require.NoError(t, err)
+	assert.Equal(t, 10000, p)
+}
+
+func TestPortAllocator_AllocateAndBindKeepsRequestedPortStrict(t *testing.T) {
+	a := newTestAllocator()
+
+	calls := 0
+	_, err := a.AllocateAndBind(10003, func(int) error {
+		calls++
+		return assert.AnError
+	})
+	require.Error(t, err)
+	assert.Equal(t, 1, calls, "an explicitly requested port must not silently fall back to another")
+
+	// The failed port is released, not leaked.
+	p, err := a.Allocate(10003)
+	require.NoError(t, err)
+	assert.Equal(t, 10003, p)
+}

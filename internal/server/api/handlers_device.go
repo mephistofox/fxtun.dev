@@ -1,8 +1,10 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
@@ -21,10 +23,14 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 	if r.TLS == nil {
 		scheme = "http"
 	}
-	authURL := fmt.Sprintf("%s://%s/auth/cli?session=%s", scheme, r.Host, session.ID)
+	// The URL carries no secret: the user must type the code shown in their
+	// own terminal, which is what stops a stranger's session from being
+	// approved through a link.
+	authURL := fmt.Sprintf("%s://%s/auth/cli", scheme, r.Host)
 
 	s.respondJSON(w, http.StatusOK, dto.DeviceCodeResponse{
 		SessionID: session.ID,
+		UserCode:  session.UserCode,
 		AuthURL:   authURL,
 		ExpiresIn: 300,
 	})
@@ -69,33 +75,26 @@ func (s *Server) handleDeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.SessionID == "" {
-		s.respondError(w, http.StatusBadRequest, "session_id is required")
+	userCode := strings.ToUpper(strings.TrimSpace(req.UserCode))
+	if userCode == "" {
+		s.respondError(w, http.StatusBadRequest, "user_code is required")
 		return
 	}
 
-	session := s.deviceStore.Get(req.SessionID)
+	session := s.deviceStore.GetByUserCode(userCode)
 	if session == nil || session.Status != deviceStatusPending {
-		s.respondError(w, http.StatusBadRequest, "invalid or expired session")
+		s.respondError(w, http.StatusBadRequest, "invalid or expired code")
 		return
 	}
 
-	// Determine plan limits
+	// Determine plan limits. A missing plan means the default tier, never
+	// "unlimited" — otherwise a user with a null plan_id bypasses the cap.
 	maxTunnels := 10
-	maxTokens := 0 // 0 means unlimited
+	maxTokens := defaultMaxTokens
 
 	if user.Plan != nil {
 		maxTunnels = user.Plan.MaxTunnelsPerToken
 		maxTokens = user.Plan.MaxTokens
-	}
-
-	// Check token count against plan limit
-	if maxTokens > 0 {
-		tokenCount, _ := s.db.Tokens.Count(user.ID)
-		if tokenCount >= maxTokens {
-			s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached for your plan")
-			return
-		}
 	}
 
 	plainToken, err := auth.GenerateAPIToken()
@@ -113,7 +112,13 @@ func (s *Server) handleDeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		MaxTunnels:        maxTunnels,
 	}
 
-	if err := s.db.Tokens.Create(dbToken); err != nil {
+	// Same transactional limit check as the regular token endpoint: counting
+	// first and inserting after let parallel requests all pass a stale count.
+	if err := s.db.Tokens.CreateWithLimit(dbToken, maxTokens); err != nil {
+		if errors.Is(err, database.ErrMaxTokensReached) {
+			s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached for your plan")
+			return
+		}
 		s.respondError(w, http.StatusInternalServerError, "failed to create token")
 		return
 	}
@@ -127,7 +132,7 @@ func (s *Server) handleDeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		},
 		ipAddress)
 
-	s.deviceStore.Authorize(req.SessionID, plainToken)
+	s.deviceStore.Authorize(session.ID, plainToken)
 
 	s.respondJSON(w, http.StatusOK, map[string]string{"status": "authorized"})
 }

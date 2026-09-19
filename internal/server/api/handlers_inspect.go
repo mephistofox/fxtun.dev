@@ -43,6 +43,9 @@ func (s *Server) handleListExchanges(w http.ResponseWriter, r *http.Request) {
 	}
 
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 || limit > 100 {
 		limit = 50
@@ -136,9 +139,10 @@ func (s *Server) handleGetExchange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback to persisted data
+	// Fallback to persisted data (scoped to the owner: an exchange ID alone
+	// must never expose another tenant's traffic).
 	if s.inspectProvider != nil {
-		ex, err := s.inspectProvider.GetPersisted(exchangeID)
+		ex, err := s.inspectProvider.GetPersistedForUser(exchangeID, user.ID)
 		if err == nil && ex != nil {
 			s.respondJSON(w, http.StatusOK, ex)
 			return
@@ -293,7 +297,7 @@ func (s *Server) handleReplayExchange(w http.ResponseWriter, r *http.Request) {
 		ex = buf.Get(exchangeID)
 	}
 	if ex == nil && s.inspectProvider != nil {
-		ex, _ = s.inspectProvider.GetPersisted(exchangeID)
+		ex, _ = s.inspectProvider.GetPersistedForUser(exchangeID, user.ID)
 	}
 	if ex == nil {
 		s.respondError(w, http.StatusNotFound, "exchange not found")

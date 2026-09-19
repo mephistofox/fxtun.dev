@@ -531,6 +531,11 @@ func (c *ServerConfig) Validate() error {
 		if c.Node.HubURL == "" {
 			return fmt.Errorf("node.hub_url is required in node mode")
 		}
+		// The node fetches the hub's private TLS key over this URL and forwards
+		// client tokens to it for verification, so plaintext is not an option.
+		if !strings.HasPrefix(c.Node.HubURL, "https://") {
+			return fmt.Errorf("node.hub_url must use https: got %q", c.Node.HubURL)
+		}
 		if c.Node.HubToken == "" {
 			return fmt.Errorf("node.hub_token is required in node mode")
 		}

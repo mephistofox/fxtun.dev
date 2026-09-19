@@ -392,9 +392,14 @@ func (c *Client) Connect() error {
 		"server":     c.cfg.Server.Address,
 	})
 
-	// Start stream worker pool
+	// Start stream worker pool. The hand-off channel must stay UNBUFFERED: the
+	// server pre-opens streams into a pool and only writes the request header
+	// when it hands one to a real request, so handleStream blocks in
+	// ReadStreamHeader for the stream's whole idle life. A buffered channel
+	// parks accepted streams that no goroutine is reading, and any request the
+	// server later routes over one of them hangs until the visitor's timeout.
 	numWorkers := runtime.NumCPU() * 4
-	c.streamWorkers = make(chan net.Conn, numWorkers)
+	c.streamWorkers = make(chan net.Conn)
 	for i := 0; i < numWorkers; i++ {
 		c.wg.Add(1)
 		go c.streamWorker()
@@ -447,9 +452,12 @@ func (c *Client) authenticate() error {
 		Version:   c.version,
 	}
 
-	if err := c.controlCodec.Encode(authMsg); err != nil {
-		return fmt.Errorf("send auth: %w", err)
-	}
+	// A rejected token makes the server answer and then tear the session down
+	// immediately. That teardown can land on this in-flight write and surface as
+	// ErrSessionShutdown even though the frame reached the server, so try to read
+	// the answer regardless and only report the write error if none arrived —
+	// otherwise the user is told "session shutdown" instead of "invalid token".
+	sendErr := c.controlCodec.Encode(authMsg)
 
 	// Read response
 	_ = c.controlStream.SetReadDeadline(time.Now().Add(authResponseTimeout))
@@ -457,6 +465,9 @@ func (c *Client) authenticate() error {
 
 	data, baseMsg, err := c.controlCodec.DecodeRaw()
 	if err != nil {
+		if sendErr != nil {
+			return fmt.Errorf("send auth: %w", sendErr)
+		}
 		return fmt.Errorf("read auth result: %w", err)
 	}
 

@@ -323,7 +323,7 @@ onMounted(() => {
             <div class="dash-tunnel-url-row">
               <a
                 :href="getTunnelUrl(tunnel)"
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
                 class="dash-tunnel-url"
               >
                 {{ getTunnelUrl(tunnel) }}

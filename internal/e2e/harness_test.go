@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net"
 	"testing"
 	"time"
@@ -40,8 +41,8 @@ func NewHarness(t *testing.T) *E2EHarness {
 
 	controlPort := getFreePort(t)
 	httpPort := getFreePort(t)
-	tcpMin := getFreePort(t)
-	udpMin := getFreePort(t)
+	tcpMin := tunnelPortBase(t)
+	udpMin := tunnelPortBase(t)
 
 	log := zerolog.New(zerolog.NewTestWriter(t)).Level(zerolog.WarnLevel).
 		With().Str("test", t.Name()).Logger()
@@ -181,6 +182,28 @@ func getFreePort(t *testing.T) int {
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close()
 	return port
+}
+
+// tunnelPortBase returns the start of a port block for a tunnel port range,
+// picked from below the ephemeral range (ip_local_port_range starts at 32768 on
+// Linux). A block carved out of the ephemeral range collides with the test's own
+// outbound sockets: getFreePort advances the kernel's ephemeral cursor, so the
+// connections the client opens right after land inside the block, and a tunnel
+// asking for a port there fails to bind with "address already in use".
+func tunnelPortBase(t *testing.T) int {
+	t.Helper()
+
+	for i := 0; i < 20; i++ {
+		base := 20000 + rand.IntN(10000)
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", base))
+		if err != nil {
+			continue
+		}
+		l.Close()
+		return base
+	}
+	t.Fatal("tunnelPortBase: no free port block")
+	return 0
 }
 
 // waitForPort waits until a TCP port accepts connections or the timeout expires.

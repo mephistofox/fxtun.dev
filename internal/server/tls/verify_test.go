@@ -150,3 +150,32 @@ func containsSubstring(s, sub string) bool {
 	}
 	return false
 }
+
+func TestNormalizeDomain(t *testing.T) {
+	cases := map[string]string{
+		"EXAMPLE.com":   "example.com",
+		"example.com.":  "example.com",
+		" Example.COM ": "example.com",
+		"example.com":   "example.com",
+	}
+	for in, want := range cases {
+		if got := NormalizeDomain(in); got != want {
+			t.Errorf("NormalizeDomain(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestValidateCustomDomain_RejectsAliasesAndZones(t *testing.T) {
+	// base + aliases + DNS zone names are all ours: a tenant must not be able
+	// to claim foo.fxtun.dev as a "custom" domain just because the process was
+	// started with fxtun.ru as the base domain.
+	reserved := []string{"fxtun.ru", "fxtun.dev", "fxcode.ru"}
+	for _, d := range []string{"fxtun.dev", "foo.fxtun.dev", "a.b.fxcode.ru", "FOO.FXTUN.DEV"} {
+		if err := ValidateCustomDomain(d, reserved...); err == nil {
+			t.Errorf("ValidateCustomDomain(%q) = nil, want rejection", d)
+		}
+	}
+	if err := ValidateCustomDomain("app.example.com", reserved...); err != nil {
+		t.Errorf("ValidateCustomDomain on an unrelated domain returned %v", err)
+	}
+}

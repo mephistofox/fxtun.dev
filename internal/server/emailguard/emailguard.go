@@ -44,6 +44,9 @@ type resolver interface {
 	LookupHost(ctx context.Context, host string) ([]string, error)
 }
 
+// maxMXCacheEntries bounds the MX lookup cache.
+const maxMXCacheEntries = 10000
+
 type mxCacheEntry struct {
 	ok        bool
 	expiresAt time.Time
@@ -99,10 +102,25 @@ func Normalize(email string) (normalized, domain string, err error) {
 	if at <= 0 || at == len(email)-1 {
 		return "", "", ErrInvalidEmail
 	}
-	local := email[:at]
+	// The local part is lowercased here, before it is measured: rate-limit and
+	// cooldown keys are built from the normalized value, so leaving the case
+	// intact let Victim@x.com and victim@x.com count as different addresses and
+	// the per-recipient cooldown could be walked around by flipping letters.
+	// Lowercasing can also grow the string (U+0130 becomes two runes, an
+	// invalid byte becomes a 3-byte U+FFFD), so every length limit below has to
+	// be applied to the lowercased form or Normalize stops being idempotent.
+	local := strings.ToLower(email[:at])
 	domain = strings.ToLower(email[at+1:])
 	if len(local) > 64 || strings.ContainsAny(email, " \t\r\n") {
 		return "", "", ErrInvalidEmail
+	}
+	// No control characters in the local part. The normalized address is written
+	// straight into an outgoing mail header and used as a rate-limit key; a NUL
+	// or a bare \v is not a valid local part and has no business in either.
+	for i := 0; i < len(local); i++ {
+		if local[i] < 0x20 || local[i] == 0x7f {
+			return "", "", ErrInvalidEmail
+		}
 	}
 	// Domain must look like a hostname: at least one dot, no empty labels.
 	if !strings.Contains(domain, ".") || strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") || strings.Contains(domain, "..") {
@@ -113,7 +131,11 @@ func Normalize(email string) (normalized, domain string, err error) {
 			return "", "", ErrInvalidEmail
 		}
 	}
-	return local + "@" + domain, domain, nil
+	normalized = local + "@" + domain
+	if len(normalized) > 254 {
+		return "", "", ErrInvalidEmail
+	}
+	return normalized, domain, nil
 }
 
 // IsDisposable reports whether domain (or any parent domain) is on the
@@ -161,6 +183,12 @@ func (v *Validator) domainAcceptsMail(ctx context.Context, domain string) bool {
 	ok := v.lookup(ctx, domain)
 
 	v.mu.Lock()
+	// Domains come from user-supplied addresses, so the cache is
+	// attacker-controlled: drop it wholesale once it grows past the cap rather
+	// than letting it expand without limit.
+	if len(v.cache) >= maxMXCacheEntries {
+		v.cache = make(map[string]mxCacheEntry, maxMXCacheEntries/2)
+	}
 	v.cache[domain] = mxCacheEntry{ok: ok, expiresAt: now.Add(v.cacheTTL)}
 	v.mu.Unlock()
 

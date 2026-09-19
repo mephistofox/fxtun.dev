@@ -75,12 +75,14 @@ func TestLoadClientConfig_Defaults(t *testing.T) {
 	require.NoError(t, err)
 	// Default primary endpoint is the DPI-resilient TLS endpoint on :443, with
 	// the legacy plaintext :4443 as automatic fallback.
-	assert.Equal(t, "tunnel.fxtun.dev:443", cfg.Server.Address)
+	assert.Equal(t, "tunnel.fxtun.ru:443", cfg.Server.Address)
 	assert.False(t, cfg.Server.Insecure)
 	assert.True(t, cfg.Server.TLSVerify)
-	// fallback_address is opt-in (no default) to avoid leaking self-hosted
-	// tokens to the public server; SaaS configs set it explicitly.
-	assert.Empty(t, cfg.Server.FallbackAddress)
+	// With the stock SaaS address, the legacy plaintext endpoint is filled in
+	// automatically so the client still connects while tunnel.fxtun.ru:443 is
+	// unavailable.
+	assert.Equal(t, "fxtun.ru:4443", cfg.Server.FallbackAddress)
+	assert.True(t, cfg.Server.FallbackInsecure)
 	assert.True(t, cfg.Reconnect.Enabled)
 }
 
@@ -184,4 +186,39 @@ reconnect:
 	assert.Equal(t, "myapp", cfg.Tunnels[0].Subdomain)
 	assert.Equal(t, "tcp", cfg.Tunnels[1].Type)
 	assert.False(t, cfg.Reconnect.Enabled)
+}
+
+// A self-hosted config that overrides server.address must NOT inherit the
+// public fallback: a transient failure would replay the token to fxtun.ru.
+func TestLoadClientConfig_SelfHostedGetsNoPublicFallback(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "fxtunnel.yaml"),
+		[]byte("server:\n  address: \"tunnel.example.org:443\"\n"), 0o600))
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(orig) }()
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "tunnel.example.org:443", cfg.Server.Address)
+	assert.Empty(t, cfg.Server.FallbackAddress)
+}
+
+func TestApplyDefaultFallback(t *testing.T) {
+	// Stock SaaS address gets the plaintext fallback.
+	s := ClientServerSettings{Address: "tunnel.fxtun.ru:443"}
+	ApplyDefaultFallback(&s)
+	assert.Equal(t, "fxtun.ru:4443", s.FallbackAddress)
+	assert.True(t, s.FallbackInsecure)
+
+	// Self-hosted address gets nothing.
+	s = ClientServerSettings{Address: "tunnel.example.org:443"}
+	ApplyDefaultFallback(&s)
+	assert.Empty(t, s.FallbackAddress)
+
+	// An explicit fallback is never overwritten.
+	s = ClientServerSettings{Address: "tunnel.fxtun.ru:443", FallbackAddress: "backup.example.org:4443"}
+	ApplyDefaultFallback(&s)
+	assert.Equal(t, "backup.example.org:4443", s.FallbackAddress)
+	assert.False(t, s.FallbackInsecure)
 }

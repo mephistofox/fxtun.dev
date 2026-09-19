@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -63,6 +64,13 @@ func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
 		info.DownloadURL = fmt.Sprintf("%s://%s%s", scheme, host, dlPath)
 	}
 
+	// Only a strictly newer release may be installed: an ed25519 signature
+	// proves a binary is genuine but carries no version, so without this an
+	// old, still validly signed release could be served again as an "update".
+	if info.DownloadURL != "" && isNewerVersion(info.ClientVersion, currentVersion) {
+		approveUpdate(info.DownloadURL)
+	}
+
 	// Return info if version is incompatible (forced update needed)
 	if IsVersionIncompatible(info.MinVersion, currentVersion) {
 		return &info, nil
@@ -75,6 +83,28 @@ func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
 
 	return nil, nil // up to date
 }
+
+// approvedUpdate holds the download URL that the last CheckUpdate in this
+// process accepted as a strict upgrade. SelfUpdate installs only that URL,
+// which is what keeps a signed-but-older binary from being replayed at us.
+var approvedUpdate struct {
+	mu  sync.Mutex
+	url string
+}
+
+func approveUpdate(u string) {
+	approvedUpdate.mu.Lock()
+	defer approvedUpdate.mu.Unlock()
+	approvedUpdate.url = u
+}
+
+func updateApproved(u string) bool {
+	approvedUpdate.mu.Lock()
+	defer approvedUpdate.mu.Unlock()
+	return approvedUpdate.url != "" && approvedUpdate.url == u
+}
+
+func clearApprovedUpdate() { approveUpdate("") }
 
 // ValidateUpdateURL checks that the download URL uses HTTPS and comes from a trusted host.
 // extraHosts allows additional trusted hosts (e.g., the fxTunnel server the client connected to).
@@ -100,6 +130,9 @@ func ValidateUpdateURL(downloadURL string, extraHosts ...string) error {
 func SelfUpdate(downloadURL string, extraHosts ...string) error {
 	if err := ValidateUpdateURL(downloadURL, extraHosts...); err != nil {
 		return err
+	}
+	if !updateApproved(downloadURL) {
+		return fmt.Errorf("refusing update: %s was not offered as a newer version", downloadURL)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Minute}

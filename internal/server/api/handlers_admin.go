@@ -283,6 +283,12 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.IsActive = *req.IsActive
 	}
 	if req.PlanID != nil {
+		// An unknown plan id leaves the user with a nil plan, which bypasses
+		// every per-plan limit.
+		if _, err := s.db.Plans.GetByID(*req.PlanID); err != nil {
+			s.respondError(w, http.StatusBadRequest, "invalid plan_id")
+			return
+		}
 		user.PlanID = *req.PlanID
 	}
 
@@ -1219,22 +1225,9 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 	// Check if user came through normal auth middleware
 	user := auth.GetUserFromContext(r.Context())
 
-	// Fallback: support ?token= query param for EventSource which can't send headers.
-	// Only JWT access tokens are accepted — API tokens (sk_) must NOT be used for web auth.
-	if user == nil {
-		tokenStr := r.URL.Query().Get("token")
-		if tokenStr != "" {
-			claims, err := s.authService.ValidateAccessToken(tokenStr)
-			if err == nil && claims != nil && claims.IsAdmin {
-				user = &auth.AuthenticatedUser{
-					ID:      claims.UserID,
-					Phone:   claims.Phone,
-					IsAdmin: claims.IsAdmin,
-				}
-			}
-		}
-	}
-
+	// No query-parameter fallback: a token there ends up in nginx's access log
+	// verbatim. The admin UI streams this over fetch with an Authorization
+	// header instead of EventSource, which cannot send one.
 	if user == nil || !user.IsAdmin {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
@@ -1579,7 +1572,7 @@ func (s *Server) handleCreateInviteCode(w http.ResponseWriter, r *http.Request) 
 
 	inviteCode, err := s.db.InviteCodes.Create(code, currentUser.ID)
 	if err != nil {
-		s.log.Error().Err(err).Str("code_prefix", code[:4]+"...").Msg("Failed to create invite code")
+		s.log.Error().Err(err).Str("code_prefix", codePrefix(code)).Msg("Failed to create invite code")
 		s.respondError(w, http.StatusInternalServerError, "failed to create invite code")
 		return
 	}
@@ -1621,4 +1614,12 @@ func generateInviteCodeString() string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// codePrefix returns a short, log-safe prefix of an invite code.
+func codePrefix(code string) string {
+	if len(code) <= 4 {
+		return "..."
+	}
+	return code[:4] + "..."
 }

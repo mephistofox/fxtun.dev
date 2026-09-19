@@ -36,9 +36,11 @@ func TestVerifyBinarySignature(t *testing.T) {
 		}
 	})
 
-	t.Run("empty public key disables verification", func(t *testing.T) {
-		if err := verifyBinarySignature(binary, sigHex, ""); err != nil {
-			t.Fatalf("empty key should skip verification, got %v", err)
+	// Whether to verify at all is decided by updateSignatureConfigured; the
+	// verifier itself must never accept a binary it cannot check.
+	t.Run("empty public key fails closed", func(t *testing.T) {
+		if err := verifyBinarySignature(binary, sigHex, ""); err == nil {
+			t.Fatal("expected failure when no public key is configured")
 		}
 	})
 

@@ -173,7 +173,7 @@ func TestNoDataNotNxDomain(t *testing.T) {
 			wantSOA:   true,
 		},
 		{
-			name:       "ANY on wildcard-covered name resolves via wildcard A",
+			name:       "ANY is answered with the RFC 8482 synthesized HINFO",
 			zones:      []Zone{zoneWithWildcard()},
 			qname:      "tunnel.fxtun.dev",
 			qtype:      dns.TypeANY,
@@ -238,5 +238,74 @@ func TestTunnelShadowsWildcard(t *testing.T) {
 	}
 	if a.A.String() != tunnelIP {
 		t.Errorf("answer = %s, want tunnel IP %s (wildcard leaked?)", a.A, tunnelIP)
+	}
+}
+
+// An ANY query must not be expanded into every record set of the name: that is
+// the amplification lever (RFC 8482).
+func TestAnyIsMinimized(t *testing.T) {
+	s := newTestServer(nil, zoneWithWildcard())
+	m := query(s, "fxtun.dev", dns.TypeANY)
+	if len(m.Answer) != 1 {
+		t.Fatalf("ANY returned %d answer records, want exactly 1 HINFO", len(m.Answer))
+	}
+	hinfo, ok := m.Answer[0].(*dns.HINFO)
+	if !ok {
+		t.Fatalf("ANY answer is %T, want *dns.HINFO", m.Answer[0])
+	}
+	if hinfo.Cpu != "RFC8482" {
+		t.Errorf("HINFO CPU = %q, want RFC8482", hinfo.Cpu)
+	}
+}
+
+// Replies must fit the client's advertised buffer (512 bytes without EDNS0),
+// and the request's OPT must be echoed so the client sees a valid EDNS0 reply.
+func TestReplyIsTruncatedAndEchoesOPT(t *testing.T) {
+	zone := Zone{Name: "fxtun.dev", TTL: 300}
+	for i := 0; i < 40; i++ {
+		zone.Records = append(zone.Records, Record{
+			Name:  "@",
+			Type:  "TXT",
+			Value: strings.Repeat("x", 200),
+		})
+	}
+	s := newTestServer(nil, zone)
+
+	plain := query(s, "fxtun.dev", dns.TypeTXT)
+	if !plain.Truncated {
+		t.Error("oversized reply without EDNS0 was not truncated")
+	}
+	if n := plain.Len(); n > 512 {
+		t.Errorf("reply without EDNS0 is %d bytes, want <= 512", n)
+	}
+	if plain.IsEdns0() != nil {
+		t.Error("reply carries an OPT although the query had none")
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion(dns.Fqdn("fxtun.dev"), dns.TypeTXT)
+	r.SetEdns0(4096, false)
+	w := &captureWriter{}
+	s.handle(w, r)
+	if w.msg.IsEdns0() == nil {
+		t.Error("reply to an EDNS0 query carries no OPT")
+	}
+	if n := w.msg.Len(); n > 4096 {
+		t.Errorf("reply is %d bytes, want <= the advertised 4096", n)
+	}
+}
+
+// A single source must not be able to pull answers out of the server without
+// limit — the bucket has to run dry.
+func TestPerSourceRateLimit(t *testing.T) {
+	s := newTestServer(nil, zoneWithWildcard())
+	dropped := 0
+	for i := 0; i < int(rateBurst)+50; i++ {
+		if query(s, "fxtun.dev", dns.TypeA) == nil {
+			dropped++
+		}
+	}
+	if dropped == 0 {
+		t.Fatal("no queries were dropped, the per-source rate limit is not enforced")
 	}
 }

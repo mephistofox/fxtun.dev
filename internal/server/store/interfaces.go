@@ -37,7 +37,12 @@ type SessionStore interface {
 
 // DeviceSession represents a device login flow session.
 type DeviceSession struct {
-	ID        string
+	ID string
+	// UserCode is the short code the CLI prints and the user types on the web
+	// page. It is deliberately separate from ID: ID is the polling secret held
+	// by the CLI, so if the same value also drove the approval page, anyone
+	// could create a session and get a victim to approve it with one click.
+	UserCode  string
 	Status    string // "pending", "authorized", "expired"
 	Token     string
 	CreatedAt time.Time
@@ -47,6 +52,8 @@ type DeviceSession struct {
 type DeviceStore interface {
 	Create() (*DeviceSession, error)
 	Get(id string) *DeviceSession
+	// GetByUserCode looks a pending session up by the code the user typed.
+	GetByUserCode(userCode string) *DeviceSession
 	Authorize(id, token string) bool
 	Delete(id string)
 }

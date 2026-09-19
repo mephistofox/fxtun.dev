@@ -2,7 +2,6 @@ package gui
 
 import (
 	"bufio"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -201,13 +200,9 @@ func (s *InspectService) Subscribe(tunnelID string) error {
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+s.app.authToken)
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		},
-	}
-
-	resp, err := client.Do(req)
+	// No timeout and no custom transport: the stream is long-lived and must
+	// verify the server certificate, since the request carries the user's JWT.
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

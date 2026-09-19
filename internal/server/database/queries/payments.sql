@@ -45,7 +45,7 @@ FROM payments ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 SELECT COUNT(*) FROM payments;
 
 -- name: GetNextInvoiceID :one
-SELECT COALESCE(MAX(invoice_id), 100000) + 1 AS next_id FROM payments;
+SELECT nextval('payments_invoice_id_seq')::bigint AS next_id;
 
 -- name: ExpireStalePendingSubscriptions :exec
 UPDATE subscriptions SET status = 'expired', updated_at = NOW()

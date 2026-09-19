@@ -105,6 +105,8 @@ func (t *TunnelRegistry) Register(entry store.TunnelEntry) error {
 	pipe.HSet(ctx, infoKey, fields)
 	pipe.Expire(ctx, infoKey, tunnelTTL)
 	pipe.SAdd(ctx, userSetKey, entry.TunnelID)
+	// Without a TTL the per-user set survives an ungraceful client death forever.
+	pipe.Expire(ctx, userSetKey, tunnelTTL)
 
 	_, err := pipe.Exec(ctx)
 	return err
@@ -224,14 +226,24 @@ func (t *TunnelRegistry) Heartbeat(tunnelID string) error {
 	rdb := t.c.RDB()
 	infoKey := t.c.Key("tunnel", "info", tunnelID)
 
-	// Read subdomain to also refresh its key
-	subdomain, err := rdb.HGet(ctx, infoKey, "subdomain").Result()
+	// Read subdomain and user_id to also refresh their keys
+	vals, err := rdb.HMGet(ctx, infoKey, "subdomain", "user_id").Result()
 	if err != nil && err != goredis.Nil {
 		return err
 	}
+	subdomain, _ := vals[0].(string)
+	userID, _ := vals[1].(string)
 
 	if err := rdb.Expire(ctx, infoKey, tunnelTTL).Err(); err != nil {
 		return err
+	}
+
+	// The per-user set carries the same TTL as the entries it points at, so it
+	// has to be refreshed alongside them.
+	if userID != "" {
+		if err := rdb.Expire(ctx, t.c.Key("tunnel", "user", userID), tunnelTTL).Err(); err != nil {
+			return err
+		}
 	}
 
 	// Refresh the subdomain key only while it still belongs to this tunnel.

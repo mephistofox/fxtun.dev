@@ -39,7 +39,7 @@ func TestNormalize(t *testing.T) {
 		wantNorm string
 		wantErr  bool
 	}{
-		{"  User@Example.COM ", "User@example.com", false},
+		{"  User@Example.COM ", "user@example.com", false},
 		{"a@b.co", "a@b.co", false},
 		{"no-at-sign", "", true},
 		{"@example.com", "", true},
@@ -142,4 +142,21 @@ func (c *countingResolver) LookupMX(ctx context.Context, name string) ([]*net.MX
 
 func (c *countingResolver) LookupHost(ctx context.Context, host string) ([]string, error) {
 	return c.inner.LookupHost(ctx, host)
+}
+
+// Cooldown and rate-limit keys are derived from the normalised address, so
+// case differences must not produce distinct identities — otherwise the
+// per-recipient send cooldown is bypassed by varying the capitalisation.
+func TestNormalizeLowercasesLocalPart(t *testing.T) {
+	a, _, err := Normalize("Victim@Example.com")
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	b, _, err := Normalize("victim@example.com")
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if a != b {
+		t.Errorf("Normalize produced %q and %q for the same mailbox", a, b)
+	}
 }

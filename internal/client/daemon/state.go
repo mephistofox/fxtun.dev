@@ -33,7 +33,8 @@ func DefaultStatePath() string {
 }
 
 func SaveState(path string, s *State) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 0700: the directory holds the daemon API token and the credentials file.
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(s)

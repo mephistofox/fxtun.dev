@@ -69,6 +69,10 @@ func (n *AdminNotifier) NotifyNewSubscription(userID int64, displayName, planNam
 // can see patterns and pick additional defenses. banTTL > 0 means the IP was
 // auto-banned for the given duration.
 func (n *AdminNotifier) NotifyRegistrationTarpit(phone, password, displayName, ip, userAgent string, banTTL time.Duration) {
+	// The tarpit also catches real users on stale clients, so their password
+	// must never reach a third-party chat. Its length is enough to tell a bot
+	// probe from a genuine login attempt.
+	passwordInfo := fmt.Sprintf("%d chars", len(password))
 	banLine := ""
 	if banTTL > 0 {
 		banLine = fmt.Sprintf("\n🚫 Auto-ban IP: %s", formatDuration(banTTL))
@@ -76,7 +80,7 @@ func (n *AdminNotifier) NotifyRegistrationTarpit(phone, password, displayName, i
 	msg := fmt.Sprintf(
 		"🕷 <b>Tarpit: попытка регистрации</b>\nPhone: <code>%s</code>\nPassword: <code>%s</code>\nName: <code>%s</code>\nIP: <code>%s</code>\nUser-Agent: <code>%s</code>\nВремя: %s%s",
 		escapeHTML(phone),
-		escapeHTML(password),
+		passwordInfo,
 		escapeHTML(displayName),
 		escapeHTML(ip),
 		escapeHTML(userAgent),

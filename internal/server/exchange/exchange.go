@@ -15,7 +15,19 @@ const (
 	cbrAPIURL       = "https://www.cbr-xml-daily.ru/daily_json.js"
 	refreshInterval = 6 * time.Hour
 	requestTimeout  = 10 * time.Second
+
+	// Sanity corridor for the USD/RUB rate. The source is an unofficial CBR
+	// mirror, so a wrong or tampered value must not reach pricing: a rate of
+	// 1.0 would sell a $20 plan for 20 roubles.
+	minUSDRate = 30.0
+	maxUSDRate = 500.0
 )
+
+// plausibleUSDRate reports whether a fetched USD/RUB rate is inside the sanity
+// corridor.
+func plausibleUSDRate(v float64) bool {
+	return v >= minUSDRate && v <= maxUSDRate
+}
 
 var (
 	mu           sync.RWMutex
@@ -118,8 +130,8 @@ func fetchCBRRate() (float64, error) {
 		return 0, fmt.Errorf("parse CBR response: %w", err)
 	}
 
-	if data.Valute.USD.Value <= 0 {
-		return 0, fmt.Errorf("invalid USD rate from CBR: %f", data.Valute.USD.Value)
+	if !plausibleUSDRate(data.Valute.USD.Value) {
+		return 0, fmt.Errorf("implausible USD rate from CBR: %f", data.Valute.USD.Value)
 	}
 
 	return data.Valute.USD.Value, nil

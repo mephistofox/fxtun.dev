@@ -5,6 +5,8 @@ BINARY_NAME="fxtunnel"
 INSTALL_DIR="$HOME/.local/bin"
 BASE_URL="${FXTUNNEL_BASE_URL:-{{.BaseURL}}}"
 WEBSITE_URL="${FXTUNNEL_WEBSITE_URL:-{{.WebsiteURL}}}"
+# Public half of the release signing key. Overridable for self-hosted builds.
+UPDATE_PUBKEY="${FXTUNNEL_UPDATE_PUBKEY:-3ff8d3d89e9b44b4353e9d793194ad2c5a51cb614c57d50ed276efb7ca0f4b51}"
 
 main() {
     detect_os
@@ -31,7 +33,9 @@ main() {
     DOWNLOAD_URL="${BASE_URL}/cli-${OS}-${ARCH}"
     TARGET="${TMP_DIR}/${BINARY_NAME}"
 
-    download "$DOWNLOAD_URL" "$TARGET"
+    download_or_die "$DOWNLOAD_URL" "$TARGET"
+
+    verify_signature "$TARGET" "${DOWNLOAD_URL}.sig"
 
     chmod +x "$TARGET"
 
@@ -90,6 +94,57 @@ check_dependencies() {
     fi
 }
 
+# hex_to_bin decodes hex on stdin to raw bytes on stdout.
+hex_to_bin() {
+    if command -v xxd >/dev/null 2>&1; then
+        xxd -r -p
+    elif command -v perl >/dev/null 2>&1; then
+        perl -ne 's/\s//g; print pack("H*", $_)'
+    else
+        return 1
+    fi
+}
+
+# verify_signature checks the detached ed25519 signature published next to the
+# binary.
+#
+# A signature that is present and wrong always aborts the install. A missing
+# signature only warns, because binaries published before release signing was
+# introduced have none — turning that into a hard failure would break every
+# install today. Once a signed release is out, make the missing case fatal too.
+verify_signature() {
+    file="$1"
+    sig_url="$2"
+
+    if [ -z "$UPDATE_PUBKEY" ] || ! command -v openssl >/dev/null 2>&1; then
+        echo "Warning: cannot verify the download (no key or no openssl)" >&2
+        return 0
+    fi
+
+    if ! download "$sig_url" "${file}.sighex" >/dev/null 2>&1; then
+        echo "Warning: this build is unsigned, installing without verification" >&2
+        return 0
+    fi
+
+    echo "Verifying signature..."
+    if ! hex_to_bin < "${file}.sighex" > "${file}.sig"; then
+        echo "Warning: xxd or perl is required to verify the download" >&2
+        return 0
+    fi
+    printf '302a300506032b6570032100%s' "$UPDATE_PUBKEY" | hex_to_bin > "${TMP_DIR}/pub.der"
+    if ! openssl pkey -pubin -inform DER -in "${TMP_DIR}/pub.der" -out "${TMP_DIR}/pub.pem" 2>/dev/null; then
+        echo "Error: invalid update public key" >&2
+        exit 1
+    fi
+    if ! openssl pkeyutl -verify -pubin -inkey "${TMP_DIR}/pub.pem" -rawin \
+        -sigfile "${file}.sig" -in "$file" >/dev/null 2>&1; then
+        echo "Error: signature verification failed, refusing to install" >&2
+        echo "Report this at ${WEBSITE_URL}" >&2
+        exit 1
+    fi
+    echo "Signature OK"
+}
+
 download() {
     url="$1"
     output="$2"
@@ -101,6 +156,13 @@ download() {
     fi
 
     if [ ! -f "$output" ] || [ ! -s "$output" ]; then
+        return 1
+    fi
+}
+
+# download_or_die is the plain "must succeed" variant used for the binary.
+download_or_die() {
+    if ! download "$1" "$2"; then
         echo "Error: download failed" >&2
         exit 1
     fi

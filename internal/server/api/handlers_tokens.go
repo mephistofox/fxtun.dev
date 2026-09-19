@@ -12,6 +12,9 @@ import (
 )
 
 // handleListTokens returns the user's API tokens
+// defaultMaxTokens is the cap applied when a user has no plan attached.
+const defaultMaxTokens = 10
+
 func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
@@ -56,15 +59,10 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check token count against plan limit
-	maxTokens := 10
-	if user.Plan != nil && user.Plan.MaxTokens >= 0 {
+	// A missing plan means the default limit, never unlimited.
+	maxTokens := defaultMaxTokens
+	if user.Plan != nil {
 		maxTokens = user.Plan.MaxTokens
-	}
-	tokenCount, _ := s.db.Tokens.Count(user.ID)
-	if user.Plan != nil && user.Plan.MaxTokens >= 0 && tokenCount >= maxTokens {
-		s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached")
-		return
 	}
 
 	// Set defaults
@@ -102,7 +100,13 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		MaxTunnels:        req.MaxTunnels,
 	}
 
-	if err := s.db.Tokens.Create(token); err != nil {
+	// The limit is enforced inside the transaction, so concurrent requests
+	// cannot all pass a stale count.
+	if err := s.db.Tokens.CreateWithLimit(token, maxTokens); err != nil {
+		if errors.Is(err, database.ErrMaxTokensReached) {
+			s.respondErrorWithCode(w, http.StatusForbidden, "MAX_TOKENS", "token limit reached")
+			return
+		}
 		s.log.Error().Err(err).Msg("Failed to create token")
 		s.respondError(w, http.StatusInternalServerError, "failed to create token")
 		return

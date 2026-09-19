@@ -68,3 +68,24 @@ func TestGetClientIP_AddrWithoutPort(t *testing.T) {
 		t.Errorf("GetClientIP() = %q, want %q", got, want)
 	}
 }
+
+// trustedRealIPMiddleware puts a bare IP (no port) into RemoteAddr, so
+// stripPort must leave IPv6 addresses untouched. Cutting at the last colon
+// turned 2001:db8::1 into "2001:db8:", which every address in that prefix
+// shares — one abusive host then dragged its whole neighbourhood into the
+// same rate-limit bucket and the same 72h tarpit ban.
+func TestStripPortKeepsIPv6Intact(t *testing.T) {
+	cases := map[string]string{
+		"2001:db8::1":       "2001:db8::1",
+		"::1":               "::1",
+		"[2001:db8::1]:443": "2001:db8::1",
+		"[::1]:8080":        "::1",
+		"192.0.2.1":         "192.0.2.1",
+		"192.0.2.1:443":     "192.0.2.1",
+	}
+	for in, want := range cases {
+		if got := stripPort(in); got != want {
+			t.Errorf("stripPort(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

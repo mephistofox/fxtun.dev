@@ -100,3 +100,39 @@ func TestTunnelRegistry_UnregisterDoesNotDropAnotherTunnelsClaim(t *testing.T) {
 		t.Fatalf("expected C to still own 'app', got %+v", got)
 	}
 }
+
+// The per-user tunnel set must expire like the entries it points at, otherwise
+// a kill -9'd client leaks its tunnel IDs into Redis forever.
+func TestTunnelRegistry_UserSetExpires(t *testing.T) {
+	reg, c := testRegistry(t)
+	ctx := context.Background()
+
+	if err := reg.Register(entryFor(7, "tunTTL", "ttlapp")); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	userSetKey := c.Key("tunnel", "user", "7")
+	ttl, err := c.RDB().TTL(ctx, userSetKey).Result()
+	if err != nil {
+		t.Fatalf("ttl: %v", err)
+	}
+	if ttl <= 0 {
+		t.Fatalf("user set has no TTL after Register: %v", ttl)
+	}
+
+	// A heartbeat must push the set's TTL back out, or live tunnels would drop
+	// out of the per-user listing after one window.
+	if err := c.RDB().Expire(ctx, userSetKey, 5*time.Second).Err(); err != nil {
+		t.Fatalf("shrink ttl: %v", err)
+	}
+	if err := reg.Heartbeat("tunTTL"); err != nil {
+		t.Fatalf("heartbeat: %v", err)
+	}
+	ttl, err = c.RDB().TTL(ctx, userSetKey).Result()
+	if err != nil {
+		t.Fatalf("ttl after heartbeat: %v", err)
+	}
+	if ttl <= 5*time.Second {
+		t.Fatalf("heartbeat did not refresh the user set TTL: %v", ttl)
+	}
+}

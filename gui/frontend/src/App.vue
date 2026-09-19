@@ -66,7 +66,7 @@ function handleBlockedLogout() {
           <p class="text-muted-foreground">{{ t('auth.accountBlockedHint') }}</p>
           <Button @click="handleBlockedLogout">{{ t('auth.backToLogin') }}</Button>
           <div>
-            <a href="https://t.me/mephistofx" target="_blank" class="text-sm text-primary hover:underline">
+            <a href="https://t.me/mephistofx" target="_blank" rel="noopener noreferrer" class="text-sm text-primary hover:underline">
               {{ t('auth.contactSupport') }}
             </a>
           </div>

@@ -95,7 +95,7 @@ func (s *mockStore) ListByHostAndUser(host string, userID int64, offset, limit i
 	return nil, 0, nil
 }
 
-func (s *mockStore) GetByID(id string) (*CapturedExchange, error) {
+func (s *mockStore) GetByIDForUser(id string, userID int64) (*CapturedExchange, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, ex := range s.saved {
@@ -188,7 +188,7 @@ func TestManager_ListPersisted(t *testing.T) {
 	assert.Nil(t, result2)
 }
 
-func TestManager_GetPersisted(t *testing.T) {
+func TestManager_GetPersistedForUser(t *testing.T) {
 	m := NewManager(64, 4096)
 	store := &mockStore{
 		saved: []*CapturedExchange{
@@ -197,12 +197,12 @@ func TestManager_GetPersisted(t *testing.T) {
 	}
 	m.SetStore(store)
 
-	ex, err := m.GetPersisted("ex-1")
+	ex, err := m.GetPersistedForUser("ex-1", 1)
 	require.NoError(t, err)
 	require.NotNil(t, ex)
 	assert.Equal(t, "ex-1", ex.ID)
 
-	ex2, err := m.GetPersisted("nonexistent")
+	ex2, err := m.GetPersistedForUser("nonexistent", 1)
 	require.NoError(t, err)
 	assert.Nil(t, ex2)
 }

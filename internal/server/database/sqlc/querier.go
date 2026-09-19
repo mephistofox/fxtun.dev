@@ -87,7 +87,7 @@ type Querier interface {
 	GetHistoryEntryByID(ctx context.Context, arg GetHistoryEntryByIDParams) (UserHistory, error)
 	GetHistoryStats(ctx context.Context, userID int64) (GetHistoryStatsRow, error)
 	GetLatestAuditLogByUserAndAction(ctx context.Context, arg GetLatestAuditLogByUserAndActionParams) (AuditLog, error)
-	GetNextInvoiceID(ctx context.Context) (int32, error)
+	GetNextInvoiceID(ctx context.Context) (int64, error)
 	GetPaymentByID(ctx context.Context, id int64) (Payment, error)
 	GetPaymentByInvoiceID(ctx context.Context, invoiceID int64) (Payment, error)
 	GetPendingPaymentsBySubscriptionID(ctx context.Context, subscriptionID pgtype.Int8) ([]Payment, error)

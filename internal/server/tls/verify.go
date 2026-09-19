@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"unicode"
 )
 
 // VerifyCNAME checks that domain has a CNAME pointing to expectedTarget.
@@ -99,25 +100,83 @@ func VerifyTXT(domain, token string) error {
 	return fmt.Errorf("ownership TXT record not found at %s (expected token value)", name)
 }
 
+// NormalizeDomain returns the canonical form of a DNS name: trimmed,
+// lowercased, without the trailing root dot. Custom domains MUST be stored in
+// this form — the runtime routing map lowercases on lookup and removal, so a
+// row stored as "EXAMPLE.com" would evict the entry belonging to the owner of
+// "example.com".
+// It must be idempotent: the API normalizes the submitted domain and
+// ValidateCustomDomain normalizes it again, and a value that changes between
+// the two passes is validated in one form and stored in another. Trimming the
+// trailing dots and spaces together in a single pass is what guarantees that —
+// "a.com. ." and ".." both settle on the first try.
+func NormalizeDomain(domain string) string {
+	trimmed := strings.TrimRightFunc(strings.ToLower(domain), func(r rune) bool {
+		return r == '.' || unicode.IsSpace(r)
+	})
+	return strings.TrimLeftFunc(trimmed, unicode.IsSpace)
+}
+
+// validHostname reports whether name (already normalized) is a syntactically
+// valid multi-label DNS hostname. Everything that passes ValidateCustomDomain
+// is stored, keyed in the runtime SNI routing map and later handed to ACME, so
+// "has a dot in it" is not a sufficient gate: spaces, newlines, wildcards and
+// non-ASCII all have to be rejected here.
+func validHostname(name string) bool {
+	if len(name) == 0 || len(name) > 253 {
+		return false
+	}
+	labels := strings.Split(name, ".")
+	if len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 {
+			return false
+		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for i := 0; i < len(label); i++ {
+			c := label[i]
+			if c != '-' && !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // ValidateCustomDomain validates domain format for custom domain usage.
-func ValidateCustomDomain(domain, baseDomain string) error {
+// reservedDomains lists names owned by this installation (base domain, its
+// aliases and every authoritative DNS zone); the domain may be neither equal
+// to nor a subdomain of any of them.
+func ValidateCustomDomain(domain string, reservedDomains ...string) error {
 	if domain == "" {
 		return fmt.Errorf("domain is required")
 	}
 
-	if !strings.Contains(domain, ".") {
+	name := NormalizeDomain(domain)
+
+	if !validHostname(name) {
 		return fmt.Errorf("invalid domain format")
 	}
 
-	if net.ParseIP(domain) != nil {
+	if net.ParseIP(name) != nil {
 		return fmt.Errorf("IP addresses are not allowed")
 	}
 
-	if strings.EqualFold(domain, baseDomain) || strings.HasSuffix(strings.ToLower(domain), "."+strings.ToLower(baseDomain)) {
-		return fmt.Errorf("cannot use base domain or its subdomains")
+	for _, reserved := range reservedDomains {
+		reserved = NormalizeDomain(reserved)
+		if reserved == "" {
+			continue
+		}
+		if name == reserved || strings.HasSuffix(name, "."+reserved) {
+			return fmt.Errorf("cannot use base domain or its subdomains")
+		}
 	}
 
-	if strings.EqualFold(domain, "localhost") || strings.HasSuffix(strings.ToLower(domain), ".localhost") {
+	if name == "localhost" || strings.HasSuffix(name, ".localhost") {
 		return fmt.Errorf("localhost is not allowed")
 	}
 

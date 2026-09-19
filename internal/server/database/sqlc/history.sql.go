@@ -117,15 +117,15 @@ func (q *Queries) GetHistoryEntryByID(ctx context.Context, arg GetHistoryEntryBy
 const getHistoryStats = `-- name: GetHistoryStats :one
 SELECT
     COUNT(*) AS total_connections,
-    COALESCE(SUM(bytes_sent), 0) AS total_bytes_sent,
-    COALESCE(SUM(bytes_received), 0) AS total_bytes_received
+    COALESCE(SUM(bytes_sent), 0)::bigint AS total_bytes_sent,
+    COALESCE(SUM(bytes_received), 0)::bigint AS total_bytes_received
 FROM user_history WHERE user_id = $1
 `
 
 type GetHistoryStatsRow struct {
-	TotalConnections   int64       `json:"total_connections"`
-	TotalBytesSent     interface{} `json:"total_bytes_sent"`
-	TotalBytesReceived interface{} `json:"total_bytes_received"`
+	TotalConnections   int64 `json:"total_connections"`
+	TotalBytesSent     int64 `json:"total_bytes_sent"`
+	TotalBytesReceived int64 `json:"total_bytes_received"`
 }
 
 func (q *Queries) GetHistoryStats(ctx context.Context, userID int64) (GetHistoryStatsRow, error) {

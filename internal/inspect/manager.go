@@ -10,7 +10,7 @@ type Store interface {
 	Save(ex *CapturedExchange, userID int64) error
 	ListByTunnelID(tunnelID string, offset, limit int) ([]*CapturedExchange, int, error)
 	ListByHostAndUser(host string, userID int64, offset, limit int) ([]*CapturedExchange, int, error)
-	GetByID(id string) (*CapturedExchange, error)
+	GetByIDForUser(id string, userID int64) (*CapturedExchange, error)
 	DeleteByTunnelID(tunnelID string) (int64, error)
 }
 
@@ -151,12 +151,13 @@ func (m *Manager) ListPersistedByHostAndUser(host string, userID int64, offset, 
 	return m.store.ListByHostAndUser(host, userID, offset, limit)
 }
 
-// GetPersisted delegates to the store for DB-backed retrieval.
-func (m *Manager) GetPersisted(id string) (*CapturedExchange, error) {
+// GetPersistedForUser delegates to the store for DB-backed retrieval, scoped to
+// the owning user so an exchange ID alone never exposes another tenant's traffic.
+func (m *Manager) GetPersistedForUser(id string, userID int64) (*CapturedExchange, error) {
 	if m.store == nil {
 		return nil, nil
 	}
-	return m.store.GetByID(id)
+	return m.store.GetByIDForUser(id, userID)
 }
 
 // Remove closes and removes the buffer for the given tunnel ID.

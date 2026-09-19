@@ -16,6 +16,11 @@ type RingBuffer struct {
 
 // NewRingBuffer creates a new ring buffer with the given capacity.
 func NewRingBuffer(capacity int) *RingBuffer {
+	// A zero or negative capacity would make Add panic (index out of range,
+	// then a modulo by zero). Every caller routes through here, so clamp once.
+	if capacity < 1 {
+		capacity = 1
+	}
 	return &RingBuffer{
 		entries:     make([]*CapturedExchange, capacity),
 		capacity:    capacity,
@@ -51,12 +56,15 @@ func (rb *RingBuffer) List(offset, limit int) []*CapturedExchange {
 	rb.mu.RLock()
 	defer rb.mu.RUnlock()
 
+	if offset < 0 {
+		offset = 0
+	}
 	if offset >= rb.count {
 		return nil
 	}
 
 	available := rb.count - offset
-	if limit > available {
+	if limit > available || limit < 0 {
 		limit = available
 	}
 

@@ -163,8 +163,14 @@ func (r *HTTPRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Rate limiting (tunnel-level + per-IP)
-	if !r.server.monitor.AllowHTTPRequest(tunnel.ID, req.RemoteAddr) {
+	// Rate limiting (tunnel-level + per-IP). Behind nginx req.RemoteAddr is
+	// always the proxy, so every visitor shared one bucket and a single abuser
+	// could 429 the tunnel's real users.
+	rateLimitIP := req.RemoteAddr
+	if ip := extractClientIP(req, r.server.trustedProxies); ip != nil {
+		rateLimitIP = ip.String()
+	}
+	if !r.server.monitor.AllowHTTPRequest(tunnel.ID, rateLimitIP) {
 		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 		return
 	}

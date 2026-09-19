@@ -61,20 +61,27 @@ type ReconnectSettings struct {
 	MaxAttempts int           `mapstructure:"max_attempts"` // 0 = infinite
 }
 
+const (
+	// defaultServerAddress is the DPI-resilient TLS control endpoint.
+	defaultServerAddress = "tunnel.fxtun.ru:443"
+	// defaultFallbackAddress is the legacy plaintext control port.
+	defaultFallbackAddress = "fxtun.ru:4443"
+)
+
 // LoadClientConfig loads client configuration from file
 func LoadClientConfig(configPath string) (*ClientConfig, error) {
 	v := viper.New()
 
 	// Set defaults
-	v.SetDefault("server.address", "tunnel.fxtun.dev:443")
+	v.SetDefault("server.address", defaultServerAddress)
 	v.SetDefault("server.insecure", false)
 	v.SetDefault("server.tls_verify", true)
 	v.SetDefault("server.compression", true)
-	// No default fallback_address: it is opt-in and shipped explicitly in
-	// SaaS-distributed configs. Defaulting it would inject the public
-	// fxtun.dev:4443 into self-hosted configs that only set server.address,
-	// causing a self-hoster's token to be replayed to the public server on a
-	// transient primary failure.
+	// fallback_address stays unset here on purpose: defaulting it outright
+	// would inject the public fxtun.ru:4443 into self-hosted configs that only
+	// set server.address, replaying a self-hoster's token to the public server
+	// on a transient primary failure. It is filled in after unmarshal, and only
+	// when server.address is still ours (see below).
 	v.SetDefault("reconnect.enabled", true)
 	v.SetDefault("reconnect.interval", "5s")
 	v.SetDefault("reconnect.max_attempts", 0)
@@ -120,11 +127,24 @@ func LoadClientConfig(configPath string) (*ClientConfig, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	ApplyDefaultFallback(&cfg.Server)
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// ApplyDefaultFallback fills in the legacy plaintext control endpoint as the
+// fallback, but only for the stock SaaS address. Self-hosted configs (which
+// always set server.address themselves) are left alone so a transient primary
+// failure can never replay their token to the public server.
+func ApplyDefaultFallback(s *ClientServerSettings) {
+	if s.Address == defaultServerAddress && s.FallbackAddress == "" {
+		s.FallbackAddress = defaultFallbackAddress
+		s.FallbackInsecure = true
+	}
 }
 
 // Validate checks the configuration for errors

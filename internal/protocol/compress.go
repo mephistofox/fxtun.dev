@@ -12,6 +12,10 @@ import (
 const (
 	compressNone byte = 0x00
 	compressZstd byte = 0x01
+
+	// maxZstdWindow is the largest zstd window we accept from a peer. It
+	// matches the window our own encoder uses at zstd.SpeedDefault.
+	maxZstdWindow = 8 << 20
 )
 
 // NegotiateCompression performs a 1-byte handshake and wraps conn in zstd if both sides agree.
@@ -71,7 +75,12 @@ func wrapZstd(conn net.Conn) (io.ReadWriteCloser, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("create zstd encoder: %w", err)
 	}
-	decoder, err := zstd.NewReader(conn)
+	// Bound the decoder's window. The peer picks the window size in its frame
+	// header, and the decoder allocates twice that up front — a 10-byte frame
+	// header declaring the library default of 512 MB makes us allocate ~1 GB
+	// before a single byte is authenticated. Our own encoder never exceeds
+	// 8 MB (zstd SpeedDefault), so anything larger is not a peer we can talk to.
+	decoder, err := zstd.NewReader(conn, zstd.WithDecoderMaxWindow(maxZstdWindow))
 	if err != nil {
 		encoder.Close()
 		return nil, false, fmt.Errorf("create zstd decoder: %w", err)

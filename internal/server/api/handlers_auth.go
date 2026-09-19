@@ -200,6 +200,11 @@ func (s *Server) handleTOTPEnable(w http.ResponseWriter, r *http.Request) {
 
 	secret, qrCode, backupCodes, err := s.authService.EnableTOTP(user.ID, user.Phone)
 	if err != nil {
+		if errors.Is(err, auth.ErrTOTPAlreadyEnabled) {
+			s.respondErrorWithCode(w, http.StatusConflict, "TOTP_ALREADY_ENABLED",
+				"two-factor authentication is already enabled; disable it first")
+			return
+		}
 		s.log.Error().Err(err).Msg("TOTP enable failed")
 		s.respondError(w, http.StatusInternalServerError, "failed to enable TOTP")
 		return

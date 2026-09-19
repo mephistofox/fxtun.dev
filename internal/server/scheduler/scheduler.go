@@ -47,7 +47,9 @@ type Scheduler struct {
 	cfg       *config.ServerConfig
 	log       zerolog.Logger
 	providers *payment.Registry
-	handlers  []EventHandler
+
+	handlers   []EventHandler
+	handlersMu sync.RWMutex
 
 	// Check intervals
 	checkInterval time.Duration
@@ -69,14 +71,21 @@ func New(db *database.Database, cfg *config.ServerConfig, providers *payment.Reg
 	}
 }
 
-// OnEvent registers an event handler
+// OnEvent registers an event handler. Callers today register before Start, but
+// the method is exported and emit runs on the scheduler goroutine, so guard the
+// slice rather than rely on that ordering.
 func (s *Scheduler) OnEvent(handler EventHandler) {
+	s.handlersMu.Lock()
 	s.handlers = append(s.handlers, handler)
+	s.handlersMu.Unlock()
 }
 
 // emit sends event to all handlers
 func (s *Scheduler) emit(event Event) {
-	for _, h := range s.handlers {
+	s.handlersMu.RLock()
+	handlers := s.handlers
+	s.handlersMu.RUnlock()
+	for _, h := range handlers {
 		h(event)
 	}
 }
@@ -249,8 +258,14 @@ func (s *Scheduler) processExpiredSubscriptions() {
 			continue
 		}
 
-		// Downgrade user to free plan
-		if err := s.downgradeToFreePlan(sub.UserID); err != nil {
+		// Downgrade user to free plan — unless they already hold a newer
+		// subscription that is still paid for.
+		if s.hasLiveSubscription(sub.UserID, sub.ID) {
+			s.log.Info().
+				Int64("subscription_id", sub.ID).
+				Int64("user_id", sub.UserID).
+				Msg("Skipping downgrade: user has a newer active subscription")
+		} else if err := s.downgradeToFreePlan(sub.UserID); err != nil {
 			s.log.Error().Err(err).Int64("user_id", sub.UserID).Msg("Failed to downgrade user")
 			continue
 		}
@@ -268,6 +283,19 @@ func (s *Scheduler) processExpiredSubscriptions() {
 			Subscription: sub,
 		})
 	}
+}
+
+// hasLiveSubscription reports whether the user holds another subscription that
+// is active and still inside its paid period. GetExpired also returns cancelled
+// subscriptions, so without this check a lapsed old subscription would drop a
+// user who has already paid for a newer one back to the free plan.
+func (s *Scheduler) hasLiveSubscription(userID, excludeID int64) bool {
+	other, err := s.db.Subscriptions.GetByUserID(userID)
+	if err != nil || other == nil || other.ID == excludeID {
+		return false
+	}
+	return other.Status == database.SubscriptionStatusActive &&
+		other.CurrentPeriodEnd != nil && other.CurrentPeriodEnd.After(time.Now())
 }
 
 // processRecurringRenewals handles automatic renewal of recurring subscriptions
@@ -360,7 +388,9 @@ func (s *Scheduler) processRecurringRenewals() {
 		// Convert USD to RUB
 		priceRUB := exchange.ConvertUSDToRUB(plan.Price)
 
-		// Create payment record
+		// Create payment record. Provider must be set explicitly: an empty
+		// string overrides the column default, and the reconciler only sweeps
+		// payments it can find by provider.
 		pmt := &database.Payment{
 			UserID:         sub.UserID,
 			SubscriptionID: &sub.ID,
@@ -368,6 +398,7 @@ func (s *Scheduler) processRecurringRenewals() {
 			Amount:         priceRUB,
 			Status:         database.PaymentStatusPending,
 			IsRecurring:    true,
+			Provider:       "yookassa",
 		}
 		if err := s.db.Payments.Create(pmt); err != nil {
 			s.log.Error().Err(err).Msg("Failed to create payment record")
@@ -396,12 +427,16 @@ func (s *Scheduler) processRecurringRenewals() {
 			continue
 		}
 
-		// Save YooKassa payment ID
+		// Save YooKassa payment ID. It also goes into ProviderData under
+		// provider_payment_id, which is where the reconciler reads it from when
+		// the confirmation webhook never arrives.
 		yookassaData, _ := json.Marshal(map[string]interface{}{
 			"yookassa_payment_id": yooPayment.ID,
 			"autopayment":         true,
 		})
 		pmt.YooKassaData = string(yookassaData)
+		providerData, _ := json.Marshal(map[string]string{"provider_payment_id": yooPayment.ID})
+		pmt.ProviderData = string(providerData)
 		_ = s.db.Payments.Update(pmt)
 
 		// Autopayments with a saved method usually resolve immediately.
@@ -695,11 +730,15 @@ func (s *Scheduler) downgradeToFreePlan(userID int64) error {
 	return s.db.Users.Update(user)
 }
 
-// cleanupStalePendingPayments expires pending payments older than 1 hour.
-// Checkout sessions (Creem ~30min, YooKassa ~1h) expire quickly,
-// so pending records should be cleaned up to unblock users.
+// cleanupStalePendingPayments expires pending payments older than 3 hours.
+// Checkout sessions (Creem ~30min, YooKassa ~1h) expire quickly, but a payment
+// confirmed at the edge of the YooKassa window is still reconcilable for a
+// while afterwards (api.reconcileMaxAge). Failing it earlier turns a later
+// "succeeded" notification into a superseded payment: money taken, no
+// subscription. Users are not blocked meanwhile — a new checkout supersedes the
+// abandoned one (see api.supersedePendingCheckout).
 func (s *Scheduler) cleanupStalePendingPayments() {
-	deleted, err := s.db.Payments.DeleteStalePending(1 * time.Hour)
+	deleted, err := s.db.Payments.DeleteStalePending(3 * time.Hour)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to cleanup stale pending payments")
 		return

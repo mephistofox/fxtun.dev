@@ -16,8 +16,8 @@ const selectedPlanId = ref<number | null>(null)
 // must be approved for autopayments by the YooMoney manager). Until then the
 // toggle is disabled and every payment is one-time.
 const recurringEnabled = ref(false)
-// When recurring is available it is the default (card saved, monthly renewal);
-// users can opt out to a one-time payment via the toggle.
+// Auto-renewal is the only option: whenever the server allows recurring, the
+// card is saved and the subscription renews monthly.
 const recurring = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -107,7 +107,6 @@ onMounted(() => {
           </svg>
           <div>
             <p class="text-sm text-yellow-200 font-medium">{{ t('checkout.subscriptionWarning') }}</p>
-            <p class="text-sm text-yellow-200/80 mt-1">{{ t('checkout.subscriptionWarningHint') }}</p>
           </div>
         </div>
       </div>
@@ -178,36 +177,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Recurring toggle (YooKassa only — Creem handles renewals automatically) -->
-      <Card v-if="selectedPlan && isRuDomain" :class="recurringEnabled ? 'p-6 mt-6' : 'p-6 mt-6 opacity-60'">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="font-medium">{{ t('checkout.autoRenewal') }}</h3>
-            <p class="text-sm text-muted-foreground">
-              {{ recurringEnabled ? t('checkout.autoRenewalHint') : t('checkout.autoRenewalDisabled') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            :aria-checked="recurring"
-            :aria-label="t('checkout.autoRenewal')"
-            :disabled="!recurringEnabled"
-            class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/40"
-            :class="[recurring ? 'bg-primary' : 'bg-muted', recurringEnabled ? 'cursor-pointer' : 'cursor-not-allowed']"
-            @click="recurringEnabled && (recurring = !recurring)"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-              :class="recurring ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
-        <p v-if="recurring" class="text-xs text-muted-foreground mt-3">
-          {{ t('checkout.autoRenewalConsent') }}
-        </p>
-      </Card>
-
       <!-- Summary and Pay button -->
       <Card v-if="selectedPlan" class="p-6 mt-6">
         <div class="flex items-center justify-between mb-4">
@@ -222,6 +191,9 @@ onMounted(() => {
           <span>{{ t('checkout.paymentType') }}</span>
           <span>{{ recurring ? t('checkout.subscription') : t('checkout.oneTime') }}</span>
         </div>
+        <p v-if="isRuDomain && recurring" class="text-xs text-muted-foreground mb-6">
+          {{ t('checkout.autoRenewalConsent') }}
+        </p>
         <Button
           class="w-full"
           size="lg"
