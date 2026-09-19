@@ -44,7 +44,11 @@ export const createApp = ViteSSG(
     if (!import.meta.env.SSR) {
       router.afterEach((to) => {
         if (typeof window.gtag === 'function') {
-          window.gtag('config', 'G-4FH5VTH49H', {
+          // Send to whatever property analytics.js configured for this host.
+          // Naming one here configured a second container on every navigation:
+          // extra weight on load, and fxtun.ru traffic reported into the
+          // fxtun.dev property.
+          window.gtag('event', 'page_view', {
             page_path: to.fullPath,
             page_title: document.title,
           })
