@@ -110,7 +110,7 @@ func extractBearerToken(r *http.Request) string {
 
 func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 	var req nodeRegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := s.decodeJSON(r, &req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
 	}
@@ -123,8 +123,25 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 	// Check if node with this name already exists — reuse its node_id
 	existing, err := s.db.EdgeNodes.GetByName(req.Name)
 	if err == nil && existing != nil {
-		// Update existing node's connection info
-		existing.PublicAddr = req.PublicAddr
+		// The hub token is shared by every node, including ones still awaiting
+		// approval, so a name alone proves nothing. Taking the address from the
+		// request let anyone holding the token re-point an approved node at
+		// themselves: the hub then redirected clients there, and those clients
+		// replayed their sk_ tokens to the attacker. A changed address is
+		// therefore refused rather than trusted — a genuine relocation is an
+		// administrative action.
+		if existing.PublicAddr != "" && req.PublicAddr != existing.PublicAddr {
+			s.log.Warn().
+				Str("name", req.Name).
+				Str("known_addr", existing.PublicAddr).
+				Str("claimed_addr", req.PublicAddr).
+				Str("client_ip", auth.GetClientIP(r)).
+				Msg("Node registration claimed an existing name from a different address")
+			http.Error(w, `{"error":"node name is registered with a different address","code":"NODE_NAME_TAKEN"}`, http.StatusConflict)
+			return
+		}
+
+		// Address matches the stored one: only metadata may change.
 		existing.HTTPAddr = req.HTTPAddr
 		existing.Region = req.Region
 		existing.Version = req.Version
@@ -182,7 +199,7 @@ func (s *Server) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 	var req nodeHeartbeatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := s.decodeJSON(r, &req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
 	}
@@ -277,7 +294,7 @@ func (s *Server) handleNodeTLSCert(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleVerifyClientToken(w http.ResponseWriter, r *http.Request) {
 	var req verifyTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := s.decodeJSON(r, &req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 		return
 	}
