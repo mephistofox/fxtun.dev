@@ -119,6 +119,17 @@ export default defineConfig({
       preloadFonts: false,
       reduceInlineStyles: false,
       allowRules: [/^\.dark$/],
+      // The whole stylesheet is 76 KiB — 13 KiB over the wire — so inline it
+      // rather than pay a blocking round trip for it. Beasties was already
+      // inlining a 17 KiB critical subset and then blocking on the rest;
+      // this drops the request and, unlike loading it asynchronously, there
+      // is nothing left to swap in later and shift the layout.
+      inlineThreshold: 120000,
+      // Not preload: 'swap'. Measured on PageSpeed: it cuts FCP from 3.3 s to
+      // 0.9 s, but the swap reflows the page and CLS goes 0 -> 0.185, past the
+      // 0.1 threshold, taking the score 68 -> 64. The blocking stylesheet is
+      // what keeps the layout still; worth revisiting only once the critical
+      // CSS covers enough of the page that the swap changes nothing.
     },
     includedRoutes() {
       const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];

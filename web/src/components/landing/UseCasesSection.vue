@@ -133,6 +133,7 @@ onMounted(() => {
               <div class="absolute top-2 right-2 opacity-0 group-hover/cmd:opacity-100 transition-opacity">
                 <button
                   class="p-1.5 rounded bg-surface/80 text-muted-foreground hover:text-foreground transition-colors"
+                  :aria-label="t('common.copy')"
                   @click="copyCommand(t(`landing.useCases.${uc.key}.command`), index)"
                 >
                   <svg aria-hidden="true" v-if="copiedIndex !== index" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

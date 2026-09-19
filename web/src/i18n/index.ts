@@ -1,9 +1,14 @@
 import { createI18n } from 'vue-i18n'
 import type { MessageCompiler } from 'vue-i18n'
-import en from './en.json'
 import ru from './ru.json'
 
-type MessageSchema = typeof en
+// Both locale files are about 1300 keys of marketing copy — a quarter of a
+// megabyte of JSON. Bundling both meant every Russian visitor downloaded and
+// parsed the English site as well, and vice versa. Only the Russian messages
+// ship in the entry; the English ones are a chunk of their own, fetched when a
+// route or a visitor actually asks for them. The two files are kept key-for-key
+// identical, so nothing ever has to fall back across them.
+type MessageSchema = typeof ru
 
 // CSP-compatible message compiler: interprets {name} and {'literal'}
 // without using new Function() (which requires unsafe-eval)
@@ -58,16 +63,24 @@ function getDefaultLocale(): 'en' | 'ru' {
     ?? (['ru', 'uk', 'be'].includes(navigator.language.split('-')[0]) ? 'ru' : 'en')
 }
 
+const messages: Record<string, MessageSchema> = { ru }
+
 export const i18n = createI18n<[MessageSchema], 'en' | 'ru'>({
   legacy: false,
   locale: getDefaultLocale(),
-  fallbackLocale: 'en',
+  fallbackLocale: 'ru',
   messageCompiler: cspMessageCompiler,
-  messages: {
-    en,
-    ru,
-  },
+  messages: messages as never,
 })
+
+// Load a locale's messages if they are not in memory yet. The router guard
+// awaits this before the first render — during prerendering as well as in the
+// browser — so an English page is never rendered or hydrated in Russian.
+export async function ensureLocale(locale: 'en' | 'ru') {
+  if (i18n.global.availableLocales.includes(locale)) return
+  const loaded = await import('./en.json')
+  i18n.global.setLocaleMessage(locale, loaded.default as never)
+}
 
 if (!import.meta.env.SSR) {
   const locale = getDefaultLocale()
@@ -80,7 +93,8 @@ export function getBlogUrl(): string {
   return `${window.location.protocol}//fxtun.ru/blog`
 }
 
-export function setLocale(locale: 'en' | 'ru') {
+export async function setLocale(locale: 'en' | 'ru') {
+  await ensureLocale(locale)
   // @ts-expect-error vue-i18n composition api
   i18n.global.locale.value = locale
   localStorage.setItem('locale', locale)

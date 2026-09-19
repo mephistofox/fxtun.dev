@@ -7,6 +7,10 @@ import TopoBackground from './TopoBackground.vue'
 
 const { t, locale } = useI18n()
 
+// Module scope: true once this page load has mounted the hero, so a hydration
+// pass is told apart from a later client-side navigation.
+let playedOnce = false
+
 const isVisible = ref(false)
 const isMounted = ref(false)
 const copied = ref(false)
@@ -44,10 +48,20 @@ async function fetchGithubStars() {
 }
 
 onMounted(() => {
-  isMounted.value = true
-  setTimeout(() => {
-    isVisible.value = true
-  }, 100)
+  // The hero arrives already painted from the prerender. Running the entrance
+  // animation on that first load meant hiding what the browser had just drawn
+  // and fading it back in over the next 0.7 s — the browser recorded the later
+  // paint, so the page measured two seconds slower than it looked. Animate
+  // only when the section is genuinely new to the page, on a later in-app
+  // navigation back to it.
+  if (playedOnce) {
+    isMounted.value = true
+    setTimeout(() => {
+      isVisible.value = true
+    }, 100)
+  } else {
+    playedOnce = true
+  }
   fetchGithubStars()
 })
 </script>

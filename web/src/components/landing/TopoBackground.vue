@@ -174,7 +174,7 @@ onMounted(() => {
   const io = new IntersectionObserver(
     ([e]) => {
       visible = e.isIntersecting
-      if (visible && !timer) {
+      if (visible && !timer && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         timer = setInterval(draw, 16) // ~60 FPS
       } else if (!visible && timer) {
         clearInterval(timer)
@@ -185,8 +185,25 @@ onMounted(() => {
   )
   io.observe(canvas)
 
-  // Start animation at ~10 FPS (enough for slow background drift)
-  timer = setInterval(draw, 33)
+  // Draw one frame now so the background is there from the start, then leave
+  // the main thread alone. A canvas repainting 30 times a second from the
+  // moment the page opens keeps the viewport from ever settling — the drift is
+  // decoration, and it can wait until the page has finished loading and the
+  // browser has a spare moment. Visitors who asked for less motion get the
+  // single static frame and nothing else.
+  draw()
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)')
+  function startDrift() {
+    if (timer || calm.matches || !visible) return
+    timer = setInterval(draw, 33)
+  }
+  function scheduleDrift() {
+    if ('requestIdleCallback' in window) requestIdleCallback(startDrift, { timeout: 3000 })
+    else setTimeout(startDrift, 1500)
+  }
+  if (document.readyState === 'complete') scheduleDrift()
+  else window.addEventListener('load', scheduleDrift, { once: true })
 
   onUnmounted(() => {
     if (timer) clearInterval(timer)
