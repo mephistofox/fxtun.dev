@@ -907,6 +907,13 @@ func (s *Service) RegisterOrLoginByEmail(email, displayName, totpCode, userAgent
 			if totpCode == "" {
 				return nil, nil, false, ErrTOTPRequired
 			}
+			// The same per-account budget as password login: 2FA exists to
+			// survive a compromised mailbox, so the magic-link path must not
+			// hand out unlimited guesses.
+			if s.totpFails.blocked(user.ID) {
+				s.log.Warn().Int64("user_id", user.ID).Msg("TOTP attempts throttled")
+				return nil, nil, false, ErrInvalidTOTPCode
+			}
 			totpSecret, err := s.db.TOTP.GetByUserID(user.ID)
 			if err != nil {
 				return nil, nil, false, fmt.Errorf("get TOTP secret: %w", err)
@@ -918,12 +925,14 @@ func (s *Service) RegisterOrLoginByEmail(email, displayName, totpCode, userAgent
 			if !s.totp.ValidateCode(secret, totpCode) {
 				remainingCodes, valid := s.totp.ValidateBackupCode(totpCode, totpSecret.BackupCodes)
 				if !valid {
+					s.totpFails.recordFailure(user.ID)
 					return nil, nil, false, ErrInvalidTOTPCode
 				}
 				if err := s.db.TOTP.UpdateBackupCodes(user.ID, remainingCodes); err != nil {
 					s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update backup codes")
 				}
 			}
+			s.totpFails.reset(user.ID)
 		}
 	}
 

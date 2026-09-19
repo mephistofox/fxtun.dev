@@ -207,6 +207,13 @@ func (s *Server) handleMagicLinkVerify(w http.ResponseWriter, r *http.Request) {
 			s.respondErrorWithCode(w, http.StatusUnauthorized, "TOTP_REQUIRED", "TOTP code required")
 			return
 		case errors.Is(err, auth.ErrInvalidTOTPCode):
+			// A wrong second factor burns an attempt too. Without this the link
+			// stayed valid for its whole TTL and could be re-tried indefinitely
+			// — and re-requested forever — so someone holding the mailbox could
+			// grind the 2FA code that is supposed to stop exactly that.
+			if s.magicLinkStore.IncrAttempt(entry.Email, s.magicLinkTTL()) >= magicLinkMaxCodeAttempts {
+				s.magicLinkStore.ConsumeToken(consumeToken)
+			}
 			s.respondErrorWithCode(w, http.StatusUnauthorized, "INVALID_TOTP", "invalid TOTP code")
 			return
 		case errors.Is(err, auth.ErrUserNotActive):
