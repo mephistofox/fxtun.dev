@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
 	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
 )
 
 // ExchangeRepository handles inspect exchange database operations using PostgreSQL via sqlc.
 type ExchangeRepository struct {
-	q *sqlc.Queries
+	q    *sqlc.Queries
+	pool *pgxpool.Pool
 }
 
 const maxExchangeBodySize = 1 << 20 // 1MB
@@ -67,10 +69,34 @@ func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) er
 	return nil
 }
 
-// GetByID retrieves a single exchange by ID. Returns nil, nil if not found.
-func (r *ExchangeRepository) GetByID(id string) (*inspect.CapturedExchange, error) {
+// GetByIDForUser retrieves a single exchange by ID, scoped to its owner.
+// Returns nil, nil if not found or owned by someone else.
+func (r *ExchangeRepository) GetByIDForUser(id string, userID int64) (*inspect.CapturedExchange, error) {
 	ctx := context.Background()
-	row, err := r.q.GetExchangeByID(ctx, id)
+	const q = `SELECT id, tunnel_id, trace_id, replay_ref, timestamp, duration_ns, method, path, host,
+		request_headers, request_body, request_body_size,
+		response_headers, response_body, response_body_size, status_code, remote_addr
+		FROM inspect_exchanges WHERE id = $1 AND user_id = $2`
+
+	var (
+		rowID, tunnelID       string
+		traceID, replayRef    pgtype.Text
+		timestamp             pgtype.Timestamptz
+		durationNs            int64
+		method, path, host    string
+		reqHeaders, reqBody   []byte
+		reqBodySize           int32
+		respHeaders, respBody []byte
+		respBodySize          int32
+		statusCode            int32
+		remoteAddr            pgtype.Text
+	)
+	err := r.pool.QueryRow(ctx, q, id, userID).Scan(
+		&rowID, &tunnelID, &traceID, &replayRef, &timestamp, &durationNs,
+		&method, &path, &host,
+		&reqHeaders, &reqBody, &reqBodySize,
+		&respHeaders, &respBody, &respBodySize, &statusCode, &remoteAddr,
+	)
 	if err != nil {
 		if isNotFound(err) {
 			return nil, nil
@@ -78,12 +104,12 @@ func (r *ExchangeRepository) GetByID(id string) (*inspect.CapturedExchange, erro
 		return nil, fmt.Errorf("get inspect exchange: %w", err)
 	}
 	return exchangeRowToDomain(
-		row.ID, row.TunnelID, row.TraceID, row.ReplayRef,
-		row.Timestamp, row.DurationNs,
-		row.Method, row.Path, row.Host,
-		row.RequestHeaders, row.RequestBody, int64(row.RequestBodySize),
-		row.ResponseHeaders, row.ResponseBody, int64(row.ResponseBodySize),
-		row.StatusCode, row.RemoteAddr,
+		rowID, tunnelID, traceID, replayRef,
+		timestamp, durationNs,
+		method, path, host,
+		reqHeaders, reqBody, int64(reqBodySize),
+		respHeaders, respBody, int64(respBodySize),
+		statusCode, remoteAddr,
 	), nil
 }
 

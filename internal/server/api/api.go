@@ -65,7 +65,7 @@ type InspectProvider interface {
 	AddAndPersist(tunnelID string, ex *inspect.CapturedExchange)
 	ListPersisted(tunnelID string, offset, limit int) ([]*inspect.CapturedExchange, int, error)
 	ListPersistedByHostAndUser(host string, userID int64, offset, limit int) ([]*inspect.CapturedExchange, int, error)
-	GetPersisted(id string) (*inspect.CapturedExchange, error)
+	GetPersistedForUser(id string, userID int64) (*inspect.CapturedExchange, error)
 }
 
 // ReplayProvider sends an HTTP request through a tunnel and returns the response.
