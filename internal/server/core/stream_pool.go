@@ -7,7 +7,16 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
-const streamPoolSize = 256
+// streamPoolSize is how many yamux streams are kept open per client ahead of
+// demand.
+//
+// It was 256. Measured against production over a real 88 ms link, that bought
+// nothing: warmed-up p50 was 359-409 ms at 256 against 324-335 ms at 32, and a
+// cold tunnel answered its first burst in 562 ms against 533 ms — the
+// difference is within run-to-run spread, but it never favoured the larger
+// pool, including the cold start the pool exists for. The cost was real:
+// 256 goroutines and about 1.85 MB per connected client.
+const streamPoolSize = 32
 
 // OpenStream returns a pre-opened yamux stream from the pool,
 // falling back to opening a new one via round-robin if the pool is empty.
