@@ -188,11 +188,23 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing active subscription
+	// Check for existing active subscription. An upgrade to a pricier plan is
+	// allowed to go through a fresh paid checkout: the new plan starts and is
+	// billed from the payment date, and the old subscription is retired when the
+	// new one activates (see supersedeReplacedSubscriptions). Downgrades and
+	// lateral moves take no money, so they stay on the scheduled-change path.
 	existingSub, _ := s.db.Subscriptions.GetByUserID(user.ID)
 	if existingSub != nil && existingSub.Status == database.SubscriptionStatusActive {
-		s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
-		return
+		currentPlan, err := s.db.Plans.GetByID(existingSub.PlanID)
+		if err != nil || currentPlan == nil {
+			s.log.Error().Err(err).Int64("plan_id", existingSub.PlanID).Msg("Failed to get current plan")
+			s.respondError(w, http.StatusInternalServerError, "failed to get current plan")
+			return
+		}
+		if !isPlanUpgrade(currentPlan, plan) {
+			s.respondError(w, http.StatusBadRequest, "active subscription exists, use plan change instead")
+			return
+		}
 	}
 
 	// Check for existing pending subscription (separate query since GetByUserID only returns active/cancelled).
@@ -368,6 +380,10 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 		return
 	}
 
+	// An upgrade checkout creates a second subscription next to the one the user
+	// already had; retire the old one now that the new one is live.
+	s.supersedeReplacedSubscriptions(sub)
+
 	// Update user's plan
 	if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
 		user.PlanID = sub.PlanID
@@ -414,6 +430,61 @@ func (s *Server) activateSubscription(sub *database.Subscription, pmt *database.
 			userName = u.DisplayName
 		}
 		s.telegramNotifier.NotifyNewSubscription(sub.UserID, userName, planName, pmt.Amount, providerName)
+	}
+}
+
+// supersedeReplacedSubscriptions retires any other live subscription the user
+// still holds after active was activated. An upgrade checkout deliberately
+// creates a second subscription, and leaving the old one live would renew it and
+// bill the user for both plans. Best effort: a failure here is logged, never
+// allowed to undo the activation the user already paid for.
+func (s *Server) supersedeReplacedSubscriptions(active *database.Subscription) {
+	subs, err := s.db.Subscriptions.ListByUserID(active.UserID)
+	if err != nil {
+		s.log.Error().Err(err).Int64("user_id", active.UserID).Msg("Failed to list subscriptions to supersede")
+		return
+	}
+
+	for _, old := range subs {
+		if old.ID == active.ID {
+			continue
+		}
+		if old.Status != database.SubscriptionStatusActive && old.Status != database.SubscriptionStatusCancelled {
+			continue
+		}
+		// Only older subscriptions are replaced. A late activation (e.g. the
+		// reconciler applying a stale payment) must never retire a subscription
+		// the user bought afterwards.
+		if old.CreatedAt.After(active.CreatedAt) {
+			continue
+		}
+
+		// Creem bills its own subscription; it keeps charging until cancelled.
+		if old.CreemSubscriptionID != nil && *old.CreemSubscriptionID != "" && s.paymentProviders != nil {
+			if provider, perr := s.paymentProviders.Get("creem"); perr == nil {
+				if cerr := provider.CancelSubscription(*old.CreemSubscriptionID); cerr != nil {
+					s.log.Error().Err(cerr).Int64("subscription_id", old.ID).Msg("Failed to cancel superseded Creem subscription")
+				}
+			}
+			old.CreemSubscriptionID = nil
+		}
+
+		old.Status = database.SubscriptionStatusExpired
+		old.Recurring = false
+		old.NextPlanID = nil
+		old.YooKassaPaymentMethodID = nil
+		old.YooKassaCardLast4 = nil
+		if err := s.db.Subscriptions.Update(old); err != nil {
+			s.log.Error().Err(err).Int64("subscription_id", old.ID).Msg("Failed to supersede replaced subscription")
+			continue
+		}
+
+		_ = s.db.Audit.Log(&active.UserID, "subscription_superseded", map[string]interface{}{
+			"subscription_id":     old.ID,
+			"new_subscription_id": active.ID,
+			"old_plan_id":         old.PlanID,
+			"new_plan_id":         active.PlanID,
+		}, "upgrade")
 	}
 }
 
