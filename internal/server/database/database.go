@@ -6,8 +6,8 @@ import (
 	"embed"
 	"fmt"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/rs/zerolog"
 
@@ -68,8 +68,8 @@ func New(dsn string, log zerolog.Logger) (*Database, error) {
 		TLSCerts:      &TLSCertRepository{q: q},
 		Users:         &UserRepository{q: q, pool: pool},
 		Sessions:      &SessionRepository{q: q},
-		Tokens:        &APITokenRepository{q: q},
-		Domains:       &DomainRepository{q: q},
+		Tokens:        &APITokenRepository{q: q, pool: pool},
+		Domains:       &DomainRepository{q: q, pool: pool},
 		TOTP:          &TOTPRepository{q: q},
 		Audit:         &AuditRepository{q: q},
 		UserBundles:   &UserBundleRepository{q: q},
@@ -78,7 +78,7 @@ func New(dsn string, log zerolog.Logger) (*Database, error) {
 		Plans:         &PlanRepository{q: q},
 		Subscriptions: &SubscriptionRepository{q: q},
 		Payments:      &PaymentRepository{q: q, pool: pool},
-		Exchanges:     &ExchangeRepository{q: q},
+		Exchanges:     &ExchangeRepository{q: q, pool: pool},
 		EdgeNodes:     &EdgeNodeRepository{pool: pool},
 		InviteCodes:   &InviteCodeRepository{pool: pool},
 	}

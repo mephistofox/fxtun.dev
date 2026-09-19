@@ -466,6 +466,12 @@ func run(cmd *cobra.Command, args []string) error {
 					} else if deleted > 0 {
 						log.Info().Int64("deleted", deleted).Msg("Cleaned up old inspect exchanges")
 					}
+					// Cleanup old audit logs (90 day retention)
+					if deleted, err := db.Audit.DeleteOlderThan(90 * 24 * time.Hour); err != nil {
+						log.Error().Err(err).Msg("Failed to cleanup old audit logs")
+					} else if deleted > 0 {
+						log.Info().Int64("deleted", deleted).Msg("Cleaned up old audit logs")
+					}
 				}
 			}
 		}()

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	goredis "github.com/redis/go-redis/v9"
+
 	"github.com/mephistofox/fxtunnel/internal/server/store"
 )
 
@@ -23,19 +25,23 @@ func NewRateLimiter(c *Client, scope string, perMinute int) *RateLimiter {
 	return &RateLimiter{c: c, scope: scope, perMinute: perMinute}
 }
 
+// incrWithTTLScript increments the window counter and sets its TTL in one step.
+// Doing this in two round-trips can leave a counter without a TTL, which bans
+// the IP forever and leaks the key.
+var incrWithTTLScript = goredis.NewScript(`
+local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return c
+`)
+
 // Allow returns true if the request from the given IP should be permitted.
 func (r *RateLimiter) Allow(ip string) bool {
 	ctx := context.Background()
 	key := r.c.Key("rl", r.scope, ip)
-	rdb := r.c.RDB()
 
-	count, err := rdb.Incr(ctx, key).Result()
+	count, err := incrWithTTLScript.Run(ctx, r.c.RDB(), []string{key}, int64(rateLimitWindow.Seconds())).Int64()
 	if err != nil {
 		return false // fail closed on Redis error
-	}
-
-	if count == 1 {
-		rdb.Expire(ctx, key, rateLimitWindow)
 	}
 
 	return count <= int64(r.perMinute)

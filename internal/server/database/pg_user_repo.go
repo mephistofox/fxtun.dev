@@ -487,7 +487,7 @@ func (r *UserRepository) listWithSort(ctx context.Context, params UserListParams
 
 	//nolint:gosec // sortCol is from allowedSortColumns whitelist, order is hardcoded ASC/DESC
 	query := fmt.Sprintf(`SELECT id, phone, password_hash, display_name, is_admin, is_active,
-		created_at, last_login_at, github_id, google_id, email, avatar_url, plan_id, first_tunnel_at
+		created_at, last_login_at, github_id, google_id, email, avatar_url, plan_id, first_tunnel_at, yandex_id
 		FROM users
 		WHERE ($1::boolean IS NULL OR is_active = $1)
 		  AND ($2::boolean IS NULL OR is_admin = $2)
@@ -508,7 +508,7 @@ func (r *UserRepository) listWithSort(ctx context.Context, params UserListParams
 			&u.ID, &u.Phone, &u.PasswordHash, &u.DisplayName,
 			&u.IsAdmin, &u.IsActive, &u.CreatedAt, &u.LastLoginAt,
 			&u.GithubID, &u.GoogleID, &u.Email, &u.AvatarUrl,
-			&u.PlanID, &u.FirstTunnelAt,
+			&u.PlanID, &u.FirstTunnelAt, &u.YandexID,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan sorted user: %w", err)
 		}
@@ -574,7 +574,7 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Transfer simple foreign key tables
-	tables := []string{"sessions", "api_tokens", "reserved_domains", "totp_secrets", "custom_domains", "audit_logs", "user_history"}
+	tables := []string{"sessions", "api_tokens", "reserved_domains", "custom_domains", "audit_logs", "user_history"}
 	for _, table := range tables {
 		//nolint:gosec // table names are hardcoded constants
 		_, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET user_id = $1 WHERE user_id = $2`, table), primaryID, secondaryID)
@@ -595,6 +595,18 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 		return fmt.Errorf("cleanup user_bundles: %w", err)
 	}
 
+	// Transfer totp_secrets (has UNIQUE(user_id): keep primary's 2FA if it has one)
+	_, err = tx.Exec(ctx,
+		`UPDATE totp_secrets SET user_id = $1 WHERE user_id = $2 AND NOT EXISTS (SELECT 1 FROM totp_secrets WHERE user_id = $1)`,
+		primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer totp_secrets: %w", err)
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM totp_secrets WHERE user_id = $1`, secondaryID)
+	if err != nil {
+		return fmt.Errorf("cleanup totp_secrets: %w", err)
+	}
+
 	// Transfer user_settings (has PRIMARY KEY(user_id, key))
 	_, err = tx.Exec(ctx,
 		`UPDATE user_settings SET user_id = $1 WHERE user_id = $2 AND key NOT IN (SELECT key FROM user_settings WHERE user_id = $1)`,
@@ -607,24 +619,45 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 		return fmt.Errorf("cleanup user_settings: %w", err)
 	}
 
-	// Copy OAuth fields from secondary to primary if primary's are empty
-	_, err = tx.Exec(ctx, `
-		UPDATE users SET
-			github_id = COALESCE(github_id, (SELECT github_id FROM users WHERE id = $1)),
-			google_id = COALESCE(google_id, (SELECT google_id FROM users WHERE id = $1)),
-			yandex_id = COALESCE(yandex_id, (SELECT yandex_id FROM users WHERE id = $1)),
-			email = CASE WHEN email = '' OR email IS NULL THEN (SELECT email FROM users WHERE id = $1) ELSE email END,
-			avatar_url = CASE WHEN avatar_url = '' OR avatar_url IS NULL THEN (SELECT avatar_url FROM users WHERE id = $1) ELSE avatar_url END
-		WHERE id = $2
-	`, secondaryID, primaryID)
+	// Read secondary's OAuth identity, then delete the row BEFORE copying the
+	// values onto primary — the partial UNIQUE indexes on github_id/google_id/
+	// yandex_id/email are not DEFERRABLE, so both rows must never hold the same
+	// value even momentarily.
+	var (
+		secGithubID  pgtype.Int8
+		secGoogleID  pgtype.Text
+		secYandexID  pgtype.Text
+		secEmail     pgtype.Text
+		secAvatarURL pgtype.Text
+	)
+	err = tx.QueryRow(ctx,
+		`SELECT github_id, google_id, yandex_id, email, avatar_url FROM users WHERE id = $1`, secondaryID).
+		Scan(&secGithubID, &secGoogleID, &secYandexID, &secEmail, &secAvatarURL)
 	if err != nil {
-		return fmt.Errorf("merge oauth fields: %w", err)
+		if isNotFound(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("read secondary user: %w", err)
 	}
 
 	// Delete secondary user
 	_, err = tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, secondaryID)
 	if err != nil {
 		return fmt.Errorf("delete secondary user: %w", err)
+	}
+
+	// Copy OAuth fields from secondary to primary if primary's are empty
+	_, err = tx.Exec(ctx, `
+		UPDATE users SET
+			github_id = COALESCE(github_id, $2),
+			google_id = COALESCE(google_id, $3),
+			yandex_id = COALESCE(yandex_id, $4),
+			email = CASE WHEN email = '' OR email IS NULL THEN $5 ELSE email END,
+			avatar_url = CASE WHEN avatar_url = '' OR avatar_url IS NULL THEN $6 ELSE avatar_url END
+		WHERE id = $1
+	`, primaryID, secGithubID, secGoogleID, secYandexID, secEmail, secAvatarURL)
+	if err != nil {
+		return fmt.Errorf("merge oauth fields: %w", err)
 	}
 
 	return tx.Commit(ctx)
