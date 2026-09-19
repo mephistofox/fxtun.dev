@@ -165,7 +165,7 @@ jobs:
         run: |
           cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -tags webkit2_41 -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=${{ vars.UPDATE_PUBLIC_KEY }}" \
             -o ${{ matrix.artifact }} && cd ..
           ls -la gui/build/bin/
           cp gui/build/bin/${{ matrix.artifact }} .
@@ -176,7 +176,7 @@ jobs:
         run: |
           cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=${{ vars.UPDATE_PUBLIC_KEY }}" \
             -o ${{ matrix.artifact }} && cd ..
           ls -la gui/build/bin/
           cp gui/build/bin/${{ matrix.artifact }} .
@@ -186,7 +186,7 @@ jobs:
         run: |
           cd gui/frontend && pnpm install && cd ../..
           cd gui && wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} \
-            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S')" \
+            -ldflags "-X main.Version=${{ steps.version.outputs.version }} -X main.BuildTime=$(date -u '+%Y-%m-%d_%H:%M:%S') -X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=${{ vars.UPDATE_PUBLIC_KEY }}" \
             -o ${{ matrix.artifact }} && cd ..
           ls -la gui/build/bin/
           if [ -f "gui/build/bin/${{ matrix.artifact }}" ]; then

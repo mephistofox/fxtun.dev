@@ -13,10 +13,11 @@ import (
 //
 //	go build -ldflags "-X 'github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=<hex>'"
 //
-// While empty, signature verification is skipped so updates keep working until
-// release signing is provisioned. Once a key is set, an update with a missing
-// or invalid signature is rejected — defending against a compromised server
-// serving a malicious binary (which the server's own key cannot forge).
+// Every released build (CLI and GUI, production and staging) bakes the key in;
+// only a plain local `go build` leaves it empty, and there verification is
+// skipped. Once a key is set, an update with a missing or invalid signature is
+// rejected — defending against a compromised server serving a malicious binary
+// (which the server's own key cannot forge).
 var updatePublicKeyHex = ""
 
 // updateSignatureConfigured reports whether an update public key is baked in.
@@ -25,11 +26,13 @@ func updateSignatureConfigured() bool {
 }
 
 // verifyBinarySignature checks that sigHex is a valid ed25519 signature over
-// binary for pubKeyHex. An empty pubKeyHex disables verification (returns nil).
+// binary for pubKeyHex. It fails closed: an empty key is an error, never a
+// pass. Whether verification runs at all is decided solely by
+// updateSignatureConfigured, so there is one place to get that wrong.
 func verifyBinarySignature(binary []byte, sigHex, pubKeyHex string) error {
 	pubKeyHex = strings.TrimSpace(pubKeyHex)
 	if pubKeyHex == "" {
-		return nil // verification disabled until a signing key is provisioned
+		return fmt.Errorf("no update public key configured")
 	}
 
 	pub, err := hex.DecodeString(pubKeyHex)

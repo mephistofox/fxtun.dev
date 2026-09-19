@@ -101,20 +101,20 @@ gui-frontend:
 
 # Development mode for GUI (hot reload)
 gui-dev:
-	cd gui && $(WAILS) dev -tags webkit2_41 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) dev -tags webkit2_41 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
 
 # Build GUI client for current platform
 gui: gui-frontend
 	@mkdir -p bin
-	cd gui && $(WAILS) build -o $(BINARY_GUI) -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) build -o $(BINARY_GUI) -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
 
 # Build GUI client for all platforms (macOS requires building on macOS)
 gui-all: gui-frontend
 	@rm -rf downloads/fxtunnel-gui-*
 	@mkdir -p downloads
-	cd gui && $(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
 	mv gui/build/bin/$(BINARY_GUI)-linux-amd64 downloads/
-	cd gui && $(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+	cd gui && $(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
 	mv gui/build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
 	@echo "GUI builds complete in downloads/ (macOS builds require building on macOS)"
 
