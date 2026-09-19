@@ -6,6 +6,7 @@ import { useSeo } from '@/composables/useSeo'
 import { useSubpageSchema, useFaqSchema, useProductSchema } from '@/composables/useStructuredData'
 import { getDomainLocale } from '@/i18n'
 import PricingSection from '@/components/landing/PricingSection.vue'
+import plansCache from '@/data/plans-cache.json'
 import LandingFooter from '@/components/landing/LandingFooter.vue'
 import Breadcrumbs from '@/components/landing/Breadcrumbs.vue'
 
@@ -40,96 +41,39 @@ const matrixFeatures = [
   'noSessionTimeout', 'openSource',
 ] as const
 
-// Plan column values for the matrix — mirrors database `plans` table (migration 00002 + 00005 + 00006).
-const planColumns = computed(() => [
-  {
-    name: 'Free',
-    slug: 'free',
-    values: {
-      tunnels: '3',
-      anySubdomain: true,
-      reservedSubdomains: '1',
-      customDomains: '0',
-      accessKeys: '1',
-      inspector: false,
-      httpTunnels: true,
-      tcpTunnels: true,
-      udpTunnels: false,
-      autoReconnect: true,
-      desktopApp: true,
-      noRequestLimits: true,
-      noBandwidthLimits: true,
-      noSessionTimeout: true,
-      openSource: true,
-    },
-  },
-  {
-    name: 'Starter',
-    slug: 'starter',
-    price: isRuDomain.value ? '200 ₽' : '$2.50',
-    values: {
-      tunnels: '3',
-      anySubdomain: true,
-      reservedSubdomains: '1',
-      customDomains: '1',
-      accessKeys: '1',
-      inspector: true,
-      httpTunnels: true,
-      tcpTunnels: true,
-      udpTunnels: true,
-      autoReconnect: true,
-      desktopApp: true,
-      noRequestLimits: true,
-      noBandwidthLimits: true,
-      noSessionTimeout: true,
-      openSource: true,
-    },
-  },
-  {
-    name: 'Pro',
-    slug: 'pro',
-    price: isRuDomain.value ? '400 ₽' : '$5',
-    values: {
-      tunnels: '15',
-      anySubdomain: true,
-      reservedSubdomains: '15',
-      customDomains: '5',
-      accessKeys: '10',
-      inspector: true,
-      httpTunnels: true,
-      tcpTunnels: true,
-      udpTunnels: true,
-      autoReconnect: true,
-      desktopApp: true,
-      noRequestLimits: true,
-      noBandwidthLimits: true,
-      noSessionTimeout: true,
-      openSource: true,
-    },
-  },
-  {
-    name: 'Business',
-    slug: 'business',
-    price: isRuDomain.value ? '600 ₽' : '$7.50',
-    values: {
-      tunnels: '50',
-      anySubdomain: true,
-      reservedSubdomains: '50',
-      customDomains: '50',
-      accessKeys: '50',
-      inspector: true,
-      httpTunnels: true,
-      tcpTunnels: true,
-      udpTunnels: true,
-      autoReconnect: true,
-      desktopApp: true,
-      noRequestLimits: true,
-      noBandwidthLimits: true,
-      noSessionTimeout: true,
-      openSource: true,
-    },
-  },
-])
+// Plan columns come from the same snapshot the pricing cards and the product
+// schema read. Kept by hand, this table was a third copy of the plans row and
+// drifted: it still advertised a Starter tier at 200 ₽ months after the tier
+// was renamed and repriced.
+const planColumns = computed(() =>
+  [...plansCache.plans]
+    .sort((a, b) => a.price - b.price)
+    .map((plan) => ({
+      name: plan.name,
+      slug: plan.slug,
+      recommended: plan.is_recommended,
+      price: plan.price > 0
+        ? (isRuDomain.value ? `${plan.price_rub} ₽` : `$${plan.price}`)
+        : undefined,
+      values: {
+        tunnels: String(plan.max_tunnels),
+        anySubdomain: true,
+        reservedSubdomains: String(plan.max_domains),
+        customDomains: String(plan.max_custom_domains),
+        accessKeys: String(plan.max_tokens),
+        inspector: plan.inspector_enabled,
+        httpTunnels: true,
+        tcpTunnels: true,
+        udpTunnels: plan.udp_enabled,
+        autoReconnect: true,
+        desktopApp: true,
+        noRequestLimits: true,
+        noBandwidthLimits: true,
+        noSessionTimeout: true,
+        openSource: true,
+      },
+    })),
+)
 
 // FAQ
 interface FaqItem {
@@ -333,17 +277,19 @@ function toggleFaq(index: number) {
             {{ t('pricingPage.whoIsItForTitle') }}
           </h2>
           <div class="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <!-- The tier list and the highlight follow the plans data; spelled
+                 out here they pointed at a slug that no longer exists. -->
             <div
-              v-for="tier in ['free', 'starter', 'pro', 'business']"
-              :key="tier"
+              v-for="plan in planColumns"
+              :key="plan.slug"
               class="plan-card"
-              :class="{ 'plan-card--recommended': tier === 'starter' }"
+              :class="{ 'plan-card--recommended': plan.recommended }"
             >
               <h3 class="text-lg font-display font-semibold mb-3">
-                {{ t(`pricingPage.whoIsItFor.${tier}.title`) }}
+                {{ t(`pricingPage.whoIsItFor.${plan.slug}.title`) }}
               </h3>
               <p class="text-sm text-muted-foreground leading-relaxed">
-                {{ t(`pricingPage.whoIsItFor.${tier}.text`) }}
+                {{ t(`pricingPage.whoIsItFor.${plan.slug}.text`) }}
               </p>
             </div>
           </div>

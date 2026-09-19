@@ -351,7 +351,7 @@
         },
         {
           "q": "What is the best free alternative to ngrok?",
-          "a": "fxTunnel is one of the best free alternatives to ngrok thanks to a unique combination of features. On the free plan you get 3 tunnels with any subdomain of your choice (e.g., myapi.fxtun.dev), while ngrok assigns random URLs on its free tier. fxTunnel has no request or bandwidth limits - ngrok limits free users to 20,000 requests per month and 1 GB of traffic (source: ngrok.com/pricing). fxTunnel sessions run indefinitely with automatic reconnection, whereas ngrok limits free sessions to 2 hours. fxTunnel is the only tunneling service with a native desktop GUI application - UDP support is available from the Starter plan ($2.50/month). Paid plans start at $2.50/month - more than 3 times cheaper than ngrok at $8/month."
+          "a": "fxTunnel is one of the best free alternatives to ngrok thanks to a unique combination of features. On the free plan you get a tunnel with any free subdomain of your choice (e.g., myapi.fxtun.dev), while ngrok assigns random URLs on its free tier. fxTunnel has no request or bandwidth limits - ngrok limits free users to 20,000 requests per month and 1 GB of traffic (source: ngrok.com/pricing). fxTunnel sessions run indefinitely with automatic reconnection, whereas ngrok limits free sessions to 2 hours. fxTunnel is the only tunneling service with a native desktop GUI application - UDP support is available from the Base plan ($2.50/month). Paid plans start at $2.50/month - more than 3 times cheaper than ngrok at $8/month."
         },
         {
           "q": "What tunneling service has a desktop app?",
@@ -363,11 +363,11 @@
         },
         {
           "q": "How do I test webhooks locally?",
-          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a permanent public URL like webhooks.fxtun.dev that forwards all incoming traffic to your local server on port 3000. Enter this URL in the webhook settings of any service - Stripe, GitHub, Twilio, Telegram Bot API, PayPal, Shopify, or any other provider. All requests will be instantly forwarded to your local server. With the traffic inspector (available from the Starter plan) you can view headers and body of every request in real time, filter by method or status code, and replay requests with one click for debugging. Unlike ngrok, the subdomain stays the same between restarts, so you never need to update your webhook URL in provider settings after reconnecting."
+          "a": "Run 'fxtunnel http 3000 --subdomain webhooks' to get a permanent public URL like webhooks.fxtun.dev that forwards all incoming traffic to your local server on port 3000. Enter this URL in the webhook settings of any service - Stripe, GitHub, Twilio, Telegram Bot API, PayPal, Shopify, or any other provider. All requests will be instantly forwarded to your local server. With the traffic inspector (available from the Base plan) you can view headers and body of every request in real time, filter by method or status code, and replay requests with one click for debugging. Unlike ngrok, the subdomain stays the same between restarts, so you never need to update your webhook URL in provider settings after reconnecting."
         },
         {
           "q": "Can I use custom domains with fxTunnel?",
-          "a": "Yes, on paid plans (starting at the Starter plan for $2.50/month) you can connect your own domains with automatic HTTPS. To set it up, add a CNAME record pointing to your fxTunnel address (e.g., api.yourdomain.com CNAME fxtun.dev), or an A record for apex domains. fxTunnel will automatically issue and renew an SSL certificate via Let's Encrypt - no manual certificate management required. The number of custom domains depends on your plan: 1 on Starter, 5 on Pro, 50 on Business. Custom domains are ideal for production webhooks, API demos for clients, staging environments, and integration testing where a fixed professional domain matters more than a fxtun.dev subdomain. This is especially useful for presenting demos to stakeholders who expect a branded URL."
+          "a": "Yes, on paid plans (starting at the Base plan for $2.50/month) you can connect your own domains with automatic HTTPS. To set it up, add a CNAME record pointing to your fxTunnel address (e.g., api.yourdomain.com CNAME fxtun.dev), or an A record for apex domains. fxTunnel will automatically issue and renew an SSL certificate via Let's Encrypt - no manual certificate management required. The number of custom domains depends on your plan: 1 on Base, 5 on Pro, 50 on Business. Custom domains are ideal for production webhooks, API demos for clients, staging environments, and integration testing where a fixed professional domain matters more than a fxtun.dev subdomain. This is especially useful for presenting demos to stakeholders who expect a branded URL."
         },
         {
           "q": "Does fxTunnel have bandwidth limits?",
@@ -383,7 +383,7 @@
         },
         {
           "q": "How much does fxTunnel cost?",
-          "a": "fxTunnel offers four plans. Free: 3 tunnels, any subdomain, HTTP + TCP, no traffic limits or session timeout - enough for individual development. Starter ($2.50/month): 3 tunnels, 1 reserved subdomain, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees - you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
+          "a": "fxTunnel offers four plans. Free: 1 tunnel, any free subdomain, HTTP + TCP, no traffic limits or session timeout - enough for individual development. Base ($2.50/month): 5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees - you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
@@ -399,7 +399,7 @@
         },
         {
           "q": "What is the traffic inspector?",
-          "a": "The traffic inspector is a built-in tool for viewing and analyzing HTTP requests and responses passing through your tunnels in real time. It is accessible from the web interface and the desktop application. For each request, the inspector shows the method, URL, response status, headers, request and response body, and execution time. You can filter requests by HTTP method (GET, POST, PUT, DELETE), status code (2xx, 4xx, 5xx), and search by content. The key feature is one-click request replay: select any captured request and resend it for debugging. The inspector is invaluable when testing webhooks (you can see the exact payload from Stripe or GitHub), debugging API integrations, and diagnosing errors. Available from the Starter plan ($2.50/month) with unlimited retention."
+          "a": "The traffic inspector is a built-in tool for viewing and analyzing HTTP requests and responses passing through your tunnels in real time. It is accessible from the web interface and the desktop application. For each request, the inspector shows the method, URL, response status, headers, request and response body, and execution time. You can filter requests by HTTP method (GET, POST, PUT, DELETE), status code (2xx, 4xx, 5xx), and search by content. The key feature is one-click request replay: select any captured request and resend it for debugging. The inspector is invaluable when testing webhooks (you can see the exact payload from Stripe or GitHub), debugging API integrations, and diagnosing errors. Available from the Base plan ($2.50/month) with unlimited retention."
         },
         {
           "q": "Does fxTunnel work with WebSockets?",
@@ -443,7 +443,7 @@
         },
         {
           "q": "Is it free?",
-          "a": "Yes, there is a free tier forever: 3 tunnels, your own subdomain, no request limits and no session timeout. The inspector and UDP are on paid plans, from $2.50 a month."
+          "a": "Yes, there is a free tier forever: 1 tunnel, any free subdomain, no request limits and no session timeout. The inspector and UDP are on paid plans, from $2.50 a month."
         },
         {
           "q": "Can I use my own domain?",
@@ -1026,7 +1026,7 @@
     },
     "register": {
       "title": "Sign Up - fxTunnel",
-      "description": "Create a free fxTunnel account. Get 3 tunnels with custom subdomains, no session timeout."
+      "description": "Create a free fxTunnel account. Get a tunnel with any free subdomain, no session timeout."
     },
     "offer": {
       "title": "Public Offer - fxTunnel",
@@ -1041,8 +1041,8 @@
       "description": "fxTunnel privacy policy. How we collect, use, and protect your data. Operated by Navodnyuk A.I., Russian Federation."
     },
     "pricing": {
-      "title": "Pricing Plans - fxTunnel {'|'} Free, Starter & Pro",
-      "description": "Compare fxTunnel pricing plans. Free plan with 3 tunnels. Starter from $2.50/mo with traffic inspector + UDP. Pro from $5/mo with 15 tunnels. Business from $7.50/mo with 50 custom domains."
+      "title": "Pricing Plans - fxTunnel {'|'} Free, Base & Pro",
+      "description": "Compare fxTunnel pricing plans. Free plan with 1 tunnel. Base from $2.50/mo with traffic inspector + UDP. Pro from $5/mo with 15 tunnels. Business from $7.50/mo with 50 custom domains."
     },
     "about": {
       "title": "About fxTunnel - Developer Tunneling Tool",
@@ -1149,7 +1149,7 @@
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to ngrok?",
-        "pricingText": "fxTunnel offers a free tier with 3 tunnels and any custom subdomain you want. Paid plans start at just $2.50/month. ngrok's free tier gives you random URLs only, and the first paid plan costs $8/month - over 3x more expensive (source: ngrok.com/pricing, March 2026). For teams and businesses, the savings add up fast: even on fxTunnel's minimum paid plan you get reserved subdomains, custom domains, and a traffic inspector. ngrok charges custom domains separately at $0.01 per connection-hour, which can quickly exceed a flat fxTunnel subscription with constant use.",
+        "pricingText": "fxTunnel offers a free tier with one tunnel and any free subdomain you want. Paid plans start at just $2.50/month. ngrok's free tier gives you random URLs only, and the first paid plan costs $8/month - over 3x more expensive (source: ngrok.com/pricing, March 2026). For teams and businesses, the savings add up fast: even on fxTunnel's minimum paid plan you get reserved subdomains, custom domains, and a traffic inspector. ngrok charges custom domains separately at $0.01 per connection-hour, which can quickly exceed a flat fxTunnel subscription with constant use.",
         "subdomainsTitle": "Can you use custom subdomains for free?",
         "subdomainsText": "On fxTunnel's free plan, you can pick any subdomain you want - like myapp.fxtun.dev. ngrok assigns random URLs like abc123.ngrok-free.app on the free plan, and custom subdomains require a paid subscription starting at $8/month. No more sharing ugly random links with clients and colleagues. This is especially important when demoing projects to stakeholders, integrating webhooks, or exposing public API endpoints - a readable and stable address makes a professional impression.",
         "limitsTitle": "Are there request limits on fxTunnel vs ngrok?",
@@ -1223,7 +1223,7 @@
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to tuna.am?",
-        "pricingText": "fxTunnel offers a free plan with 3 tunnels, any subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Starter plan is 200 RUB/month with 3 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is nearly 1,200 RUB - enough for an extra plan or hosting.",
+        "pricingText": "fxTunnel offers a free plan with one tunnel, any free subdomain, and no time limits. tuna.am's free plan is limited to 30 minutes per session and only one HTTP tunnel with dynamic subdomains (source: tuna.am, March 2026). tuna.am's paid \"Pro\" plan starts at 299 RUB/month, while fxTunnel's Base plan is 210 RUB/month with 5 tunnels. tuna.am includes many extra services (secrets, webhooks, monitoring), but if you only need tunneling, fxTunnel is more affordable. The annual price difference is about 1,070 RUB - enough for an extra plan or hosting.",
         "protocolsTitle": "What protocols do fxTunnel and tuna.am support?",
         "protocolsText": "fxTunnel supports HTTP, TCP, and UDP tunnels. tuna.am supports HTTP, TCP, and SSHd tunnels but does not offer UDP (source: tuna.am, March 2026). If you need to expose game servers, DNS services, or VoIP applications, fxTunnel is the better choice. tuna.am has a unique SSHd tunnel type that provides a built-in SSH server without requiring your own SSH daemon - convenient for quick remote access to a machine without configuring OpenSSH. Your choice depends on priorities: UDP services or built-in SSH access.",
         "limitsTitle": "What are the free plan limits for fxTunnel vs tuna.am?",
@@ -1240,7 +1240,7 @@
       "faq": [
         { "q": "Which is better for tunnels only - fxTunnel or tuna.am?", "a": "If you only need tunneling, fxTunnel offers better value: lower prices, no session timeout on the free plan, UDP support, and an open-source codebase you can audit. tuna.am is better if you want an all-in-one platform with secrets management, monitoring, and SSH bastion in addition to tunnels." },
         { "q": "Does tuna.am support UDP tunnels?", "a": "No. tuna.am supports HTTP, TCP, and SSHd tunnels but not UDP. fxTunnel is one of the few services that supports all three protocols: HTTP, TCP, and UDP." },
-        { "q": "Can I use both services for free?", "a": "Yes. fxTunnel's free plan gives you 3 tunnels with any subdomain and no time limit. tuna.am's free plan gives you 1 HTTP tunnel limited to 30 minutes per session with a dynamic subdomain." },
+        { "q": "Can I use both services for free?", "a": "Yes. fxTunnel's free plan gives you a tunnel with any free subdomain and no time limit. tuna.am's free plan gives you 1 HTTP tunnel limited to 30 minutes per session with a dynamic subdomain." },
         { "q": "Is tuna.am's platform worth the extra cost?", "a": "If you actively need secret management, webhook capture, monitoring, and SSH bastion features, tuna.am's all-in-one approach can save you from managing multiple tools. If you just need reliable tunneling, fxTunnel delivers more for less." }
       ]
     },
@@ -1262,7 +1262,7 @@
       },
       "sections": {
         "pricingTitle": "How much does fxTunnel cost compared to xTunnel?",
-        "pricingText": "xTunnel offers a simple pricing model: free with limitations, 99 RUB/month for the Personal plan, and 299 RUB/month for Professional (source: xtunnel.dev, March 2026). fxTunnel's free plan already includes a permanent subdomain of your choice with no time limits. fxTunnel's Starter plan at 200 RUB/month gives you 3 tunnels with reserved subdomains, custom domains, and a traffic inspector - features xTunnel does not offer at any price. xTunnel Personal at 99 RUB/month gives a permanent address and TCP, but no custom subdomains, domains, or inspector. The difference in feature sets is clear.",
+        "pricingText": "xTunnel offers a simple pricing model: free with limitations, 99 RUB/month for the Personal plan, and 299 RUB/month for Professional (source: xtunnel.dev, March 2026). fxTunnel's free plan lets you take any free subdomain for as long as the tunnel runs, with no session time limit; holding a name permanently starts on Bases. fxTunnel's Base plan at 210 RUB/month gives you 5 tunnels with reserved subdomains, custom domains, and a traffic inspector - features xTunnel does not offer at any price. xTunnel Personal at 99 RUB/month gives a permanent address and TCP, but no custom subdomains, domains, or inspector. The difference in feature sets is clear.",
         "protocolsTitle": "What protocols do fxTunnel and xTunnel support?",
         "protocolsText": "fxTunnel supports HTTP and TCP on every plan including free, with UDP available on paid plans. xTunnel's free plan only supports HTTP; TCP requires a paid subscription starting at 99 RUB/month (source: xtunnel.dev, March 2026). Neither the Personal nor Professional plan includes UDP support. If you need to expose game servers, DNS, or VoIP services, fxTunnel is the only option. Additionally, fxTunnel provides TCP and UDP with dedicated ports that persist throughout the session, which matters for stable integrations.",
         "limitsTitle": "What are the limits on fxTunnel vs xTunnel?",
@@ -1270,7 +1270,7 @@
         "guiTitle": "Does xTunnel have a desktop app?",
         "guiText": "xTunnel is a CLI-only tool with no graphical interface. fxTunnel offers a native desktop application for Windows, macOS, and Linux. Manage tunnels visually, monitor connection status in the system tray, and enjoy auto-reconnect without opening a terminal. For developers working with multiple tunnels simultaneously, the GUI lets you see all connections in one window, switch between configurations quickly, and get notifications about connection drops.",
         "inspectorTitle": "Do fxTunnel and xTunnel have traffic inspectors?",
-        "inspectorText": "xTunnel does not offer a traffic inspector. fxTunnel includes a built-in traffic inspector (from the Starter plan) that lets you view, filter, search, and replay HTTP requests in real time. For debugging webhooks, API integrations, and payment callbacks, the inspector saves hours of manual log analysis. Without an inspector, you'd need to add logging to your code or use third-party proxies - extra complexity that fxTunnel eliminates.",
+        "inspectorText": "xTunnel does not offer a traffic inspector. fxTunnel includes a built-in traffic inspector (from the Base plan) that lets you view, filter, search, and replay HTTP requests in real time. For debugging webhooks, API integrations, and payment callbacks, the inspector saves hours of manual log analysis. Without an inspector, you'd need to add logging to your code or use third-party proxies - extra complexity that fxTunnel eliminates.",
         "openSourceTitle": "Is fxTunnel or xTunnel open source?",
         "openSourceText": "fxTunnel's entire stack - Go server, CLI, desktop GUI, web frontend - is open source on GitHub. xTunnel is a closed-source SaaS. fxTunnel also offers reserved subdomains, custom domain support, and Let's Encrypt HTTPS - features not available on xTunnel. For developers who want to audit the code that handles their traffic, contribute fixes, or extend functionality, open source is the deciding factor.",
         "verdictTitle": "The Bottom Line",
@@ -1278,7 +1278,7 @@
       },
       "faq": [
         { "q": "Is xTunnel really free?", "a": "Yes, but with significant limitations: temporary public address (changes on each restart), HTTP only (no TCP), 100 requests per minute, and 1 GB per day bandwidth cap. fxTunnel's free plan has no such restrictions - you get a permanent subdomain of your choice with unlimited requests and bandwidth." },
-        { "q": "Does xTunnel support custom subdomains or domains?", "a": "No. xTunnel generates temporary or permanent public addresses but does not let you choose a custom subdomain or bring your own domain. fxTunnel lets you pick any subdomain for free (e.g., myapp.fxtun.dev) and supports custom domains from the Starter plan." },
+        { "q": "Does xTunnel support custom subdomains or domains?", "a": "No. xTunnel generates temporary or permanent public addresses but does not let you choose a custom subdomain or bring your own domain. fxTunnel lets you pick any subdomain for free (e.g., myapp.fxtun.dev) and supports custom domains from the Base plan." },
         { "q": "Why choose fxTunnel over xTunnel?", "a": "fxTunnel offers more features at every price point: custom subdomains (free), UDP support, desktop GUI, traffic inspector, open source, no request limits, and no bandwidth caps. xTunnel is a simpler service suitable for basic HTTP tunnel needs." },
         { "q": "Can I migrate from xTunnel to fxTunnel?", "a": "Yes. Install the fxTunnel client, create a free account, and use similar commands: 'fxtunnel http 3000' instead of 'xtunnel http 3000'. You immediately get a permanent custom subdomain with no request or bandwidth limits." }
       ]
@@ -1384,9 +1384,9 @@
         "title": "Free plan",
         "text": "Perfect for students, hobby projects, and getting started with tunneling. You get three active HTTP and TCP tunnels, choose any available subdomain (e.g., myapp.fxtun.dev), and work with zero limits on requests, bandwidth, or session duration. UDP tunnels are reserved for paid plans. The Free plan never expires - use it for testing webhooks, demoing a local project to a client, or debugging payment gateway integrations without any time pressure."
       },
-      "starter": {
-        "title": "Starter - $2.50/mo",
-        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Three active tunnels let you expose a frontend, backend, and webhook receiver simultaneously. One reserved subdomain guarantees stable URLs for demos - no other user can claim your address. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
+      "base": {
+        "title": "Base - $2.50/mo",
+        "text": "The sweet spot for freelancers, indie developers, and small integration projects. Five active tunnels let you expose a frontend, backend, webhook receiver and a couple of staging services at once. Five reserved subdomains guarantee stable URLs for demos - no other user can claim your address. One custom domain, UDP tunnel support, and the traffic inspector for real-time HTTP request analysis round out the package, all for $2.50 per month."
       },
       "pro": {
         "title": "Pro - $5/mo",
@@ -1398,7 +1398,7 @@
       }
     },
     "subdomainTitle": "Subdomains: free and reserved",
-    "subdomainText": "On every plan, including Free, you can pick any available subdomain when creating a tunnel - for example, myapp.fxtun.dev or api-test.fxtun.dev. This is a fundamental difference from ngrok, which assigns a random URL like abc123.ngrok-free.app on its free tier. However, a free subdomain is not locked to your account: once you disconnect the tunnel, another user can claim the same address. Reserved subdomains (starting from the Starter plan) are permanently bound to your account - no one else can use them, even when your tunnel is offline. This is essential for stable demo URLs, third-party service integrations, and webhooks where the address must never change.",
+    "subdomainText": "On every plan, including Free, you can pick any available subdomain when creating a tunnel - for example, myapp.fxtun.dev or api-test.fxtun.dev. This is a fundamental difference from ngrok, which assigns a random URL like abc123.ngrok-free.app on its free tier. However, a free subdomain is not locked to your account: once you disconnect the tunnel, another user can claim the same address. Reserved subdomains (starting from the Base plan) are permanently bound to your account - no one else can use them, even when your tunnel is offline. This is essential for stable demo URLs, third-party service integrations, and webhooks where the address must never change.",
     "commonFeaturesTitle": "What's included in every plan",
     "commonFeaturesText": "Every fxTunnel plan, including Free, provides a full set of core capabilities. HTTP and TCP tunnels on every plan (UDP on paid plans from $2.50/mo) let you expose web apps, SSH servers, game servers, and IoT devices. A desktop application for Windows, macOS, and Linux with a graphical interface, a CLI for automation, and automatic TLS for HTTPS traffic. No limits on request count or bandwidth. No session timeouts - your tunnel stays alive as long as you need it. Auto-reconnect on connection drops: the client restores the session on its own, without manual intervention."
   },
