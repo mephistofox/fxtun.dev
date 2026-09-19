@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
@@ -18,8 +19,11 @@ var _ store.RateChecker = (*ipRateLimiter)(nil)
 const loginAttemptsPerMin = 8
 
 type limiterEntry struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
+	limiter *rate.Limiter
+	// lastSeen is touched by every request goroutine and read by the cleanup
+	// ticker; sync.Map guards the map, not the value it points at, so this
+	// field needs its own synchronisation. Unix nanos.
+	lastSeen atomic.Int64
 }
 
 type ipRateLimiter struct {
@@ -38,19 +42,17 @@ func newIPRateLimiter(perMinute int) *ipRateLimiter {
 }
 
 func (rl *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
-	now := time.Now()
+	now := time.Now().UnixNano()
 	if v, ok := rl.limiters.Load(ip); ok {
 		entry := v.(*limiterEntry)
-		entry.lastSeen = now
+		entry.lastSeen.Store(now)
 		return entry.limiter
 	}
-	entry := &limiterEntry{
-		limiter:  rate.NewLimiter(rl.rate, rl.burst),
-		lastSeen: now,
-	}
+	entry := &limiterEntry{limiter: rate.NewLimiter(rl.rate, rl.burst)}
+	entry.lastSeen.Store(now)
 	if actual, loaded := rl.limiters.LoadOrStore(ip, entry); loaded {
 		entry = actual.(*limiterEntry)
-		entry.lastSeen = now
+		entry.lastSeen.Store(now)
 		return entry.limiter
 	}
 	return entry.limiter
@@ -71,10 +73,10 @@ func (rl *ipRateLimiter) cleanup(stopCh <-chan struct{}, interval time.Duration)
 			case <-stopCh:
 				return
 			case <-ticker.C:
-				now := time.Now()
+				now := time.Now().UnixNano()
 				rl.limiters.Range(func(key, value any) bool {
 					entry := value.(*limiterEntry)
-					if now.Sub(entry.lastSeen) > rl.ttl {
+					if now-entry.lastSeen.Load() > int64(rl.ttl) {
 						rl.limiters.Delete(key)
 					}
 					return true

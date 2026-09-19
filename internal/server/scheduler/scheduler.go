@@ -47,7 +47,9 @@ type Scheduler struct {
 	cfg       *config.ServerConfig
 	log       zerolog.Logger
 	providers *payment.Registry
-	handlers  []EventHandler
+
+	handlers   []EventHandler
+	handlersMu sync.RWMutex
 
 	// Check intervals
 	checkInterval time.Duration
@@ -69,14 +71,21 @@ func New(db *database.Database, cfg *config.ServerConfig, providers *payment.Reg
 	}
 }
 
-// OnEvent registers an event handler
+// OnEvent registers an event handler. Callers today register before Start, but
+// the method is exported and emit runs on the scheduler goroutine, so guard the
+// slice rather than rely on that ordering.
 func (s *Scheduler) OnEvent(handler EventHandler) {
+	s.handlersMu.Lock()
 	s.handlers = append(s.handlers, handler)
+	s.handlersMu.Unlock()
 }
 
 // emit sends event to all handlers
 func (s *Scheduler) emit(event Event) {
-	for _, h := range s.handlers {
+	s.handlersMu.RLock()
+	handlers := s.handlers
+	s.handlersMu.RUnlock()
+	for _, h := range handlers {
 		h(event)
 	}
 }

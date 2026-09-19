@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -43,16 +42,17 @@ func NewUDPManager(server *Server, log zerolog.Logger) *UDPManager {
 
 // AllocatePort allocates a port for a UDP tunnel
 func (m *UDPManager) AllocatePort(requestedPort int) (int, *net.UDPConn, error) {
-	port, err := m.ports.Allocate(requestedPort)
+	var conn *net.UDPConn
+	port, err := m.ports.AllocateAndBind(requestedPort, func(p int) error {
+		c, err := net.ListenUDP("udp", &net.UDPAddr{Port: p})
+		if err != nil {
+			return err
+		}
+		conn = c
+		return nil
+	})
 	if err != nil {
 		return 0, nil, err
-	}
-
-	addr := &net.UDPAddr{Port: port}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		m.ports.Release(port)
-		return 0, nil, fmt.Errorf("failed to bind port %d: %w", port, err)
 	}
 
 	return port, conn, nil

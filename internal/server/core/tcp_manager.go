@@ -29,15 +29,17 @@ func NewTCPManager(server *Server, log zerolog.Logger) *TCPManager {
 
 // AllocatePort allocates a port for a TCP tunnel
 func (m *TCPManager) AllocatePort(requestedPort int) (int, net.Listener, error) {
-	port, err := m.ports.Allocate(requestedPort)
+	var listener net.Listener
+	port, err := m.ports.AllocateAndBind(requestedPort, func(p int) error {
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", p))
+		if err != nil {
+			return err
+		}
+		listener = l
+		return nil
+	})
 	if err != nil {
 		return 0, nil, err
-	}
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		m.ports.Release(port)
-		return 0, nil, fmt.Errorf("failed to bind port %d: %w", port, err)
 	}
 
 	return port, listener, nil
