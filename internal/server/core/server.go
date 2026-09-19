@@ -124,6 +124,13 @@ type Server struct {
 	// peer could exhaust memory by opening connections and never authenticating.
 	unauthSlots chan struct{}
 
+	// unauthPerIP counts pre-auth control connections per source IP. The global
+	// cap alone lets one host hold every slot and lock everybody else out, since
+	// a peer can sit in the pre-auth stage for tens of seconds for free and the
+	// auth rate limiter only runs after the auth message arrives.
+	unauthIPMu sync.Mutex
+	unauthIP   map[string]int
+
 	// Listeners
 	controlListener     net.Listener
 	controlTLSListeners []net.Listener
@@ -256,6 +263,7 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 	s := &Server{
 		cfg:            cfg,
 		unauthSlots:    make(chan struct{}, maxUnauthControlConns),
+		unauthIP:       make(map[string]int),
 		log:            log.With().Str("component", "server").Logger(),
 		clientMgr:      NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains:  make(map[string]*database.CustomDomain),
@@ -754,6 +762,33 @@ func (s *Server) acceptControlConnections(l net.Listener) {
 // maxUnauthControlConns bounds concurrent pre-auth control connections.
 const maxUnauthControlConns = 256
 
+// maxUnauthPerIP bounds how much of that budget a single source IP may hold.
+// Sized for a NAT shared by many users reconnecting at once; a normal peer
+// leaves the pre-auth stage in well under a second.
+const maxUnauthPerIP = 32
+
+// acquireUnauthIP reserves a pre-auth slot for host, returning false when that
+// host already holds its share. The release func is safe to call once.
+func (s *Server) acquireUnauthIP(host string) (func(), bool) {
+	s.unauthIPMu.Lock()
+	if s.unauthIP[host] >= maxUnauthPerIP {
+		s.unauthIPMu.Unlock()
+		return nil, false
+	}
+	s.unauthIP[host]++
+	s.unauthIPMu.Unlock()
+
+	return func() {
+		s.unauthIPMu.Lock()
+		if s.unauthIP[host] <= 1 {
+			delete(s.unauthIP, host)
+		} else {
+			s.unauthIP[host]--
+		}
+		s.unauthIPMu.Unlock()
+	}, true
+}
+
 // maxBasicAuthCost caps the bcrypt cost a client may attach to a tunnel.
 const maxBasicAuthCost = 12
 
@@ -772,11 +807,29 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	var releaseOnce sync.Once
-	releaseSlot := func() { releaseOnce.Do(func() { <-s.unauthSlots }) }
-	defer releaseSlot()
 
 	remoteAddr := conn.RemoteAddr().String()
+	unauthHost, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		unauthHost = remoteAddr
+	}
+	releaseIP, ok := s.acquireUnauthIP(unauthHost)
+	if !ok {
+		<-s.unauthSlots
+		s.log.Warn().Str("remote", remoteAddr).Msg("Too many unauthenticated control connections from this IP, rejecting")
+		conn.Close()
+		return
+	}
+
+	var releaseOnce sync.Once
+	releaseSlot := func() {
+		releaseOnce.Do(func() {
+			releaseIP()
+			<-s.unauthSlots
+		})
+	}
+	defer releaseSlot()
+
 	log := s.log.With().Str("remote", remoteAddr).Logger()
 	log.Debug().Msg("New control connection")
 
@@ -804,10 +857,34 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 		return
 	}
 
-	// Accept the control stream (first stream from client)
-	controlStream, err := session.Accept()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to accept control stream")
+	// Accept the control stream (first stream from client). A real client opens
+	// it immediately; a peer that just sits there would otherwise keep this
+	// goroutine and its pre-auth slot until yamux keepalive gives up, which also
+	// made shutdown wait ~40s for the same goroutines.
+	type acceptResult struct {
+		stream net.Conn
+		err    error
+	}
+	acceptCh := make(chan acceptResult, 1)
+	go func() {
+		stream, aerr := session.Accept()
+		acceptCh <- acceptResult{stream: stream, err: aerr}
+	}()
+
+	var controlStream net.Conn
+	select {
+	case res := <-acceptCh:
+		if res.err != nil {
+			log.Error().Err(res.err).Msg("Failed to accept control stream")
+			session.Close()
+			return
+		}
+		controlStream = res.stream
+	case <-time.After(authTimeout):
+		log.Warn().Msg("Timed out waiting for control stream")
+		session.Close()
+		return
+	case <-s.ctx.Done():
 		session.Close()
 		return
 	}

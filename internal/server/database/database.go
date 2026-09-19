@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -42,12 +44,27 @@ type Database struct {
 
 // New creates a new PostgreSQL database connection pool and initializes repositories.
 func New(dsn string, log zerolog.Logger) (*Database, error) {
-	pool, err := pgxpool.New(context.Background(), dsn)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse database dsn: %w", err)
+	}
+	// Without this the pool size follows NumCPU, so the same config behaves
+	// differently on every box. Pin it, and recycle connections so a failover
+	// or a pooler restart does not leave stale ones behind.
+	if !strings.Contains(dsn, "pool_max_conns") {
+		poolCfg.MaxConns = 25
+	}
+	poolCfg.MaxConnLifetime = 30 * time.Minute
+	poolCfg.MaxConnIdleTime = 5 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect to database: %w", err)
 	}
 
-	if err := pool.Ping(context.Background()); err != nil {
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer pingCancel()
+	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
@@ -58,7 +75,7 @@ func New(dsn string, log zerolog.Logger) (*Database, error) {
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
-	q := sqlc.New(pool)
+	q := sqlc.New(timeoutDB{pool: pool})
 	lg := log.With().Str("component", "database").Logger()
 
 	database := &Database{
