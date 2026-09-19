@@ -1,34 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref } from 'vue'
 import Layout from '@/components/Layout.vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import { authApi } from '@/api/client'
 
-const route = useRoute()
-
-
-const sessionId = ref('')
+// The code is typed by hand on purpose. Approving straight from a link let
+// anyone create a session and have a logged-in victim authorize it with one
+// click, handing the attacker a live API token for the victim's account.
+const userCode = ref('')
 const loading = ref(false)
 const error = ref('')
 const authorized = ref(false)
-const missingSession = ref(false)
-
-onMounted(() => {
-  const session = route.query.session as string | undefined
-  if (!session) {
-    missingSession.value = true
-    return
-  }
-  sessionId.value = session
-})
 
 async function authorize() {
+  const code = userCode.value.trim().toUpperCase()
+  if (!code) {
+    error.value = 'Enter the code shown in your terminal'
+    return
+  }
   loading.value = true
   error.value = ''
   try {
-    await authApi.deviceAuthorize(sessionId.value)
+    await authApi.deviceAuthorize(code)
     authorized.value = true
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }
@@ -54,13 +48,8 @@ async function authorize() {
           <p class="text-muted-foreground mt-2">Confirm access for the fxtun CLI client</p>
         </div>
 
-        <!-- Missing session -->
-        <div v-if="missingSession" class="bg-destructive/10 text-destructive p-4 rounded-lg text-sm border border-destructive/20 text-center">
-          Missing session parameter. Please use the link provided by the CLI.
-        </div>
-
         <!-- Success -->
-        <div v-else-if="authorized" class="bg-green-500/10 text-green-600 dark:text-green-400 p-4 rounded-lg text-sm border border-green-500/20 text-center">
+        <div v-if="authorized" class="bg-green-500/10 text-green-600 dark:text-green-400 p-4 rounded-lg text-sm border border-green-500/20 text-center">
           Authorized! You can close this page and return to the terminal.
         </div>
 
@@ -71,8 +60,20 @@ async function authorize() {
           </div>
 
           <p class="text-sm text-muted-foreground text-center">
-            A CLI client is requesting access to your account. Click the button below to authorize it.
+            Enter the code shown in your terminal. Only approve a code you started yourself —
+            it grants the CLI a token for your account.
           </p>
+
+          <input
+            v-model="userCode"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="XXXX-XXXX"
+            class="w-full rounded-lg border border-border bg-card px-4 py-3 text-center text-lg font-mono tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-primary/40"
+            @keyup.enter="authorize"
+          />
 
           <Button variant="glow" class="w-full" size="lg" :loading="loading" @click="authorize">
             Authorize CLI

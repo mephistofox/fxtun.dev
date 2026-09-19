@@ -569,14 +569,21 @@ func loginWithBrowser() error {
 
 	var deviceResp struct {
 		SessionID string `json:"session_id"`
+		UserCode  string `json:"user_code"`
 		AuthURL   string `json:"auth_url"`
 		ExpiresIn int    `json:"expires_in"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&deviceResp); err != nil {
 		return fmt.Errorf("invalid server response: %w", err)
 	}
+	if deviceResp.UserCode == "" {
+		return fmt.Errorf("server did not return a verification code — update the server or use: fxtunnel login -t <token>")
+	}
 
-	fmt.Printf("\nOpen this URL in your browser to authenticate:\n\n  %s\n\n", deviceResp.AuthURL)
+	// The code is shown here and typed by hand in the browser. It is what ties
+	// the approval to the person who started this login: a link alone must
+	// never be enough to authorize a session.
+	fmt.Printf("\nOpen this URL in your browser:\n\n  %s\n\nand enter the code:\n\n  \033[1m%s\033[0m\n\n", deviceResp.AuthURL, deviceResp.UserCode)
 	fmt.Println("Waiting for authorization...")
 
 	_ = openBrowser(deviceResp.AuthURL)

@@ -41,8 +41,14 @@ func (ds *memoryDeviceStore) Create() (*store.DeviceSession, error) {
 	}
 	id := hex.EncodeToString(bytes)
 
+	userCode, err := generateDeviceUserCode()
+	if err != nil {
+		return nil, err
+	}
+
 	session := &store.DeviceSession{
 		ID:        id,
+		UserCode:  userCode,
 		Status:    deviceStatusPending,
 		CreatedAt: time.Now(),
 	}
@@ -52,6 +58,44 @@ func (ds *memoryDeviceStore) Create() (*store.DeviceSession, error) {
 	ds.mu.Unlock()
 
 	return session, nil
+}
+
+// deviceUserCodeAlphabet omits characters that are easy to confuse when read
+// off a terminal and typed into a browser.
+const deviceUserCodeAlphabet = "BCDFGHJKMNPQRSTWXYZ23456789"
+
+// generateDeviceUserCode returns a code in the form XXXX-XXXX.
+func generateDeviceUserCode() (string, error) {
+	const n = 8
+	buf := make([]byte, n)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	out := make([]byte, 0, n+1)
+	for i, v := range buf {
+		if i == n/2 {
+			out = append(out, '-')
+		}
+		out = append(out, deviceUserCodeAlphabet[int(v)%len(deviceUserCodeAlphabet)])
+	}
+	return string(out), nil
+}
+
+// GetByUserCode resolves a user-typed code to its pending session.
+func (ds *memoryDeviceStore) GetByUserCode(userCode string) *store.DeviceSession {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	for id, s := range ds.sessions {
+		if s.UserCode != userCode {
+			continue
+		}
+		if time.Since(s.CreatedAt) > deviceSessionTTL {
+			return &store.DeviceSession{ID: id, Status: deviceStatusExpired}
+		}
+		return s
+	}
+	return nil
 }
 
 func (ds *memoryDeviceStore) Get(id string) *store.DeviceSession {

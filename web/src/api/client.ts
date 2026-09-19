@@ -147,8 +147,8 @@ export const authApi = {
   login: (data: LoginRequest) => api.post<TokenPair & { user: User }>('/auth/login', data),
   register: (data: RegisterRequest) => api.post<TokenPair & { user: User }>('/auth/register', data),
   logout: () => api.post('/auth/logout'),
-  deviceAuthorize: (sessionId: string) =>
-    api.post('/auth/device/authorize', { session_id: sessionId }),
+  deviceAuthorize: (userCode: string) =>
+    api.post('/auth/device/authorize', { user_code: userCode }),
   refresh: (refreshToken: string) => api.post<TokenPair>('/auth/refresh', { refresh_token: refreshToken }),
   exchangeCode: (code: string) => api.post<TokenPair & { expires_in: number }>('/auth/exchange', { code }),
   initOAuthLink: (provider: string) => api.post<{ url: string }>(`/auth/${provider}/link`),

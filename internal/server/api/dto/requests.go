@@ -70,7 +70,10 @@ type TOTPDisableRequest struct {
 
 // DeviceAuthorizeRequest represents a device flow authorization request
 type DeviceAuthorizeRequest struct {
-	SessionID string `json:"session_id"`
+	// UserCode is what the user copies from their terminal. The session id is
+	// deliberately not accepted here: it is the CLI's polling secret, and
+	// approving by it let an attacker's session be authorized from a link.
+	UserCode string `json:"user_code" validate:"required,min=4,max=32"`
 }
 
 // UpdateUserRequest represents an admin user update request

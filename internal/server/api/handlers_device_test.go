@@ -49,7 +49,7 @@ func TestDeviceAuthorize_TokenLimitReached(t *testing.T) {
 	}
 
 	// Try to authorize the device session — should fail with 403
-	body := `{"session_id":"` + codeResult.SessionID + `"}`
+	body := `{"user_code":"` + codeResult.UserCode + `"}`
 	authReq, _ := http.NewRequest(http.MethodPost, env.Server.URL+"/api/auth/device/authorize", strings.NewReader(body))
 	authReq.Header.Set("Content-Type", "application/json")
 	authReq.Header.Set("Authorization", "Bearer "+user.AccessToken)
@@ -98,7 +98,7 @@ func TestDeviceAuthorize_Success(t *testing.T) {
 	}
 
 	// Authorize the device session — should succeed
-	body := `{"session_id":"` + codeResult.SessionID + `"}`
+	body := `{"user_code":"` + codeResult.UserCode + `"}`
 	authReq, _ := http.NewRequest(http.MethodPost, env.Server.URL+"/api/auth/device/authorize", strings.NewReader(body))
 	authReq.Header.Set("Content-Type", "application/json")
 	authReq.Header.Set("Authorization", "Bearer "+user.AccessToken)
@@ -129,5 +129,48 @@ func TestDeviceAuthorize_Success(t *testing.T) {
 
 	if tokens[0].Name != "CLI (device flow)" {
 		t.Fatalf("expected token name 'CLI (device flow)', got %q", tokens[0].Name)
+	}
+}
+
+// The session id is the CLI's polling secret. Approving by it meant an
+// attacker could create a session, send the victim a link carrying that id,
+// and collect a live API token for the victim's account the moment they
+// clicked "Authorize". Approval must accept only the short code the user
+// reads from their own terminal.
+func TestDeviceAuthorize_RejectsSessionID(t *testing.T) {
+	env := setupTestEnv(t)
+	user := env.createTestUser(t, "+70000009100", "password123", "device guard")
+
+	codeReq, _ := http.NewRequest(http.MethodPost, env.Server.URL+"/api/auth/device/code", nil)
+	codeResp, err := http.DefaultClient.Do(codeReq)
+	if err != nil {
+		t.Fatalf("device code request failed: %v", err)
+	}
+	defer codeResp.Body.Close()
+
+	var codeResult dto.DeviceCodeResponse
+	if err := json.NewDecoder(codeResp.Body).Decode(&codeResult); err != nil {
+		t.Fatalf("decode device code: %v", err)
+	}
+	if codeResult.UserCode == "" {
+		t.Fatal("server returned no user_code")
+	}
+	if strings.Contains(codeResult.AuthURL, codeResult.SessionID) {
+		t.Errorf("auth_url leaks the polling secret: %s", codeResult.AuthURL)
+	}
+
+	body := `{"user_code":"` + codeResult.SessionID + `"}`
+	authReq, _ := http.NewRequest(http.MethodPost, env.Server.URL+"/api/auth/device/authorize", strings.NewReader(body))
+	authReq.Header.Set("Content-Type", "application/json")
+	authReq.Header.Set("Authorization", "Bearer "+user.AccessToken)
+
+	authResp, err := http.DefaultClient.Do(authReq)
+	if err != nil {
+		t.Fatalf("authorize request failed: %v", err)
+	}
+	defer authResp.Body.Close()
+
+	if authResp.StatusCode == http.StatusOK {
+		t.Error("session id was accepted as an approval code; the one-click account takeover is still open")
 	}
 }
