@@ -166,19 +166,14 @@ func (r *UserHistoryRepository) GetStats(userID int64) (*HistoryStats, error) {
 		return nil, fmt.Errorf("get history stats: %w", err)
 	}
 
-	stats := &HistoryStats{
-		TotalConnections: int(row.TotalConnections),
-	}
-
-	// TotalBytesSent and TotalBytesReceived come as interface{} from COALESCE(SUM(...))
-	if v, ok := row.TotalBytesSent.(int64); ok {
-		stats.TotalBytesSent = v
-	}
-	if v, ok := row.TotalBytesReceived.(int64); ok {
-		stats.TotalBytesReceived = v
-	}
-
-	return stats, nil
+	// SUM over bigint yields numeric in Postgres, which arrived here as
+	// pgtype.Numeric behind an interface{} — the int64 assertion silently
+	// failed and every user saw zero traffic. The query now casts to bigint.
+	return &HistoryStats{
+		TotalConnections:   int(row.TotalConnections),
+		TotalBytesSent:     row.TotalBytesSent,
+		TotalBytesReceived: row.TotalBytesReceived,
+	}, nil
 }
 
 // DeleteOlderThan deletes history entries older than the given time.

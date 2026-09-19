@@ -31,6 +31,12 @@ type AuditLog struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type AutocertCache struct {
+	Key       string             `json:"key"`
+	Data      []byte             `json:"data"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type CustomDomain struct {
 	ID                int64              `json:"id"`
 	UserID            int64              `json:"user_id"`

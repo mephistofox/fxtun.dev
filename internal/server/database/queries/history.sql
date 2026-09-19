@@ -24,8 +24,8 @@ SELECT COUNT(*) FROM user_history WHERE user_id = $1;
 -- name: GetHistoryStats :one
 SELECT
     COUNT(*) AS total_connections,
-    COALESCE(SUM(bytes_sent), 0) AS total_bytes_sent,
-    COALESCE(SUM(bytes_received), 0) AS total_bytes_received
+    COALESCE(SUM(bytes_sent), 0)::bigint AS total_bytes_sent,
+    COALESCE(SUM(bytes_received), 0)::bigint AS total_bytes_received
 FROM user_history WHERE user_id = $1;
 
 -- name: DeleteHistoryOlderThan :execrows
