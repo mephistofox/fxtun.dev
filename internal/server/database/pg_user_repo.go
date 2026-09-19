@@ -607,6 +607,48 @@ func (r *UserRepository) MergeUsers(primaryID, secondaryID int64) error {
 		return fmt.Errorf("cleanup totp_secrets: %w", err)
 	}
 
+	// Transfer subscriptions and payments. Both cascade on user delete, so they
+	// must move before the secondary row goes away or the merge silently destroys
+	// the account's financial history. Payments move wholesale — they are the
+	// financial record. Subscriptions move too, but only one may stay live: if
+	// primary already has an active/cancelled subscription, the incoming ones are
+	// retired (and stop renewing) so the merged account is never billed twice.
+	_, err = tx.Exec(ctx, `
+		UPDATE subscriptions SET
+			status = 'expired',
+			recurring = FALSE,
+			next_plan_id = NULL,
+			yookassa_payment_method_id = NULL,
+			yookassa_card_last4 = NULL,
+			updated_at = NOW()
+		WHERE user_id = $2 AND status IN ('active', 'cancelled')
+		  AND EXISTS (SELECT 1 FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'cancelled'))
+	`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("retire secondary subscriptions: %w", err)
+	}
+
+	// At most one pending subscription per user (uniq_pending_subscription_per_user):
+	// an abandoned checkout carries no money, so drop the incoming one on conflict.
+	_, err = tx.Exec(ctx, `
+		UPDATE subscriptions SET status = 'expired', updated_at = NOW()
+		WHERE user_id = $2 AND status = 'pending'
+		  AND EXISTS (SELECT 1 FROM subscriptions WHERE user_id = $1 AND status = 'pending')
+	`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("retire secondary pending subscription: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE subscriptions SET user_id = $1 WHERE user_id = $2`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer subscriptions: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE payments SET user_id = $1 WHERE user_id = $2`, primaryID, secondaryID)
+	if err != nil {
+		return fmt.Errorf("transfer payments: %w", err)
+	}
+
 	// Transfer user_settings (has PRIMARY KEY(user_id, key))
 	_, err = tx.Exec(ctx,
 		`UPDATE user_settings SET user_id = $1 WHERE user_id = $2 AND key NOT IN (SELECT key FROM user_settings WHERE user_id = $1)`,

@@ -203,3 +203,117 @@ func TestCreateWithLimit_Concurrent(t *testing.T) {
 		t.Fatalf("expected 1 reserved_domains row, got %d", rows)
 	}
 }
+
+// insertSubscription creates a subscription row directly and returns its id.
+func insertSubscription(t *testing.T, db *Database, userID int64, status string) int64 {
+	t.Helper()
+	var id int64
+	err := db.Pool().QueryRow(context.Background(),
+		`INSERT INTO subscriptions (user_id, plan_id, status, recurring, current_period_end)
+		 VALUES ($1, 2, $2, TRUE, NOW() + INTERVAL '10 days') RETURNING id`, userID, status).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert subscription: %v", err)
+	}
+	return id
+}
+
+// insertPayment creates a payment row directly and returns its id.
+func insertPayment(t *testing.T, db *Database, userID, subID, invoiceID int64) int64 {
+	t.Helper()
+	var id int64
+	err := db.Pool().QueryRow(context.Background(),
+		`INSERT INTO payments (user_id, subscription_id, invoice_id, amount, status, provider)
+		 VALUES ($1, $2, $3, 250, 'success', 'yookassa') RETURNING id`, userID, subID, invoiceID).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert payment: %v", err)
+	}
+	return id
+}
+
+// TestMergeUsers_TransfersPaymentsAndSubscriptions: payments and subscriptions
+// cascade on user delete, so a merge that leaves them behind silently destroys
+// the secondary account's financial history along with its live subscription.
+func TestMergeUsers_TransfersPaymentsAndSubscriptions(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	primary := insertUser(t, db, "+30000000011")
+	secondary := insertUser(t, db, "+30000000012")
+
+	subID := insertSubscription(t, db, secondary, "active")
+	payID := insertPayment(t, db, secondary, subID, 900011)
+
+	if err := db.Users.MergeUsers(primary, secondary); err != nil {
+		t.Fatalf("MergeUsers failed: %v", err)
+	}
+
+	var subOwner int64
+	if err := db.Pool().QueryRow(ctx, `SELECT user_id FROM subscriptions WHERE id = $1`, subID).Scan(&subOwner); err != nil {
+		t.Fatalf("subscription lost by merge: %v", err)
+	}
+	if subOwner != primary {
+		t.Errorf("subscription owner = %d, want %d", subOwner, primary)
+	}
+
+	var payOwner int64
+	if err := db.Pool().QueryRow(ctx, `SELECT user_id FROM payments WHERE id = $1`, payID).Scan(&payOwner); err != nil {
+		t.Fatalf("payment lost by merge: %v", err)
+	}
+	if payOwner != primary {
+		t.Errorf("payment owner = %d, want %d", payOwner, primary)
+	}
+}
+
+// TestMergeUsers_KeepsPrimaryActiveSubscription: when both accounts carry a live
+// subscription the primary's stays the effective one; the secondary's row is
+// preserved for history but must not stay live, or renewals bill twice.
+func TestMergeUsers_KeepsPrimaryActiveSubscription(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	primary := insertUser(t, db, "+30000000013")
+	secondary := insertUser(t, db, "+30000000014")
+
+	primarySub := insertSubscription(t, db, primary, "active")
+	secondarySub := insertSubscription(t, db, secondary, "active")
+
+	if err := db.Users.MergeUsers(primary, secondary); err != nil {
+		t.Fatalf("MergeUsers failed: %v", err)
+	}
+
+	var primaryStatus, secondaryStatus string
+	var secondaryOwner int64
+	if err := db.Pool().QueryRow(ctx, `SELECT status FROM subscriptions WHERE id = $1`, primarySub).Scan(&primaryStatus); err != nil {
+		t.Fatalf("read primary subscription: %v", err)
+	}
+	if err := db.Pool().QueryRow(ctx, `SELECT status, user_id FROM subscriptions WHERE id = $1`, secondarySub).Scan(&secondaryStatus, &secondaryOwner); err != nil {
+		t.Fatalf("secondary subscription lost by merge: %v", err)
+	}
+
+	if primaryStatus != "active" {
+		t.Errorf("primary subscription status = %q, want active", primaryStatus)
+	}
+	if secondaryOwner != primary {
+		t.Errorf("secondary subscription owner = %d, want %d", secondaryOwner, primary)
+	}
+	if secondaryStatus == "active" {
+		t.Error("both subscriptions are active after merge: the user would be billed twice")
+	}
+}
+
+// TestMergeUsers_PendingSubscriptionsDoNotCollide: the partial unique index
+// allows one pending subscription per user, so transferring the secondary's
+// pending checkout onto a primary that already has one must not fail the merge.
+func TestMergeUsers_PendingSubscriptionsDoNotCollide(t *testing.T) {
+	db := newTestDB(t)
+
+	primary := insertUser(t, db, "+30000000015")
+	secondary := insertUser(t, db, "+30000000016")
+
+	insertSubscription(t, db, primary, "pending")
+	insertSubscription(t, db, secondary, "pending")
+
+	if err := db.Users.MergeUsers(primary, secondary); err != nil {
+		t.Fatalf("MergeUsers failed: %v", err)
+	}
+}
