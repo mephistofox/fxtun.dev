@@ -1225,28 +1225,9 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 	// Check if user came through normal auth middleware
 	user := auth.GetUserFromContext(r.Context())
 
-	// Fallback: support ?token= query param for EventSource which can't send headers.
-	// Only JWT access tokens are accepted — API tokens (sk_) must NOT be used for web auth.
-	if user == nil {
-		tokenStr := r.URL.Query().Get("token")
-		if tokenStr != "" {
-			claims, err := s.authService.ValidateAccessToken(tokenStr)
-			if err == nil && claims != nil && claims.IsAdmin {
-				// Every other route re-reads the user from the database; this
-				// fallback trusted the token's own claims, so a demoted or
-				// blocked admin kept the stream for the rest of the 15m TTL.
-				dbUser, dbErr := s.db.Users.GetByID(claims.UserID)
-				if dbErr == nil && dbUser != nil && dbUser.IsActive && dbUser.IsAdmin {
-					user = &auth.AuthenticatedUser{
-						ID:      dbUser.ID,
-						Phone:   dbUser.Phone,
-						IsAdmin: dbUser.IsAdmin,
-					}
-				}
-			}
-		}
-	}
-
+	// No query-parameter fallback: a token there ends up in nginx's access log
+	// verbatim. The admin UI streams this over fetch with an Authorization
+	// header instead of EventSource, which cannot send one.
 	if user == nil || !user.IsAdmin {
 		s.respondError(w, http.StatusUnauthorized, "unauthorized")
 		return

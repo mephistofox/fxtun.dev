@@ -11,6 +11,9 @@ import (
 const maxSyncItems = 500
 
 // handleGetSyncData returns all sync data for the user
+// maxHistoryEntriesPerUser caps stored connection history per account.
+const maxHistoryEntriesPerUser = 10000
+
 func (s *Server) handleGetSyncData(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
@@ -268,6 +271,20 @@ func (s *Server) handleAddHistory(w http.ResponseWriter, r *http.Request) {
 		s.respondJSON(w, http.StatusOK, map[string]interface{}{
 			"added": 0,
 		})
+		return
+	}
+
+	// The client can push batches indefinitely; without a ceiling one account
+	// grows the table without bound.
+	existing, err := s.db.UserHistory.Count(user.ID)
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to count history")
+		s.respondError(w, http.StatusInternalServerError, "failed to add history")
+		return
+	}
+	if existing+len(req.History) > maxHistoryEntriesPerUser {
+		s.respondErrorWithCode(w, http.StatusConflict, "HISTORY_FULL",
+			"history limit reached; clear old entries first")
 		return
 	}
 
