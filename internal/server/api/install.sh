@@ -108,10 +108,8 @@ hex_to_bin() {
 # verify_signature checks the detached ed25519 signature published next to the
 # binary.
 #
-# A signature that is present and wrong always aborts the install. A missing
-# signature only warns, because binaries published before release signing was
-# introduced have none — turning that into a hard failure would break every
-# install today. Once a signed release is out, make the missing case fatal too.
+# Every published build carries a detached signature, so a download that cannot
+# be verified is never installed — neither a wrong signature nor a missing one.
 verify_signature() {
     file="$1"
     sig_url="$2"
@@ -122,8 +120,9 @@ verify_signature() {
     fi
 
     if ! download "$sig_url" "${file}.sighex" >/dev/null 2>&1; then
-        echo "Warning: this build is unsigned, installing without verification" >&2
-        return 0
+        echo "Error: no signature published for this build, refusing to install" >&2
+        echo "Report this at ${WEBSITE_URL}" >&2
+        exit 1
     fi
 
     echo "Verifying signature..."
