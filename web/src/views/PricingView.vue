@@ -115,7 +115,7 @@ function toggleFaq(index: number) {
     <main class="pt-16">
       <Breadcrumbs :items="[{ name: t('landing.pricing.label'), path: '/pricing' }]" />
       <p class="container mx-auto px-4 text-xs text-muted-foreground/60">
-        {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+        {{ t('common.lastUpdated', { date: t('common.contentReviewed') }) }}
       </p>
       <PricingSection compact />
 

@@ -45,7 +45,7 @@ useSubpageSchema({
     <main class="pt-16">
       <Breadcrumbs :items="[{ name: t('about.title'), path: '/about' }]" />
       <p class="container mx-auto px-4 text-xs text-muted-foreground/60 -mt-1 mb-2">
-        {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+        {{ t('common.lastUpdated', { date: t('common.contentReviewed') }) }}
       </p>
       <div class="container mx-auto px-4 py-16 max-w-4xl">
         <div class="prose prose-neutral dark:prose-invert max-w-none">

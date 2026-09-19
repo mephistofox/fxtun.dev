@@ -77,7 +77,7 @@ useSubpageSchema({
           {{ t('compare.heroSubtitle') }}
         </p>
         <p class="mt-3 text-sm text-muted-foreground/60">
-          {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+          {{ t('common.lastUpdated', { date: t('common.contentReviewed') }) }}
         </p>
       </div>
     </section>

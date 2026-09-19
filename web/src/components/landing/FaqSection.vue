@@ -72,7 +72,7 @@ onMounted(() => {
           class="text-xs text-muted-foreground/60 mt-3 reveal reveal-delay-2"
           :class="{ 'visible': isVisible }"
         >
-          {{ t('common.lastUpdated', { date: t('common.updateDateMar2026') }) }}
+          {{ t('common.lastUpdated', { date: t('common.contentReviewed') }) }}
         </p>
       </div>
 
