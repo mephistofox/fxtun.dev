@@ -53,7 +53,7 @@ const planColumns = computed(() =>
       slug: plan.slug,
       recommended: plan.is_recommended,
       price: plan.price > 0
-        ? (isRuDomain.value ? `${plan.price_rub} ₽` : `$${plan.price}`)
+        ? (isRuDomain.value ? `${plan.price_rub} ₽` : `$${Number.isInteger(plan.price) ? plan.price : plan.price.toFixed(2)}`)
         : undefined,
       values: {
         tunnels: String(plan.max_tunnels),

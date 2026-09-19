@@ -61,7 +61,8 @@ function formatPrice(plan: Plan): string {
     const priceRub = plan.price_rub ?? plan.price * 80
     return `${Math.round(priceRub)} ₽`
   }
-  return `$${plan.price}`
+  // 2.5 has to read as $2.50; a bare number prints $2.5 next to the $5 tier.
+  return `$${Number.isInteger(plan.price) ? plan.price : plan.price.toFixed(2)}`
 }
 
 const sortedPlans = computed(() =>
