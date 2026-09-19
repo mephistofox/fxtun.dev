@@ -99,8 +99,20 @@ func VerifyTXT(domain, token string) error {
 	return fmt.Errorf("ownership TXT record not found at %s (expected token value)", name)
 }
 
+// NormalizeDomain returns the canonical form of a DNS name: trimmed,
+// lowercased, without the trailing root dot. Custom domains MUST be stored in
+// this form — the runtime routing map lowercases on lookup and removal, so a
+// row stored as "EXAMPLE.com" would evict the entry belonging to the owner of
+// "example.com".
+func NormalizeDomain(domain string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(domain)), ".")
+}
+
 // ValidateCustomDomain validates domain format for custom domain usage.
-func ValidateCustomDomain(domain, baseDomain string) error {
+// reservedDomains lists names owned by this installation (base domain, its
+// aliases and every authoritative DNS zone); the domain may be neither equal
+// to nor a subdomain of any of them.
+func ValidateCustomDomain(domain string, reservedDomains ...string) error {
 	if domain == "" {
 		return fmt.Errorf("domain is required")
 	}
@@ -113,11 +125,18 @@ func ValidateCustomDomain(domain, baseDomain string) error {
 		return fmt.Errorf("IP addresses are not allowed")
 	}
 
-	if strings.EqualFold(domain, baseDomain) || strings.HasSuffix(strings.ToLower(domain), "."+strings.ToLower(baseDomain)) {
-		return fmt.Errorf("cannot use base domain or its subdomains")
+	name := NormalizeDomain(domain)
+	for _, reserved := range reservedDomains {
+		reserved = NormalizeDomain(reserved)
+		if reserved == "" {
+			continue
+		}
+		if name == reserved || strings.HasSuffix(name, "."+reserved) {
+			return fmt.Errorf("cannot use base domain or its subdomains")
+		}
 	}
 
-	if strings.EqualFold(domain, "localhost") || strings.HasSuffix(strings.ToLower(domain), ".localhost") {
+	if name == "localhost" || strings.HasSuffix(name, ".localhost") {
 		return fmt.Errorf("localhost is not allowed")
 	}
 

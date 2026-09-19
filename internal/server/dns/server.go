@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -42,7 +43,32 @@ type Server struct {
 	log       zerolog.Logger
 	udpServer *dns.Server
 	tcpServer *dns.Server
+
+	rlMu    sync.Mutex
+	buckets map[string]*bucket // source IP -> token bucket
 }
+
+// bucket is one source IP's token bucket for the query rate limiter.
+type bucket struct {
+	tokens float64
+	last   time.Time
+}
+
+const (
+	// An authoritative server that answers every query from every source is a
+	// usable amplification relay. These bounds are well above what a real
+	// recursive resolver needs for our zones and well below what makes the
+	// server worth pointing at a victim.
+	//
+	// ponytail: fixed rate, no config knob — add one when a legitimate client
+	// actually trips it.
+	rateBurst  = 200.0
+	ratePerSec = 100.0
+	// bucketsMax bounds the limiter's memory: a spoofed-source flood would
+	// otherwise grow the map without limit. Overflowing drops the whole table,
+	// which is cheap and self-healing.
+	bucketsMax = 20000
+)
 
 // New constructs a DNS server, loading and validating the zone file.
 func New(cfg Config, tunnels TunnelLookup, nodes NodeLookup, log zerolog.Logger) (*Server, error) {
@@ -118,6 +144,12 @@ func (s *Server) Stop() {
 
 // handle is the main DNS query dispatcher.
 func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
+	// Over quota: drop without answering. Replying (even with REFUSED) would
+	// still hand an attacker a packet to aim at a spoofed source.
+	if !s.allow(w.RemoteAddr()) {
+		return
+	}
+
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative = true
@@ -125,7 +157,7 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 
 	if len(r.Question) == 0 {
 		m.SetRcode(r, dns.RcodeFormatError)
-		_ = w.WriteMsg(m)
+		s.writeMsg(w, r, m)
 		return
 	}
 
@@ -135,7 +167,20 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 	zone, subdomain := s.findZone(qName)
 	if zone == nil {
 		m.SetRcode(r, dns.RcodeRefused)
-		_ = w.WriteMsg(m)
+		s.writeMsg(w, r, m)
+		return
+	}
+
+	// RFC 8482: do not expand ANY. An ANY query at the apex returns every
+	// record set in one packet (~10x the query), which is the single biggest
+	// amplification lever an authoritative server offers. Answer with the
+	// prescribed synthesized HINFO instead.
+	if q.Qtype == dns.TypeANY {
+		m.Answer = append(m.Answer, &dns.HINFO{
+			Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeHINFO, Class: dns.ClassINET, Ttl: 3600},
+			Cpu: "RFC8482",
+		})
+		s.writeMsg(w, r, m)
 		return
 	}
 
@@ -258,6 +303,70 @@ func (s *Server) handle(w dns.ResponseWriter, r *dns.Msg) {
 		m.Ns = append(m.Ns, buildSOA(zone))
 	}
 
+	s.writeMsg(w, r, m)
+}
+
+// allow applies a per-source-IP token bucket to an incoming query.
+func (s *Server) allow(addr net.Addr) bool {
+	ip := ""
+	if addr != nil {
+		ip = addr.String()
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
+		}
+	}
+
+	now := time.Now()
+	s.rlMu.Lock()
+	defer s.rlMu.Unlock()
+
+	if s.buckets == nil {
+		s.buckets = make(map[string]*bucket)
+	}
+	b, ok := s.buckets[ip]
+	if !ok {
+		if len(s.buckets) >= bucketsMax {
+			s.buckets = make(map[string]*bucket, bucketsMax)
+		}
+		b = &bucket{tokens: rateBurst, last: now}
+		s.buckets[ip] = b
+	}
+
+	b.tokens += now.Sub(b.last).Seconds() * ratePerSec
+	if b.tokens > rateBurst {
+		b.tokens = rateBurst
+	}
+	b.last = now
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
+// writeMsg echoes the request's EDNS0 OPT and truncates the reply to what the
+// transport can actually carry before writing it.
+//
+// Without the OPT echo the client's advertised buffer size is lost and the
+// reply is silently assumed to fit; without truncation an oversized UDP answer
+// is fragmented or dropped, and an unbounded answer size turns the server into
+// an amplifier. TCP has no such limit, so it is only bounded by the protocol
+// maximum.
+func (s *Server) writeMsg(w dns.ResponseWriter, r, m *dns.Msg) {
+	size := dns.MinMsgSize
+	if opt := r.IsEdns0(); opt != nil {
+		m.SetEdns0(opt.UDPSize(), opt.Do())
+		if advertised := int(opt.UDPSize()); advertised > size {
+			size = advertised
+		}
+		if size > dns.MaxMsgSize {
+			size = dns.MaxMsgSize
+		}
+	}
+	if _, isTCP := w.RemoteAddr().(*net.TCPAddr); isTCP {
+		size = dns.MaxMsgSize
+	}
+	m.Truncate(size)
 	_ = w.WriteMsg(m)
 }
 

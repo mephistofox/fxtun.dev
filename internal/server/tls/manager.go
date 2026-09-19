@@ -25,12 +25,37 @@ type CertManager struct {
 	db         *database.Database
 	log        zerolog.Logger
 	cache      map[string]*tls.Certificate
+	negCache   map[string]time.Time // SNI name -> when the "no such cert" answer expires
 	mu         sync.RWMutex
 	acmeMgr    *autocert.Manager
 	redisCache store.TLSCache
 	stopCh     chan struct{}
 	stopOnce   sync.Once
+
+	// revalFails counts consecutive ownership re-check failures per domain.
+	// Only touched by the single renewal goroutine, so it needs no lock. It is
+	// in-memory on purpose: a restart resets the counter, which can only delay
+	// an un-verify, never cause a spurious one.
+	revalFails map[string]int
+
+	// onUnverify, when set, is called after a domain loses verification so the
+	// owner of the routing table can stop serving it immediately.
+	onUnverify func(domain string)
 }
+
+const (
+	// negCacheTTL is how long an unknown SNI name is remembered as unknown.
+	// Without it every TLS handshake with a random SNI costs two database
+	// round-trips (certificate lookup plus hostPolicy), which an
+	// unauthenticated client can repeat as fast as it can open sockets.
+	negCacheTTL = 5 * time.Minute
+	// negCacheMax bounds the negative cache so a flood of random SNI names
+	// cannot grow it without limit; overflowing simply drops the whole table.
+	negCacheMax = 10000
+	// revalMaxFailures is how many consecutive ownership re-checks must fail
+	// before a verified custom domain is un-verified (~36h at the 12h tick).
+	revalMaxFailures = 3
+)
 
 // SetRedisCache sets an optional L2 Redis cache between memory and DB.
 func (cm *CertManager) SetRedisCache(c store.TLSCache) {
@@ -40,11 +65,13 @@ func (cm *CertManager) SetRedisCache(c store.TLSCache) {
 // NewCertManager creates a new certificate manager.
 func NewCertManager(cfg config.TLSSettings, db *database.Database, log zerolog.Logger) *CertManager {
 	cm := &CertManager{
-		cfg:    cfg,
-		db:     db,
-		log:    log.With().Str("component", "cert_manager").Logger(),
-		cache:  make(map[string]*tls.Certificate),
-		stopCh: make(chan struct{}),
+		cfg:        cfg,
+		db:         db,
+		log:        log.With().Str("component", "cert_manager").Logger(),
+		cache:      make(map[string]*tls.Certificate),
+		negCache:   make(map[string]time.Time),
+		revalFails: make(map[string]int),
+		stopCh:     make(chan struct{}),
 	}
 
 	cm.acmeMgr = &autocert.Manager{
@@ -90,12 +117,17 @@ func (cm *CertManager) LoadFromDB() error {
 func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	name := hello.ServerName
 
-	// L1: local memory cache
+	// L1: local memory cache. The same lock also answers from the negative
+	// cache, so a handshake for an unknown SNI name costs no database work.
 	cm.mu.RLock()
 	cert, ok := cm.cache[name]
+	negUntil, negative := cm.negCache[name]
 	cm.mu.RUnlock()
 	if ok {
 		return cert, nil
+	}
+	if negative && time.Now().Before(negUntil) {
+		return nil, fmt.Errorf("no certificate for %s", name)
 	}
 
 	// L2: Redis shared cache
@@ -131,6 +163,7 @@ func (cm *CertManager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certific
 	// Fall back to autocert — will obtain cert via ACME if domain is in hostPolicy
 	acmeCert, err := cm.acmeMgr.GetCertificate(hello)
 	if err != nil {
+		cm.rememberUnknown(name)
 		return nil, fmt.Errorf("no certificate for %s: %w", name, err)
 	}
 
@@ -188,10 +221,22 @@ func (cm *CertManager) ObtainCert(domain string) {
 
 		cm.mu.Lock()
 		cm.cache[domain] = cert
+		delete(cm.negCache, domain)
 		cm.mu.Unlock()
 
 		cm.log.Info().Str("domain", domain).Time("expires", expiresAt).Msg("TLS certificate obtained")
 	}()
+}
+
+// rememberUnknown records that we have no certificate for this SNI name, so
+// the next handshake for it is answered without touching the database.
+func (cm *CertManager) rememberUnknown(name string) {
+	cm.mu.Lock()
+	if len(cm.negCache) >= negCacheMax {
+		cm.negCache = make(map[string]time.Time, negCacheMax)
+	}
+	cm.negCache[name] = time.Now().Add(negCacheTTL)
+	cm.mu.Unlock()
 }
 
 // RemoveCert removes a certificate from cache and database.
@@ -202,6 +247,13 @@ func (cm *CertManager) RemoveCert(domain string) {
 
 	if err := cm.db.TLSCerts.DeleteByDomain(domain); err != nil {
 		cm.log.Warn().Str("domain", domain).Err(err).Msg("Failed to delete certificate from DB")
+	}
+
+	// autocert keeps its own copy of the cert and its private key under the
+	// domain key; drop it too so we do not retain key material for a domain we
+	// no longer serve.
+	if err := cm.Delete(context.Background(), domain); err != nil {
+		cm.log.Warn().Str("domain", domain).Err(err).Msg("Failed to delete autocert cache entry")
 	}
 }
 
@@ -228,6 +280,7 @@ func (cm *CertManager) StartRenewal() {
 		for {
 			select {
 			case <-ticker.C:
+				cm.revalidateVerified()
 				cm.renewExpiring()
 			case <-cm.stopCh:
 				return
@@ -267,6 +320,65 @@ func (cm *CertManager) renewExpiring() {
 	}
 }
 
+// revalidateVerified re-checks the ownership TXT record of every verified
+// custom domain. Verification used to be a one-way door: SetVerified(id, true)
+// was never rolled back, so a domain stayed routable and re-issuable long
+// after its owner lost control of it (expired registration, transferred zone).
+// Only a run of consecutive failures un-verifies a domain, so a DNS outage
+// does not take a customer's domain down.
+func (cm *CertManager) revalidateVerified() {
+	domains, err := cm.db.CustomDomains.GetAllVerified()
+	if err != nil {
+		cm.log.Error().Err(err).Msg("Failed to list verified custom domains for re-validation")
+		return
+	}
+
+	for _, d := range domains {
+		// Legacy rows predate TXT verification and carry no token. They cannot
+		// be re-checked; un-verifying them would break live customers.
+		if d.VerificationToken == "" {
+			cm.log.Warn().Str("domain", d.Domain).Msg("Verified custom domain has no ownership token, skipping re-validation")
+			continue
+		}
+
+		err := VerifyTXT(d.Domain, d.VerificationToken)
+		if err == nil {
+			delete(cm.revalFails, d.Domain)
+			continue
+		}
+		cm.revalFails[d.Domain]++
+		cm.log.Warn().
+			Str("domain", d.Domain).
+			Int("consecutive_failures", cm.revalFails[d.Domain]).
+			Err(err).
+			Msg("Custom domain ownership re-check failed")
+
+		if cm.revalFails[d.Domain] < revalMaxFailures {
+			continue
+		}
+
+		if err := cm.db.CustomDomains.SetVerified(d.ID, false); err != nil {
+			cm.log.Error().Str("domain", d.Domain).Err(err).Msg("Failed to un-verify custom domain")
+			continue
+		}
+		delete(cm.revalFails, d.Domain)
+		cm.RemoveCert(d.Domain)
+		// The routing table lives in the core server's memory; without this the
+		// domain keeps being served until the next restart even though it is no
+		// longer verified.
+		if cm.onUnverify != nil {
+			cm.onUnverify(d.Domain)
+		}
+		cm.log.Warn().Str("domain", d.Domain).Msg("Custom domain un-verified: ownership TXT record lost")
+	}
+}
+
+// SetOnUnverify registers a callback invoked when a domain loses verification,
+// so the caller can drop it from its routing table.
+func (cm *CertManager) SetOnUnverify(fn func(domain string)) {
+	cm.onUnverify = fn
+}
+
 func (cm *CertManager) hostPolicy(_ context.Context, host string) error {
 	d, err := cm.db.CustomDomains.GetByDomain(host)
 	if err != nil {
@@ -278,22 +390,42 @@ func (cm *CertManager) hostPolicy(_ context.Context, host string) error {
 	return nil
 }
 
-// autocert.Cache interface implementation
+// autocert.Cache interface implementation.
+//
+// This is an opaque blob store, NOT a view over tls_certificates: autocert
+// keeps its ACME account key under "acme_account+key" and challenge material
+// under other synthetic keys, and it stores cert+key concatenated under a
+// domain key. Mapping it onto the certificate table meant Put dropped
+// everything and Get handed back a certificate without its private key, so
+// every restart registered a fresh ACME account and every handshake could
+// trigger a duplicate issuance.
 
-func (cm *CertManager) Get(_ context.Context, key string) ([]byte, error) {
-	cert, err := cm.db.TLSCerts.GetByDomain(key)
+func (cm *CertManager) Get(ctx context.Context, key string) ([]byte, error) {
+	var data []byte
+	err := cm.db.Pool().QueryRow(ctx, `SELECT data FROM autocert_cache WHERE key = $1`, key).Scan(&data)
 	if err != nil {
 		return nil, autocert.ErrCacheMiss
 	}
-	return cert.CertPEM, nil
+	return data, nil
 }
 
-func (cm *CertManager) Put(_ context.Context, _ string, _ []byte) error {
+func (cm *CertManager) Put(ctx context.Context, key string, data []byte) error {
+	_, err := cm.db.Pool().Exec(ctx,
+		`INSERT INTO autocert_cache (key, data, updated_at) VALUES ($1, $2, NOW())
+		 ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+		key, data)
+	if err != nil {
+		return fmt.Errorf("autocert cache put %s: %w", key, err)
+	}
 	return nil
 }
 
-func (cm *CertManager) Delete(_ context.Context, key string) error {
-	return cm.db.TLSCerts.DeleteByDomain(key)
+func (cm *CertManager) Delete(ctx context.Context, key string) error {
+	_, err := cm.db.Pool().Exec(ctx, `DELETE FROM autocert_cache WHERE key = $1`, key)
+	if err != nil {
+		return fmt.Errorf("autocert cache delete %s: %w", key, err)
+	}
+	return nil
 }
 
 func extractPEM(cert *tls.Certificate) (certPEM, keyPEM []byte, expiresAt time.Time, err error) {

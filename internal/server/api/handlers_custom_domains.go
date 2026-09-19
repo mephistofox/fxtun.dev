@@ -5,13 +5,45 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
+	fxdns "github.com/mephistofox/fxtunnel/internal/server/dns"
 	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
 )
+
+// verifyCooldown throttles custom-domain verification per domain. Every attempt
+// performs outbound TXT/host lookups against a name the caller chose (turning
+// the server into a DNS reflector) and, on success, starts an ACME order, so it
+// must not be callable in a tight loop.
+//
+// ponytail: process-local map — fine for the single API node we run; move it to
+// the existing Redis rate limiter if the API is ever scaled out.
+var verifyCooldown sync.Map // domain -> time.Time of the last attempt
+
+const verifyCooldownWindow = 30 * time.Second
+
+// reservedDomains lists hostnames this installation owns: the base domain, its
+// aliases and every authoritative DNS zone we serve. None of them (nor their
+// subdomains) may be claimed as a tenant's "custom" domain.
+func (s *Server) reservedDomains() []string {
+	reserved := make([]string, 0, 4+len(s.cfg.Domain.Aliases))
+	reserved = append(reserved, s.baseDomain)
+	reserved = append(reserved, s.cfg.Domain.Aliases...)
+	if s.cfg.DNS.ZoneFile != "" {
+		if zf, err := fxdns.LoadZoneFile(s.cfg.DNS.ZoneFile); err == nil {
+			for _, z := range zf.Zones {
+				reserved = append(reserved, z.Name)
+			}
+		} else {
+			s.log.Warn().Err(err).Msg("Failed to load DNS zone file for custom domain validation")
+		}
+	}
+	return reserved
+}
 
 func (s *Server) handleListCustomDomains(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
@@ -62,7 +94,12 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := fxtls.ValidateCustomDomain(req.Domain, s.baseDomain); err != nil {
+	// Normalize BEFORE validating and storing. The runtime routing map
+	// lowercases on lookup and removal, so a row kept as "EXAMPLE.com" would
+	// evict the entry of whoever owns "example.com".
+	reqDomain := fxtls.NormalizeDomain(req.Domain)
+
+	if err := fxtls.ValidateCustomDomain(reqDomain, s.reservedDomains()...); err != nil {
 		s.respondErrorWithCode(w, http.StatusBadRequest, "INVALID_DOMAIN", err.Error())
 		return
 	}
@@ -93,7 +130,7 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 	// record and then call verify.
 	domain := &database.CustomDomain{
 		UserID:            user.ID,
-		Domain:            req.Domain,
+		Domain:            reqDomain,
 		TargetSubdomain:   req.TargetSubdomain,
 		VerificationToken: "fxtunnel-verify=" + randomHex(24),
 		Verified:          false,
@@ -110,7 +147,7 @@ func (s *Server) handleAddCustomDomain(w http.ResponseWriter, r *http.Request) {
 
 	ipAddress := auth.GetClientIP(r)
 	_ = s.db.Audit.Log(&user.ID, "custom_domain_added", map[string]interface{}{
-		"domain":           req.Domain,
+		"domain":           reqDomain,
 		"target_subdomain": req.TargetSubdomain,
 		"verified":         false,
 	}, ipAddress)
@@ -188,6 +225,21 @@ func (s *Server) handleVerifyCustomDomain(w http.ResponseWriter, r *http.Request
 		s.respondError(w, http.StatusForbidden, "access denied")
 		return
 	}
+
+	// Already verified — nothing to look up, nothing to issue.
+	if domain.Verified {
+		s.respondJSON(w, http.StatusOK, map[string]interface{}{"verified": true})
+		return
+	}
+
+	if last, ok := verifyCooldown.Load(domain.Domain); ok {
+		if elapsed := time.Since(last.(time.Time)); elapsed < verifyCooldownWindow {
+			w.Header().Set("Retry-After", strconv.Itoa(int((verifyCooldownWindow-elapsed).Seconds())+1))
+			s.respondErrorWithCode(w, http.StatusTooManyRequests, "VERIFY_COOLDOWN", "verification attempted too recently, try again shortly")
+			return
+		}
+	}
+	verifyCooldown.Store(domain.Domain, time.Now())
 
 	// Legacy rows (created before TXT verification) have no token — issue one
 	// lazily so the owner can complete verification instead of being stranded.
