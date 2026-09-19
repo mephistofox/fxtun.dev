@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"os"
 	"regexp"
@@ -70,8 +71,10 @@ func testSetup(t *testing.T) (*Server, *database.Database, string) {
 	if err != nil {
 		t.Fatalf("get default plan: %v", err)
 	}
+	// Unique per test: the fixture shares one schema, so a fixed number made
+	// every test after the first fail with "user already exists".
 	user := &database.User{
-		Phone:        "+10000000000",
+		Phone:        fmt.Sprintf("+1%010d", time.Now().UnixNano()%1e10),
 		PasswordHash: "fakehash",
 		IsActive:     true,
 		PlanID:       freePlan.ID,

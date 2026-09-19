@@ -37,8 +37,8 @@ type config struct {
 func main() {
 	cfg := parseFlags()
 
-	if cfg.srcSQLite == "" || cfg.dstDSN == "" {
-		log.Fatal("--src-sqlite and --dst-dsn are required")
+	if err := validateFlags(cfg); err != nil {
+		log.Fatal(err)
 	}
 
 	ctx := context.Background()
@@ -67,12 +67,7 @@ func main() {
 		return
 	}
 
-	if cfg.truncateFirst {
-		if err := truncateAll(ctx, dst); err != nil {
-			log.Fatalf("truncate: %v", err)
-		}
-	}
-
+	// Dry-run must return before anything writes to the destination.
 	if cfg.dryRun {
 		if err := runDryRun(ctx, src); err != nil {
 			log.Fatalf("dry-run: %v", err)
@@ -80,11 +75,28 @@ func main() {
 		return
 	}
 
+	if cfg.truncateFirst {
+		if err := truncateAll(ctx, dst); err != nil {
+			log.Fatalf("truncate: %v", err)
+		}
+	}
+
 	if err := runMigration(ctx, src, dst, cfg.skip); err != nil {
 		log.Fatalf("migration: %v", err)
 	}
 
 	fmt.Println("\nMigration completed successfully.")
+}
+
+// validateFlags rejects flag combinations that are unsafe or contradictory.
+func validateFlags(cfg config) error {
+	if cfg.srcSQLite == "" || cfg.dstDSN == "" {
+		return errors.New("--src-sqlite and --dst-dsn are required")
+	}
+	if cfg.dryRun && cfg.truncateFirst {
+		return errors.New("--dry-run cannot be combined with --truncate-first: dry-run must never write to the destination")
+	}
+	return nil
 }
 
 func parseFlags() config {
