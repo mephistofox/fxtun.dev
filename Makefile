@@ -1,4 +1,4 @@
-.PHONY: all build server client clean install test test-staging fmt lint web admin admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
+.PHONY: all build server client clean install test test-staging fmt lint web admin blog admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
 
 BINARY_SERVER=fxtunnel-server
 BINARY_CLIENT=fxtunnel
@@ -29,6 +29,7 @@ clean:
 	rm -rf downloads/
 	rm -rf web/dist/
 	rm -rf admin/dist/
+	rm -rf docs/blog/dist/
 	rm -rf gui/frontend/dist/
 
 install: build
@@ -64,6 +65,10 @@ web:
 # Build admin panel (standalone, deployed via nginx/CDN)
 admin:
 	cd admin && pnpm install && pnpm run build
+
+# Build static blog from docs/blog/*.md (standalone, deployed via nginx)
+blog:
+	python3 scripts/build-blog.py
 
 # Development mode for admin panel (hot reload)
 admin-dev:
