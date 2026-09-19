@@ -663,7 +663,29 @@ func (s *Server) decodeJSON(r *http.Request, v interface{}) error {
 }
 
 // handleHealth handles health check requests
+// healthPingTimeout bounds the database check so an unreachable database makes
+// /health answer quickly rather than hanging along with everything else.
+const healthPingTimeout = 2 * time.Second
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Reporting "ok" while the database is unreachable is worse than saying
+	// nothing: everything that touches storage is failing, and whoever watches
+	// this endpoint is told the opposite.
+	if s.db != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), healthPingTimeout)
+		defer cancel()
+		if err := s.db.Pool().Ping(ctx); err != nil {
+			s.log.Error().Err(err).Msg("health check: database unreachable")
+			s.respondJSON(w, http.StatusServiceUnavailable, dto.HealthResponse{
+				Status:    "degraded",
+				Version:   s.version,
+				Timestamp: time.Now().Unix(),
+				Database:  "unreachable",
+			})
+			return
+		}
+	}
+
 	s.respondJSON(w, http.StatusOK, dto.HealthResponse{
 		Status:    "ok",
 		Version:   s.version,

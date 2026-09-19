@@ -257,6 +257,8 @@ type HealthResponse struct {
 	Status    string `json:"status"`
 	Version   string `json:"version"`
 	Timestamp int64  `json:"timestamp"`
+	// Database reports whether the database answered. Absent when it did.
+	Database string `json:"database,omitempty"`
 }
 
 // AuditLogDTO represents an audit log entry in API responses
