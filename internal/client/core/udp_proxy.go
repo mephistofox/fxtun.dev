@@ -64,6 +64,13 @@ func (c *Client) handleUDPStream(stream net.Conn, tunnel *ActiveTunnel) {
 			addrHash := binary.BigEndian.Uint32(header[2:6])
 			lastAddrHash.Store(addrHash)
 
+			// A hostile server can declare more than the payload buffer holds,
+			// which would panic this goroutine.
+			if !udpFrameLenValid(length) {
+				c.log.Warn().Uint16("length", length).Msg("UDP frame length exceeds buffer, closing stream")
+				return
+			}
+
 			if _, err := io.ReadFull(stream, payload[:length]); err != nil {
 				c.log.Debug().Err(err).Msg("UDP stream read payload error")
 				return
@@ -116,4 +123,10 @@ func (c *Client) handleUDPStream(stream net.Conn, tunnel *ActiveTunnel) {
 	case <-done:
 	case <-c.ctx.Done():
 	}
+}
+
+// udpFrameLenValid reports whether a peer-declared frame length fits the
+// buffer it will be read into.
+func udpFrameLenValid(length uint16) bool {
+	return int(length) <= maxUDPPacketSize
 }

@@ -201,6 +201,13 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		length := binary.BigEndian.Uint16(header[0:2])
 		addrHash := binary.BigEndian.Uint32(header[2:6])
 
+		// The length is client-controlled and can exceed the pooled buffer,
+		// which would panic this goroutine and take the process down with it.
+		if !udpFrameLenValid(length) {
+			m.log.Warn().Uint16("length", length).Msg("UDP frame length exceeds buffer, closing stream")
+			return
+		}
+
 		// Read payload into pooled buffer
 		fp := udpFramePool.Get().(*[]byte)
 		frame := *fp
@@ -223,6 +230,12 @@ func (m *UDPManager) HandlePackets(tunnel *Tunnel, client *Client) {
 		}
 		udpFramePool.Put(fp)
 	}
+}
+
+// udpFrameLenValid reports whether a peer-declared frame length fits the
+// buffer it will be read into.
+func udpFrameLenValid(length uint16) bool {
+	return int(length) <= maxUDPPacketSize
 }
 
 // hashAddr creates a hash of a UDP address for tracking
