@@ -184,6 +184,18 @@ func (s *Server) handleCheckDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ask the same question the reservation handler asks, in the same order.
+	// Reporting a name as free and then refusing to reserve it is a wasted round
+	// trip and reads as a bug from the outside.
+	if reserved.IsReserved(subdomain) {
+		s.respondJSON(w, http.StatusOK, dto.DomainCheckResponse{
+			Subdomain: subdomain,
+			Available: false,
+			Reason:    "reserved",
+		})
+		return
+	}
+
 	available, err := s.db.Domains.IsAvailable(subdomain)
 	if err != nil {
 		s.log.Error().Err(err).Msg("Failed to check domain availability")
@@ -197,7 +209,7 @@ func (s *Server) handleCheckDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !available {
-		response.Reason = "reserved"
+		response.Reason = "taken"
 	}
 
 	s.respondJSON(w, http.StatusOK, response)

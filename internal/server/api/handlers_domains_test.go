@@ -169,6 +169,39 @@ func TestCheckDomain_Available(t *testing.T) {
 	}
 }
 
+// TestCheckDomain_Reserved: the availability check has to agree with the
+// reservation handler. Telling a user that admin is free and then refusing the
+// reservation is the same bug twice — once as a wrong answer, once as a
+// pointless round trip.
+func TestCheckDomain_Reserved(t *testing.T) {
+	env := setupTestEnv(t)
+	user := env.createTestUser(t, "+20000000005", "password123", "Reserved Check User")
+
+	for _, name := range []string{"admin", "www", "tunnel", "ns5"} {
+		t.Run(name, func(t *testing.T) {
+			req, _ := http.NewRequest(http.MethodGet, env.Server.URL+"/api/domains/check/"+name, nil)
+			req.Header.Set("Authorization", "Bearer "+user.AccessToken)
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			var result dto.DomainCheckResponse
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if result.Available {
+				t.Fatalf("%q reported as available, but reserving it is refused", name)
+			}
+			if result.Reason != "reserved" {
+				t.Fatalf("reason = %q, want \"reserved\"", result.Reason)
+			}
+		})
+	}
+}
+
 func TestDomains_Unauthorized(t *testing.T) {
 	env := setupTestEnv(t)
 
