@@ -106,7 +106,20 @@ export default defineConfig({
   ssgOptions: {
     script: "async",
     formatting: "minify",
-    beastiesOptions: { fonts: false, preloadFonts: false },
+    // reduceInlineStyles: beasties folds any <style> already in index.html into
+    // its critical CSS and drops the selectors that do not match the static
+    // markup. That killed the html.dark background rule — the class only
+    // appears at runtime — and dark-mode visitors got a white flash.
+    // allowRules: the .dark block holds every colour variable for the dark
+    // theme, and body reads --background from it. Beasties drops it because the
+    // prerendered markup never carries the class — the inline script adds it —
+    // so dark visitors got a white page until the external CSS landed.
+    beastiesOptions: {
+      fonts: false,
+      preloadFonts: false,
+      reduceInlineStyles: false,
+      allowRules: [/^\.dark$/],
+    },
     includedRoutes() {
       const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
       const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);

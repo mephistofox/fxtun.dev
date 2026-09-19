@@ -2,6 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Paint the right canvas on the very first frame.
+         The stylesheet is a second round trip — about half a second on a real
+         connection — and until it lands the browser paints its default white,
+         which on a dark site reads as a flash. color-scheme tells the browser
+         what to paint before any CSS exists; the inline script and the two
+         rules below then settle light vs dark without waiting for the bundle. -->
+    <meta name="color-scheme" content="dark light" />
+    <script>(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()</script>
+    <style>html{background:#edeff3}html.dark{background:#080a0c}</style>
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -39,7 +48,6 @@
     <script src="/analytics.js" defer></script>
   </head>
   <body>
-    <script>(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()</script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
     <!-- Yandex.Metrika noscript (fxtun.ru only) -->
