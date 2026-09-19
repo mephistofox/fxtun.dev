@@ -21,6 +21,7 @@ var (
 	ErrInvalidEmail          = errors.New("invalid email address")
 	ErrSuspiciousDisplayName = errors.New("display name rejected")
 	ErrTokenReuse            = errors.New("refresh token reuse detected; sessions revoked")
+	ErrTOTPAlreadyEnabled    = errors.New("TOTP is already enabled; disable it first")
 )
 
 // e164PhoneRegex matches E.164 international phone numbers: + followed by 8-15 digits, first digit non-zero.
@@ -426,6 +427,13 @@ func (s *Service) EnableTOTP(userID int64, phone string) (secret string, qrCode 
 	// Check if TOTP already exists
 	existing, err := s.db.TOTP.GetByUserID(userID)
 	if err == nil && existing != nil {
+		// Re-running setup on an account with active 2FA would overwrite the
+		// secret and reset is_enabled without ever asking for a code, which
+		// turns a stolen token into a 2FA bypass. Require an explicit disable
+		// (which does verify a code) first.
+		if existing.IsEnabled {
+			return "", nil, nil, ErrTOTPAlreadyEnabled
+		}
 		// Update existing
 		existing.SecretEncrypted = encryptedSecret
 		existing.BackupCodes = hashedCodes
