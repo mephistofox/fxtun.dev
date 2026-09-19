@@ -624,7 +624,7 @@ func (s *Server) handlePaymentSucceeded(w http.ResponseWriter, yooPayment *payme
 
 		// Recover: recreate payment and subscription from metadata
 		if metaUserID > 0 && metaPlanID > 0 {
-			pmt, err = s.recoverPaymentFromWebhook(invoiceID, metaUserID, metaSubID, metaPlanID, yooPayment)
+			pmt, err = s.recoverPaymentFromWebhook(invoiceID, metaUserID, metaSubID, metaPlanID)
 			if err != nil {
 				s.log.Error().Err(err).
 					Int64("invoice_id", invoiceID).
@@ -809,12 +809,16 @@ func (s *Server) alignReusedSubscriptionPlan(sub *database.Subscription, planID 
 
 // recoverPaymentFromWebhook recreates a payment record from YooKassa webhook metadata
 // when the original was deleted by stale cleanup
-func (s *Server) recoverPaymentFromWebhook(invoiceID, userID, subID, planID int64, yooPayment *payment.Payment) (*database.Payment, error) {
-	// Parse amount from webhook
-	var amount float64
-	if yooPayment.Amount.Value != "" {
-		_, _ = fmt.Sscanf(yooPayment.Amount.Value, "%f", &amount)
+func (s *Server) recoverPaymentFromWebhook(invoiceID, userID, subID, planID int64) (*database.Payment, error) {
+	// Derive the expected amount from the plan, never from the webhook.
+	// YooKassa webhooks are only IP-verified, and recording the reported amount
+	// here would make the ±1% check in applySucceededPayment compare the value
+	// against itself — a forged webhook could buy a paid plan for one rouble.
+	plan, err := s.db.Plans.GetByID(planID)
+	if err != nil || plan == nil {
+		return nil, fmt.Errorf("get plan %d for recovery: %w", planID, err)
 	}
+	amount := exchange.ConvertUSDToRUB(plan.Price)
 
 	// Check if subscription still exists
 	var subscriptionID *int64
@@ -1313,7 +1317,20 @@ func (s *Server) handleCreemPaymentSucceeded(evt payment.WebhookEvent) {
 		return
 	}
 
-	// Update payment
+	// Atomically claim the pending→success transition, as the YooKassa path
+	// does. A read-then-update here lets a duplicate delivery (or a concurrent
+	// supersede) activate the subscription twice.
+	won, err := s.db.Payments.MarkSucceededIfPending(pmt.ID, pmt.YooKassaData)
+	if err != nil {
+		s.log.Error().Err(err).Int64("invoice_id", evt.InvoiceID).Msg("Failed to claim Creem payment")
+		return
+	}
+	if !won {
+		s.log.Info().Int64("invoice_id", evt.InvoiceID).Msg("Creem payment resolved concurrently, skipping")
+		return
+	}
+
+	// Only the winner gets here, so recording the provider payload is safe.
 	pmt.Status = database.PaymentStatusSuccess
 	providerData, _ := json.Marshal(evt.ProviderData)
 	pmt.ProviderData = string(providerData)
@@ -1401,6 +1418,18 @@ func (s *Server) handleCreemPaymentFailed(evt payment.WebhookEvent) {
 	}, "webhook")
 }
 
+// hasLiveSubscription reports whether the user holds another subscription that
+// is active and still inside its paid period, so ending one subscription does
+// not drop a user who has already paid for a newer one back to the free plan.
+func (s *Server) hasLiveSubscription(userID, excludeID int64) bool {
+	other, err := s.db.Subscriptions.GetByUserID(userID)
+	if err != nil || other == nil || other.ID == excludeID {
+		return false
+	}
+	return other.Status == database.SubscriptionStatusActive &&
+		other.CurrentPeriodEnd != nil && other.CurrentPeriodEnd.After(time.Now())
+}
+
 // handleCreemSubscriptionDeleted handles subscription deleted event from Creem
 func (s *Server) handleCreemSubscriptionDeleted(evt payment.WebhookEvent) {
 	if evt.ProviderSubscriptionID == "" {
@@ -1420,12 +1449,15 @@ func (s *Server) handleCreemSubscriptionDeleted(evt payment.WebhookEvent) {
 		return
 	}
 
-	// Downgrade to free plan
-	freePlan, _ := s.db.Plans.GetBySlug("free")
-	if freePlan != nil {
-		if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
-			user.PlanID = freePlan.ID
-			_ = s.db.Users.Update(user)
+	// Downgrade to free plan — unless the user already holds a newer
+	// subscription that is still paid for.
+	if !s.hasLiveSubscription(sub.UserID, sub.ID) {
+		freePlan, _ := s.db.Plans.GetBySlug("free")
+		if freePlan != nil {
+			if user, err := s.db.Users.GetByID(sub.UserID); err == nil && user != nil {
+				user.PlanID = freePlan.ID
+				_ = s.db.Users.Update(user)
+			}
 		}
 	}
 

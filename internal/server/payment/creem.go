@@ -9,12 +9,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
 const (
 	creemProdURL = "https://api.creem.io/v1"
 	creemTestURL = "https://test-api.creem.io/v1"
+
+	// creemReplayTTL is how long a delivered webhook id is remembered. Well
+	// above Creem's retry span and well below the monthly renewal cadence.
+	creemReplayTTL = 24 * time.Hour
 )
 
 // CreemConfig holds Creem.io configuration
@@ -30,6 +35,9 @@ type CreemConfig struct {
 type Creem struct {
 	config CreemConfig
 	client *http.Client
+
+	seenMu sync.Mutex
+	seen   map[string]time.Time // webhook delivery id -> first seen
 }
 
 // NewCreem creates a new Creem instance
@@ -37,7 +45,31 @@ func NewCreem(config CreemConfig) *Creem {
 	return &Creem{
 		config: config,
 		client: &http.Client{Timeout: 30 * time.Second},
+		seen:   make(map[string]time.Time),
 	}
+}
+
+// alreadyDelivered records a webhook delivery id and reports whether it was
+// seen before. Creem signs only the body, so a captured body+signature can be
+// replayed verbatim; without this a subscription.paid replay extends a paid
+// period (and revives an expired subscription) without any payment.
+// ponytail: process-local cache — a restart or a second node reopens the
+// window; move it to Redis if webhooks ever land on more than one node.
+func (c *Creem) alreadyDelivered(id string) bool {
+	now := time.Now()
+
+	c.seenMu.Lock()
+	defer c.seenMu.Unlock()
+	for k, seenAt := range c.seen {
+		if now.Sub(seenAt) > creemReplayTTL {
+			delete(c.seen, k)
+		}
+	}
+	if _, ok := c.seen[id]; ok {
+		return true
+	}
+	c.seen[id] = now
+	return false
 }
 
 // Name returns the provider name
@@ -70,6 +102,7 @@ type creemCheckoutResponse struct {
 
 // creemWebhookPayload represents the incoming webhook payload from Creem
 type creemWebhookPayload struct {
+	ID        string          `json:"id"`
 	EventType string          `json:"eventType"`
 	Object    json.RawMessage `json:"object"`
 }
@@ -139,6 +172,17 @@ func (c *Creem) HandleWebhook(r *http.Request) ([]WebhookEvent, error) {
 	var obj creemWebhookObject
 	if err := json.Unmarshal(payload.Object, &obj); err != nil {
 		return nil, fmt.Errorf("parse webhook object: %w", err)
+	}
+
+	// Drop replays. Keyed on the delivery id, falling back to event type +
+	// object id for deliveries that carry none — renewals for the same
+	// subscription are a month apart, far outside the TTL.
+	dedupeKey := payload.ID
+	if dedupeKey == "" {
+		dedupeKey = payload.EventType + ":" + obj.ID
+	}
+	if c.alreadyDelivered(dedupeKey) {
+		return nil, nil
 	}
 
 	// Build base event from metadata

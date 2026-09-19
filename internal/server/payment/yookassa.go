@@ -443,6 +443,11 @@ func ParseWebhookEvent(body []byte) (*YooKassaWebhookEvent, error) {
 	if err := json.Unmarshal(body, &event); err != nil {
 		return nil, fmt.Errorf("unmarshal webhook: %w", err)
 	}
+	// Callers dereference Object unconditionally; a body without it is
+	// malformed, not a panic.
+	if event.Object == nil {
+		return nil, fmt.Errorf("webhook has no object")
+	}
 	return &event, nil
 }
 
