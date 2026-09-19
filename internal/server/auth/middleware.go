@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"strings"
 
@@ -12,9 +13,9 @@ import (
 type contextKey string
 
 const (
-	UserContextKey         contextKey = "user"
-	ClaimsContextKey       contextKey = "claims"
-	OriginalRemoteAddrKey  contextKey = "originalRemoteAddr"
+	UserContextKey        contextKey = "user"
+	ClaimsContextKey      contextKey = "claims"
+	OriginalRemoteAddrKey contextKey = "originalRemoteAddr"
 )
 
 // AuthenticatedUser represents the authenticated user in context
@@ -48,12 +49,31 @@ func MiddlewareWithDB(authService *Service, db *database.Database) func(http.Han
 
 			// Check if it's an API token (sk_xxx)
 			if strings.HasPrefix(token, "sk_") {
+				// sk_ tokens live in config files, CI variables and the GUI
+				// keyring — far cheaper to obtain than a browser session. They
+				// must not be able to manage the account they belong to:
+				// without this, a leaked token strips 2FA via
+				// /api/auth/totp/enable or mints fresh tokens via the device
+				// flow.
+				if strings.HasPrefix(r.URL.Path, "/api/auth/") {
+					http.Error(w, `{"error":"api tokens cannot be used on account endpoints","code":"API_TOKEN_FORBIDDEN"}`, http.StatusForbidden)
+					return
+				}
+
 				// Hash the token and look it up
 				tokenHash := HashToken(token)
 
 				apiToken, err := db.Tokens.GetByTokenHash(tokenHash)
 				if err != nil || apiToken == nil {
 					http.Error(w, `{"error": "invalid token"}`, http.StatusUnauthorized)
+					return
+				}
+
+				// The per-token IP allowlist was only enforced on the tunnel
+				// data plane, so a token scoped to one address could still
+				// drive the whole REST API from anywhere.
+				if !apiToken.IsIPAllowed(GetClientIP(r)) {
+					http.Error(w, `{"error":"token not allowed from this IP","code":"IP_NOT_ALLOWED"}`, http.StatusForbidden)
 					return
 				}
 
@@ -257,17 +277,12 @@ func GetClientIP(r *http.Request) string {
 	return stripPort(r.RemoteAddr)
 }
 
-// stripPort removes the port suffix from an address string.
+// stripPort removes the port suffix from an address string. A bare IPv6
+// address carries colons of its own, so it is returned untouched rather than
+// cut at the last one.
 func stripPort(addr string) string {
-	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
-		// Check if this is IPv6
-		if strings.Contains(addr, "[") {
-			// IPv6 format: [::1]:port
-			if bracketIdx := strings.LastIndex(addr, "]"); bracketIdx != -1 {
-				return addr[1:bracketIdx]
-			}
-		}
-		return addr[:colonIdx]
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
 	}
 	return addr
 }
