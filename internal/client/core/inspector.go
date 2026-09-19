@@ -2,14 +2,20 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +40,7 @@ type Inspector struct {
 	mux         *http.ServeMux
 	server      *http.Server
 	actualAddr  string
+	token       string
 	log         zerolog.Logger
 
 	// Global broadcast for SSE subscribers.
@@ -49,6 +56,7 @@ func NewInspector(manager *inspect.Manager, addr string, maxBodySize int, log ze
 		maxBodySize: maxBodySize,
 		startTime:   time.Now(),
 		mux:         http.NewServeMux(),
+		token:       newInspectorToken(),
 		log:         log.With().Str("component", "inspector").Logger(),
 		sseSubs:     make(map[chan *inspect.CapturedExchange]struct{}),
 	}
@@ -72,21 +80,133 @@ func NewInspector(manager *inspect.Manager, addr string, maxBodySize int, log ze
 	return i
 }
 
-// ServeHTTP implements http.Handler with CORS middleware.
+// ServeHTTP guards every request before dispatching. The inspector holds
+// captured traffic (Authorization and Cookie headers included) and can replay
+// requests into the user's local services, so it is guarded like the daemon
+// API (see internal/client/daemon/api.go): (1) the Host must be loopback, so a
+// DNS-rebinding page cannot reach it, (2) any cross-site Origin/Referer is
+// rejected, and (3) every /api call must carry the session token. No CORS
+// headers are emitted, so a web page cannot read a response either.
 func (i *Inspector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(204)
+	if !isLoopbackHost(r.Host) {
+		writeError(w, http.StatusForbidden, "forbidden host")
 		return
 	}
+	if !isSameOrigin(r, r.Header.Get("Origin")) || !isSameOrigin(r, r.Header.Get("Referer")) {
+		writeError(w, http.StatusForbidden, "cross-site request rejected")
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		if !i.authorized(r) {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+	} else if i.token != "" {
+		// Serving the bundled UI shell: hand the browser its session token as
+		// a SameSite=Strict cookie so the UI's same-origin fetch/EventSource
+		// calls authenticate without the page ever reading the token.
+		http.SetCookie(w, &http.Cookie{
+			Name:     inspectorCookieName,
+			Value:    i.token,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
+	}
 	i.mux.ServeHTTP(w, r)
+}
+
+const inspectorCookieName = "fxtunnel_inspector"
+
+// authorized checks the session token, supplied either as a bearer header
+// (CLI tools) or as the UI's cookie, in constant time. An empty inspector
+// token fails closed.
+func (i *Inspector) authorized(r *http.Request) bool {
+	if i.token == "" {
+		return false
+	}
+	presented := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if presented == "" {
+		if c, err := r.Cookie(inspectorCookieName); err == nil {
+			presented = c.Value
+		}
+	}
+	return subtle.ConstantTimeCompare([]byte(presented), []byte(i.token)) == 1
+}
+
+// isLoopbackHost reports whether the request Host targets the local machine.
+func isLoopbackHost(host string) bool {
+	h := host
+	if hostOnly, _, err := net.SplitHostPort(host); err == nil {
+		h = hostOnly
+	}
+	h = strings.TrimSuffix(strings.TrimPrefix(h, "["), "]")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
+// isSameOrigin reports whether an Origin/Referer value belongs to the
+// inspector itself. Absent is allowed (CLI tools never send one); every other
+// page is rejected — including one served from another loopback port, such as
+// the very app being tunnelled, which is same-site for cookie purposes.
+func isSameOrigin(r *http.Request, value string) bool {
+	if value == "" {
+		return true
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return u.Host == r.Host
+}
+
+// newInspectorToken returns a random 256-bit hex session token. On the
+// (practically impossible) failure of the system RNG it returns an empty
+// token, which makes the API reject every request.
+func newInspectorToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b)
+}
+
+// loadSharedToken replaces the per-process token with the one in
+// ~/.fxtunnel/inspector.token, creating that 0600 file if it does not exist.
+// This is how same-machine clients (CLI helpers, editor integrations) learn
+// the token without it ever being printed or sent over the network. If the
+// home directory is unusable the per-process random token stays in effect.
+func (i *Inspector) loadSharedToken() {
+	home, err := os.UserHomeDir()
+	if err != nil || i.token == "" {
+		return
+	}
+	path := filepath.Join(home, ".fxtunnel", "inspector.token")
+	if data, err := os.ReadFile(path); err == nil {
+		if tok := strings.TrimSpace(string(data)); tok != "" {
+			i.token = tok
+			return
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		i.log.Warn().Err(err).Msg("Cannot persist inspector token, using per-process token")
+		return
+	}
+	if err := os.WriteFile(path, []byte(i.token), 0o600); err != nil {
+		i.log.Warn().Err(err).Msg("Cannot persist inspector token, using per-process token")
+	}
 }
 
 // Start starts the inspector HTTP server. It tries the configured address first,
 // then falls back to ports +1 through +9 if the port is busy.
 func (i *Inspector) Start(ctx context.Context) error {
+	i.loadSharedToken()
+
 	host, portStr, err := net.SplitHostPort(i.addr)
 	if err != nil {
 		return fmt.Errorf("invalid inspector address %q: %w", i.addr, err)
@@ -504,10 +624,10 @@ func (i *Inspector) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	})
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":          "dev",
-		"uptime_seconds":   int(time.Since(i.startTime).Seconds()),
-		"inspect_enabled":  i.manager.Enabled(),
-		"total_exchanges":  totalExchanges,
+		"version":         "dev",
+		"uptime_seconds":  int(time.Since(i.startTime).Seconds()),
+		"inspect_enabled": i.manager.Enabled(),
+		"total_exchanges": totalExchanges,
 	})
 }
 
