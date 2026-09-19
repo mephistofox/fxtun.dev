@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -22,6 +23,23 @@ type ExchangeRepository struct {
 const maxExchangeBodySize = 1 << 20 // 1MB
 
 // Save persists a captured exchange to the database.
+// clampBodySize narrows a body size to the int32 column it is stored in.
+//
+// The value is not the number of bytes actually captured — when a backend
+// reports a larger Content-Length than the body we kept, that header value is
+// stored instead. A backend answering Content-Length: 3000000000 therefore
+// wrapped to a negative int32 and wrote nonsense into the dashboard.
+func clampBodySize(n int64) int32 {
+	switch {
+	case n < 0:
+		return 0
+	case n > math.MaxInt32:
+		return math.MaxInt32
+	default:
+		return int32(n)
+	}
+}
+
 func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) error {
 	reqHeaders, err := json.Marshal(ex.RequestHeaders)
 	if err != nil {
@@ -56,10 +74,10 @@ func (r *ExchangeRepository) Save(ex *inspect.CapturedExchange, userID int64) er
 		Host:             ex.Host,
 		RequestHeaders:   reqHeaders,
 		RequestBody:      reqBody,
-		RequestBodySize:  int32(ex.RequestBodySize), //nolint:gosec // body size bounded by maxExchangeBodySize (1MB)
+		RequestBodySize:  clampBodySize(ex.RequestBodySize),
 		ResponseHeaders:  respHeaders,
 		ResponseBody:     respBody,
-		ResponseBodySize: int32(ex.ResponseBodySize), //nolint:gosec // body size bounded by maxExchangeBodySize (1MB)
+		ResponseBodySize: clampBodySize(ex.ResponseBodySize),
 		StatusCode:       int32(ex.StatusCode),
 		RemoteAddr:       stringToPgtext(ex.RemoteAddr),
 	})

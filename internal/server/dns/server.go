@@ -489,15 +489,24 @@ func buildRR(rec Record, qname string, ttl uint32) dns.RR {
 		hdr.Rrtype = dns.TypeAAAA
 		return &dns.AAAA{Hdr: hdr, AAAA: ip.To16()}
 	case "MX":
+		if !fitsUint16(rec.Priority) || !validName(rec.Value) {
+			return nil
+		}
 		hdr.Rrtype = dns.TypeMX
-		return &dns.MX{Hdr: hdr, Preference: uint16(rec.Priority), Mx: dns.Fqdn(rec.Value)} //nolint:gosec // priority is a bounded DNS preference value
+		return &dns.MX{Hdr: hdr, Preference: uint16(rec.Priority), Mx: dns.Fqdn(rec.Value)} //nolint:gosec // range-checked above
 	case "TXT":
 		hdr.Rrtype = dns.TypeTXT
 		return &dns.TXT{Hdr: hdr, Txt: splitTXT(rec.Value)}
 	case "NS":
+		if !validName(rec.Value) {
+			return nil
+		}
 		hdr.Rrtype = dns.TypeNS
 		return &dns.NS{Hdr: hdr, Ns: dns.Fqdn(rec.Value)}
 	case "CNAME":
+		if !validName(rec.Value) {
+			return nil
+		}
 		hdr.Rrtype = dns.TypeCNAME
 		return &dns.CNAME{Hdr: hdr, Target: dns.Fqdn(rec.Value)}
 	case "CAA":
@@ -506,24 +515,52 @@ func buildRR(rec Record, qname string, ttl uint32) dns.RR {
 		if len(parts) != 3 {
 			return nil
 		}
+		tag := parts[1]
+		value := strings.Trim(parts[2], "\"")
+		// Both are packed as character-strings, capped at 255 bytes each.
+		if len(tag) > 255 || len(value) > 255 {
+			return nil
+		}
 		hdr.Rrtype = dns.TypeCAA
 		return &dns.CAA{
 			Hdr:   hdr,
 			Flag:  0,
-			Tag:   parts[1],
-			Value: strings.Trim(parts[2], "\""),
+			Tag:   tag,
+			Value: value,
 		}
 	case "SRV":
+		if !fitsUint16(rec.Priority) || !fitsUint16(rec.Weight) || !fitsUint16(rec.Port) || !validName(rec.Value) {
+			return nil
+		}
 		hdr.Rrtype = dns.TypeSRV
 		return &dns.SRV{
 			Hdr:      hdr,
-			Priority: uint16(rec.Priority), //nolint:gosec // priority is a bounded DNS SRV value
-			Weight:   uint16(rec.Weight),   //nolint:gosec // weight is a bounded DNS SRV value
-			Port:     uint16(rec.Port),     //nolint:gosec // port is bounded to 0-65535
+			Priority: uint16(rec.Priority), //nolint:gosec // range-checked above
+			Weight:   uint16(rec.Weight),   //nolint:gosec // range-checked above
+			Port:     uint16(rec.Port),     //nolint:gosec // range-checked above
 			Target:   dns.Fqdn(rec.Value),
 		}
 	}
 	return nil
+}
+
+// fitsUint16 reports whether a zone-file integer fits the 16-bit wire field it
+// is destined for. Out-of-range values would silently wrap into a different
+// number (port 70000 becomes 4464), so the record is dropped instead.
+func fitsUint16(v int) bool { return v >= 0 && v <= 65535 }
+
+// validName reports whether a zone-file value can be packed as a domain name.
+// An unpackable name does not just break its own record: the whole reply fails
+// to pack and the query is answered with nothing at all.
+func validName(v string) bool {
+	name := dns.Fqdn(v)
+	// A value ending in a backslash escapes the dot Fqdn appends, so the name
+	// stays relative and fails to pack even though IsDomainName accepts it.
+	if !dns.IsFqdn(name) {
+		return false
+	}
+	_, ok := dns.IsDomainName(name)
+	return ok
 }
 
 // splitTXT chunks a TXT value into 255-byte segments as required by the DNS spec.
