@@ -142,6 +142,9 @@ func (m *TunnelMetrics) CleanupIPLimiters() {
 	}
 }
 
+// maxUniqueIPsTracked caps the unique-source set used for reporting.
+const maxUniqueIPsTracked = 100000
+
 func (m *TunnelMetrics) RecordConnection(remoteAddr string) {
 	m.totalConns.Add(1)
 	host, _, err := net.SplitHostPort(remoteAddr)
@@ -149,7 +152,12 @@ func (m *TunnelMetrics) RecordConnection(remoteAddr string) {
 		host = remoteAddr
 	}
 	m.ipMu.Lock()
-	m.uniqueIPs[host] = struct{}{}
+	// UDP source addresses are spoofable, so this set is attacker-controlled;
+	// without a ceiling it grows until the process dies. The counter is only
+	// used for reporting, so dropping entries past the cap is acceptable.
+	if len(m.uniqueIPs) < maxUniqueIPsTracked {
+		m.uniqueIPs[host] = struct{}{}
+	}
 	m.ipMu.Unlock()
 }
 
@@ -168,8 +176,8 @@ func (m *TunnelMetrics) UniqueIPCount() int {
 }
 
 func (m *TunnelMetrics) TotalConnections() int64 { return m.totalConns.Load() }
-func (m *TunnelMetrics) ShortConnections() int64  { return m.shortConns.Load() }
-func (m *TunnelMetrics) BytesIn() int64           { return m.bytesIn.Load() }
-func (m *TunnelMetrics) BytesOut() int64          { return m.bytesOut.Load() }
-func (m *TunnelMetrics) DeniedCount() int64       { return m.denied.Load() }
-func (m *TunnelMetrics) CurrentRate() int64       { return m.rateLimiter.Count() }
+func (m *TunnelMetrics) ShortConnections() int64 { return m.shortConns.Load() }
+func (m *TunnelMetrics) BytesIn() int64          { return m.bytesIn.Load() }
+func (m *TunnelMetrics) BytesOut() int64         { return m.bytesOut.Load() }
+func (m *TunnelMetrics) DeniedCount() int64      { return m.denied.Load() }
+func (m *TunnelMetrics) CurrentRate() int64      { return m.rateLimiter.Count() }

@@ -23,6 +23,8 @@ import (
 
 	"github.com/mephistofox/fxtunnel/internal/config"
 	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/mephistofox/fxtunnel/internal/protocol"
 	"github.com/mephistofox/fxtunnel/internal/server/auth"
 	"github.com/mephistofox/fxtunnel/internal/server/database"
@@ -115,6 +117,12 @@ func portBlocked(port int, isAdmin bool, blocked map[int]bool) bool {
 type Server struct {
 	cfg *config.ServerConfig
 	log zerolog.Logger
+
+	// unauthSlots caps how many control connections may sit in the pre-auth
+	// stage at once. Compression negotiation allocates a zstd encoder+decoder
+	// (~2 MB) before any credential is seen, so without this an unauthenticated
+	// peer could exhaust memory by opening connections and never authenticating.
+	unauthSlots chan struct{}
 
 	// Listeners
 	controlListener     net.Listener
@@ -247,6 +255,7 @@ func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
 
 	s := &Server{
 		cfg:            cfg,
+		unauthSlots:    make(chan struct{}, maxUnauthControlConns),
 		log:            log.With().Str("component", "server").Logger(),
 		clientMgr:      NewClientManager(log.With().Str("component", "server").Logger()),
 		customDomains:  make(map[string]*database.CustomDomain),
@@ -474,6 +483,8 @@ func (s *Server) InitCustomDomains() error {
 	}
 
 	s.certManager = fxtls.NewCertManager(s.cfg.TLS, s.db, s.log)
+	// Drop the domain from the routing table the moment it loses verification.
+	s.certManager.SetOnUnverify(s.RemoveCustomDomain)
 	if err := s.certManager.LoadFromDB(); err != nil {
 		s.log.Warn().Err(err).Msg("Failed to load TLS certs from DB")
 	}
@@ -740,10 +751,30 @@ func (s *Server) acceptControlConnections(l net.Listener) {
 	}
 }
 
+// maxUnauthControlConns bounds concurrent pre-auth control connections.
+const maxUnauthControlConns = 256
+
+// maxBasicAuthCost caps the bcrypt cost a client may attach to a tunnel.
+const maxBasicAuthCost = 12
+
 func (s *Server) handleControlConnection(conn net.Conn) {
 	defer s.wg.Done()
 
 	tuneTCPConn(conn)
+
+	// Hold a pre-auth slot until the peer authenticates (or gives up), so the
+	// memory spent on compression state stays bounded for unauthenticated
+	// peers.
+	select {
+	case s.unauthSlots <- struct{}{}:
+	default:
+		s.log.Warn().Str("remote", conn.RemoteAddr().String()).Msg("Too many unauthenticated control connections, rejecting")
+		conn.Close()
+		return
+	}
+	var releaseOnce sync.Once
+	releaseSlot := func() { releaseOnce.Do(func() { <-s.unauthSlots }) }
+	defer releaseSlot()
 
 	remoteAddr := conn.RemoteAddr().String()
 	log := s.log.With().Str("remote", remoteAddr).Logger()
@@ -852,6 +883,8 @@ func (s *Server) handleControlConnection(conn net.Conn) {
 
 		log = log.With().Str("client_id", client.ID).Logger()
 		log.Info().Msg("Client authenticated")
+
+		releaseSlot()
 
 		// Handle client messages
 		client.handle()
@@ -1154,6 +1187,21 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 		BasicAuthHash: req.BasicAuthHash,
 	}
 
+	// The hash comes from the client, and every request to this subdomain pays
+	// its cost. A cost-31 hash would burn minutes of CPU per request.
+	if req.BasicAuthHash != "" {
+		cost, err := bcrypt.Cost([]byte(req.BasicAuthHash))
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, "invalid basic auth hash")
+			return
+		}
+		if cost > maxBasicAuthCost {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError,
+				fmt.Sprintf("basic auth hash cost %d exceeds maximum %d", cost, maxBasicAuthCost))
+			return
+		}
+	}
+
 	// Parse IP allowlist
 	if len(req.AllowIPs) > 0 {
 		ips, nets, err := parseAllowIPs(req.AllowIPs)
@@ -1190,6 +1238,20 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
 
+	// Claim the subdomain cluster-wide BEFORE serving it locally: the local
+	// router only knows this node, so without the claim two users on two nodes
+	// both answer for the same name and traffic lands in whichever node the
+	// request reaches.
+	if err := c.registerTunnelInRegistry(tunnel); err != nil {
+		c.server.inspectMgr.Remove(tunnelID)
+		if errors.Is(err, store.ErrSubdomainTaken) {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain is in use on another node")
+			return
+		}
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeInternalError, "failed to claim subdomain")
+		return
+	}
+
 	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
 		c.server.inspectMgr.Remove(tunnelID)
 		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, err.Error())
@@ -1222,7 +1284,6 @@ func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Str("url", url).Msg("HTTP tunnel created")
-	c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("HTTP", url)
 }
 
@@ -1315,7 +1376,7 @@ func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("TCP tunnel created")
-	c.registerTunnelInRegistry(tunnel)
+	_ = c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("TCP", remoteAddr)
 }
 
@@ -1408,7 +1469,7 @@ func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
 
 	_ = c.sendControl(resp)
 	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("UDP tunnel created")
-	c.registerTunnelInRegistry(tunnel)
+	_ = c.registerTunnelInRegistry(tunnel)
 	c.notifyFirstTunnel("UDP", remoteAddr)
 }
 
@@ -1477,12 +1538,15 @@ func (c *Client) closeTunnel(tunnelID string) {
 	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel closed")
 }
 
-// registerTunnelInRegistry registers the tunnel in the cross-server Redis registry
+// registerTunnelInRegistry claims the tunnel in the cross-server Redis registry
 // and starts a heartbeat goroutine that refreshes the TTL every 30 seconds.
-func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) {
+// It returns store.ErrSubdomainTaken when another user already holds the
+// subdomain on a different node, so the caller can refuse the tunnel instead
+// of serving a name that belongs to someone else.
+func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) error {
 	reg := c.server.tunnelRegistry
 	if reg == nil {
-		return
+		return nil
 	}
 
 	entry := store.TunnelEntry{
@@ -1500,7 +1564,7 @@ func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) {
 
 	if err := reg.Register(entry); err != nil {
 		c.log.Warn().Err(err).Str("tunnel_id", tunnel.ID).Msg("Failed to register tunnel in Redis")
-		return
+		return err
 	}
 
 	// Heartbeat goroutine — refreshes TTL every 30s, stops when client context is done
@@ -1523,6 +1587,8 @@ func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 func (c *Client) handleConnectionAccept(data []byte) {
