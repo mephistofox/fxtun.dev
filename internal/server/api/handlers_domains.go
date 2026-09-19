@@ -69,14 +69,7 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check max domains limit
-	count, err := s.db.Domains.Count(user.ID)
-	if err != nil {
-		s.log.Error().Err(err).Msg("Failed to count domains")
-		s.respondError(w, http.StatusInternalServerError, "failed to reserve domain")
-		return
-	}
-
+	// A missing plan means the default limit, never unlimited.
 	maxDomains := 1
 	if user.Plan != nil {
 		if user.Plan.MaxDomains < 0 {
@@ -85,18 +78,19 @@ func (s *Server) handleReserveDomain(w http.ResponseWriter, r *http.Request) {
 			maxDomains = user.Plan.MaxDomains
 		}
 	}
-	if maxDomains >= 0 && count >= maxDomains {
-		s.respondErrorWithCode(w, http.StatusForbidden, "MAX_DOMAINS", "maximum domains reached")
-		return
-	}
 
-	// Create reservation
+	// Create reservation. The limit is enforced inside the transaction, so
+	// concurrent requests cannot all pass a stale count.
 	domain := &database.ReservedDomain{
 		UserID:    user.ID,
 		Subdomain: req.Subdomain,
 	}
 
-	if err := s.db.Domains.Create(domain); err != nil {
+	if err := s.db.Domains.CreateWithLimit(domain, maxDomains); err != nil {
+		if errors.Is(err, database.ErrMaxDomainsReached) {
+			s.respondErrorWithCode(w, http.StatusForbidden, "MAX_DOMAINS", "maximum domains reached")
+			return
+		}
 		if errors.Is(err, database.ErrDomainAlreadyExists) {
 			s.respondErrorWithCode(w, http.StatusConflict, "SUBDOMAIN_TAKEN", "subdomain is already reserved")
 			return

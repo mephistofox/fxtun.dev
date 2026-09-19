@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
 )
 
 // APITokenRepository handles API token database operations using PostgreSQL via sqlc.
 type APITokenRepository struct {
-	q *sqlc.Queries
+	q    *sqlc.Queries
+	pool *pgxpool.Pool
 }
 
 // sqlcTokenToDomain converts a sqlc.ApiToken to a domain APIToken.
@@ -44,6 +46,49 @@ func (r *APITokenRepository) Create(token *APIToken) error {
 	token.ID = row.ID
 	token.CreatedAt = tsToTime(row.CreatedAt)
 	return nil
+}
+
+// CreateWithLimit creates a token only if the user is still under maxTokens.
+// The count and the insert run in one transaction behind a row lock on the user,
+// so concurrent requests cannot each read the same pre-insert count.
+// A negative maxTokens means unlimited.
+func (r *APITokenRepository) CreateWithLimit(token *APIToken, maxTokens int) error {
+	ctx := context.Background()
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create api token: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedID int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE id = $1 FOR UPDATE`, token.UserID).Scan(&lockedID); err != nil {
+		if isNotFound(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("lock user for token create: %w", err)
+	}
+
+	if maxTokens >= 0 {
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM api_tokens WHERE user_id = $1`, token.UserID).Scan(&count); err != nil {
+			return fmt.Errorf("count api tokens: %w", err)
+		}
+		if count >= maxTokens {
+			return ErrMaxTokensReached
+		}
+	}
+
+	err = tx.QueryRow(ctx,
+		`INSERT INTO api_tokens (user_id, token_hash, name, allowed_subdomains, max_tunnels, allowed_ips, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id, created_at`,
+		token.UserID, token.TokenHash, token.Name,
+		stringSliceToJSON(token.AllowedSubdomains), int32(token.MaxTunnels), stringSliceToJSON(token.AllowedIPs),
+	).Scan(&token.ID, &token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("create api token: %w", err)
+	}
+
+	return tx.Commit(ctx)
 }
 
 // GetByID retrieves an API token by ID.

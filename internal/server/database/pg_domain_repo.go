@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
 )
 
 // DomainRepository handles reserved domain database operations using PostgreSQL via sqlc.
 type DomainRepository struct {
-	q *sqlc.Queries
+	q    *sqlc.Queries
+	pool *pgxpool.Pool
 }
 
 // sqlcDomainToDomain converts a sqlc.ReservedDomain to a domain ReservedDomain.
@@ -22,22 +24,47 @@ func sqlcDomainToDomain(d sqlc.ReservedDomain) *ReservedDomain {
 	}
 }
 
-// Create creates a new reserved domain.
-func (r *DomainRepository) Create(domain *ReservedDomain) error {
+// CreateWithLimit reserves a subdomain only if the user is still under maxDomains.
+// The count and the insert run in one transaction behind a row lock on the user,
+// so concurrent requests cannot each read the same pre-insert count.
+// A negative maxDomains means unlimited.
+func (r *DomainRepository) CreateWithLimit(domain *ReservedDomain, maxDomains int) error {
 	ctx := context.Background()
-	row, err := r.q.CreateReservedDomain(ctx, sqlc.CreateReservedDomainParams{
-		UserID:    domain.UserID,
-		Subdomain: domain.Subdomain,
-	})
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin reserve domain: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var lockedID int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM users WHERE id = $1 FOR UPDATE`, domain.UserID).Scan(&lockedID); err != nil {
+		if isNotFound(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("lock user for domain reserve: %w", err)
+	}
+
+	if maxDomains >= 0 {
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM reserved_domains WHERE user_id = $1`, domain.UserID).Scan(&count); err != nil {
+			return fmt.Errorf("count reserved domains: %w", err)
+		}
+		if count >= maxDomains {
+			return ErrMaxDomainsReached
+		}
+	}
+
+	err = tx.QueryRow(ctx,
+		`INSERT INTO reserved_domains (user_id, subdomain, created_at) VALUES ($1, $2, NOW()) RETURNING id, created_at`,
+		domain.UserID, domain.Subdomain).Scan(&domain.ID, &domain.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return ErrDomainAlreadyExists
 		}
 		return fmt.Errorf("create reserved domain: %w", err)
 	}
-	domain.ID = row.ID
-	domain.CreatedAt = tsToTime(row.CreatedAt)
-	return nil
+
+	return tx.Commit(ctx)
 }
 
 // GetByID retrieves a reserved domain by ID.
@@ -98,16 +125,6 @@ func (r *DomainRepository) DeleteByUserID(userID int64) error {
 		return fmt.Errorf("delete reserved domains by user id: %w", err)
 	}
 	return nil
-}
-
-// Count returns the number of reserved domains for a user.
-func (r *DomainRepository) Count(userID int64) (int, error) {
-	ctx := context.Background()
-	count, err := r.q.CountReservedDomainsByUserID(ctx, userID)
-	if err != nil {
-		return 0, fmt.Errorf("count reserved domains: %w", err)
-	}
-	return int(count), nil
 }
 
 // IsAvailable checks if a subdomain is available (not reserved).
