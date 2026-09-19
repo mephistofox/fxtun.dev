@@ -137,6 +137,10 @@ func (m *MagicLinkStore) LookupByEmail(email string) (string, *store.MagicLinkEn
 	}, true
 }
 
+// magicLinkMaxCodeAttempts mirrors the API's wrong-code budget; returned on a
+// Redis failure so the caller treats the link as burned rather than fresh.
+const magicLinkMaxCodeAttempts = 5
+
 // IncrAttempt increments and returns the failed-code attempt counter for email.
 func (m *MagicLinkStore) IncrAttempt(email string, ttl time.Duration) int {
 	ctx := context.Background()
@@ -144,7 +148,10 @@ func (m *MagicLinkStore) IncrAttempt(email string, ttl time.Duration) int {
 	incr := pipe.Incr(ctx, m.attemptKey(email))
 	pipe.Expire(ctx, m.attemptKey(email), ttl)
 	if _, err := pipe.Exec(ctx); err != nil {
-		return 0
+		// Fail closed: returning 0 would reset the "5 wrong codes" budget on
+		// every Redis hiccup, leaving a 6-digit code brute-forceable within
+		// the per-IP limit.
+		return magicLinkMaxCodeAttempts
 	}
 	return int(incr.Val())
 }

@@ -1232,10 +1232,16 @@ func (s *Server) handleAdminStatsStream(w http.ResponseWriter, r *http.Request) 
 		if tokenStr != "" {
 			claims, err := s.authService.ValidateAccessToken(tokenStr)
 			if err == nil && claims != nil && claims.IsAdmin {
-				user = &auth.AuthenticatedUser{
-					ID:      claims.UserID,
-					Phone:   claims.Phone,
-					IsAdmin: claims.IsAdmin,
+				// Every other route re-reads the user from the database; this
+				// fallback trusted the token's own claims, so a demoted or
+				// blocked admin kept the stream for the rest of the 15m TTL.
+				dbUser, dbErr := s.db.Users.GetByID(claims.UserID)
+				if dbErr == nil && dbUser != nil && dbUser.IsActive && dbUser.IsAdmin {
+					user = &auth.AuthenticatedUser{
+						ID:      dbUser.ID,
+						Phone:   dbUser.Phone,
+						IsAdmin: dbUser.IsAdmin,
+					}
 				}
 			}
 		}

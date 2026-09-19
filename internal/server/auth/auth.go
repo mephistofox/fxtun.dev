@@ -69,6 +69,8 @@ type Service struct {
 	totp       *TOTPManager
 	log        zerolog.Logger
 	maxDomains int
+	// totpFails throttles second-factor guessing per account.
+	totpFails *totpThrottle
 }
 
 // NewService creates a new auth service
@@ -80,6 +82,7 @@ func NewService(db *database.Database, jwtSecret string, accessTTL, refreshTTL t
 		totp:       NewTOTPManager(totpIssuer, totpKey),
 		log:        log.With().Str("component", "auth").Logger(),
 		maxDomains: maxDomains,
+		totpFails:  newTOTPThrottle(),
 	}
 }
 
@@ -208,6 +211,13 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 			return nil, nil, ErrTOTPRequired
 		}
 
+		// Refuse further guesses once the account has burned its budget,
+		// regardless of which IP the attempt comes from.
+		if s.totpFails.blocked(user.ID) {
+			s.log.Warn().Int64("user_id", user.ID).Msg("TOTP attempts throttled")
+			return nil, nil, ErrInvalidCredentials
+		}
+
 		totpSecret, err := s.db.TOTP.GetByUserID(user.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("get TOTP secret: %w", err)
@@ -224,6 +234,7 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 			// Try backup codes
 			remainingCodes, valid := s.totp.ValidateBackupCode(totpCode, totpSecret.BackupCodes)
 			if !valid {
+				s.totpFails.recordFailure(user.ID)
 				return nil, nil, ErrInvalidTOTPCode
 			}
 			// Update remaining backup codes
@@ -231,6 +242,7 @@ func (s *Service) Login(identifier, password, totpCode, userAgent, ipAddress str
 				s.log.Error().Err(err).Int64("user_id", user.ID).Msg("Failed to update backup codes")
 			}
 		}
+		s.totpFails.reset(user.ID)
 	}
 
 	// Generate tokens
