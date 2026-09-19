@@ -116,17 +116,18 @@ func (s *Server) getPaymentProvider(host string) (payment.Provider, error) {
 
 // effectiveRecurring decides whether a checkout should save the payment method
 // for auto-renewal. Creem manages subscriptions itself, so it is always
-// recurring. A production YooKassa shop rejects save_payment_method until the
-// YooMoney manager approves autopayments ("This store can't make recurring
-// payments"), so YooKassa is recurring only when both the client asked for it
-// and the shop is approved (yookassaRecurringEnabled). Any other provider
-// honours the client's request as-is.
+// recurring. Subscriptions are auto-renewing only — the checkout UI offers no
+// one-time option — so a YooKassa checkout ignores the client's request and
+// follows the shop flag alone: a production shop rejects save_payment_method
+// until the YooMoney manager approves autopayments ("This store can't make
+// recurring payments"), and until then payments fall back to one-time so
+// checkout keeps working. Any other provider honours the client's request.
 func effectiveRecurring(providerName string, requested, yookassaRecurringEnabled bool) bool {
 	switch providerName {
 	case "creem":
 		return true
 	case "yookassa":
-		return requested && yookassaRecurringEnabled
+		return yookassaRecurringEnabled
 	default:
 		return requested
 	}

@@ -2,11 +2,13 @@ package api
 
 import "testing"
 
-// TestEffectiveRecurring guards the checkout gate that keeps payments working
-// before the YooKassa shop is approved for autopayments. A production shop
-// rejects save_payment_method with "This store can't make recurring payments",
-// so YooKassa checkouts must be forced to one-time until the shop is enabled,
-// while Creem (which manages its own subscriptions) stays always-recurring.
+// TestEffectiveRecurring guards the checkout gate. Subscriptions are monthly
+// with auto-renewal only — there is no one-time option in the UI, and the API
+// must not offer one either, so a YooKassa checkout follows the shop flag alone
+// and ignores what the client asked for. The flag still matters: a production
+// shop rejects save_payment_method with "This store can't make recurring
+// payments" until autopayments are approved. Creem manages its own
+// subscriptions and stays always-recurring.
 func TestEffectiveRecurring(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -17,8 +19,8 @@ func TestEffectiveRecurring(t *testing.T) {
 	}{
 		{"yookassa requested but shop disabled -> one-time", "yookassa", true, false, false},
 		{"yookassa requested and shop enabled -> recurring", "yookassa", true, true, true},
-		{"yookassa not requested, shop enabled -> one-time", "yookassa", false, true, false},
-		{"yookassa not requested, shop disabled -> one-time", "yookassa", false, false, false},
+		{"yookassa opt-out ignored while shop enabled -> recurring", "yookassa", false, true, true},
+		{"yookassa opt-out with shop disabled -> one-time", "yookassa", false, false, false},
 		{"creem always recurring even if shop flag off", "creem", false, false, true},
 		{"creem always recurring", "creem", true, false, true},
 		{"unknown provider honours request true", "other", true, false, true},
