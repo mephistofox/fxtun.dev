@@ -124,6 +124,12 @@ const ruOnlyRoutes: RouteRecordRaw[] = [
     component: () => import('./views/UseCaseView.vue'),
     meta: { ns: 'portForward', seoKey: 'portForwarding' },
   },
+  {
+    path: '/udalennyy-dostup',
+    name: 'udalennyy-dostup',
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'remoteAccess', seoKey: 'remoteAccess' },
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
