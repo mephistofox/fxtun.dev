@@ -27,6 +27,8 @@ const lines = computed<TerminalLine[]>(() => [
 // meant the page counted as still drawing itself for several seconds. Now the
 // prerender ships the completed state, and the replay starts once loading is
 // over.
+const bodyEl = ref<HTMLElement | null>(null)
+
 const finishedLines = () => lines.value.map(l => ({ type: l.type, text: l.text, typing: false }))
 
 const displayedLines = ref<{ type: string; text: string; typing: boolean }[]>(finishedLines())
@@ -40,6 +42,9 @@ function typeNextChar() {
     isTyping.value = false
     // Restart after pause
     animationTimer = setTimeout(() => {
+      // Freeze the height the finished transcript occupies before emptying it,
+      // or the box collapses and everything under it jumps.
+      if (bodyEl.value) bodyEl.value.style.minHeight = `${bodyEl.value.offsetHeight}px`
       displayedLines.value = []
       currentLineIndex.value = 0
       currentCharIndex.value = 0
@@ -92,13 +97,16 @@ onMounted(() => {
     }, 1200)
   }
   // The finished transcript is already on screen, so the replay is pure
-  // decoration and can wait for the visitor. Left to start on its own a second
-  // or two in, it kept repainting the first screen while the browser was still
-  // deciding whether the page had finished drawing.
+  // decoration and can wait for the visitor. Left to start on its own a few
+  // seconds in, it kept repainting the first screen while the browser was
+  // still deciding whether the page had finished drawing — and it landed
+  // inside or outside that window depending on the run, which is why the
+  // measured score swung by seven points. It starts on the first real move,
+  // or after twenty seconds of nobody making one.
   function schedule() {
-    const timer = setTimeout(begin, 6000)
+    const timer = setTimeout(begin, 20000)
     const kick = () => { clearTimeout(timer); begin() }
-    ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev =>
+    ;['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
       addEventListener(ev, kick, { once: true, passive: true }))
   }
   if (document.readyState === 'complete') schedule()
@@ -135,7 +143,7 @@ function getLineClass(type: string) {
       <div class="terminal-dot bg-green-500"></div>
       <span class="ml-3 text-xs text-muted-foreground font-mono">fxTunnel</span>
     </div>
-    <div class="terminal-body min-h-[220px]">
+    <div ref="bodyEl" class="terminal-body min-h-[220px]">
       <div v-for="(line, index) in displayedLines" :key="index" class="flex items-start">
         <span v-if="line.type === 'command'" class="terminal-prompt mr-2">$</span>
         <span v-else class="mr-2 w-2"></span>
