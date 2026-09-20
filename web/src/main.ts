@@ -8,7 +8,10 @@ import './styles.css'
 
 export const createApp = ViteSSG(
   App,
-  { routes },
+  // Landings are long; without this a click in the bottom "next" block lands
+  // the visitor mid-page. 'instant' because styles.css sets scroll-behavior:
+  // smooth, which would otherwise show the new page from its middle first.
+  { routes, scrollBehavior: (_to, _from, saved) => saved ?? { top: 0, behavior: 'instant' } },
   ({ app, router }) => {
     app.use(createPinia())
     app.use(i18n)
