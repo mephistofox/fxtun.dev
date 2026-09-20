@@ -62,3 +62,6 @@ fxtunnel-update.*
 # Python bytecode from scripts/
 __pycache__/
 *.pyc
+
+# Mailbox passwords — only the .example belongs in the repo
+mail-to-telegram.ini
