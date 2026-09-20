@@ -1062,15 +1062,15 @@
         "related": [
           {
             "to": "/compare/ngrok",
-            "label": "Подробное сравнение с ngrok"
+            "label": "fxTunnel vs ngrok"
           },
           {
-            "to": "/pricing",
-            "label": "Тарифы"
+            "to": "/probros-portov",
+            "label": "Проброс портов без роутера"
           },
           {
-            "to": "/compare/cloudpub",
-            "label": "Сравнение с CloudPub"
+            "to": "/features",
+            "label": "Возможности"
           }
         ],
         "ctaTitle": "Попробуйте вместо ngrok",
@@ -1160,16 +1160,16 @@
         "relatedTitle": "Что посмотреть дальше",
         "related": [
           {
-            "to": "/downloads",
-            "label": "Скачать клиент"
+            "to": "/analog-hamachi",
+            "label": "Аналог Hamachi"
+          },
+          {
+            "to": "/probros-portov",
+            "label": "Проброс портов без роутера"
           },
           {
             "to": "/pricing",
-            "label": "Тарифы и UDP"
-          },
-          {
-            "to": "/bez-belogo-ip",
-            "label": "Доступ без белого IP"
+            "label": "Тарифы"
           }
         ],
         "ctaTitle": "Поднимите сервер для друзей за минуту",
@@ -1256,12 +1256,12 @@
         "relatedTitle": "Что посмотреть дальше",
         "related": [
           {
-            "to": "/features",
-            "label": "Возможности"
+            "to": "/probros-portov",
+            "label": "Проброс портов без роутера"
           },
           {
-            "to": "/pricing",
-            "label": "Тарифы"
+            "to": "/udalennyy-dostup",
+            "label": "Удалённый доступ к компьютеру"
           },
           {
             "to": "/minecraft-server",
