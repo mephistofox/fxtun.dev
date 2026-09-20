@@ -22,10 +22,17 @@ const lines = computed<TerminalLine[]>(() => [
   { type: 'info', text: 'GET  /dashboard            200   8ms', delay: 500 },
 ])
 
-const displayedLines = ref<{ type: string; text: string; typing: boolean }[]>([])
+// Start from the finished transcript rather than an empty box. The terminal
+// sits in the first screen, and leaving it blank until the typing caught up
+// meant the page counted as still drawing itself for several seconds. Now the
+// prerender ships the completed state, and the replay starts once loading is
+// over.
+const finishedLines = () => lines.value.map(l => ({ type: l.type, text: l.text, typing: false }))
+
+const displayedLines = ref<{ type: string; text: string; typing: boolean }[]>(finishedLines())
 const currentLineIndex = ref(0)
 const currentCharIndex = ref(0)
-const isTyping = ref(true)
+const isTyping = ref(false)
 let animationTimer: ReturnType<typeof setTimeout> | null = null
 
 function typeNextChar() {
@@ -68,7 +75,34 @@ function typeNextChar() {
 }
 
 onMounted(() => {
-  animationTimer = setTimeout(typeNextChar, 500)
+  // The terminal types itself out and restarts every five seconds. Started at
+  // mount, it is the largest thing repainting on the page while the browser is
+  // still deciding when the page finished rendering — so the page measured as
+  // loading for as long as the typing went on. Begin once loading is over.
+  function begin() {
+    // Already showing the finished transcript; somebody who asked for less
+    // motion keeps it that way.
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    animationTimer = setTimeout(() => {
+      displayedLines.value = []
+      currentLineIndex.value = 0
+      currentCharIndex.value = 0
+      isTyping.value = true
+      typeNextChar()
+    }, 1200)
+  }
+  // The finished transcript is already on screen, so the replay is pure
+  // decoration and can wait for the visitor. Left to start on its own a second
+  // or two in, it kept repainting the first screen while the browser was still
+  // deciding whether the page had finished drawing.
+  function schedule() {
+    const timer = setTimeout(begin, 6000)
+    const kick = () => { clearTimeout(timer); begin() }
+    ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev =>
+      addEventListener(ev, kick, { once: true, passive: true }))
+  }
+  if (document.readyState === 'complete') schedule()
+  else window.addEventListener('load', schedule, { once: true })
 })
 
 onUnmounted(() => {

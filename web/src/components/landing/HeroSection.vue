@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import { afterLoad } from '@/lib/afterLoad'
 import AnimatedTerminal from './AnimatedTerminal.vue'
 import TopoBackground from './TopoBackground.vue'
 
@@ -62,7 +63,7 @@ onMounted(() => {
   } else {
     playedOnce = true
   }
-  fetchGithubStars()
+  afterLoad(fetchGithubStars)
 })
 </script>
 

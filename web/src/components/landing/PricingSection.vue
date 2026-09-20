@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { plansApi, type Plan } from '@/api/client'
+import { afterLoad } from '@/lib/afterLoad'
 import { getDomainLocale } from '@/i18n'
 import plansCache from '@/data/plans-cache.json'
 
@@ -84,30 +85,32 @@ if (import.meta.env.SSR && plansCache.plans.length > 0) {
   loading.value = false
 }
 
-onMounted(async () => {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          isVisible.value = true
-          observer.disconnect()
-        }
-      })
-    },
-    { threshold: 0.15 }
-  )
-  if (sectionRef.value) {
-    observer.observe(sectionRef.value)
-  }
+onMounted(() => {
+  afterLoad(async () => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            isVisible.value = true
+            observer.disconnect()
+          }
+        })
+      },
+      { threshold: 0.15 }
+    )
+    if (sectionRef.value) {
+      observer.observe(sectionRef.value)
+    }
 
-  try {
-    const resp = await plansApi.listPublic()
-    plans.value = resp.data.plans || []
-  } catch {
-    // silent - section will show empty state
-  } finally {
-    loading.value = false
-  }
+    try {
+      const resp = await plansApi.listPublic()
+      plans.value = resp.data.plans || []
+    } catch {
+      // silent - section will show empty state
+    } finally {
+      loading.value = false
+    }
+  })
 })
 </script>
 

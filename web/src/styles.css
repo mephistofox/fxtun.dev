@@ -1,11 +1,16 @@
 /* Self-hosted variable fonts (latin + cyrillic subsets) */
 
-/* Unbounded — display font, weights 200–900 */
+/*
+ * Tried font-display: optional here to stop the heading repainting when the
+ * webfont lands. Measured: the largest paint did not move and the page looked
+ * slower, so the brand font stays guaranteed with swap.
+ *
+ * Unbounded — display font, axis trimmed to the 400-700 actually used */
 @font-face {
   font-family: 'Unbounded';
   font-style: normal;
   font-display: swap;
-  font-weight: 200 900;
+  font-weight: 400 700;
   src: url('/fonts/unbounded-cyrillic-ext-wght-normal.woff2') format('woff2');
   unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
 }
@@ -13,7 +18,7 @@
   font-family: 'Unbounded';
   font-style: normal;
   font-display: swap;
-  font-weight: 200 900;
+  font-weight: 400 700;
   src: url('/fonts/unbounded-cyrillic-wght-normal.woff2') format('woff2');
   unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
 }
@@ -25,7 +30,7 @@
   font-family: 'Unbounded';
   font-style: normal;
   font-display: swap;
-  font-weight: 200 900;
+  font-weight: 400 700;
   src: url('/fonts/unbounded-latin-wght-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
@@ -35,7 +40,7 @@
   font-family: 'Onest';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
+  font-weight: 400 700;
   src: url('/fonts/onest-cyrillic-ext-wght-normal.woff2') format('woff2');
   unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
 }
@@ -43,7 +48,7 @@
   font-family: 'Onest';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
+  font-weight: 400 700;
   src: url('/fonts/onest-cyrillic-wght-normal.woff2') format('woff2');
   unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
 }
@@ -51,7 +56,7 @@
   font-family: 'Onest';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
+  font-weight: 400 700;
   src: url('/fonts/onest-latin-ext-wght-normal.woff2') format('woff2');
   unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
@@ -59,7 +64,7 @@
   font-family: 'Onest';
   font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
+  font-weight: 400 700;
   src: url('/fonts/onest-latin-wght-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
@@ -799,4 +804,18 @@
 
 .code-block code {
   @apply text-foreground;
+}
+
+/* Sections below the first screen.
+ *
+ * The landing page is long, and the browser was laying out and styling every
+ * section of it before it could finish the first one — 978 ms of style and
+ * layout on a phone. content-visibility lets it skip the work for anything
+ * off screen and do it when the visitor scrolls there instead. The intrinsic
+ * size is the placeholder height, so the scrollbar and the page length stay
+ * honest and nothing jumps.
+ */
+.below-fold {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
 }

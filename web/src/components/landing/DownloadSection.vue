@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { downloadsApi, type Download } from '@/api/client'
+import { afterLoad } from '@/lib/afterLoad'
 import { getBaseDomain } from '@/i18n'
 
 const { t } = useI18n()
@@ -64,32 +65,34 @@ function downloadFile(dl: Download) {
   window.location.href = dl.url
 }
 
-onMounted(async () => {
-  activeOS.value = detectPlatform()
+onMounted(() => {
+  afterLoad(async () => {
+    activeOS.value = detectPlatform()
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          isVisible.value = true
-          observer.disconnect()
-        }
-      })
-    },
-    { threshold: 0.15 }
-  )
-  if (sectionRef.value) {
-    observer.observe(sectionRef.value)
-  }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            isVisible.value = true
+            observer.disconnect()
+          }
+        })
+      },
+      { threshold: 0.15 }
+    )
+    if (sectionRef.value) {
+      observer.observe(sectionRef.value)
+    }
 
-  try {
-    const resp = await downloadsApi.list()
-    downloads.value = [...(resp.data.cli || []), ...(resp.data.gui || [])]
-  } catch {
-    // silent — section will show "no builds"
-  } finally {
-    loading.value = false
-  }
+    try {
+      const resp = await downloadsApi.list()
+      downloads.value = [...(resp.data.cli || []), ...(resp.data.gui || [])]
+    } catch {
+      // silent — section will show "no builds"
+    } finally {
+      loading.value = false
+    }
+  })
 })
 </script>
 

@@ -257,7 +257,7 @@ onUnmounted(() => {
     <!-- Main Content -->
     <main>
       <HeroSection />
-      <HowItWorksSection />
+      <div class="below-fold"><HowItWorksSection /></div>
 
       <!-- Mid-page CTA: after How It Works -->
       <div class="py-12 text-center">
@@ -268,9 +268,9 @@ onUnmounted(() => {
         </RouterLink>
       </div>
 
-      <ProtocolsSection />
-      <FeaturesSection />
-      <UseCasesSection />
+      <div class="below-fold"><ProtocolsSection /></div>
+      <div class="below-fold"><FeaturesSection /></div>
+      <div class="below-fold"><UseCasesSection /></div>
 
       <!-- Mid-page CTA: after Use Cases -->
       <div class="py-12 text-center">
@@ -281,8 +281,8 @@ onUnmounted(() => {
         </RouterLink>
       </div>
 
-      <AdvancedFeaturesSection />
-      <ComparisonSection />
+      <div class="below-fold"><AdvancedFeaturesSection /></div>
+      <div class="below-fold"><ComparisonSection /></div>
 
       <!-- Mid-page CTA: after Comparison -->
       <div class="py-12 text-center">
@@ -298,9 +298,9 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <PricingSection />
-      <DownloadSection />
-      <FaqSection />
+      <div class="below-fold"><PricingSection /></div>
+      <div class="below-fold"><DownloadSection /></div>
+      <div class="below-fold"><FaqSection /></div>
     </main>
 
     <LandingFooter />
