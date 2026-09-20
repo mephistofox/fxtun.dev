@@ -606,6 +606,8 @@
         "colUseCases": "Use cases",
         "colCompare": "Comparisons",
         "colLegal": "Legal",
+        "colContacts": "Contacts",
+        "contactsNote": "We answer by email and on Telegram, usually within a business day.",
         "blurb": "A local service on the internet in one command. HTTP, TCP and UDP, open source.",
         "linkNgrokAlt": "ngrok alternative",
         "linkNoWhiteIp": "Access without a public IP",

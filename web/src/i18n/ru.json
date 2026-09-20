@@ -519,6 +519,8 @@
         "colUseCases": "Сценарии",
         "colCompare": "Сравнения",
         "colLegal": "Документы",
+        "colContacts": "Контакты",
+        "contactsNote": "Отвечаем на почту и в Telegram, обычно в течение рабочего дня.",
         "blurb": "Локальный сервис в интернете за одну команду. HTTP, TCP и UDP, оплата в рублях, открытый код.",
         "linkNgrokAlt": "Альтернатива ngrok",
         "linkNoWhiteIp": "Доступ без белого IP",

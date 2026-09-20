@@ -35,6 +35,14 @@ const blogUrl = computed(() => getBlogUrl())
             </div>
           </div>
           <p class="text-sm text-muted-foreground max-w-xs leading-relaxed">{{ t('landing.footer.blurb') }}</p>
+
+          <h3 class="footer-heading mt-8">{{ t('landing.footer.colContacts') }}</h3>
+          <ul class="footer-list">
+            <li><a href="mailto:dev@fxcode.ru" class="footer-link">dev@fxcode.ru</a></li>
+            <li><a href="https://t.me/mephistofx" rel="noopener" class="footer-link">Telegram: @mephistofx</a></li>
+            <li><a href="https://github.com/mephistofox/fxtun.dev" rel="noopener" class="footer-link">GitHub</a></li>
+          </ul>
+          <p class="mt-3 text-xs text-muted-foreground">{{ t('landing.footer.contactsNote') }}</p>
         </div>
 
         <div>
