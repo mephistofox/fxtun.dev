@@ -70,6 +70,11 @@ const publicRoutes: RouteRecordRaw[] = [
     component: () => import('./views/CompareTunaView.vue'),
   },
   {
+    path: '/compare/cloudpub',
+    name: 'compare-cloudpub',
+    component: () => import('./views/CompareCloudpubView.vue'),
+  },
+  {
     path: '/compare/xtunnel',
     name: 'compare-xtunnel',
     component: () => import('./views/CompareXtunnelView.vue'),
@@ -96,8 +101,27 @@ const publicRoutes: RouteRecordRaw[] = [
   },
 ]
 
+// Landings written for Russian search intent. There is no English version of
+// "сервер майнкрафт для друзей", and an auto-prefixed /en copy would only be
+// the Russian text under an English locale.
+const ruOnlyRoutes: RouteRecordRaw[] = [
+  {
+    path: '/minecraft-server',
+    name: 'minecraft-server',
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'minecraft', seoKey: 'minecraftServer' },
+  },
+  {
+    path: '/bez-belogo-ip',
+    name: 'bez-belogo-ip',
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'noWhiteIp', seoKey: 'noWhiteIp' },
+  },
+]
+
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
-  return publicRoutes.map(r => ({
+  const source = lang === 'ru' ? [...publicRoutes, ...ruOnlyRoutes] : publicRoutes
+  return source.map(r => ({
     ...r,
     path: `/${lang}${r.path === '/' ? '' : r.path}`,
     name: `${String(r.name)}-${lang}`,
@@ -107,6 +131,7 @@ function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
 
 export const routes: RouteRecordRaw[] = [
   ...publicRoutes,
+  ...ruOnlyRoutes,
   {
     path: '/checkout',
     name: 'checkout',

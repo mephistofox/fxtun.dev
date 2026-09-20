@@ -17,6 +17,7 @@ const allCompetitors = [
   { slug: 'ngrok', name: 'ngrok' },
   { slug: 'cloudflare', name: 'Cloudflare Tunnel' },
   { slug: 'tuna', name: 'tuna.am' },
+  { slug: 'cloudpub', name: 'CloudPub' },
   { slug: 'xtunnel', name: 'xTunnel' },
 ]
 const otherCompetitors = allCompetitors.filter(c => c.slug !== props.competitorSlug)

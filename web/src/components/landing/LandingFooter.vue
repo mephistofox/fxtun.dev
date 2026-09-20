@@ -49,8 +49,19 @@ const blogUrl = computed(() => getBlogUrl())
           <RouterLink to="/compare/tuna" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
             vs tuna.am
           </RouterLink>
+          <RouterLink to="/compare/cloudpub" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            vs CloudPub
+          </RouterLink>
           <RouterLink to="/compare/xtunnel" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
             vs xTunnel
+          </RouterLink>
+          <!-- Landings for Russian search intent. Without a link from the site
+               they would be exactly the orphans the /en pages already are. -->
+          <RouterLink v-if="showOffer" to="/bez-belogo-ip" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Доступ без белого IP
+          </RouterLink>
+          <RouterLink v-if="showOffer" to="/minecraft-server" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Сервер Minecraft для друзей
           </RouterLink>
           <a :href="blogUrl" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {{ t('landing.nav.blog') }}

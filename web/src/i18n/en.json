@@ -1056,6 +1056,10 @@
       "title": "fxTunnel vs Cloudflare Tunnel - Comparison 2026",
       "description": "fxTunnel vs Cloudflare Tunnel comparison. HTTP+TCP+UDP protocols, no ecosystem lock-in, desktop GUI. Choose the right tunnel solution."
     },
+    "compareCloudpub": {
+        "title": "fxTunnel vs CloudPub - 2026 comparison",
+        "description": "How fxTunnel differs from CloudPub: cheaper paid plan, TCP on the free tier, UDP tunnels, no traffic cap, fully open source and a desktop app."
+      },
     "compareTuna": {
       "title": "fxTunnel vs tuna.am - Comparison 2026",
       "description": "Detailed comparison of fxTunnel and tuna.am. Pricing, protocols, limits, desktop GUI, open source. Find the best Russian tunneling service for your needs."
@@ -1244,6 +1248,105 @@
         { "q": "Is tuna.am's platform worth the extra cost?", "a": "If you actively need secret management, webhook capture, monitoring, and SSH bastion features, tuna.am's all-in-one approach can save you from managing multiple tools. If you just need reliable tunneling, fxTunnel delivers more for less." }
       ]
     },
+    "cloudpub": {
+        "title": "fxTunnel vs CloudPub",
+        "table": {
+          "price": {
+            "label": "Price",
+            "fxtunnel": "Free / from $2.50/mo",
+            "competitor": "Free / PRO 399 RUB/mo"
+          },
+          "protocols": {
+            "label": "Protocols",
+            "fxtunnel": "HTTP + TCP + UDP",
+            "competitor": "HTTP free, TCP/UDP/SSH on PRO"
+          },
+          "tunnels": {
+            "label": "Concurrent tunnels",
+            "fxtunnel": "1 free, 5 on Base",
+            "competitor": "Not capped by plan"
+          },
+          "sessionTimeout": {
+            "label": "Session timeout",
+            "fxtunnel": "None",
+            "competitor": "None"
+          },
+          "requestLimits": {
+            "label": "Request limits",
+            "fxtunnel": "None",
+            "competitor": "None"
+          },
+          "bandwidth": {
+            "label": "Bandwidth",
+            "fxtunnel": "Unlimited",
+            "competitor": "250 GB/mo on free"
+          },
+          "subdomains": {
+            "label": "Subdomains",
+            "fxtunnel": "Any free one",
+            "competitor": "Permanent on cloudpub.ru"
+          },
+          "customDomains": {
+            "label": "Custom domains",
+            "fxtunnel": "From Base",
+            "competitor": "PRO only"
+          },
+          "gui": {
+            "label": "Application",
+            "fxtunnel": "CLI + desktop GUI",
+            "competitor": "CLI + web dashboard"
+          },
+          "inspector": {
+            "label": "Traffic inspector",
+            "fxtunnel": "From Base",
+            "competitor": "Traffic recording on PRO"
+          },
+          "openSource": {
+            "label": "Open source",
+            "fxtunnel": "Yes, the whole stack",
+            "competitor": "Client open, server not"
+          },
+          "extraFeatures": {
+            "label": "Also offers",
+            "fxtunnel": "UDP tunnels, self-hosting",
+            "competitor": "RDP/VNC bastion, WebDAV, RTSP, 1C, audit log"
+          }
+        },
+        "sections": {
+          "pricingTitle": "How much does fxTunnel cost compared to CloudPub?",
+          "pricingText": "fxTunnel's paid plan starts at $2.50 a month; CloudPub PRO is 399 RUB (source: cloudpub.ru/plans, September 2026). The free tiers differ more than the prices do: CloudPub publishes HTTP and HTTPS only and caps traffic at 250 GB a month, while fxTunnel gives you HTTP and TCP with no traffic cap on any plan. TCP, UDP and SSH require PRO at CloudPub; fxTunnel has TCP on the free plan and UDP from Base.",
+          "protocolsTitle": "Protocols: how the sets differ",
+          "protocolsText": "CloudPub advertises eleven protocols and an ecosystem around them: an RDP and VNC bastion with session recording, WebDAV file publishing, RTSP cameras, 1C databases. If the job is remote access to workplaces and infrastructure, that is genuinely CloudPub's strength. fxTunnel solves a narrower problem: three transport protocols — HTTP, TCP and UDP — and everything else aimed at getting a developer's local service online quickly and showing what travels through it.",
+          "limitsTitle": "Free plan limits",
+          "limitsText": "CloudPub's free plan caps traffic at 250 GB a month and carries HTTP/HTTPS only, though it does hand you a permanent subdomain straight away. fxTunnel's free plan is one tunnel on any free subdomain with no limit on traffic, requests or session length — the name is yours while the tunnel runs, and reserving it permanently starts on Base.",
+          "platformTitle": "Where it runs",
+          "platformText": "Both services are Russian, both take Russian cards and work without a VPN. Clients cover Windows, Linux and macOS; CloudPub also lists Android. fxTunnel can be self-hosted — the whole stack is open, the server included.",
+          "guiTitle": "Desktop app and inspector",
+          "guiText": "fxTunnel ships a desktop application for Windows, Linux and macOS: tunnels start with a click, and the built-in inspector shows every HTTP request with headers and body and replays it in one click. CloudPub is driven from the CLI and a web dashboard, with traffic recording and analysis on PRO.",
+          "openSourceTitle": "Open source",
+          "openSourceText": "fxTunnel's whole stack is open: the Go server, the CLI, the desktop app and the web interface — you can run your own server and depend on nobody. CloudPub's client is open; the server is a product, and installing it on your own infrastructure is an Enterprise arrangement.",
+          "verdictTitle": "The verdict",
+          "verdictText": "Choose CloudPub if you need remote access to workplaces and infrastructure: the RDP and VNC bastion, 1C, cameras and file shares, the audit log — we do not have those. Choose fxTunnel if you are a developer who needs a local service online quickly and cheaply: TCP on the free plan, UDP from $2.50, no traffic cap, a request inspector, and the option to run the whole thing on your own server."
+        },
+        "faq": [
+          {
+            "q": "Which is cheaper, fxTunnel or CloudPub?",
+            "a": "fxTunnel's paid plan starts at $2.50 a month; CloudPub PRO is 399 RUB (cloudpub.ru/plans, September 2026). On the free tiers the comparison is less direct: CloudPub caps traffic at 250 GB a month and carries HTTP/HTTPS only, while fxTunnel has no traffic cap and includes TCP."
+          },
+          {
+            "q": "Which free plan is better?",
+            "a": "It depends what you need. CloudPub hands you a permanent subdomain immediately but serves HTTP/HTTPS only within a 250 GB monthly cap. fxTunnel gives one tunnel on any free subdomain, HTTP and TCP, and no limit on traffic, requests or session length; reserving a name permanently needs a paid plan."
+          },
+          {
+            "q": "Can I forward UDP?",
+            "a": "fxTunnel has UDP tunnels from the Base plan — game servers, DNS, WireGuard. CloudPub includes UDP in PRO."
+          },
+          {
+            "q": "Can I run it on my own server?",
+            "a": "fxTunnel's code is open, server included, so your own instance comes from the same repository. CloudPub's client is open; installing the server on your own infrastructure is part of the Enterprise plan."
+          }
+        ]
+      },
     "xtunnel": {
       "title": "fxTunnel vs xTunnel",
       "table": {

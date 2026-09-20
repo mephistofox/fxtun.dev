@@ -18,7 +18,7 @@ export default defineConfig({
     }),
     Sitemap({
       hostname: "https://fxtun.ru",
-      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"],
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel", "/minecraft-server", "/bez-belogo-ip"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,
       robots: [{ userAgent: "*", allow: "/" }],
@@ -132,10 +132,12 @@ export default defineConfig({
       // CSS covers enough of the page that the swap changes nothing.
     },
     includedRoutes() {
-      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/xtunnel"];
-      const ruPages = pages.map((p) => `/ru${p === "/" ? "" : p}`);
+      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel"];
+      // Russian-only landings: no /en copy, because the intent is local.
+      const ruOnly = ["/minecraft-server", "/bez-belogo-ip"];
+      const ruPages = [...pages, ...ruOnly].map((p) => `/ru${p === "/" ? "" : p}`);
       const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
-      return [...pages, ...ruPages, ...enPages];
+      return [...pages, ...ruOnly, ...ruPages, ...enPages];
     },
   },
   server: {
