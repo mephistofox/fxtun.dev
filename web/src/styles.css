@@ -808,14 +808,12 @@
 
 /* Sections below the first screen.
  *
- * The landing page is long, and the browser was laying out and styling every
- * section of it before it could finish the first one — 978 ms of style and
- * layout on a phone. content-visibility lets it skip the work for anything
- * off screen and do it when the visitor scrolls there instead. The intrinsic
- * size is the placeholder height, so the scrollbar and the page length stay
- * honest and nothing jumps.
+ * Tried content-visibility: auto here to skip laying them out until scrolled
+ * to. It did cut style and layout work, but the placeholder height never
+ * matched the real one: the page jumped as each section came in (0.13 of
+ * layout shift) and scrolling showed blank screens while they rendered.
+ * Not worth it — the wrapper stays so the sections are still addressable.
  */
 .below-fold {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 800px;
+  /* deliberately empty */
 }

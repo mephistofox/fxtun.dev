@@ -2,10 +2,13 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -645,6 +648,56 @@ func (s *Server) respondJSON(w http.ResponseWriter, status int, data interface{}
 			s.log.Error().Err(err).Msg("failed to encode JSON response")
 		}
 	}
+}
+
+// respondCacheableJSON answers with the payload and a tag computed from it.
+//
+// The public catalogues — plans and downloads — are fetched on every visit to
+// the landing page and change only when somebody edits them in the admin.
+// Deriving the tag from the bytes means an edit invalidates it on its own:
+// there is no version to bump and no cache to purge, and a client holding the
+// previous tag is simply given the new body. Until then it revalidates in a
+// few hundred bytes instead of re-downloading the list.
+func (s *Server) respondCacheableJSON(w http.ResponseWriter, r *http.Request, data interface{}) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		s.log.Error().Err(err).Msg("failed to encode cacheable JSON response")
+		s.respondError(w, http.StatusInternalServerError, "failed to encode response")
+		return
+	}
+
+	sum := sha256.Sum256(body)
+	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+
+	w.Header().Set("ETag", etag)
+	// A minute of staleness for a price list nobody edits twice an hour, and
+	// an hour in which a browser may show the old answer while it fetches the
+	// new one in the background.
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=3600")
+
+	if match := r.Header.Get("If-None-Match"); match != "" && etagMatches(match, etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(body); err != nil {
+		s.log.Debug().Err(err).Msg("client went away before the response was written")
+	}
+}
+
+// etagMatches handles the comma-separated list a client may send back, and the
+// weak prefix a proxy may have added on the way.
+func etagMatches(header, etag string) bool {
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		candidate = strings.TrimPrefix(candidate, "W/")
+		if candidate == etag || candidate == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) respondError(w http.ResponseWriter, status int, message string) {

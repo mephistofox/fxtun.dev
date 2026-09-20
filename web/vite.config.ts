@@ -119,9 +119,12 @@ export default defineConfig({
       preloadFonts: false,
       reduceInlineStyles: false,
       allowRules: [/^\.dark$/],
-      // EXPERIMENT: critical subset inline, the rest loaded asynchronously.
-      preload: 'swap',
-      noscriptFallback: true,
+      // Inline the whole stylesheet — 13 KiB over the wire — instead of a
+      // critical subset plus an asynchronous rest. The subset left out the
+      // wide-screen rules, so the header rendered 64 px tall and grew to 80 px
+      // when the rest arrived, dropping the whole page by that much: 0.13 of
+      // layout shift, which is also the check agentic browsing fails on.
+      inlineThreshold: 120000,
       // Not preload: 'swap'. Measured on PageSpeed: it cuts FCP from 3.3 s to
       // 0.9 s, but the swap reflows the page and CLS goes 0 -> 0.185, past the
       // 0.1 threshold, taking the score 68 -> 64. The blocking stylesheet is

@@ -124,7 +124,7 @@ func (s *Server) handleListDownloads(w http.ResponseWriter, r *http.Request) {
 
 	allClients := append(cliClients, guiClients...)
 
-	s.respondJSON(w, http.StatusOK, dto.DownloadsListResponse{
+	s.respondCacheableJSON(w, r, dto.DownloadsListResponse{
 		Clients: allClients,
 		CLI:     cliClients,
 		GUI:     guiClients,

@@ -43,6 +43,13 @@
     <link rel="preload" href="/fonts/onest-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/unbounded-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/unbounded-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The rest of the faces the first screen renders. Left to be found
+         in the stylesheet they arrived after the text had already been
+         painted in a fallback, and the swap moved the layout: 0.15 of
+         cumulative shift, which is also the check agentic browsing fails on. -->
+    <link rel="preload" href="/fonts/jetbrains-mono-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/onest-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- Analytics (GA4 + Yandex.Metrika) -->
     <script src="/analytics.js" defer></script>
