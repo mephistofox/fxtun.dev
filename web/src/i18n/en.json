@@ -395,7 +395,7 @@
         },
         {
           "q": "How much does fxTunnel cost?",
-          "a": "fxTunnel offers four plans. Free: 1 tunnel, any free subdomain, HTTP + TCP, no traffic limits or session timeout - enough for individual development. Base ($2.50/month): 5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via Creem for international users. No hidden fees - you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
+          "a": "fxTunnel offers four plans. Free: 1 tunnel, any free subdomain, HTTP + TCP, no traffic limits or session timeout - enough for individual development. Base ($2.50/month): 5 tunnels, 5 reserved subdomains, 1 custom domain, traffic inspector, UDP support. Pro ($5/month): 15 tunnels, 15 reserved subdomains, 5 custom domains. Business ($7.50/month): 50 tunnels, 50 subdomains, 50 custom domains. All paid plans include the unlimited traffic inspector and UDP tunnels. For comparison, ngrok starts at $8/month with a 20,000 request limit on free tier (source: ngrok.com/pricing). Payment is processed securely via YooKassa, which takes Russian bank cards and SBP. No hidden fees - you can cancel your subscription at any time from your profile. Reserved subdomains stay yours as long as the subscription is active."
         },
         {
           "q": "What's the difference between fxTunnel and Cloudflare Tunnel?",
@@ -1538,7 +1538,7 @@
   "pricingFaq": {
     "title": "Pricing FAQ",
     "items": [
-      { "q": "What payment methods do you accept?", "a": "We accept bank cards (Visa, Mastercard, MIR) via YooKassa for Russian users, and international cards via Creem for users outside Russia. Payment is monthly with optional auto-renewal." },
+      { "q": "What payment methods do you accept?", "a": "We accept Russian bank cards (Visa, Mastercard, MIR) and SBP via YooKassa. Foreign-issued cards are not supported. Payment is monthly with optional auto-renewal." },
       { "q": "Can I cancel my subscription anytime?", "a": "Yes. You can cancel at any time from your profile. Your paid features remain active until the end of the billing period. No cancellation fees." },
       { "q": "Is there a free trial for paid plans?", "a": "There is no trial period, but the Free plan is available indefinitely. You can start with Free and upgrade when you need more tunnels, reserved subdomains, or the traffic inspector." },
       { "q": "What happens if I downgrade my plan?", "a": "When you downgrade, the new plan takes effect at the end of your current billing period. Excess reserved subdomains and custom domains will be released automatically." },
@@ -1627,8 +1627,7 @@
       "openSource": "Open source"
     },
     "paymentTitle": "Payment Methods",
-    "paymentRussia": "For users in Russia: bank cards via YooKassa (Visa, Mastercard, MIR, SBP)",
-    "paymentInternational": "For international users: bank cards via Creem (Visa, Mastercard)",
+    "paymentRussia": "Russian bank cards via YooKassa: Visa, Mastercard, MIR, SBP",
     "whoIsItForTitle": "Which plan is right for you?",
     "whoIsItFor": {
       "free": {

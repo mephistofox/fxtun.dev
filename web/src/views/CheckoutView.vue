@@ -205,12 +205,7 @@ onMounted(() => {
         </Button>
         <p class="text-xs text-muted-foreground text-center mt-4">
           {{ t('checkout.securePaymentVia') }}
-          <template v-if="isRuDomain">
-            <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
-          </template>
-          <template v-else>
-            <a href="https://creem.io" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Creem</a>
-          </template>
+          <a href="https://yookassa.ru" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">ЮKassa</a>
         </p>
       </Card>
     </div>

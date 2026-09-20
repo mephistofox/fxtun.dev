@@ -22,7 +22,7 @@ function cycleTheme() {
   themeStore.setMode(modes[nextIndex])
 }
 
-const lastUpdated = '17.02.2026'
+const lastUpdated = '21.09.2026'
 </script>
 
 <template>
@@ -136,7 +136,7 @@ const lastUpdated = '17.02.2026'
 
           <h3>2.2. Платёжные данные</h3>
           <p>
-            Для обработки платежей мы используем сторонних платёжных провайдеров (Creem, ЮKassa).
+            Для обработки платежей мы используем стороннего платёжного провайдера — ЮKassa.
             Мы <strong>не</strong> храним номера банковских карт, CVV-коды или полные платёжные реквизиты.
             Мы сохраняем только:
           </p>
@@ -205,13 +205,8 @@ const lastUpdated = '17.02.2026'
             </thead>
             <tbody>
               <tr>
-                <td class="pr-4 py-2">Creem</td>
-                <td class="pr-4 py-2">Обработка платежей (международных)</td>
-                <td class="py-2">Имя, email, способ оплаты</td>
-              </tr>
-              <tr>
                 <td class="pr-4 py-2">ЮKassa</td>
-                <td class="pr-4 py-2">Обработка платежей (Россия)</td>
+                <td class="pr-4 py-2">Обработка платежей</td>
                 <td class="py-2">Email/телефон, способ оплаты</td>
               </tr>
               <tr>
@@ -280,9 +275,9 @@ const lastUpdated = '17.02.2026'
           </ul>
           <h3>9.2. Трансграничная передача данных</h3>
           <p>
-            Данные туннелей обрабатываются на серверах в Европе. Платёжные данные, обрабатываемые
-            Creem, могут передаваться за пределы ЕС в рамках Соглашения об обработке данных и
-            соответствующих гарантий.
+            Данные туннелей обрабатываются на серверах в Европе. Платёжные данные обрабатываются
+            ЮKassa на территории России — это необходимо для исполнения заключённого
+            с вами договора.
           </p>
 
           <h2>10. Файлы cookie</h2>
@@ -363,7 +358,7 @@ const lastUpdated = '17.02.2026'
 
           <h3>2.2. Payment Information</h3>
           <p>
-            We use third-party payment processors (Creem, YooKassa) to handle payments.
+            We use a third-party payment processor, YooKassa, to handle payments.
             We do <strong>not</strong> store your credit card numbers, CVVs, or full payment details.
             We only retain:
           </p>
@@ -432,13 +427,8 @@ const lastUpdated = '17.02.2026'
             </thead>
             <tbody>
               <tr>
-                <td class="pr-4 py-2">Creem</td>
-                <td class="pr-4 py-2">Payment processing (international)</td>
-                <td class="py-2">Name, email, payment method</td>
-              </tr>
-              <tr>
                 <td class="pr-4 py-2">YooKassa</td>
-                <td class="pr-4 py-2">Payment processing (Russia)</td>
+                <td class="pr-4 py-2">Payment processing</td>
                 <td class="py-2">Email/phone, payment method</td>
               </tr>
               <tr>
@@ -507,9 +497,9 @@ const lastUpdated = '17.02.2026'
           </ul>
           <h3>9.2. Cross-Border Data Transfers</h3>
           <p>
-            Tunnel data is processed on servers located in Europe. Payment data processed by
-            Creem may be transferred outside the EU under a Data Processing Agreement and
-            appropriate safeguards.
+            Tunnel data is processed on servers located in Europe. Payment data is processed by
+            YooKassa in Russia, which has no EU adequacy decision; the transfer is necessary to
+            perform the contract you enter into with us (Art. 49(1)(b) GDPR).
           </p>
 
           <h2>10. Cookies</h2>
