@@ -26,6 +26,11 @@ function toggleFaq(index: number) {
   openFaqIndex.value = openFaqIndex.value === index ? null : index
 }
 
+// The minifier collapses the newlines a single paragraph would rely on.
+function paragraphs(text: string): string[] {
+  return text.split('\n\n').map(p => p.trim()).filter(Boolean)
+}
+
 const sectionKeys = [
   'pricing', 'protocols', 'limits', 'platform', 'gui', 'openSource',
 ] as const
@@ -67,9 +72,11 @@ const sectionKeys = [
             <h2 class="text-2xl font-display font-semibold mb-4">
               {{ t(`compare.cloudpub.sections.${key}Title`) }}
             </h2>
-            <p class="text-muted-foreground leading-relaxed">
-              {{ t(`compare.cloudpub.sections.${key}Text`) }}
-            </p>
+            <p
+              v-for="(para, i) in paragraphs(t(`compare.cloudpub.sections.${key}Text`))"
+              :key="i"
+              class="text-muted-foreground leading-relaxed mb-4 last:mb-0"
+            >{{ para }}</p>
           </div>
 
           <!-- Verdict -->
@@ -77,9 +84,11 @@ const sectionKeys = [
             <h2 class="text-2xl font-display font-semibold mb-4">
               {{ t('compare.cloudpub.sections.verdictTitle') }}
             </h2>
-            <p class="text-muted-foreground leading-relaxed">
-              {{ t('compare.cloudpub.sections.verdictText') }}
-            </p>
+            <p
+              v-for="(para, i) in paragraphs(t('compare.cloudpub.sections.verdictText'))"
+              :key="i"
+              class="text-muted-foreground leading-relaxed mb-4 last:mb-0"
+            >{{ para }}</p>
           </div>
         </div>
       </section>

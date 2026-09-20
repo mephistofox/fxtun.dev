@@ -18,86 +18,70 @@ const blogUrl = computed(() => getBlogUrl())
     <div class="absolute inset-0 bg-gradient-to-t from-surface/30 to-transparent pointer-events-none" />
 
     <div class="container mx-auto px-4 relative z-10">
-      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-        <!-- Logo & brand -->
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+      <!-- Four columns instead of fifteen links in a row: product, the
+           situations people arrive with, the comparisons, and the paperwork.
+           A flat list of everything is a list of nothing. -->
+      <div class="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
+        <div class="lg:col-span-2">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <span class="font-display font-semibold text-lg">fxTunnel</span>
+              <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Secure tunneling' }}</p>
+            </div>
           </div>
-          <div>
-            <span class="font-display font-semibold text-lg">fxTunnel</span>
-            <p class="text-xs text-muted-foreground">{{ t('landing.footer.tagline') || 'Secure tunneling' }}</p>
-          </div>
+          <p class="text-sm text-muted-foreground max-w-xs leading-relaxed">{{ t('landing.footer.blurb') }}</p>
         </div>
 
-        <!-- Links -->
-        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <RouterLink to="/about" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('about.navTitle') }}
-          </RouterLink>
-          <RouterLink to="/pricing" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('landing.nav.pricing') }}
-          </RouterLink>
-          <RouterLink to="/compare/ngrok" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            vs ngrok
-          </RouterLink>
-          <RouterLink to="/compare/cloudflare" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            vs Cloudflare
-          </RouterLink>
-          <RouterLink to="/compare/tuna" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            vs tuna.am
-          </RouterLink>
-          <RouterLink to="/compare/cloudpub" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            vs CloudPub
-          </RouterLink>
-          <RouterLink to="/compare/xtunnel" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            vs xTunnel
-          </RouterLink>
-          <!-- Landings for Russian search intent. Without a link from the site
-               they would be exactly the orphans the /en pages already are. -->
-          <RouterLink v-if="showOffer" to="/bez-belogo-ip" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Доступ без белого IP
-          </RouterLink>
-          <RouterLink v-if="showOffer" to="/minecraft-server" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Сервер Minecraft для друзей
-          </RouterLink>
-          <a :href="blogUrl" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('landing.nav.blog') }}
-          </a>
-          <RouterLink
-            v-if="showOffer"
-            to="/offer"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {{ t('legal.offer') }}
-          </RouterLink>
-          <RouterLink
-            v-else
-            to="/terms"
-            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {{ t('legal.terms') }}
-          </RouterLink>
-          <RouterLink to="/privacy" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('legal.privacy') }}
-          </RouterLink>
-          <RouterLink to="/aup" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('legal.aup') }}
-          </RouterLink>
-          <RouterLink to="/abuse" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('legal.abuse') }}
-          </RouterLink>
-          <RouterLink to="/disclaimer" class="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            {{ t('legal.disclaimer') }}
-          </RouterLink>
+        <div>
+          <h3 class="footer-heading">{{ t('landing.footer.colProduct') }}</h3>
+          <ul class="footer-list">
+            <li><RouterLink to="/features" class="footer-link">{{ t('landing.nav.features') }}</RouterLink></li>
+            <li><RouterLink to="/pricing" class="footer-link">{{ t('landing.nav.pricing') }}</RouterLink></li>
+            <li><RouterLink to="/downloads" class="footer-link">{{ t('landing.nav.download') }}</RouterLink></li>
+            <li><a :href="blogUrl" class="footer-link">{{ t('landing.nav.blog') }}</a></li>
+            <li><RouterLink to="/about" class="footer-link">{{ t('about.navTitle') }}</RouterLink></li>
+          </ul>
         </div>
 
-        <!-- Copyright -->
-        <p class="text-sm text-muted-foreground">
-          © {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}
-        </p>
+        <div>
+          <h3 class="footer-heading">{{ t('landing.footer.colUseCases') }}</h3>
+          <ul class="footer-list">
+            <li><RouterLink to="/ngrok-alternative" class="footer-link">{{ t('landing.footer.linkNgrokAlt') }}</RouterLink></li>
+            <li v-if="showOffer"><RouterLink to="/bez-belogo-ip" class="footer-link">{{ t('landing.footer.linkNoWhiteIp') }}</RouterLink></li>
+            <li v-if="showOffer"><RouterLink to="/minecraft-server" class="footer-link">{{ t('landing.footer.linkMinecraft') }}</RouterLink></li>
+          </ul>
+
+          <h3 class="footer-heading mt-8">{{ t('landing.footer.colCompare') }}</h3>
+          <ul class="footer-list">
+            <li><RouterLink to="/compare/ngrok" class="footer-link">vs ngrok</RouterLink></li>
+            <li><RouterLink to="/compare/cloudpub" class="footer-link">vs CloudPub</RouterLink></li>
+            <li><RouterLink to="/compare/cloudflare" class="footer-link">vs Cloudflare</RouterLink></li>
+            <li><RouterLink to="/compare/tuna" class="footer-link">vs tuna.am</RouterLink></li>
+            <li><RouterLink to="/compare/xtunnel" class="footer-link">vs xTunnel</RouterLink></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="footer-heading">{{ t('landing.footer.colLegal') }}</h3>
+          <ul class="footer-list">
+            <li v-if="showOffer"><RouterLink to="/offer" class="footer-link">{{ t('legal.offer') }}</RouterLink></li>
+            <li v-else><RouterLink to="/terms" class="footer-link">{{ t('legal.terms') }}</RouterLink></li>
+            <li><RouterLink to="/privacy" class="footer-link">{{ t('legal.privacy') }}</RouterLink></li>
+            <li><RouterLink to="/aup" class="footer-link">{{ t('legal.aup') }}</RouterLink></li>
+            <li><RouterLink to="/abuse" class="footer-link">{{ t('legal.abuse') }}</RouterLink></li>
+            <li><RouterLink to="/disclaimer" class="footer-link">{{ t('legal.disclaimer') }}</RouterLink></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-sm text-muted-foreground">© {{ currentYear }} fxTunnel. {{ t('landing.footer.rights') }}</p>
+        <p class="text-sm text-muted-foreground">{{ t('landing.footer.madeIn') }}</p>
       </div>
     </div>
   </footer>

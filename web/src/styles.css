@@ -719,11 +719,24 @@
   }
   .command-copy:hover { color: hsl(var(--foreground)); background: hsl(var(--surface)); }
 
-
   .command-result {
     @apply flex items-center gap-2 mt-3 text-sm font-mono;
     color: hsl(var(--muted-foreground));
   }
+
+  .footer-heading {
+    @apply text-sm font-display font-semibold mb-4;
+    color: hsl(var(--foreground));
+  }
+
+  .footer-list { @apply space-y-2.5; }
+
+  .footer-link {
+    @apply text-sm transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .footer-link:hover { color: hsl(var(--primary)); }
+
   .comparison-link {
     @apply inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-all duration-200;
     border: 1px solid hsl(var(--border));

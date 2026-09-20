@@ -154,27 +154,39 @@
     "protocols": {
       "label": "Multi-Protocol",
       "title": "Flexible Protocol Support",
-      "subtitle": "Whether you need to expose a web app, SSH server, or game server - we've got you covered.",
+      "subtitle": "No special mode for RDP, cameras or WebDAV: they are ordinary TCP and HTTP services, and they work out of the box.",
       "http": {
         "title": "HTTP Tunnels",
-        "desc": "Expose web applications with custom subdomains. Perfect for webhooks, demos, and development.",
+        "desc": "Web apps, dashboards, WebDAV, admin panels - anything speaking HTTP gets an HTTPS address on your own subdomain.",
         "feature1": "Custom subdomain support",
         "feature2": "Automatic HTTPS",
-        "feature3": "WebSocket support"
+        "feature3": "WebSocket support",
+        "case1": "Web apps",
+        "case2": "APIs and webhooks",
+        "case3": "Dashboards",
+        "case4": "WebDAV"
       },
       "tcp": {
         "title": "TCP Tunnels",
-        "desc": "Forward any TCP-based service with dedicated ports. Ideal for SSH, databases, and custom protocols.",
-        "feature1": "SSH, databases, APIs",
-        "feature2": "Dedicated port allocation",
-        "feature3": "Persistent connections"
+        "desc": "RDP, VNC, SSH, databases, RTSP cameras, file shares - any TCP port opens with a single fxtunnel tcp 3389.",
+        "feature1": "RDP, VNC, SSH",
+        "feature2": "PostgreSQL, MySQL, Redis",
+        "feature3": "Dedicated port allocation",
+        "case1": "Remote desktop",
+        "case2": "Databases",
+        "case3": "RTSP cameras",
+        "case4": "File shares"
       },
       "udp": {
         "title": "UDP Tunnels",
         "desc": "Support for real-time and gaming applications. Low-latency forwarding for demanding use cases. Available on paid plans (from $2.50/mo).",
         "feature1": "Game servers, VoIP",
         "feature2": "Low-latency forwarding",
-        "feature3": "DNS tunneling"
+        "feature3": "DNS tunneling",
+        "case1": "Game servers",
+        "case2": "VoIP",
+        "case3": "DNS",
+        "case4": "WireGuard"
       }
     },
     "useCases": {
@@ -471,6 +483,10 @@
             {
               "title": "WebSocket out of the box",
               "desc": "Bidirectional WebSocket passes through transparently, nothing to configure."
+            },
+            {
+              "title": "RDP, VNC, cameras - no special modes",
+              "desc": "Remote desktop (fxtun tcp 3389), VNC, RTSP cameras, WebDAV, SMB, game servers - these are ordinary TCP and HTTP services. No dedicated mode per protocol: name the port and the service is reachable."
             }
           ]
         },
@@ -582,11 +598,20 @@
       "ctaButton": "Start free"
     },
     "footer": {
-      "tagline": "Secure tunneling",
-      "releases": "Releases",
-      "issues": "Issues",
-      "rights": "All rights reserved."
-    }
+        "tagline": "Secure tunneling",
+        "releases": "Releases",
+        "issues": "Issues",
+        "rights": "All rights reserved.",
+        "colProduct": "Product",
+        "colUseCases": "Use cases",
+        "colCompare": "Comparisons",
+        "colLegal": "Legal",
+        "blurb": "A local service on the internet in one command. HTTP, TCP and UDP, open source.",
+        "linkNgrokAlt": "ngrok alternative",
+        "linkNoWhiteIp": "Access without a public IP",
+        "linkMinecraft": "Minecraft server for friends",
+        "madeIn": "Made in Russia"
+      }
   },
   "common": {
     "loading": "Loading...",
@@ -1373,13 +1398,13 @@
           },
           "protocols": {
             "label": "Protocols",
-            "fxtunnel": "HTTP + TCP + UDP",
-            "competitor": "HTTP free, TCP/UDP/SSH on PRO"
+            "fxtunnel": "HTTP, TCP and UDP",
+            "competitor": "HTTP; TCP, UDP and SSH on PRO"
           },
           "tunnels": {
-            "label": "Concurrent tunnels",
-            "fxtunnel": "1 free, 5 on Base",
-            "competitor": "Not capped by plan"
+            "label": "What you can publish",
+            "fxtunnel": "Any TCP or UDP service: RDP, VNC, SSH, databases, cameras, game servers",
+            "competitor": "HTTP on free, everything else on PRO"
           },
           "sessionTimeout": {
             "label": "Session timeout",
@@ -1393,45 +1418,45 @@
           },
           "bandwidth": {
             "label": "Bandwidth",
-            "fxtunnel": "Unlimited",
+            "fxtunnel": "Unlimited on every plan",
             "competitor": "250 GB/mo on free"
           },
           "subdomains": {
             "label": "Subdomains",
-            "fxtunnel": "Any free one",
+            "fxtunnel": "Any free one, reserved from Base",
             "competitor": "Permanent on cloudpub.ru"
           },
           "customDomains": {
             "label": "Custom domains",
-            "fxtunnel": "From Base",
-            "competitor": "PRO only"
+            "fxtunnel": "From Base, $2.50",
+            "competitor": "PRO only, 399 RUB"
           },
           "gui": {
             "label": "Application",
-            "fxtunnel": "CLI + desktop GUI",
+            "fxtunnel": "CLI + desktop app",
             "competitor": "CLI + web dashboard"
           },
           "inspector": {
             "label": "Traffic inspector",
-            "fxtunnel": "From Base",
+            "fxtunnel": "From Base, with request replay",
             "competitor": "Traffic recording on PRO"
           },
           "openSource": {
             "label": "Open source",
-            "fxtunnel": "Yes, the whole stack",
+            "fxtunnel": "Whole stack, server included",
             "competitor": "Client open, server not"
           },
           "extraFeatures": {
-            "label": "Also offers",
-            "fxtunnel": "UDP tunnels, self-hosting",
-            "competitor": "RDP/VNC bastion, WebDAV, RTSP, 1C, audit log"
+            "label": "Also",
+            "fxtunnel": "Self-hosting from the same code, UDP, replayable inspector",
+            "competitor": "RDP/VNC bastion with session recording, audit log"
           }
         },
         "sections": {
           "pricingTitle": "How much does fxTunnel cost compared to CloudPub?",
           "pricingText": "fxTunnel's paid plan starts at $2.50 a month; CloudPub PRO is 399 RUB (source: cloudpub.ru/plans, September 2026). The free tiers differ more than the prices do: CloudPub publishes HTTP and HTTPS only and caps traffic at 250 GB a month, while fxTunnel gives you HTTP and TCP with no traffic cap on any plan. TCP, UDP and SSH require PRO at CloudPub; fxTunnel has TCP on the free plan and UDP from Base.",
-          "protocolsTitle": "Protocols: how the sets differ",
-          "protocolsText": "CloudPub advertises eleven protocols and an ecosystem around them: an RDP and VNC bastion with session recording, WebDAV file publishing, RTSP cameras, 1C databases. If the job is remote access to workplaces and infrastructure, that is genuinely CloudPub's strength. fxTunnel solves a narrower problem: three transport protocols — HTTP, TCP and UDP — and everything else aimed at getting a developer's local service online quickly and showing what travels through it.",
+          "protocolsTitle": "Protocols: RDP, databases and cameras work here too",
+          "protocolsText": "CloudPub lists eleven protocols as separate features: RDP, VNC, WebDAV, RTSP, 1C databases. Worth knowing that nearly all of those are ordinary TCP and HTTP services. Through fxTunnel they take the same single command: a remote desktop is \"fxtun tcp 3389\", an RTSP camera is \"fxtun tcp 554\", WebDAV file access is a plain HTTP tunnel. We have no per-protocol modes because the transport underneath is the same one.\n\nThe difference is what sits on top, and it is real: CloudPub builds a bastion over RDP and VNC with session recording and an audit log. If you need not just to reach a desktop but to keep records of who connected, that is their ground and we do not pretend otherwise. If you need the access itself, a TCP tunnel does it, and TCP is on our free plan.",
           "limitsTitle": "Free plan limits",
           "limitsText": "CloudPub's free plan caps traffic at 250 GB a month and carries HTTP/HTTPS only, though it does hand you a permanent subdomain straight away. fxTunnel's free plan is one tunnel on any free subdomain with no limit on traffic, requests or session length — the name is yours while the tunnel runs, and reserving it permanently starts on Base.",
           "platformTitle": "Where it runs",
@@ -1441,7 +1466,7 @@
           "openSourceTitle": "Open source",
           "openSourceText": "fxTunnel's whole stack is open: the Go server, the CLI, the desktop app and the web interface — you can run your own server and depend on nobody. CloudPub's client is open; the server is a product, and installing it on your own infrastructure is an Enterprise arrangement.",
           "verdictTitle": "The verdict",
-          "verdictText": "Choose CloudPub if you need remote access to workplaces and infrastructure: the RDP and VNC bastion, 1C, cameras and file shares, the audit log — we do not have those. Choose fxTunnel if you are a developer who needs a local service online quickly and cheaply: TCP on the free plan, UDP from $2.50, no traffic cap, a request inspector, and the option to run the whole thing on your own server."
+          "verdictText": "fxTunnel is cheaper, caps bandwidth on no plan, gives you TCP on the free tier and is open end to end — including the server, which you can run yourself. Everything usually listed as a protocol menu — RDP, VNC, databases, cameras — goes through the same tunnels.\n\nCloudPub earns the choice in one case: when what you need is not access but control over access — a bastion with session recording, an audit log, a compliance story. We do not have that and will not soon."
         },
         "faq": [
           {

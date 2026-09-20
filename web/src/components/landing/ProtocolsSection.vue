@@ -23,7 +23,12 @@ const protocols = computed(() => ({
     ],
     example: `https://myapp.${domain.value}`,
     command: 'fxtunnel http 3000 --domain myapp',
-    useCases: ['Web apps', 'APIs', 'Webhooks'],
+    useCases: [
+      'landing.protocols.http.case1',
+      'landing.protocols.http.case2',
+      'landing.protocols.http.case3',
+      'landing.protocols.http.case4',
+    ],
   },
   tcp: {
     type: 'TCP',
@@ -37,7 +42,12 @@ const protocols = computed(() => ({
     ],
     example: `tcp://${domain.value}:54321`,
     command: 'fxtunnel tcp 22 --remote-port 54321',
-    useCases: ['SSH', 'Databases', 'Custom protocols'],
+    useCases: [
+      'landing.protocols.tcp.case1',
+      'landing.protocols.tcp.case2',
+      'landing.protocols.tcp.case3',
+      'landing.protocols.tcp.case4',
+    ],
   },
   udp: {
     type: 'UDP',
@@ -51,7 +61,12 @@ const protocols = computed(() => ({
     ],
     example: `udp://${domain.value}:54322`,
     command: 'fxtunnel udp 53 --remote-port 54322',
-    useCases: ['Game servers', 'VoIP', 'DNS'],
+    useCases: [
+      'landing.protocols.udp.case1',
+      'landing.protocols.udp.case2',
+      'landing.protocols.udp.case3',
+      'landing.protocols.udp.case4',
+    ],
   },
 }))
 
@@ -180,7 +195,7 @@ onMounted(() => {
                 :key="useCase"
                 class="px-3 py-1 text-xs font-medium rounded-full bg-surface border border-border text-muted-foreground"
               >
-                {{ useCase }}
+                {{ t(useCase) }}
               </span>
             </div>
           </div>
