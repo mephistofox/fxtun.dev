@@ -51,7 +51,7 @@ ITEM_KEYS = {
 TITLE_MAX = 60
 DESC_MIN, DESC_MAX = 120, 160
 
-BANNED = ("ИИ", "нейросет", "LLM", "автогенерац", "ИИ-ассистент")
+BANNED = ("ИИ", "нейросет", "LLM", "автогенерац")
 
 # vue-i18n требует экранировать вертикальную черту как {'|'}; в выдаче это
 # один символ, поэтому меряем то, что увидит поисковик, а не исходник.
@@ -84,7 +84,11 @@ def check_copy(ru, ns, seo_key, problems):
                     f"{ns}.{name}: элементов {len(value)}, нужно минимум {minimum}"
                 )
             for i, item in enumerate(value):
-                for field in ITEM_KEYS.get(name, ()):
+                fields = ITEM_KEYS.get(name, ())
+                if fields and not isinstance(item, dict):
+                    problems.append(f"{ns}.{name}[{i}]: элемент не объект")
+                    continue
+                for field in fields:
                     if not str(item.get(field, "")).strip():
                         problems.append(f"{ns}.{name}[{i}]: нет поля {field}")
 
