@@ -629,6 +629,7 @@
     "copy": "Copy to Clipboard",
     "copied": "Copied!",
     "yes": "Yes",
+    "confirm": "Confirm",
     "no": "No",
     "actions": "Actions",
     "menu": "Menu",
@@ -856,6 +857,7 @@
     "noDomains": "No custom domains",
     "noDomainsHint": "Add your own domain and point it to your reserved subdomain via CNAME or A record",
     "failedToLoad": "Failed to load custom domains",
+    "failedToVerify": "Failed to verify the domain",
     "failedToAdd": "Failed to add custom domain",
     "failedToDelete": "Failed to delete custom domain",
     "confirmDelete": "Are you sure you want to delete this custom domain?",
@@ -1038,6 +1040,10 @@
     "privacyTitle": "Privacy Policy",
     "offerAgreement": "By signing up, you agree to the",
     "downloadPdf": "Download PDF",
+    "aupTitle": "Acceptable Use Policy",
+    "abuseTitle": "Report Abuse",
+    "disclaimerTitle": "TCP & UDP Risk Disclaimer",
+    "disclaimerBanner": "TCP and UDP tunnels expose your local service directly to the internet. There is no authentication or traffic filtering at the tunnel level. Read this page before you expose SSH, a database or an admin panel.",
     "lastUpdated": "Last updated"
   },
   "useCase": {

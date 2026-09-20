@@ -16,7 +16,7 @@ useSubpageSchema({
   description: t('seo.about.description'),
   pageType: 'AboutPage',
   breadcrumbs: [
-    { name: t('nav.about', 'About'), path: '/about' },
+    { name: t('about.navTitle'), path: '/about' },
   ],
 })
 </script>

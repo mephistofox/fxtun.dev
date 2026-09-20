@@ -184,7 +184,7 @@ async function verifyCustomDomain(id: number) {
         domain.verified_at = new Date().toISOString()
       }
     } else {
-      customError.value = response.data.error || t('customDomains.verificationFailed')
+      customError.value = response.data.error || t('customDomains.verifyFailed')
     }
   } catch (e: unknown) {
     const err = e as { response?: { data?: { error?: string } } }

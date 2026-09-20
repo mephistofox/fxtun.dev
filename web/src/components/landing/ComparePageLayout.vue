@@ -35,7 +35,7 @@ useSubpageSchema({
   description: t(`seo.${seoKey}.description`),
   dateModified: '2026-03-27',
   breadcrumbs: [
-    { name: t('compare.breadcrumbCompare', 'Compare'), path: `/compare/${props.competitorSlug}` },
+    { name: t('common.breadcrumbCompare'), path: `/compare/${props.competitorSlug}` },
   ],
 })
 </script>

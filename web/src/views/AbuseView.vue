@@ -6,7 +6,7 @@ import { setLocale, getLocale } from '@/i18n'
 import { useSeo } from '@/composables/useSeo'
 
 const themeStore = useThemeStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 useSeo({ titleKey: 'seo.abuse.title', descriptionKey: 'seo.abuse.description' })
 
@@ -103,6 +103,80 @@ function cycleTheme() {
 
       <!-- Content -->
       <div class="prose prose-neutral dark:prose-invert max-w-none">
+        <template v-if="locale === 'ru'">
+
+        <p>
+          Если вы столкнулись со злоупотреблением, противоправным контентом или вредоносной
+          активностью со стороны сети fxtun — сообщите нам по адресу ниже. Мы разбираем все
+          обращения и реагируем оперативно.
+        </p>
+
+        <h2>1. Куда писать</h2>
+        <p>Отправьте письмо на адрес:</p>
+        <div class="my-4 p-4 rounded-lg border border-border bg-surface/50">
+          <a href="mailto:dev@fxcode.ru" class="text-lg font-mono font-semibold text-primary">
+            dev@fxcode.ru
+          </a>
+        </div>
+
+        <h2>2. Что приложить к обращению</h2>
+        <p>Чтобы мы разобрались быстрее, укажите как можно больше из перечисленного:</p>
+        <ul>
+          <li><strong>IP-адрес и порт</strong> — публичный адрес и порт, на котором замечено нарушение;</li>
+          <li><strong>Время</strong> — дата и время инцидента с указанием часового пояса;</li>
+          <li><strong>Субдомен или URL</strong> — если речь про HTTP-туннель (например, <code>malicious.fxtun.ru</code>);</li>
+          <li><strong>Описание</strong> — что произошло и какого рода нарушение: фишинг, вредоносное ПО, сканирование, спам и так далее;</li>
+          <li><strong>Подтверждения</strong> — логи, скриншоты, дампы трафика, любые материалы по делу;</li>
+          <li><strong>Ваши контакты</strong> — чтобы мы могли уточнить детали.</li>
+        </ul>
+
+        <h2>3. Сроки ответа</h2>
+        <ul>
+          <li><strong>Критические обращения</strong> (идущая атака, CSAM, непосредственная угроза): отвечаем и принимаем меры в течение <strong>4 часов</strong>;</li>
+          <li><strong>Обычные обращения</strong> (фишинг, спам, нарушение правил): отвечаем в течение <strong>24 часов</strong> в рабочие дни;</li>
+          <li><strong>Информационные обращения</strong> (подозрительная активность, незначительные вопросы): отвечаем в течение <strong>72 часов</strong>.</li>
+        </ul>
+
+        <h2>4. Что мы сделаем</h2>
+        <p>Получив обоснованное обращение, мы можем:</p>
+        <ul>
+          <li>Немедленно закрыть туннель или туннели нарушителя;</li>
+          <li>Приостановить или удалить аккаунт, с которого шло нарушение;</li>
+          <li>Сохранить относящиеся к делу логи для правоохранительных органов;</li>
+          <li>Сообщить вам о принятых мерах — в пределах, допустимых законом и требованиями о персональных данных.</li>
+        </ul>
+
+        <h2>5. Юридические запросы</h2>
+        <p>
+          Запросы правоохранительных органов, судебные запросы и иные официальные обращения
+          направляйте на <a href="mailto:dev@fxcode.ru">dev@fxcode.ru</a>.
+        </p>
+        <table class="w-full">
+          <tbody>
+            <tr>
+              <td class="font-medium pr-4 py-1">Исполнитель:</td>
+              <td>ИП Наводнюк А.И.</td>
+            </tr>
+            <tr>
+              <td class="font-medium pr-4 py-1">Юрисдикция:</td>
+              <td>Российская Федерация</td>
+            </tr>
+            <tr>
+              <td class="font-medium pr-4 py-1">Сайт:</td>
+              <td><a href="https://fxtun.ru">fxtun.ru</a></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>6. Связанные документы</h2>
+        <ul>
+          <li><RouterLink to="/aup">Правила использования</RouterLink></li>
+          <li><RouterLink to="/terms">Условия использования</RouterLink></li>
+          <li><RouterLink to="/disclaimer">Риски TCP- и UDP-туннелей</RouterLink></li>
+        </ul>
+        </template>
+
+        <template v-else>
 
         <p>
           If you have encountered abuse, illegal content, or malicious activity originating from
@@ -123,7 +197,7 @@ function cycleTheme() {
         <ul>
           <li><strong>IP address and port</strong> — the public IP and port where the abuse was observed;</li>
           <li><strong>Timestamp</strong> — date and time of the incident (include timezone);</li>
-          <li><strong>Subdomain or URL</strong> — if the abuse involved an HTTP tunnel (e.g., <code>malicious.fxtun.dev</code>);</li>
+          <li><strong>Subdomain or URL</strong> — if the abuse involved an HTTP tunnel (e.g., <code>malicious.fxtun.ru</code>);</li>
           <li><strong>Description</strong> — what happened, what type of abuse (phishing, malware, scanning, spam, etc.);</li>
           <li><strong>Evidence</strong> — logs, screenshots, packet captures, or any supporting material;</li>
           <li><strong>Your contact information</strong> — so we can follow up if needed.</li>
@@ -173,6 +247,7 @@ function cycleTheme() {
           <li><RouterLink to="/terms">Terms of Service</RouterLink></li>
           <li><RouterLink to="/disclaimer">TCP & UDP Risk Disclaimer</RouterLink></li>
         </ul>
+        </template>
       </div>
     </div>
   </div>
