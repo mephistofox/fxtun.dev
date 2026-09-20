@@ -18,7 +18,7 @@ export default defineConfig({
     }),
     Sitemap({
       hostname: "https://fxtun.ru",
-      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel", "/minecraft-server", "/bez-belogo-ip"],
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel", "/minecraft-server", "/bez-belogo-ip", "/probros-portov"],
       exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
       generateRobotsTxt: false,
       robots: [{ userAgent: "*", allow: "/" }],
@@ -36,6 +36,7 @@ export default defineConfig({
         "/abuse": "yearly",
         "/aup": "yearly",
         "/disclaimer": "yearly",
+        "/probros-portov": "monthly",
       },
       priority: {
         "/": 1.0,
@@ -51,6 +52,7 @@ export default defineConfig({
         "/abuse": 0.2,
         "/aup": 0.2,
         "/disclaimer": 0.2,
+        "/probros-portov": 0.8,
       },
       lastmod: {
         "/": new Date("2026-03-28"),
@@ -66,6 +68,7 @@ export default defineConfig({
         "/offer": new Date("2026-02-15"),
         "/terms": new Date("2026-02-15"),
         "/privacy": new Date("2026-02-15"),
+        "/probros-portov": new Date("2026-09-20"),
       },
     }),
   ],
@@ -134,7 +137,7 @@ export default defineConfig({
     includedRoutes() {
       const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel"];
       // Russian-only landings: no /en copy, because the intent is local.
-      const ruOnly = ["/minecraft-server", "/bez-belogo-ip"];
+      const ruOnly = ["/minecraft-server", "/bez-belogo-ip", "/probros-portov"];
       const ruPages = [...pages, ...ruOnly].map((p) => `/ru${p === "/" ? "" : p}`);
       const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
       return [...pages, ...ruOnly, ...ruPages, ...enPages];

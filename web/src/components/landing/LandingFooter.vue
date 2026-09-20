@@ -59,6 +59,7 @@ const blogUrl = computed(() => getBlogUrl())
         <div>
           <h3 class="footer-heading">{{ t('landing.footer.colUseCases') }}</h3>
           <ul class="footer-list">
+            <li v-if="showOffer"><RouterLink to="/probros-portov" class="footer-link">{{ t('landing.footer.linkPortForward') }}</RouterLink></li>
             <li><RouterLink to="/ngrok-alternative" class="footer-link">{{ t('landing.footer.linkNgrokAlt') }}</RouterLink></li>
             <li v-if="showOffer"><RouterLink to="/bez-belogo-ip" class="footer-link">{{ t('landing.footer.linkNoWhiteIp') }}</RouterLink></li>
             <li v-if="showOffer"><RouterLink to="/minecraft-server" class="footer-link">{{ t('landing.footer.linkMinecraft') }}</RouterLink></li>

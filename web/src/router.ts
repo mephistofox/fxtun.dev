@@ -118,6 +118,12 @@ const ruOnlyRoutes: RouteRecordRaw[] = [
     component: () => import('./views/UseCaseView.vue'),
     meta: { ns: 'noWhiteIp', seoKey: 'noWhiteIp' },
   },
+  {
+    path: '/probros-portov',
+    name: 'probros-portov',
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'portForward', seoKey: 'portForwarding' },
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
