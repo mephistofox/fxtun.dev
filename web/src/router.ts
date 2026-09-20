@@ -105,7 +105,7 @@ const publicRoutes: RouteRecordRaw[] = [
 // Landings written for Russian search intent. There is no English version of
 // "сервер майнкрафт для друзей", and an auto-prefixed /en copy would only be
 // the Russian text under an English locale.
-const ruOnlyRoutes: RouteRecordRaw[] = [
+const ruOnlyRoutes: RouteRecordRaw[] = ([
   {
     path: '/minecraft-server',
     name: 'minecraft-server',
@@ -136,7 +136,7 @@ const ruOnlyRoutes: RouteRecordRaw[] = [
     component: () => import('./views/UseCaseView.vue'),
     meta: { ns: 'hamachiAlt', seoKey: 'hamachiAlternative' },
   },
-]
+] satisfies RouteRecordRaw[]).map(r => ({ ...r, meta: { ...r.meta, ruOnly: true } }))
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {
   const source = lang === 'ru' ? [...publicRoutes, ...ruOnlyRoutes] : publicRoutes

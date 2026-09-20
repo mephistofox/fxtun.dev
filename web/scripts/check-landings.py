@@ -5,7 +5,8 @@
     python3 web/scripts/check-landings.py
 
 Код возврата 1, если у лендинга нет текстов, тексты неполные, SEO-поля вышли
-за длину или собранная страница не содержит своего заголовка.
+за длину, собранная страница не содержит своего заголовка или её hreflang
+ведёт на несуществующую английскую копию.
 """
 import json
 import pathlib
@@ -114,9 +115,18 @@ def check_prerender(ru, ns, slug, problems):
     page = WEB / "dist" / f"{slug}.html"
     if not page.exists():
         return  # сборки нет — проверяем только копию
+    html = page.read_text(encoding="utf-8")
     h1 = ru.get("useCase", {}).get(ns, {}).get("h1", "")
-    if h1 and h1 not in page.read_text(encoding="utf-8"):
+    if h1 and h1 not in html:
         problems.append(f"{slug}.html: не содержит заголовок «{h1}»")
+    # hreflang="en" обещает, что есть английская версия. У лендингов, написанных
+    # только под русский поиск, её нет, и поисковик уходит на 404.
+    dist = WEB / "dist"
+    if not (dist / "en" / f"{slug}.html").exists():
+        for copy in (page, dist / "ru" / f"{slug}.html"):
+            if copy.exists() and 'hreflang="en"' in copy.read_text(encoding="utf-8"):
+                name = copy.relative_to(dist)
+                problems.append(f'{name}: hreflang="en" ведёт на несуществующий /en/{slug}')
 
 
 def main():

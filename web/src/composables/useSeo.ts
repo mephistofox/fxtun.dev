@@ -63,9 +63,10 @@ export function useSeo(options: SeoOptions = {}) {
     return ruCanonical.value
   })
 
-  // Show hreflang on all routes — every page needs bidirectional hreflang
-  // for correct language targeting between the ru (root) and en (/en) variants.
-  const showHreflang = computed(() => true)
+  // Bidirectional hreflang between the ru (root) and en (/en) variants — but
+  // only where both exist. ru-only landings have no /en copy, and pointing
+  // hreflang at one sends search engines to a 404.
+  const showHreflang = computed(() => !route.meta.ruOnly)
 
   useHead({
     htmlAttrs: { lang: effectiveLocale },
