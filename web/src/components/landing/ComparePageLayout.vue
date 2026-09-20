@@ -41,7 +41,7 @@ useSubpageSchema({
 </script>
 
 <template>
-  <div class="compare-page">
+  <div class="page-shell compare-page">
     <!-- Navbar -->
     <nav class="compare-nav">
       <div class="container mx-auto px-4 flex items-center justify-between h-16">
@@ -71,7 +71,11 @@ useSubpageSchema({
     <!-- Hero -->
     <section class="pt-8 pb-16">
       <div class="container mx-auto px-4 text-center">
-        <h1 class="text-4xl md:text-5xl font-display font-bold mb-4">
+        <span class="page-eyebrow">
+          <span class="pulse-indicator" aria-hidden="true"></span>
+          {{ t('common.breadcrumbCompare') }}
+        </span>
+        <h1 class="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-4">
           {{ t(`compare.${competitorSlug}.title`) }}
         </h1>
         <p class="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -92,16 +96,22 @@ useSubpageSchema({
     <!-- CTA -->
     <section class="py-16 md:py-24">
       <div class="container mx-auto px-4 text-center">
-        <div class="max-w-2xl mx-auto p-8 md:p-12 rounded-2xl compare-cta-card">
+        <div class="max-w-2xl mx-auto p-8 md:p-12 glass-card">
           <h2 class="text-2xl md:text-3xl font-display font-bold mb-4">
             {{ t('compare.ctaTitle') }}
           </h2>
           <p class="text-muted-foreground mb-8">
             {{ t('compare.ctaSubtitle') }}
           </p>
-          <RouterLink to="/register" class="compare-cta-button">
-            {{ t('compare.ctaButton') }}
-          </RouterLink>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <RouterLink to="/register" class="cta-button">
+              {{ t('compare.ctaButton') }}
+              <svg aria-hidden="true" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </RouterLink>
+            <RouterLink to="/downloads" class="cta-button-ghost">{{ t('useCase.common.download') }}</RouterLink>
+          </div>
         </div>
       </div>
     </section>
@@ -135,11 +145,6 @@ useSubpageSchema({
 </template>
 
 <style scoped>
-.compare-page {
-  min-height: 100vh;
-  background: hsl(var(--background));
-}
-
 .compare-nav {
   @apply fixed top-0 left-0 right-0 z-50;
   background: hsl(var(--background) / 0.8);
@@ -177,30 +182,4 @@ useSubpageSchema({
   box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
 }
 
-.compare-cta-card {
-  background: hsl(var(--surface) / 0.5);
-  border: 1px solid hsl(var(--border) / 0.5);
-}
-
-.compare-cta-button {
-  @apply inline-flex items-center px-6 py-3 rounded-lg text-base font-medium transition-all duration-200;
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-}
-
-.compare-cta-button:hover {
-  opacity: 0.9;
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-}
-
-.compare-see-also-card {
-  @apply flex items-center justify-between px-5 py-4 rounded-xl transition-all duration-200;
-  background: hsl(var(--surface) / 0.5);
-  border: 1px solid hsl(var(--border) / 0.4);
-}
-
-.compare-see-also-card:hover {
-  border-color: hsl(var(--primary) / 0.4);
-  background: hsl(var(--surface) / 0.8);
-}
 </style>

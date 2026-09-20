@@ -632,6 +632,136 @@
     transform: scale(1.1);
     background: linear-gradient(135deg, hsl(var(--primary) / 0.2) 0%, hsl(var(--primary) / 0.1) 100%);
   }
+
+  /* Chrome shared by the keyword landings and the comparison pages.
+   *
+   * These lived as scoped styles inside one view, so every page that reused
+   * the class names rendered them unstyled — which is how the new landings
+   * ended up looking like a plain document. Global, so one page's look is
+   * every page's look. */
+  .page-shell {
+    @apply min-h-screen;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% -10%, hsl(var(--primary) / 0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 45% 45% at 85% 20%, hsl(var(--accent) / 0.08) 0%, transparent 55%),
+      hsl(var(--background));
+  }
+
+  .page-nav {
+    @apply fixed top-0 left-0 right-0 z-50;
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid hsl(var(--border) / 0.4);
+  }
+
+  .page-nav-brand { @apply flex items-center gap-3; }
+
+  .page-nav-logo {
+    @apply w-9 h-9 rounded-xl flex items-center justify-center;
+    background: hsl(var(--primary) / 0.1);
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+
+  .page-nav-link {
+    @apply text-sm font-medium transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .page-nav-link:hover { color: hsl(var(--foreground)); }
+
+  .page-nav-cta {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .page-nav-cta:hover { opacity: 0.9; box-shadow: 0 0 20px hsl(var(--primary) / 0.3); }
+
+  .page-eyebrow {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .wedge-card {
+    @apply rounded-2xl p-6 transition-all duration-300;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+  .wedge-card:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow: 0 8px 30px hsl(var(--primary) / 0.06);
+  }
+
+  /* Numbered step, styled like the icon tiles on the home page. */
+  .step-number {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold shrink-0;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.15) 0%, hsl(var(--accent) / 0.1) 100%);
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+
+  .command-block {
+    @apply flex items-center justify-between gap-4 rounded-xl px-5 py-4;
+    background: hsl(var(--code-bg, var(--surface)));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .command-text {
+    @apply flex items-center gap-3 text-sm md:text-base font-mono;
+    color: hsl(var(--foreground));
+  }
+
+  .command-prompt { color: hsl(var(--primary)); user-select: none; }
+
+  .command-copy {
+    @apply flex-shrink-0 p-2 rounded-lg transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .command-copy:hover { color: hsl(var(--foreground)); background: hsl(var(--surface)); }
+
+
+  .command-result {
+    @apply flex items-center gap-2 mt-3 text-sm font-mono;
+    color: hsl(var(--muted-foreground));
+  }
+  .comparison-link {
+    @apply inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-all duration-200;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+  .comparison-link:hover { border-color: hsl(var(--primary) / 0.4); color: hsl(var(--primary)); }
+
+  .compare-see-also-card {
+    @apply flex items-center justify-between gap-3 px-5 py-4 rounded-xl transition-all duration-200;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+  .compare-see-also-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    transform: translateY(-2px);
+  }
+
+  .cta-button {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dim)) 100%);
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 20px hsl(var(--primary) / 0.25);
+  }
+  .cta-button:hover { transform: translateY(-2px); box-shadow: 0 8px 30px hsl(var(--primary) / 0.4); }
+
+  .cta-button-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all duration-300;
+    border: 2px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+  .cta-button-ghost:hover { border-color: hsl(var(--primary) / 0.5); color: hsl(var(--primary)); }
+
+  .faq-expand-enter-active,
+  .faq-expand-leave-active { transition: all 0.3s ease; overflow: hidden; }
+  .faq-expand-enter-from,
+  .faq-expand-leave-to { opacity: 0; max-height: 0; }
+  .faq-expand-enter-to,
+  .faq-expand-leave-from { opacity: 1; max-height: 400px; }
 }
 
 /* ============================================

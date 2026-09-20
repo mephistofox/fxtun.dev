@@ -43,7 +43,7 @@ const sectionKeys = [
                 <tr>
                   <th class="text-left">{{ t('compare.feature') }}</th>
                   <th class="text-center compare-highlight">fxTunnel</th>
-                  <th class="text-center">tuna.am</th>
+                  <th class="text-center">CloudPub</th>
                 </tr>
               </thead>
               <tbody>

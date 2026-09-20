@@ -1013,6 +1013,121 @@
     "downloadPdf": "Download PDF",
     "lastUpdated": "Last updated"
   },
+  "useCase": {
+      "common": {
+        "download": "Download the client",
+        "createAccount": "Create an account",
+        "seePricing": "See pricing",
+        "freeNote": "Free plan, no end date. No card.",
+        "ctaSubtitle": "Signing up takes a minute and the client installs in one click."
+      },
+      "ngrokAlt": {
+        "eyebrow": "An ngrok replacement",
+        "h1": "A Russian alternative to ngrok",
+        "intro": "fxTunnel puts a local service online the way ngrok does: one command and you have a public address with a certificate. The differences are that Russian cards work, support answers in Russian, and the free plan does not cut the session off after two hours.",
+        "whyTitle": "Why developers in Russia look for a replacement",
+        "whyParagraphs": [
+          "Payment first. Russian bank cards have not worked abroad since 2022, and ngrok takes nothing else. What is left are workarounds — a foreign card, an intermediary, somebody else's account — and each one puts a stranger between you and a tool you depend on.",
+          "Availability second. Some users in Russia are refused outright: the client returns ERR_NGROK_9040 and the tunnel never comes up. Nothing on your side fixes it.",
+          "Free-tier limits third. ngrok drops the session after two hours, caps monthly requests, and hands out a new address on every start. For webhook work, where the address goes into somebody else's system, that means editing it again after every restart."
+        ],
+        "cardsTitle": "What fxTunnel does differently",
+        "cards": [
+          {
+            "title": "Paid in roubles",
+            "desc": "YooKassa, SBP and Russian bank cards. No foreign cards, no intermediaries, no borrowed accounts — and a proper receipt."
+          },
+          {
+            "title": "Cheaper",
+            "desc": "From $2.50 a month against ngrok's $8. The free plan carries no request cap, no bandwidth cap and no session timeout."
+          },
+          {
+            "title": "Support in Russian",
+            "desc": "Interface, documentation and real answers in Russian, without machine translation or a timezone gap."
+          },
+          {
+            "title": "Three protocols",
+            "desc": "HTTP, TCP and UDP. UDP is rare among tunnels: game servers, DNS, WireGuard, anything that is not the web."
+          },
+          {
+            "title": "Desktop application",
+            "desc": "The only tunnelling service with a full desktop app for Windows, Linux and macOS: tunnels start with a click and the inspector shows every request."
+          },
+          {
+            "title": "Open source",
+            "desc": "The whole stack is on GitHub — server, client, desktop app, web interface. Read it, or run your own server and depend on nobody."
+          }
+        ],
+        "stepsTitle": "Moving over from ngrok",
+        "steps": [
+          {
+            "title": "Install the client and sign in",
+            "desc": "Download the app for your system with the button below and create an account — a minute, no card needed. There is an installer for Windows and a console client for Linux and macOS."
+          },
+          {
+            "title": "Change the command",
+            "command": "fxtun http 3000",
+            "desc": "Where you had ngrok http 3000 you now have fxtun http 3000. The syntax is deliberately close; there is nothing to relearn.",
+            "result": "Tunnel up: https://kind-river.fxtun.ru → localhost:3000"
+          },
+          {
+            "title": "Keep the address",
+            "command": "fxtun http 3000 --subdomain myapp",
+            "desc": "myapp.fxtun.ru stays the same across restarts — the thing ngrok's free tier does not give you. Reserving a name starts on Base.",
+            "result": "Tunnel up: https://myapp.fxtun.ru → localhost:3000"
+          },
+          {
+            "title": "Forward TCP or UDP",
+            "command": "fxtun tcp 5432",
+            "desc": "A database, SSH, RDP, a game server. TCP works on the free plan; UDP starts on Base.",
+            "result": "Tunnel up: fxtun.ru:41234 → localhost:5432"
+          }
+        ],
+        "faq": [
+          {
+            "q": "How do you pay for ngrok from Russia?",
+            "a": "Directly, you do not: it takes foreign cards only. What remains are intermediaries and borrowed cards — payment for a tool that may stop working at any moment. fxTunnel takes Russian cards, SBP and YooKassa directly."
+          },
+          {
+            "q": "What does ERR_NGROK_9040 mean?",
+            "a": "The client is saying the connection is not permitted. No setting on your side fixes it; you need a different route or a different service. fxTunnel's servers are in Russia and the connection does not depend on foreign infrastructure."
+          },
+          {
+            "q": "What should replace ngrok in 2026?",
+            "a": "If you are in Russia and need HTTP, TCP or UDP: fxTunnel — roubles, a free plan with no session timeout or request cap, open source. There are others: CloudPub is strong on remote access to infrastructure, Cloudflare Tunnel makes sense if you already live there. We have written detailed comparisons with each."
+          },
+          {
+            "q": "Is it free?",
+            "a": "Yes, the free plan has no end date: one tunnel, any free subdomain, HTTP and TCP, no limit on traffic, requests or session length. Paid starts at $2.50 a month and adds UDP, the traffic inspector, custom domains and reserved names."
+          },
+          {
+            "q": "Can I use my own domain?",
+            "a": "Yes, from the Base plan. The certificate is issued through Let's Encrypt and renews itself."
+          },
+          {
+            "q": "How reliable is it?",
+            "a": "The connection is TLS encrypted and the client reconnects on its own. The code is open, so you can check what happens to your traffic — and run your own server from the same repository if you would rather."
+          }
+        ],
+        "relatedTitle": "Where to go next",
+        "related": [
+          {
+            "to": "/compare/ngrok",
+            "label": "Full comparison with ngrok"
+          },
+          {
+            "to": "/pricing",
+            "label": "Pricing"
+          },
+          {
+            "to": "/compare/cloudpub",
+            "label": "Comparison with CloudPub"
+          }
+        ],
+        "ctaTitle": "Try it instead of ngrok",
+        "ctaButton": "Start free"
+      }
+    },
   "seo": {
     "defaultDescription": "Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector.",
     "defaultKeywords": "ngrok alternative, free tunneling, localhost tunnel, reverse tunnel, port forwarding, expose localhost, HTTP tunnel, TCP tunnel, UDP tunnel, webhook testing, desktop tunnel client, open source tunnel",

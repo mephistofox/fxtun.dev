@@ -47,7 +47,8 @@ const publicRoutes: RouteRecordRaw[] = [
   {
     path: '/ngrok-alternative',
     name: 'ngrok-alternative',
-    component: () => import('./views/NgrokAlternativeView.vue'),
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'ngrokAlt', seoKey: 'ngrokAlternative' },
   },
   {
     path: '/features',
