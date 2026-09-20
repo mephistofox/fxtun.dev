@@ -130,6 +130,12 @@ const ruOnlyRoutes: RouteRecordRaw[] = [
     component: () => import('./views/UseCaseView.vue'),
     meta: { ns: 'remoteAccess', seoKey: 'remoteAccess' },
   },
+  {
+    path: '/analog-hamachi',
+    name: 'analog-hamachi',
+    component: () => import('./views/UseCaseView.vue'),
+    meta: { ns: 'hamachiAlt', seoKey: 'hamachiAlternative' },
+  },
 ]
 
 function langPrefixedRoutes(lang: 'ru' | 'en'): RouteRecordRaw[] {

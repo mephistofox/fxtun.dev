@@ -61,6 +61,7 @@ const blogUrl = computed(() => getBlogUrl())
           <ul class="footer-list">
             <li v-if="showOffer"><RouterLink to="/probros-portov" class="footer-link">{{ t('landing.footer.linkPortForward') }}</RouterLink></li>
             <li v-if="showOffer"><RouterLink to="/udalennyy-dostup" class="footer-link">{{ t('landing.footer.linkRemoteAccess') }}</RouterLink></li>
+            <li v-if="showOffer"><RouterLink to="/analog-hamachi" class="footer-link">{{ t('landing.footer.linkHamachi') }}</RouterLink></li>
             <li><RouterLink to="/ngrok-alternative" class="footer-link">{{ t('landing.footer.linkNgrokAlt') }}</RouterLink></li>
             <li v-if="showOffer"><RouterLink to="/bez-belogo-ip" class="footer-link">{{ t('landing.footer.linkNoWhiteIp') }}</RouterLink></li>
             <li v-if="showOffer"><RouterLink to="/minecraft-server" class="footer-link">{{ t('landing.footer.linkMinecraft') }}</RouterLink></li>
