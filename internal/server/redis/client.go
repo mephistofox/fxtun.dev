@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // Client wraps a go-redis client with key prefixing and logging.

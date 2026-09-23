@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"strings"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 

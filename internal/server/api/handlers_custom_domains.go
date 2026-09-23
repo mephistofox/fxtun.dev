@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	fxdns "github.com/mephistofox/fxtunnel/internal/server/dns"
-	fxtls "github.com/mephistofox/fxtunnel/internal/server/tls"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	fxdns "github.com/mephistofox/fxtun.dev/internal/server/dns"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/server/tls"
 )
 
 // verifyCooldown throttles custom-domain verification per domain. Every attempt

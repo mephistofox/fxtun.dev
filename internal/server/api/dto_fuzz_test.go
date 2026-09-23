@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
 )
 
 // newRequestDTO returns a fresh instance of the request DTO with index i.

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
 )
 
 func TestGitHubLinkCallback_ConflictWhenLinkedToAnotherUser(t *testing.T) {

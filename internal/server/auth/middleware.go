@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
 )
 
 // Context keys for authentication

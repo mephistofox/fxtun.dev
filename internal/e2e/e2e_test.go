@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	clientcore "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/config"
+	clientcore "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // --- Test 1: HTTP Tunnel Full Lifecycle ---

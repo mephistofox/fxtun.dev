@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
 )
 
 // ErrSubdomainTaken is returned when registering a tunnel whose subdomain is

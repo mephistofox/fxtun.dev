@@ -10,8 +10,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 // fakeSessionStore is an in-memory SessionStore that also implements

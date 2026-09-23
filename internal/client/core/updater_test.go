@@ -13,7 +13,7 @@ func TestSelfUpdateRefusesUnapprovedURL(t *testing.T) {
 	t.Cleanup(clearApprovedUpdate)
 	clearApprovedUpdate()
 
-	err := SelfUpdate("https://github.com/mephistofox/fxtunnel/releases/download/v0.0.1/fxtunnel-linux-amd64")
+	err := SelfUpdate("https://github.com/mephistofox/fxtun.dev/releases/download/v0.0.1/fxtunnel-linux-amd64")
 	if err == nil {
 		t.Fatal("expected refusal of an update that was never offered")
 	}

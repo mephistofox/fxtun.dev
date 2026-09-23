@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // DomainRepository handles reserved domain database operations using PostgreSQL via sqlc.

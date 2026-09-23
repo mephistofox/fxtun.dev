@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/emailguard"
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/emailguard"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 const (

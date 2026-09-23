@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
 )
 
 // TestGUIDownloadURL_NeverResolvesCLIArtifact: the server's download map is

@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mephistofox/fxtunnel/internal/inspect"
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // ExchangeRepository handles inspect exchange database operations using PostgreSQL via sqlc.

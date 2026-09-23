@@ -7,10 +7,10 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/reserved"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/reserved"
 )
 
 var subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)

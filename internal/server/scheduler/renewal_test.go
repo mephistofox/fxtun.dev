@@ -7,9 +7,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
 )
 
 // newRenewalScheduler builds a scheduler whose YooKassa provider is bound to an

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
 )
 
 // stubProvider is a payment.Provider that returns a fixed checkout URL, so the

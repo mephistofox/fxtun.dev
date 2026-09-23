@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
 )
 
 const (

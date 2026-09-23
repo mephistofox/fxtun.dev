@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mephistofox/fxtunnel/internal/server/database/sqlc"
+	"github.com/mephistofox/fxtun.dev/internal/server/database/sqlc"
 )
 
 // PaymentRepository handles payment database operations using PostgreSQL via sqlc.

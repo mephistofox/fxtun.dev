@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/mephistofox/fxtunnel/internal/client/keyring"
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/client/keyring"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // envToken is the environment variable holding the API token on headless

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/inspect"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
 	"github.com/stretchr/testify/require"
 )
 

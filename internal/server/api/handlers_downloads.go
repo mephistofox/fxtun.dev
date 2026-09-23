@@ -12,7 +12,7 @@ import (
 	"text/template"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
 )
 
 //go:embed install.sh

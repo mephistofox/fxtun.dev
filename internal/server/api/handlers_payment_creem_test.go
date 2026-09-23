@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/database"
-	"github.com/mephistofox/fxtunnel/internal/server/exchange"
-	"github.com/mephistofox/fxtunnel/internal/server/payment"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/exchange"
+	"github.com/mephistofox/fxtun.dev/internal/server/payment"
 )
 
 // countAuditAction returns how many audit entries with the given action exist

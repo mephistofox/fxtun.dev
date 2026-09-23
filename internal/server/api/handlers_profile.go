@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/mephistofox/fxtunnel/internal/server/api/dto"
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
-	"github.com/mephistofox/fxtunnel/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/api/dto"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
 )
 
 // handleGetProfile returns the current user's profile

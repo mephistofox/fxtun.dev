@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // resetGlobals clears the package-level flag vars so tests don't leak into

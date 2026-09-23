@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mephistofox/fxtunnel/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 // PortAllocator manages port allocation within a configured range.

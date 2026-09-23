@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mephistofox/fxtunnel/internal/server/store"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
 )
 
 const (

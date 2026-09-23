@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	client "github.com/mephistofox/fxtunnel/internal/client/core"
-	"github.com/mephistofox/fxtunnel/internal/client/daemon"
-	"github.com/mephistofox/fxtunnel/internal/config"
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/client/daemon"
+	"github.com/mephistofox/fxtun.dev/internal/config"
 )
 
 var daemonForeground bool

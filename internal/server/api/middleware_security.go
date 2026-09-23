@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mephistofox/fxtunnel/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
 )
 
 // trustedRealIPMiddleware rewrites r.RemoteAddr from X-Real-IP /

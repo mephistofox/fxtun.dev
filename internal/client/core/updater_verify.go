@@ -11,7 +11,7 @@ import (
 // self-update binaries. It is intentionally empty by default and baked in at
 // build time via ldflags, e.g.:
 //
-//	go build -ldflags "-X 'github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=<hex>'"
+//	go build -ldflags "-X 'github.com/mephistofox/fxtun.dev/internal/client/core.updatePublicKeyHex=<hex>'"
 //
 // Every released build (CLI and GUI, production and staging) bakes the key in;
 // only a plain local `go build` leaves it empty, and there verification is
