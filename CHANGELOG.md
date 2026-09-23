@@ -1,5 +1,49 @@
 # Changelog
 
+## [3.13.0](https://github.com/mephistofox/fxtun.dev/compare/v3.12.0...v3.13.0) (2026-09-23)
+
+
+### Features
+
+* **blog:** add static generator for the dev diary ([e455627](https://github.com/mephistofox/fxtun.dev/commit/e4556274ea1076ea45c5873e15a6845ab6586dfd))
+* **scripts:** forward incoming mail to telegram ([e1bb867](https://github.com/mephistofox/fxtun.dev/commit/e1bb867b3239a563e4bc495fd9758b665b2b63c2))
+* **web:** keyword pages get the home page's clothes and its buttons ([41c10ae](https://github.com/mephistofox/fxtun.dev/commit/41c10ae94b6d502bc97979e95a020f4be8fb6581))
+* **web:** landing for a hamachi replacement ([f1efbe9](https://github.com/mephistofox/fxtun.dev/commit/f1efbe9b23832c6d511ec4234c54cd8c6f7b0618))
+* **web:** landing for port forwarding without a router ([2ff4a1e](https://github.com/mephistofox/fxtun.dev/commit/2ff4a1e909ab70decf5827a982947257ba53ec80))
+* **web:** landing for remote desktop access ([5956387](https://github.com/mephistofox/fxtun.dev/commit/595638759f7ea5d2c7c0815a1faa98e21885d9f1))
+* **web:** link the older landings to the new ones ([b960040](https://github.com/mephistofox/fxtun.dev/commit/b960040504e9146833b6cadf970b3f39214e8115))
+* **web:** put contacts in the footer ([e21ae59](https://github.com/mephistofox/fxtun.dev/commit/e21ae590c255d859b393008023eb32cc3c08a4fe))
+* **web:** say out loud that rdp, 1c and cameras already work ([06fdf49](https://github.com/mephistofox/fxtun.dev/commit/06fdf4975e1c652c20237998bfdb90e7223f8775))
+* **web:** three landings built on what people actually search for ([d1d7c00](https://github.com/mephistofox/fxtun.dev/commit/d1d7c00475a031bdc4604ce7a1419d5cdc639756))
+
+
+### Bug Fixes
+
+* **domains:** refuse sensitive subdomains when reserving, not just when tunnelling ([4e3b917](https://github.com/mephistofox/fxtun.dev/commit/4e3b91745547a00cc2ec265d0125486b8cf8ceaf))
+* **domains:** report reserved names as unavailable when checking ([4d2aa4c](https://github.com/mephistofox/fxtun.dev/commit/4d2aa4caac7204581e303be2eaf65b454d7fa423))
+* **domains:** reserve numbered infrastructure names by pattern ([651e766](https://github.com/mephistofox/fxtun.dev/commit/651e7660c182285e6ab1157335e2e7c52e161f3d))
+* **web:** correct claims and copy on three seo landings ([a97b0ea](https://github.com/mephistofox/fxtun.dev/commit/a97b0eacfed9cab0e1589ff0feed8772f9a5ebed))
+* **web:** date the review badge by when the page was reviewed ([2639769](https://github.com/mephistofox/fxtun.dev/commit/26397692f4b779e898961d712f7efa4365cb0a0f))
+* **web:** drop hreflang from russian-only landings ([3521d98](https://github.com/mephistofox/fxtun.dev/commit/3521d98c057f10bb4de32fae12121a63307d3a4e))
+* **web:** keep the terminal from moving the page when it replays ([70dcfe8](https://github.com/mephistofox/fxtun.dev/commit/70dcfe8f8e0ff900e59e0bc9f1f0761013e875b7))
+* **web:** paint the dark canvas on the first frame ([8636d95](https://github.com/mephistofox/fxtun.dev/commit/8636d9529d69eb0847da97cb94a986511cbfc727))
+* **web:** print half-dollar prices with both decimals ([fd1c471](https://github.com/mephistofox/fxtun.dev/commit/fd1c4711f92cd68f11943cefe4fb70017dab9205))
+* **web:** quote the plans that are actually sold ([e01d518](https://github.com/mephistofox/fxtun.dev/commit/e01d518d8cd0498c4e815c4685ec01490a92ae04))
+* **web:** refresh landing content when hopping between landings ([d729107](https://github.com/mephistofox/fxtun.dev/commit/d7291072621eb91dd24486e461532613ec786bcf))
+* **web:** reject a non-JSON response when caching plans ([e8c6dd6](https://github.com/mephistofox/fxtun.dev/commit/e8c6dd6e79cb6da5b8f7a952107e20005f095f51))
+* **web:** report page views to this host's analytics property ([286b0ff](https://github.com/mephistofox/fxtun.dev/commit/286b0ff2dd6bce21fba6ea3e602d9cfc2177428f))
+* **web:** stop the header resizing after the stylesheet lands ([154251b](https://github.com/mephistofox/fxtun.dev/commit/154251bfdbe42852dc5a8dd2e93c1c0205394e75))
+* **web:** surface custom domain TXT verification record ([75c2bd1](https://github.com/mephistofox/fxtun.dev/commit/75c2bd1c0e23dd74e1c3d299fc9c0bcdcb5b0f85))
+* **web:** translate the aup, abuse and disclaimer pages ([66e227f](https://github.com/mephistofox/fxtun.dev/commit/66e227fc5f0bed844293ff5a6c7084a6a6205aab))
+
+
+### Performance Improvements
+
+* **core:** shrink the per-client stream pool from 256 to 32 ([dbac175](https://github.com/mephistofox/fxtun.dev/commit/dbac1759aeccf4657620a65edec7a0d1c29d0f56))
+* **web:** measured to 99 on desktop, 91-94 on mobile ([f4928ef](https://github.com/mephistofox/fxtun.dev/commit/f4928efd408242531ae83a1c073190e7b3804586))
+* **web:** stop shipping 118 KB of display font for one glyph ([c3f3c55](https://github.com/mephistofox/fxtun.dev/commit/c3f3c55f529db6b921bc0b66ddfd6623a9d2c7a8))
+* **web:** stop the page paying for work nobody asked for ([1370bfb](https://github.com/mephistofox/fxtun.dev/commit/1370bfb0de3f1c34a1d20dc525320fb945c89ad8))
+
 ## [3.11.1](https://github.com/mephistofox/fxTunnel/compare/v3.11.0...v3.11.1) (2026-07-15)
 
 
