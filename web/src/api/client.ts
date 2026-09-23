@@ -203,6 +203,7 @@ export interface CustomDomain {
   user_id: number
   domain: string
   target_subdomain: string
+  verification_token: string
   verified: boolean
   verified_at?: string
   created_at: string
@@ -216,6 +217,13 @@ export interface CustomDomainListResponse {
   server_ip: string
 }
 
+export interface AddCustomDomainResponse {
+  domain: CustomDomain
+  txt_record_name: string
+  txt_record_value: string
+  target: string
+}
+
 export interface VerifyResponse {
   verified: boolean
   error?: string
@@ -225,7 +233,7 @@ export interface VerifyResponse {
 export const customDomainsApi = {
   list: () => api.get<CustomDomainListResponse>('/custom-domains'),
   add: (domain: string, target_subdomain: string) =>
-    api.post<CustomDomain>('/custom-domains', { domain, target_subdomain }),
+    api.post<AddCustomDomainResponse>('/custom-domains', { domain, target_subdomain }),
   delete: (id: number) => api.delete(`/custom-domains/${id}`),
   verify: (id: number) => api.post<VerifyResponse>(`/custom-domains/${id}/verify`),
 }

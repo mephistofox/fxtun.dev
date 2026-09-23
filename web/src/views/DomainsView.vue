@@ -150,7 +150,7 @@ async function addCustomDomain() {
   addError.value = ''
   try {
     const response = await customDomainsApi.add(newDomain.value, newTargetSubdomain.value)
-    customDomains.value.push(response.data)
+    customDomains.value.push(response.data.domain)
     newDomain.value = ''
     newTargetSubdomain.value = ''
     showAddDialog.value = false
@@ -160,6 +160,18 @@ async function addCustomDomain() {
   } finally {
     adding.value = false
   }
+}
+
+function challengeRecordName(domain: string): string {
+  return `_fxtunnel-challenge.${domain}`
+}
+
+const copiedField = ref('')
+
+async function copyField(id: number, field: 'name' | 'value', text: string) {
+  await navigator.clipboard.writeText(text)
+  copiedField.value = `${id}-${field}`
+  setTimeout(() => (copiedField.value = ''), 2000)
 }
 
 async function deleteCustomDomain(id: number) {
@@ -547,6 +559,24 @@ onMounted(() => {
                 <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 {{ cd.target_subdomain }}.{{ baseDomain }}
               </p>
+
+              <div v-if="!cd.verified" class="dom-txt-record">
+                <p class="dom-txt-record-hint">{{ t('customDomains.txtRecordHint') }}</p>
+                <div class="dom-txt-row" @click="copyField(cd.id, 'name', challengeRecordName(cd.domain))">
+                  <span class="dom-txt-label">{{ t('customDomains.txtName') }}</span>
+                  <code>{{ challengeRecordName(cd.domain) }}</code>
+                  <span class="dom-txt-copy">
+                    {{ copiedField === `${cd.id}-name` ? t('common.copied') : t('common.copy') }}
+                  </span>
+                </div>
+                <div class="dom-txt-row" @click="copyField(cd.id, 'value', cd.verification_token)">
+                  <span class="dom-txt-label">{{ t('customDomains.txtValue') }}</span>
+                  <code>{{ cd.verification_token }}</code>
+                  <span class="dom-txt-copy">
+                    {{ copiedField === `${cd.id}-value` ? t('common.copied') : t('common.copy') }}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div class="dom-card-footer">
@@ -863,6 +893,40 @@ onMounted(() => {
 
 .dom-card-target {
   @apply flex items-center gap-1 text-xs text-muted-foreground font-mono;
+}
+
+.dom-txt-record {
+  @apply mt-3 pt-3 space-y-2;
+  border-top: 1px solid hsl(var(--border) / 0.4);
+}
+
+.dom-txt-record-hint {
+  @apply text-xs text-muted-foreground;
+}
+
+.dom-txt-row {
+  @apply relative p-2 rounded-lg font-mono text-xs break-all cursor-pointer transition-all duration-200;
+  background: hsl(220 20% 6%);
+  border: 1px solid hsl(220 15% 15%);
+  color: hsl(75 100% 50%);
+}
+
+.dom-txt-row:hover {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.dom-txt-label {
+  @apply block text-muted-foreground not-italic mb-0.5;
+  font-family: inherit;
+}
+
+.dom-txt-copy {
+  @apply absolute top-2 right-2 text-xs opacity-0 transition-opacity;
+  color: hsl(var(--muted-foreground));
+}
+
+.dom-txt-row:hover .dom-txt-copy {
+  opacity: 1;
 }
 
 .dom-card-footer {
