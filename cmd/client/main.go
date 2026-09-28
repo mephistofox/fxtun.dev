@@ -1,0 +1,1033 @@
+package main
+
+import (
+	"bufio"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/bcrypt"
+
+	client "github.com/mephistofox/fxtun.dev/internal/client/core"
+	"github.com/mephistofox/fxtun.dev/internal/client/keyring"
+	"github.com/mephistofox/fxtun.dev/internal/config"
+)
+
+const defaultControlPort = "4443"
+
+// errNotLoggedIn is returned by anything that talks to the server (tunnel
+// connect, domains/custom-domains via apiClient) when flags, env, the config
+// file, and the saved login all came up without a token. Without this, the
+// server's own "invalid token" reply was the only hint (SUSPECT).
+var errNotLoggedIn = errors.New("not logged in — run 'fxtunnel login' first")
+
+var (
+	Version          = "dev"
+	BuildTime        = "unknown"
+	DefaultServerURL = "https://fxtun.ru"
+)
+
+var (
+	configFile string
+	serverAddr string
+	token      string
+	logLevel   string
+	logFormat  string
+
+	// Quick tunnel flags
+	remotePort   int
+	domain       string
+	authFlag     string
+	allowIPsFlag []string
+
+	// Auto-close flags
+	autoCloseFlag   string
+	maxLifetimeFlag string
+
+	// Preset flag
+	presetFlag string
+
+	// Inspector flags
+	inspectAddr string
+	noInspect   bool
+
+	// TLS flags
+	insecureFlag bool
+)
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// newRootCmd builds the full command tree. Split out from main so tests can
+// walk the real tree (e.g. to catch flag shorthand collisions) without
+// executing it.
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "fxtunnel",
+		Short: "fxTunnel Client - Expose local services to the internet",
+		Long: `fxTunnel Client connects to a fxTunnel Server and creates tunnels
+to expose local services to the internet via HTTP subdomains, TCP ports, or UDP ports.
+
+Quick start:
+  fxtunnel login                       Save your API token
+  fxtunnel http 3000                   Expose local HTTP server
+  fxtunnel tcp 22                      Expose local TCP service
+  fxtunnel udp 53                      Expose local UDP service
+
+Tunneling options:
+  fxtunnel http 3000 --domain myapp    Use a custom subdomain
+  fxtunnel tcp 22 --remote-port 2222   Use a specific remote port
+  fxtunnel --config client.yaml        Use config file for multiple tunnels
+
+Security options (HTTP tunnels):
+  fxtunnel http 3000 --auth user:pass           Require HTTP Basic Auth
+  fxtunnel http 3000 --allow-ip 203.0.113.0/24  Restrict by IP/CIDR
+  fxtunnel http 3000 --auto-close 30m           Auto-close after idle period
+  fxtunnel http 3000 --max-lifetime 8h          Set maximum tunnel lifetime
+  fxtunnel http 3000 --preset openclaw          Apply security preset
+
+Daemon mode (background):
+  fxtunnel up                          Start daemon from config file
+  fxtunnel status                      Show daemon status and tunnels
+  fxtunnel down                        Stop daemon gracefully
+
+Domain management:
+  fxtunnel domains list                List reserved subdomains
+  fxtunnel domains add myapp           Reserve a subdomain
+
+Project setup:
+  fxtunnel init                        Create fxtunnel.yaml interactively
+  fxtunnel presets                     List available security presets
+
+Authentication:
+  fxtunnel login                       Save API token (interactive or -t)
+  fxtunnel logout                      Remove saved credentials
+
+  Headless servers without a system keyring can pass the token per command
+  (-t <token>) or via the FXTUNNEL_TOKEN environment variable. 'login' falls
+  back to ~/.fxtunnel/client.yaml when no keyring is available.
+
+Configuration:
+  -c, --config <path>                  Use config file for multiple tunnels
+  -s, --server <host:port>             Server address (default port: 4443)
+  -t, --token <token>                  API token (or use 'fxtunnel login')
+  --log-level debug|info|warn|error    Log verbosity (default: warn)
+  --inspect-addr <addr>                Inspector address (default 127.0.0.1:4040)
+  --no-inspect                         Disable traffic inspector
+
+For GUI mode, use fxtunnel-gui binary.`,
+		RunE: runConfig,
+	}
+	// A RunE error is ours (bad token, rejected --auth, etc.) and needs no
+	// usage dump. SilenceUsage suppresses it for every error though,
+	// including cobra's own flag-parse ones, so print usage explicitly for
+	// those — a mistyped flag still deserves it.
+	rootCmd.SilenceUsage = true
+	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		cmd.Println(cmd.UsageString())
+		return err
+	})
+
+	// Global flags
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file path")
+	rootCmd.PersistentFlags().StringVarP(&serverAddr, "server", "s", "", "Server address (host or host:port, default port: 4443)")
+	rootCmd.PersistentFlags().StringVarP(&token, "token", "t", "", "Authentication token")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logFormat, "log-format", "console", "Log format (console, json)")
+	rootCmd.PersistentFlags().StringVar(&inspectAddr, "inspect-addr", "", "Inspector listen address (default 127.0.0.1:4040)")
+	rootCmd.PersistentFlags().BoolVar(&noInspect, "no-inspect", false, "Disable local traffic inspector")
+	rootCmd.PersistentFlags().BoolVar(&insecureFlag, "insecure", false, "Connect without TLS (for servers without TLS enabled)")
+
+	// HTTP tunnel command
+	httpCmd := &cobra.Command{
+		Use:   "http <local_port>",
+		Short: "Create an HTTP tunnel",
+		Long: `Create an HTTP tunnel to expose a local web service.
+
+Security options:
+  --auth user:pass         Require HTTP Basic Auth for tunnel access
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)
+  --preset openclaw        Apply security preset (random Basic Auth)
+
+Presets provide a convenient shorthand for common security configurations.
+Explicit flags override preset values.`,
+		Args: cobra.ExactArgs(1),
+		RunE: runHTTP,
+	}
+	httpCmd.Flags().StringVarP(&domain, "domain", "d", "", "Subdomain to use (auto-generated if not set)")
+	httpCmd.Flags().StringVar(&domain, "subdomain", "", "Alias for --domain")
+	httpCmd.Flags().StringVar(&authFlag, "auth", "", "HTTP Basic Auth credentials (format: user:password, min 8 char password)")
+	httpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	httpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	httpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
+	httpCmd.Flags().StringVar(&presetFlag, "preset", "", "Apply a named preset (available: openclaw)")
+	rootCmd.AddCommand(httpCmd)
+
+	// TCP tunnel command
+	tcpCmd := &cobra.Command{
+		Use:   "tcp <local_port>",
+		Short: "Create a TCP tunnel",
+		Long: `Create a TCP tunnel to expose a local TCP service.
+
+Security options:
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)`,
+		Args: cobra.ExactArgs(1),
+		RunE: runTCP,
+	}
+	tcpCmd.Flags().IntVarP(&remotePort, "remote-port", "r", 0, "Remote port (auto-assigned if 0)")
+	tcpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	tcpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	tcpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
+	rootCmd.AddCommand(tcpCmd)
+
+	// UDP tunnel command
+	udpCmd := &cobra.Command{
+		Use:   "udp <local_port>",
+		Short: "Create a UDP tunnel",
+		Long: `Create a UDP tunnel to expose a local UDP service.
+
+Security options:
+  --allow-ip 1.2.3.4      Restrict access to specific IPs/CIDRs (repeatable)
+  --auto-close 30m         Auto-close tunnel after idle period (1m-24h)
+  --max-lifetime 8h        Maximum tunnel lifetime (1m-7d)`,
+		Args: cobra.ExactArgs(1),
+		RunE: runUDP,
+	}
+	udpCmd.Flags().IntVarP(&remotePort, "remote-port", "r", 0, "Remote port (auto-assigned if 0)")
+	udpCmd.Flags().StringSliceVar(&allowIPsFlag, "allow-ip", nil, "Allowed IP/CIDR (repeatable, e.g. 203.0.113.10,10.0.0.0/8)")
+	udpCmd.Flags().StringVar(&autoCloseFlag, "auto-close", "", "Auto-close tunnel after idle duration (e.g. 5m, 30m, 2h)")
+	udpCmd.Flags().StringVar(&maxLifetimeFlag, "max-lifetime", "", "Maximum tunnel lifetime (e.g. 1h, 8h, 7d)")
+	rootCmd.AddCommand(udpCmd)
+
+	// Login command
+	loginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Save authentication token",
+		Long: `Save your API token to the system keyring for future use.
+Use -t to provide token directly, or enter it interactively.
+
+On headless systems without a system keyring (no org.freedesktop.secrets),
+the token is saved to ~/.fxtunnel/client.yaml instead. You can also skip
+login entirely and pass -t <token> or set FXTUNNEL_TOKEN per command.`,
+		RunE: runLogin,
+	}
+	rootCmd.AddCommand(loginCmd)
+
+	// Logout command
+	logoutCmd := &cobra.Command{
+		Use:   "logout",
+		Short: "Remove saved credentials",
+		Long: `Remove the saved API token and server address from the system keyring.
+After logout, you will need to run 'fxtunnel login' or use --token for all commands.`,
+		RunE: runLogout,
+	}
+	rootCmd.AddCommand(logoutCmd)
+
+	// Init command
+	rootCmd.AddCommand(newInitCmd())
+
+	// Domains command
+	rootCmd.AddCommand(newDomainsCmd())
+
+	// Presets command
+	presetsCmd := &cobra.Command{
+		Use:   "presets",
+		Short: "List available security presets",
+		Long:  `Show all available presets and the flags they apply when used with --preset.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			printPresets()
+		},
+	}
+	rootCmd.AddCommand(presetsCmd)
+
+	// Daemon commands
+	rootCmd.AddCommand(newUpCmd())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newDownCmd())
+
+	// Update command
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Check for updates and self-update",
+		Long: `Check the server for a newer client version and self-update if available.
+
+The server address is taken from --server flag or saved credentials.`,
+		RunE: runUpdate,
+	}
+	rootCmd.AddCommand(updateCmd)
+
+	// Version command
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Long:  `Print the client version, build timestamp, and project URLs.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("fxTunnel Client %s (built %s)\n", Version, BuildTime)
+			fmt.Println("GitHub: https://github.com/mephistofox/fxtun.dev")
+			fmt.Printf("Website: %s\n", getInstalledWebsite())
+		},
+	}
+	rootCmd.AddCommand(versionCmd)
+
+	return rootCmd
+}
+
+func runConfig(cmd *cobra.Command, args []string) error {
+	cfg, log, err := loadConfig(cmd, nil)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to load configuration")
+	}
+
+	if len(cfg.Tunnels) == 0 {
+		_ = cmd.Help()
+		return nil
+	}
+
+	return runClient(cfg, log)
+}
+
+// loadConfig resolves the effective client config, field by field:
+// flags the user set > env FXTUNNEL_* > config file > saved login > defaults.
+// runConfig, the quick http/tcp/udp commands and the daemon all go through it.
+// Non-nil tunnels replace the file's before validation, so a quick command is
+// not blocked by an unrelated broken entry in the project file; such a quick
+// command also reads only -c or ./fxtunnel.yaml, not the client.yaml search.
+func loadConfig(cmd *cobra.Command, tunnels []config.TunnelConfig) (*config.ClientConfig, zerolog.Logger, error) {
+	f := cmd.Flags()
+	overrides := map[string]any{}
+	if tunnels != nil {
+		overrides["tunnels"] = tunnels
+	}
+	set := func(flag, key string, val any) {
+		if f.Changed(flag) {
+			overrides[key] = val
+		}
+	}
+	set("server", "server.address", normalizeServerAddr(serverAddr))
+	set("token", "server.token", token)
+	set("insecure", "server.insecure", insecureFlag)
+	set("no-inspect", "inspect.enabled", !noInspect)
+	set("inspect-addr", "inspect.addr", inspectAddr)
+	set("log-level", "logging.level", logLevel)
+	set("log-format", "logging.format", logFormat)
+
+	// The flag defaults (warn/console) stay the CLI default when the file has
+	// no logging section.
+	fallbacks := map[string]any{"logging.level": logLevel, "logging.format": logFormat}
+	savedTok, savedAddr := savedLogin()
+	if savedTok != "" && savedAddr != "" {
+		fallbacks["server.address"] = normalizeServerAddr(savedAddr)
+	}
+
+	cfg, err := config.LoadClientConfigLayered(configFile, overrides, fallbacks)
+	if err != nil {
+		return nil, setupLogging(logLevel, logFormat), err
+	}
+	// setupLogging falls back to info on a bad level, which would otherwise
+	// hide a typo'd --log-level entirely (SUSPECT).
+	if _, err := zerolog.ParseLevel(cfg.Logging.Level); err != nil {
+		return nil, setupLogging(logLevel, logFormat), fmt.Errorf("invalid log level %q: %w", cfg.Logging.Level, err)
+	}
+	// Add the default port to a bare host from the file.
+	cfg.Server.Address = normalizeServerAddr(cfg.Server.Address)
+
+	// The saved token goes only to the server it was saved for, never to one
+	// a project file or --server names instead. It can also come in through
+	// the file layer, when ~/.fxtunnel/client.yaml is the config file itself.
+	explicitTok := f.Changed("token") || os.Getenv("FXTUNNEL_TOKEN") != "" || os.Getenv("FXTUNNEL_SERVER_TOKEN") != ""
+	if savedTok != "" && !explicitTok && (cfg.Server.Token == "" || cfg.Server.Token == savedTok) {
+		cfg.Server.Token = ""
+		if loginMatches(savedAddr, cfg.Server.Address) &&
+			(cfg.Server.FallbackAddress == "" || loginMatches(savedAddr, cfg.Server.FallbackAddress)) {
+			cfg.Server.Token = savedTok
+		}
+	}
+	return cfg, setupLogging(cfg.Logging.Level, cfg.Logging.Format), nil
+}
+
+func runHTTP(cmd *cobra.Command, args []string) error {
+	port, err := parsePort(args[0])
+	if err != nil {
+		return err
+	}
+
+	// Apply preset (explicit flags override preset values)
+	if presetFlag != "" {
+		preset, err := resolvePreset(presetFlag)
+		if err != nil {
+			return err
+		}
+		if !cmd.Flags().Changed("auth") && authFlag == "" {
+			authFlag = preset.AuthUser + ":" + preset.AuthPass
+			fmt.Printf("Preset '%s' credentials:\n", presetFlag)
+			fmt.Printf("  Username: %s\n", preset.AuthUser)
+			fmt.Printf("  Password: %s\n", preset.AuthPass)
+			fmt.Println()
+		}
+		if !cmd.Flags().Changed("auto-close") && autoCloseFlag == "" && preset.AutoClose != "" {
+			autoCloseFlag = preset.AutoClose
+		}
+		if !cmd.Flags().Changed("max-lifetime") && maxLifetimeFlag == "" && preset.MaxLifetime != "" {
+			maxLifetimeFlag = preset.MaxLifetime
+		}
+		if !cmd.Flags().Changed("allow-ip") && len(allowIPsFlag) == 0 && len(preset.AllowIPs) > 0 {
+			allowIPsFlag = preset.AllowIPs
+		}
+	}
+
+	// Validate and hash --auth flag
+	var basicAuthHash string
+	if authFlag != "" {
+		username, password, err := splitAuthFlag(authFlag)
+		if err != nil {
+			return err
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(username+":"+password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash auth credentials: %w", err)
+		}
+		basicAuthHash = string(hash)
+	}
+
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
+	tunnelCfg := config.TunnelConfig{
+		Name:          fmt.Sprintf("http-%d", port),
+		Type:          "http",
+		LocalPort:     port,
+		Subdomain:     domain,
+		BasicAuthHash: basicAuthHash,
+		AllowIPs:      allowIPsFlag,
+		AutoClose:     autoCloseFlag,
+		MaxLifetime:   maxLifetimeFlag,
+	}
+	if added, err := addTunnelToDaemon(tunnelCfg); added {
+		return err
+	}
+
+	cfg, log, err := loadConfig(cmd, []config.TunnelConfig{tunnelCfg})
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	return runClient(cfg, log)
+}
+
+// splitAuthFlag parses --auth's "user:password" value. SplitN with a limit
+// of 2 puts everything after the first ':' into password, so a ':' can never
+// end up in the username half — there was nothing left for the old
+// "username must not contain ':'" check to ever reject (SUSPECT, dead code).
+func splitAuthFlag(auth string) (user, password string, err error) {
+	parts := strings.SplitN(auth, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid --auth format: must be user:password")
+	}
+	user, password = parts[0], parts[1]
+	if len(user) < 1 {
+		return "", "", fmt.Errorf("invalid --auth: username must be at least 1 character")
+	}
+	if len(password) < 8 {
+		return "", "", fmt.Errorf("invalid --auth: password must be at least 8 characters")
+	}
+	return user, password, nil
+}
+
+func runTCP(cmd *cobra.Command, args []string) error {
+	port, err := parsePort(args[0])
+	if err != nil {
+		return err
+	}
+
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
+	// Validate --remote-port
+	if err := validateRemotePort(remotePort); err != nil {
+		return err
+	}
+
+	tunnelCfg := config.TunnelConfig{
+		Name:        fmt.Sprintf("tcp-%d", port),
+		Type:        "tcp",
+		LocalPort:   port,
+		RemotePort:  remotePort,
+		AllowIPs:    allowIPsFlag,
+		AutoClose:   autoCloseFlag,
+		MaxLifetime: maxLifetimeFlag,
+	}
+	if added, err := addTunnelToDaemon(tunnelCfg); added {
+		return err
+	}
+
+	cfg, log, err := loadConfig(cmd, []config.TunnelConfig{tunnelCfg})
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	return runClient(cfg, log)
+}
+
+func runUDP(cmd *cobra.Command, args []string) error {
+	port, err := parsePort(args[0])
+	if err != nil {
+		return err
+	}
+
+	// Validate --allow-ip entries
+	if err := validateAllowIPs(allowIPsFlag); err != nil {
+		return err
+	}
+
+	// Validate --auto-close
+	if err := client.ValidateAutoClose(autoCloseFlag); err != nil {
+		return err
+	}
+
+	// Validate --max-lifetime
+	if err := client.ValidateMaxLifetime(maxLifetimeFlag); err != nil {
+		return err
+	}
+
+	// Validate --remote-port
+	if err := validateRemotePort(remotePort); err != nil {
+		return err
+	}
+
+	tunnelCfg := config.TunnelConfig{
+		Name:        fmt.Sprintf("udp-%d", port),
+		Type:        "udp",
+		LocalPort:   port,
+		RemotePort:  remotePort,
+		AllowIPs:    allowIPsFlag,
+		AutoClose:   autoCloseFlag,
+		MaxLifetime: maxLifetimeFlag,
+	}
+	if added, err := addTunnelToDaemon(tunnelCfg); added {
+		return err
+	}
+
+	cfg, log, err := loadConfig(cmd, []config.TunnelConfig{tunnelCfg})
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	return runClient(cfg, log)
+}
+
+func resolveCredentials() {
+	// Environment variables (CI / headless servers) before the keyring, which
+	// may be unavailable on headless Linux without a Secret Service.
+	if token == "" {
+		token = os.Getenv(envToken)
+	}
+	if serverAddr == "" {
+		serverAddr = os.Getenv(envServerAddr)
+	}
+
+	if token == "" || serverAddr == "" {
+		kr := keyring.New()
+		if creds, err := kr.LoadCredentials(); err == nil {
+			if token == "" && creds.Token != "" {
+				token = creds.Token
+			}
+			if serverAddr == "" && creds.ServerAddress != "" {
+				serverAddr = creds.ServerAddress
+			}
+		}
+	}
+
+	// File fallback: on headless hosts the token is saved to client.yaml when
+	// the keyring is absent. Without this, `fxtunnel http 8080` would connect
+	// with an empty token after a keyring-less `login`.
+	if token == "" || serverAddr == "" {
+		if fileTok, fileAddr, ok := credentialsFromFile(); ok {
+			if token == "" {
+				token = fileTok
+			}
+			if serverAddr == "" && fileAddr != "" {
+				serverAddr = fileAddr
+			}
+		}
+	}
+}
+
+func runLogin(cmd *cobra.Command, args []string) error {
+	if token != "" {
+		return saveToken(token)
+	}
+
+	fmt.Println("How would you like to authenticate?")
+	fmt.Println("  1) Enter API token manually")
+	fmt.Println("  2) Log in with browser")
+	fmt.Print("Choice [1/2] (default: 2): ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	choice := ""
+	if scanner.Scan() {
+		choice = strings.TrimSpace(scanner.Text())
+	}
+
+	switch choice {
+	case "1":
+		return loginWithToken(scanner)
+	default:
+		return loginWithBrowser()
+	}
+}
+
+func loginWithToken(scanner *bufio.Scanner) error {
+	fmt.Print("Enter your API token: ")
+	t := ""
+	if scanner.Scan() {
+		t = strings.TrimSpace(scanner.Text())
+	}
+	if t == "" {
+		return fmt.Errorf("token cannot be empty")
+	}
+	return saveToken(t)
+}
+
+func loginWithBrowser() error {
+	webURL := resolveWebURL()
+
+	// Request device code
+	apiURL := webURL + "/api/auth/device/code"
+	resp, err := http.Post(apiURL, "application/json", nil) //nolint:gosec // URL built from user-configured server
+	if err != nil {
+		return fmt.Errorf("failed to start device flow: %w\nTry: fxtunnel login -t <token>", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("server returned %d — device flow may not be supported\nTry: fxtunnel login -t <token>", resp.StatusCode)
+	}
+
+	var deviceResp struct {
+		SessionID string `json:"session_id"`
+		UserCode  string `json:"user_code"`
+		AuthURL   string `json:"auth_url"`
+		ExpiresIn int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&deviceResp); err != nil {
+		return fmt.Errorf("invalid server response: %w", err)
+	}
+	if deviceResp.UserCode == "" {
+		return fmt.Errorf("server did not return a verification code — update the server or use: fxtunnel login -t <token>")
+	}
+
+	// The code is shown here and typed by hand in the browser. It is what ties
+	// the approval to the person who started this login: a link alone must
+	// never be enough to authorize a session.
+	fmt.Printf("\nOpen this URL in your browser:\n\n  %s\n\nand enter the code:\n\n  \033[1m%s\033[0m\n\n", deviceResp.AuthURL, deviceResp.UserCode)
+	fmt.Println("Waiting for authorization...")
+
+	_ = openBrowser(deviceResp.AuthURL)
+
+	// Poll for token
+	pollURL := webURL + "/api/auth/device/token?session=" + deviceResp.SessionID
+	deadline := time.Now().Add(time.Duration(deviceResp.ExpiresIn) * time.Second)
+
+	for time.Now().Before(deadline) {
+		time.Sleep(2 * time.Second)
+
+		pollResp, err := http.Get(pollURL) //nolint:gosec // URL built from user-configured server
+		if err != nil {
+			continue
+		}
+
+		var result struct {
+			Status string `json:"status"`
+			Token  string `json:"token"`
+		}
+		_ = json.NewDecoder(pollResp.Body).Decode(&result)
+		pollResp.Body.Close()
+
+		switch result.Status {
+		case "authorized":
+			fmt.Println("Authorized!")
+			return persistCredentials(result.Token, serverAddr)
+		case "expired":
+			return fmt.Errorf("session expired — please try again")
+		}
+	}
+
+	return fmt.Errorf("authorization timed out — please try again")
+}
+
+func resolveWebURL() string {
+	addr := serverAddr
+	if addr == "" {
+		kr := keyring.New()
+		if creds, err := kr.LoadCredentials(); err == nil && creds.ServerAddress != "" {
+			addr = creds.ServerAddress
+		}
+	}
+
+	if addr != "" {
+		return client.WebBaseURL(addr)
+	}
+
+	return DefaultServerURL
+}
+
+func saveToken(t string) error {
+	return persistCredentials(t, serverAddr)
+}
+
+// safeBrowserURL reports whether a URL may be handed to the OS browser opener.
+//
+// The address comes from the server's JSON response, and on Windows it is
+// passed to `cmd /c start`, which Go only quotes when the argument contains
+// spaces or quotes. A URL like "https://x/?a=1&calc" would reach cmd.exe
+// unquoted and run calc — a hostile or mistyped --server turns into code
+// execution on the client.
+func safeBrowserURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return false
+	}
+	return !strings.ContainsAny(raw, "&|;$`<>^\"'\n\r\t ")
+}
+
+func openBrowser(rawURL string) error {
+	if !safeBrowserURL(rawURL) {
+		return fmt.Errorf("refusing to open unsafe URL: %s", rawURL)
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", rawURL)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", rawURL)
+	default:
+		cmd = exec.Command("xdg-open", rawURL)
+	}
+	return cmd.Start()
+}
+
+func runLogout(cmd *cobra.Command, args []string) error {
+	kr := keyring.New()
+	krErr := kr.Clear()
+	// Also strip the plaintext token written by the keyring-less file fallback,
+	// otherwise checkAuth would keep authenticating from ~/.fxtunnel/client.yaml.
+	fileErr := clearCredentialsFile()
+	if krErr != nil && fileErr != nil {
+		return fmt.Errorf("failed to remove credentials: keyring: %v; file: %w", krErr, fileErr)
+	}
+	fmt.Println("Credentials removed.")
+	return nil
+}
+
+func runUpdate(cmd *cobra.Command, args []string) error {
+	resolveCredentials()
+	addr := normalizeServerAddr(serverAddr)
+
+	fmt.Printf("  \033[90mChecking for updates from %s...\033[0m\n", addr)
+
+	info, err := client.CheckUpdate(addr, Version)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  \033[31mUpdate check failed: %v\033[0m\n", err)
+		return err
+	}
+	if info == nil {
+		fmt.Println("  \033[32mAlready up to date.\033[0m")
+		return nil
+	}
+
+	if client.IsVersionIncompatible(info.MinVersion, Version) {
+		fmt.Printf("  \033[33mIncompatible version %s (minimum: %s)\033[0m\n", Version, info.MinVersion)
+	} else {
+		fmt.Printf("  \033[33mNew version available: %s (current: %s)\033[0m\n", info.ClientVersion, Version)
+	}
+
+	if info.DownloadURL == "" {
+		fmt.Println("  \033[31mNo download available for your platform.\033[0m")
+		return nil
+	}
+
+	fmt.Printf("  \033[90mDownloading...\033[0m\n")
+	if err := client.SelfUpdate(info.DownloadURL, info.ServerHost); err != nil {
+		fmt.Fprintf(os.Stderr, "  \033[31mUpdate failed: %v\033[0m\n", err)
+		return err
+	}
+
+	fmt.Printf("  \033[32mUpdated to %s. Please restart the client.\033[0m\n", info.ClientVersion)
+	return nil
+}
+
+func checkAndAutoUpdate(addr string) {
+	info, err := client.CheckUpdate(addr, Version)
+	if err != nil || info == nil {
+		return
+	}
+
+	if client.IsVersionIncompatible(info.MinVersion, Version) {
+		fmt.Printf("  \033[33mIncompatible version %s (minimum: %s), updating...\033[0m\n", Version, info.MinVersion)
+		if info.DownloadURL == "" {
+			fmt.Fprintf(os.Stderr, "  \033[31mNo download available for this platform\033[0m\n")
+			os.Exit(1)
+		}
+		if err := client.SelfUpdateAndRestart(info.DownloadURL, info.ServerHost); err != nil {
+			fmt.Fprintf(os.Stderr, "  \033[31mAuto-update failed: %v\033[0m\n", err)
+			os.Exit(1)
+		}
+		return // unreachable after restart
+	}
+
+	fmt.Printf("  \033[33mNew version available: %s (current: %s). Run 'fxtunnel update' to upgrade.\033[0m\n", info.ClientVersion, Version)
+}
+
+// getInstalledWebsite returns the website URL saved by the install script.
+// Falls back to DefaultServerURL if not found.
+func getInstalledWebsite() string {
+	exe, err := os.Executable()
+	if err == nil {
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(exe), ".fxtunnel-website"))
+		if err == nil {
+			if url := strings.TrimSpace(string(data)); url != "" {
+				return url
+			}
+		}
+	}
+	return DefaultServerURL
+}
+
+// normalizeServerAddr adds default port if not specified
+func normalizeServerAddr(addr string) string {
+	if addr == "" {
+		return "tunnel.fxtun.ru:443"
+	}
+	// Check if port is already specified
+	if !strings.Contains(addr, ":") {
+		return addr + ":" + defaultControlPort
+	}
+	return addr
+}
+
+func parsePort(s string) (int, error) {
+	var port int
+	_, err := fmt.Sscanf(s, "%d", &port)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port: %s", s)
+	}
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("port out of range: %d", port)
+	}
+	return port, nil
+}
+
+// validateRemotePort checks a --remote-port value: 0 means auto-assign,
+// anything else must be a valid port number.
+func validateRemotePort(port int) error {
+	if port != 0 && (port < 1 || port > 65535) {
+		return fmt.Errorf("remote port out of range: %d", port)
+	}
+	return nil
+}
+
+// validateAllowIPs validates each --allow-ip entry as either a valid IP or CIDR.
+func validateAllowIPs(entries []string) error {
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			if _, _, err := net.ParseCIDR(entry); err != nil {
+				return fmt.Errorf("invalid --allow-ip CIDR %q: %w", entry, err)
+			}
+		} else {
+			if net.ParseIP(entry) == nil {
+				return fmt.Errorf("invalid --allow-ip address %q", entry)
+			}
+		}
+	}
+	return nil
+}
+
+func runClient(cfg *config.ClientConfig, log zerolog.Logger) error {
+	noToken := cfg.Server.Token == ""
+	// The public server always requires a token: refuse before dialing it.
+	// A self-hosted address may run with auth.enabled: false, so let any
+	// other address try to connect and let the server decide; if it turns
+	// out to need auth after all, the login hint is added below.
+	if noToken && config.IsPublicAddress(cfg.Server.Address) {
+		return errNotLoggedIn
+	}
+
+	log.Debug().
+		Str("version", Version).
+		Str("server", cfg.Server.Address).
+		Msg("Starting fxTunnel Client")
+
+	// Create client
+	c := client.New(cfg, log)
+	c.SetVersion(Version)
+
+	// The last tunnel closing (auto-close, max-lifetime, closed from the dashboard)
+	// leaves nothing to serve. Reconnects rebuild the tunnel map without this event.
+	// Subscribed before Connect so a close right after it is not missed.
+	allClosed := make(chan struct{}, 1)
+	c.Events().Subscribe(func(e client.Event) {
+		if e.Type == client.EventTunnelClosed && len(c.GetTunnels()) == 0 {
+			select {
+			case allClosed <- struct{}{}:
+			default:
+			}
+		}
+	})
+
+	fmt.Println("  \033[90mConnecting to fxtunnel server...\033[0m")
+
+	// Connect
+	if err := c.Connect(); err != nil {
+		// Only an auth rejection is a login problem, not a network error.
+		var ae *client.AuthError
+		if noToken && errors.As(err, &ae) {
+			err = fmt.Errorf("%w: %v", errNotLoggedIn, err)
+		}
+		fmt.Fprintf(os.Stderr, "  \033[31mFailed to connect: %v\033[0m\n", err)
+		os.Exit(1)
+	}
+
+	// Background update check (with forced auto-update if incompatible)
+	go checkAndAutoUpdate(cfg.Server.Address)
+
+	fmt.Println("  \033[32mTunnel established!\033[0m")
+	for _, t := range c.GetTunnels() {
+		if t.URL != "" {
+			fmt.Printf("  HTTP:  %s\n", t.URL)
+			httpsURL := t.HTTPSURL
+			if httpsURL == "" && strings.HasPrefix(t.URL, "http://") {
+				httpsURL = "https://" + strings.TrimPrefix(t.URL, "http://")
+			}
+			if httpsURL != "" {
+				fmt.Printf("  HTTPS: %s\n", httpsURL)
+			}
+		} else {
+			fmt.Printf("  %s: %s\n", strings.ToUpper(t.Config.Type), t.RemoteAddr)
+		}
+		fmt.Printf("  Forwarding to localhost:%d\n", t.Config.LocalPort)
+		if t.BasicAuthEnabled {
+			fmt.Println("  Basic Auth: enabled")
+		}
+		if t.AllowIPsCount > 0 {
+			fmt.Printf("  IP Allowlist: %d %s\n", t.AllowIPsCount, pluralize(t.AllowIPsCount, "entry", "entries"))
+		}
+		if t.AutoClose != "" {
+			fmt.Printf("  Auto-close: %s (idle timeout)\n", t.AutoClose)
+		}
+		if t.MaxLifetime != "" {
+			fmt.Printf("  Max lifetime: %s\n", t.MaxLifetime)
+		}
+	}
+	if addr := c.InspectorAddr(); addr != "" {
+		fmt.Printf("  Inspector: http://%s\n", addr)
+	}
+	fmt.Println("  \033[90mReady to receive connections\033[0m")
+
+	// Wait for shutdown signal, or for the client to end on its own
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+wait:
+	for {
+		select {
+		case sig := <-sigChan:
+			log.Info().Str("signal", sig.String()).Msg("Received shutdown signal")
+			break wait
+		case <-allClosed:
+			// Queued while Connect was still creating tunnels: the map was empty only for a moment.
+			if len(c.GetTunnels()) > 0 {
+				continue
+			}
+			fmt.Println("  \033[90mAll tunnels closed, exiting\033[0m")
+			break wait
+		case <-c.Done():
+			// The client already logged why (server gone, reconnect limit, rejected token).
+			c.Close() // waits for the cleanup the client started
+			fmt.Fprintln(os.Stderr, "  \033[31mDisconnected from the server, exiting\033[0m")
+			os.Exit(1)
+		}
+	}
+
+	done := make(chan struct{})
+	go func() { c.Close(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		log.Warn().Msg("Close timeout, exiting")
+	}
+	return nil
+}
+
+// pluralize returns singular if count == 1, otherwise plural.
+func pluralize(count int, singular, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
+}
+
+func setupLogging(level, format string) zerolog.Logger {
+	lvl, err := zerolog.ParseLevel(level)
+	if err != nil {
+		lvl = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(lvl)
+
+	var log zerolog.Logger
+	if format == "json" {
+		log = zerolog.New(os.Stdout).With().Timestamp().Logger()
+	} else {
+		output := zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: time.RFC3339,
+		}
+		log = zerolog.New(output).With().Timestamp().Logger()
+	}
+
+	return log
+}

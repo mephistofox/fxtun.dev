@@ -1,0 +1,42 @@
+{{ define "main" }}
+{{- $root := where site.RegularPages "Section" "" -}}
+{{- $pager := .Paginate $root.ByDate.Reverse -}}
+<div class="wrap">
+  {{ partial "intro.html" (dict "title" "Блог" "accent" "fxTunnel" "desc" "Как открыть локальный сервис в интернет, как устроены туннели изнутри и что нового в fxTunnel. Пишет автор проекта.") }}
+  {{ partial "tabs.html" (dict "active" "all") }}
+  {{- if eq $pager.PageNumber 1 }}
+    {{- $feat := sort (where $root "Params.featured" "!=" nil) "Params.featured" -}}
+    {{- if lt (len $feat) 3 }}{{ $feat = first 3 $root.ByDate.Reverse }}{{ end -}}
+    <section class="feat">
+      {{ partial "card.html" (dict "page" (index $feat 0) "big" true) }}
+      <div class="stack">{{ range after 1 (first 3 $feat) }}{{ partial "card.html" (dict "page" .) }}{{ end }}</div>
+    </section>
+    {{- with first 3 (where site.RegularPages "Section" "changelog").ByDate.Reverse }}
+    <div class="sec-h"><h2>Что нового</h2><a href="/blog/changelog/">Все обновления →</a></div>
+    <section class="new">{{ range . }}<a href="{{ partial "localurl.html" . }}"><span class="d">{{ partial "ru-date.html" .Date }}</span>{{ partial "pills.html" . }}<h4>{{ .Title }}</h4><p>{{ .Params.lead | default .Description }}</p></a>{{ end }}</section>
+    {{- end }}
+    {{- with site.GetPage "/diary" }}
+    {{- $parts := (where site.RegularPages "Section" "diary").ByParam "part" }}
+    {{- $n := len $parts -}}
+    {{- $n10 := mod $n 10 -}}
+    {{- $n100 := mod $n 100 -}}
+    {{- $word := "частей" -}}
+    {{- if and (eq $n10 1) (ne $n100 11) -}}
+      {{- $word = "часть" -}}
+    {{- else if and (ge $n10 2) (le $n10 4) (not (and (ge $n100 12) (le $n100 14))) -}}
+      {{- $word = "части" -}}
+    {{- end -}}
+    <div class="sec-h"><h2>Серия</h2><a href="/blog/diary/">Все части →</a></div>
+    <section class="series">
+      <div class="l"><span class="rub c-diary">Дневник разработки</span><h3>{{ .Title }}</h3><p>{{ .Description }}</p>
+        <div class="bar"><i></i></div><div class="cnt">{{ $n }} {{ $word }}</div>
+        {{ with index $parts 0 }}<a class="btn p" href="{{ partial "localurl.html" . }}">Читать с первой части →</a>{{ end }}</div>
+      <div class="parts">{{ range $parts }}<a href="{{ partial "localurl.html" . }}"><b>{{ printf "%02d" .Params.part }}</b>{{ .Title | replaceRE "^Пишу свой ngrok на Go: " "" | strings.FirstUpper }}</a>{{ end }}</div>
+    </section>
+    {{- end }}
+    <div class="sec-h"><h2>Все статьи</h2></div>
+  {{- end }}
+  <section class="grid">{{ range $pager.Pages }}{{ partial "card.html" (dict "page" .) }}{{ end }}</section>
+  {{- with $pager.Next }}<div class="more"><a href="{{ .URL | replaceRE "/index\\.html$" "/" }}">Показать ещё</a></div>{{ end }}
+</div>
+{{ end }}

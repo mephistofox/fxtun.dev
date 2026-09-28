@@ -1,0 +1,962 @@
+/* Self-hosted variable fonts (latin + cyrillic subsets) */
+
+/*
+ * Tried font-display: optional here to stop the heading repainting when the
+ * webfont lands. Measured: the largest paint did not move and the page looked
+ * slower, so the brand font stays guaranteed with swap.
+ *
+ * Unbounded — display font, axis trimmed to the 400-700 actually used */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/unbounded-cyrillic-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/unbounded-cyrillic-wght-normal.woff2') format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+/* Unbounded's latin-ext subset is deliberately not loaded. The only character
+   the site uses from that range is the rouble sign, and the file costs 118 KB
+   — the heaviest asset on the page, for one glyph. ₽ falls through to Onest,
+   which is already loaded and whose latin-ext subset is 16 KB. */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/unbounded-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* Onest — body font, weights 100–900 */
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/onest-cyrillic-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/onest-cyrillic-wght-normal.woff2') format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/onest-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Onest';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/onest-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* JetBrains Mono — monospace font, weights 100–800 */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-cyrillic-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-cyrillic-wght-normal.woff2') format('woff2');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cyber-Industrial Noir - Light Theme */
+    --background: 220 20% 94%;
+    --foreground: 220 25% 10%;
+    --card: 220 20% 97%;
+    --card-foreground: 220 25% 10%;
+    --popover: 220 20% 97%;
+    --popover-foreground: 220 25% 10%;
+
+    /* Primary - Electric Lime */
+    --primary: 75 85% 40%;
+    --primary-foreground: 220 20% 5%;
+    --primary-dim: 75 70% 32%;
+
+    --secondary: 220 18% 90%;
+    --secondary-foreground: 220 25% 10%;
+    --muted: 220 18% 90%;
+    --muted-foreground: 220 15% 36%;
+
+    /* Accent - Vivid Purple */
+    --accent: 280 80% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 18% 82%;
+    --input: 220 18% 86%;
+    --ring: 75 85% 40%;
+    --radius: 0.625rem;
+
+    /* Surface colors */
+    --surface: 220 18% 90%;
+    --surface-elevated: 220 20% 97%;
+
+    /* Status colors */
+    --success: 160 72% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 85% 48%;
+    --warning-foreground: 0 0% 0%;
+    --info: 217 80% 55%;
+    --info-foreground: 0 0% 100%;
+
+    /* Protocol type colors - slightly muted for light theme */
+    --type-http: 160 72% 36%;
+    --type-tcp: 217 80% 50%;
+    --type-udp: 280 70% 55%;
+
+    /* Glow effects */
+    --glow-primary: 75 85% 40%;
+    --glow-accent: 280 80% 55%;
+
+    /* Glass effect */
+    --glass-bg: 220 20% 97% / 0.85;
+    --glass-border: 220 18% 76% / 0.6;
+
+    /* Terminal / code block colors */
+    --code-bg: 220 18% 92%;
+    --code-header-bg: 220 18% 88%;
+    --code-text: 220 20% 22%;
+  }
+
+  .dark {
+    /* Cyber-Industrial Noir - Dark Theme */
+    --background: 220 20% 4%;
+    --foreground: 0 0% 95%;
+    --card: 220 15% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Primary - Electric Lime */
+    --primary: 75 100% 50%;
+    --primary-foreground: 220 20% 4%;
+    --primary-dim: 75 80% 35%;
+
+    --secondary: 220 15% 12%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+
+    /* Accent - Vivid Purple */
+    --accent: 280 100% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 220 15% 15%;
+    --input: 220 15% 15%;
+    --ring: 75 100% 50%;
+
+    /* Surface colors */
+    --surface: 220 15% 8%;
+    --surface-elevated: 220 15% 12%;
+
+    /* Protocol type colors - brighter for dark mode */
+    --type-http: 160 84% 45%;
+    --type-tcp: 217 91% 65%;
+    --type-udp: 280 100% 70%;
+
+    /* Glow effects */
+    --glow-primary: 75 100% 50%;
+    --glow-accent: 280 100% 65%;
+
+    /* Glass effect */
+    --glass-bg: 220 15% 8% / 0.8;
+    --glass-border: 0 0% 95% / 0.1;
+
+    /* Terminal / code block colors */
+    --code-bg: 220 20% 6%;
+    --code-header-bg: 220 20% 8%;
+    --code-text: 210 20% 85%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+
+  /* Typography defaults */
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+
+  /* Ensure inputs are visible and styled */
+  input, textarea, select {
+    @apply bg-background text-foreground;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    @apply outline-none;
+  }
+
+  input[type="checkbox"] {
+    @apply h-4 w-4 rounded border-input bg-background;
+    -webkit-appearance: checkbox;
+    appearance: checkbox;
+  }
+
+  /* Custom selection color */
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* ============================================
+   LANDING PAGE COMPONENTS
+   ============================================ */
+
+@layer components {
+  /* Glass morphism card */
+  .glass-card {
+    @apply backdrop-blur-xl border rounded-2xl;
+    background: hsl(var(--glass-bg));
+    border-color: hsl(var(--glass-border));
+  }
+
+  .glass-card-glow {
+    @apply backdrop-blur-xl border rounded-2xl transition-all duration-500;
+    background: hsl(var(--glass-bg));
+    border-color: hsl(var(--glass-border));
+  }
+
+  .glass-card-glow:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow:
+      0 0 30px hsl(var(--primary) / 0.15),
+      inset 0 0 20px hsl(var(--primary) / 0.05);
+  }
+
+  /* Hero Section Styles */
+  .hero-section {
+    @apply relative min-h-screen overflow-hidden;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -20%, hsl(var(--primary) / 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 50% at 80% 50%, hsl(var(--accent) / 0.1) 0%, transparent 50%),
+      hsl(var(--background));
+  }
+
+  /* Gradient text with shimmer */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary)) 40%,
+      hsl(var(--accent)) 100%
+    );
+  }
+
+  .gradient-text-shimmer {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--foreground)) 25%,
+      hsl(var(--primary)) 50%,
+      hsl(var(--foreground)) 75%,
+      hsl(var(--primary)) 100%
+    );
+    background-size: 200% auto;
+    animation: text-shimmer 3s linear infinite;
+  }
+
+  /* Primary CTA button with glow */
+  .btn-glow {
+    @apply relative px-8 py-4 font-semibold rounded-xl overflow-hidden transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dim)) 100%);
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 20px hsl(var(--primary) / 0.4);
+  }
+
+  .btn-glow:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 30px hsl(var(--primary) / 0.5),
+      0 0 0 1px hsl(var(--primary) / 0.3);
+  }
+
+  .btn-glow:active {
+    transform: translateY(0);
+  }
+
+  .btn-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, hsl(0 0% 100% / 0.2) 0%, transparent 50%);
+  }
+
+  .btn-glow:hover::before {
+    opacity: 1;
+  }
+
+  /* Ghost/outline button */
+  .btn-ghost {
+    @apply px-8 py-4 font-semibold rounded-xl border-2 transition-all duration-300;
+    border-color: hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .btn-ghost:hover {
+    border-color: hsl(var(--primary) / 0.5);
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  /* Terminal styles - always dark for contrast and authenticity */
+  .terminal {
+    @apply rounded-2xl overflow-hidden;
+    background: hsl(220 20% 6%);
+    border: 1px solid hsl(220 15% 15%);
+    box-shadow:
+      0 25px 50px -12px hsl(0 0% 0% / 0.5),
+      inset 0 1px 0 hsl(0 0% 100% / 0.05);
+
+    /* Override theme variables so child Tailwind classes use dark colors */
+    --foreground: 0 0% 95%;
+    --muted-foreground: 220 10% 55%;
+    --primary: 75 100% 50%;
+    --type-http: 160 84% 45%;
+    --border: 220 15% 15%;
+    --code-bg: 220 20% 6%;
+    --code-header-bg: 220 20% 8%;
+  }
+
+  .terminal-header {
+    @apply flex items-center gap-2 px-4 py-3;
+    background: hsl(var(--code-header-bg));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .terminal-dot {
+    @apply w-3 h-3 rounded-full;
+  }
+
+  .terminal-body {
+    @apply p-5 font-mono text-sm leading-relaxed;
+    color: hsl(var(--code-text));
+  }
+
+  .terminal-prompt {
+    color: hsl(var(--primary));
+  }
+
+  .terminal-cursor {
+    @apply inline-block w-2 h-5 ml-1;
+    background: hsl(var(--primary));
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Feature card - modern style */
+  .feature-card {
+    @apply relative p-8 rounded-2xl border transition-all duration-500 flex flex-col overflow-hidden;
+    background: hsl(var(--surface));
+    border-color: hsl(var(--border));
+  }
+
+  .feature-card::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500 pointer-events-none;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.1) 0%,
+      transparent 50%,
+      hsl(var(--accent) / 0.05) 100%
+    );
+  }
+
+  .feature-card:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    transform: translateY(-4px);
+  }
+
+  .feature-card:hover::before {
+    opacity: 1;
+  }
+
+  .feature-icon {
+    @apply w-14 h-14 rounded-xl flex items-center justify-center mb-6 transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.15) 0%, hsl(var(--accent) / 0.1) 100%);
+    color: hsl(var(--primary));
+  }
+
+  .feature-card:hover .feature-icon {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  /* Protocol badge */
+  .protocol-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .protocol-badge.active {
+    background: hsl(var(--primary) / 0.15);
+    border-color: hsl(var(--primary) / 0.4);
+    color: hsl(var(--primary));
+    box-shadow: 0 0 15px hsl(var(--primary) / 0.2);
+  }
+
+  .badge-http {
+    @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+    background: hsl(var(--type-http) / 0.15);
+    color: hsl(var(--type-http));
+    border: 1px solid hsl(var(--type-http) / 0.3);
+  }
+
+  .badge-tcp {
+    @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+    background: hsl(var(--type-tcp) / 0.15);
+    color: hsl(var(--type-tcp));
+    border: 1px solid hsl(var(--type-tcp) / 0.3);
+  }
+
+  .badge-udp {
+    @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+    background: hsl(var(--type-udp) / 0.15);
+    color: hsl(var(--type-udp));
+    border: 1px solid hsl(var(--type-udp) / 0.3);
+  }
+
+  /* Stats card with glow border */
+  .stats-card {
+    @apply relative p-6 rounded-xl overflow-hidden;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .stats-card::before {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, transparent 100%);
+  }
+
+  /* Section divider with gradient */
+  .section-divider {
+    @apply h-px w-full;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--border)) 20%,
+      hsl(var(--primary) / 0.5) 50%,
+      hsl(var(--border)) 80%,
+      transparent 100%
+    );
+  }
+
+  /* Data flow visualization line */
+  .data-flow-line {
+    @apply relative h-1 rounded-full overflow-hidden;
+    background: hsl(var(--border));
+  }
+
+  .data-flow-line::after {
+    content: '';
+    @apply absolute inset-y-0 w-1/3 rounded-full;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    animation: data-flow 2s linear infinite;
+  }
+
+  /* Animated data flow particles */
+  .data-flow-particles {
+    @apply absolute inset-0;
+  }
+
+  .data-flow-particles span {
+    @apply absolute h-full rounded-full;
+    width: 20%;
+    background: linear-gradient(90deg, transparent, hsl(var(--flow-color, var(--primary))), transparent);
+    animation: data-flow-particle 4s ease-in-out infinite;
+  }
+
+  .data-flow-particles span:nth-child(1) { animation-delay: 0s; }
+  .data-flow-particles span:nth-child(2) { animation-delay: 0.8s; }
+  .data-flow-particles span:nth-child(3) { animation-delay: 1.6s; }
+  .data-flow-particles span:nth-child(4) { animation-delay: 2.4s; }
+  .data-flow-particles span:nth-child(5) { animation-delay: 3.2s; }
+
+  @keyframes data-flow-particle {
+    0% {
+      left: -20%;
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
+  /* Smooth scroll reveal animations */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+  .reveal-delay-5 { transition-delay: 0.5s; }
+  .reveal-delay-6 { transition-delay: 0.6s; }
+  .reveal-delay-7 { transition-delay: 0.7s; }
+
+  /* Pulse indicator */
+  .pulse-indicator {
+    @apply relative w-3 h-3 rounded-full;
+    background: hsl(var(--primary));
+  }
+
+  .pulse-indicator::before {
+    content: '';
+    @apply absolute inset-0 rounded-full;
+    background: hsl(var(--primary));
+    animation: pulse-ring 2s ease-out infinite;
+  }
+
+  /* Download card */
+  .download-card {
+    @apply p-6 rounded-2xl border transition-all duration-300 cursor-pointer;
+    background: hsl(var(--surface));
+    border-color: hsl(var(--border));
+  }
+
+  .download-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 10px 40px hsl(var(--primary) / 0.1);
+    transform: translateY(-2px);
+  }
+
+  .platform-icon {
+    @apply flex items-center justify-center w-16 h-16 rounded-xl transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.1) 0%, hsl(var(--primary) / 0.05) 100%);
+  }
+
+  .download-card:hover .platform-icon {
+    transform: scale(1.1);
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.2) 0%, hsl(var(--primary) / 0.1) 100%);
+  }
+
+  /* Chrome shared by the keyword landings and the comparison pages.
+   *
+   * These lived as scoped styles inside one view, so every page that reused
+   * the class names rendered them unstyled — which is how the new landings
+   * ended up looking like a plain document. Global, so one page's look is
+   * every page's look. */
+  .page-shell {
+    @apply min-h-screen;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% -10%, hsl(var(--primary) / 0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 45% 45% at 85% 20%, hsl(var(--accent) / 0.08) 0%, transparent 55%),
+      hsl(var(--background));
+  }
+
+  .page-nav {
+    @apply fixed top-0 left-0 right-0 z-50;
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid hsl(var(--border) / 0.4);
+  }
+
+  .page-nav-brand { @apply flex items-center gap-3; }
+
+  .page-nav-logo {
+    @apply w-9 h-9 rounded-xl flex items-center justify-center;
+    background: hsl(var(--primary) / 0.1);
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+
+  .page-nav-link {
+    @apply text-sm font-medium transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .page-nav-link:hover { color: hsl(var(--foreground)); }
+
+  .page-nav-cta {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  .page-nav-cta:hover { opacity: 0.9; box-shadow: 0 0 20px hsl(var(--primary) / 0.3); }
+
+  .page-eyebrow {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .wedge-card {
+    @apply rounded-2xl p-6 transition-all duration-300;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+  .wedge-card:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow: 0 8px 30px hsl(var(--primary) / 0.06);
+  }
+
+  /* Numbered step, styled like the icon tiles on the home page. */
+  .step-number {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold shrink-0;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.15) 0%, hsl(var(--accent) / 0.1) 100%);
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+
+  .command-block {
+    @apply flex items-center justify-between gap-4 rounded-xl px-5 py-4;
+    background: hsl(var(--code-bg, var(--surface)));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .command-text {
+    @apply flex items-center gap-3 text-sm md:text-base font-mono;
+    color: hsl(var(--foreground));
+  }
+
+  .command-prompt { color: hsl(var(--primary)); user-select: none; }
+
+  .command-copy {
+    @apply flex-shrink-0 p-2 rounded-lg transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .command-copy:hover { color: hsl(var(--foreground)); background: hsl(var(--surface)); }
+
+  .command-result {
+    @apply flex items-center gap-2 mt-3 text-sm font-mono;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .footer-heading {
+    @apply text-sm font-display font-semibold mb-4;
+    color: hsl(var(--foreground));
+  }
+
+  .footer-list { @apply space-y-2.5; }
+
+  .footer-link {
+    @apply text-sm transition-colors;
+    color: hsl(var(--muted-foreground));
+  }
+  .footer-link:hover { color: hsl(var(--primary)); }
+
+  .comparison-link {
+    @apply inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-all duration-200;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+  .comparison-link:hover { border-color: hsl(var(--primary) / 0.4); color: hsl(var(--primary)); }
+
+  .compare-see-also-card {
+    @apply flex items-center justify-between gap-3 px-5 py-4 rounded-xl transition-all duration-200;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+  }
+  .compare-see-also-card:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    transform: translateY(-2px);
+  }
+
+  .cta-button {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dim)) 100%);
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 20px hsl(var(--primary) / 0.25);
+  }
+  .cta-button:hover { transform: translateY(-2px); box-shadow: 0 8px 30px hsl(var(--primary) / 0.4); }
+
+  .cta-button-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-semibold transition-all duration-300;
+    border: 2px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+  .cta-button-ghost:hover { border-color: hsl(var(--primary) / 0.5); color: hsl(var(--primary)); }
+
+  .faq-expand-enter-active,
+  .faq-expand-leave-active { transition: all 0.3s ease; overflow: hidden; }
+  .faq-expand-enter-from,
+  .faq-expand-leave-to { opacity: 0; max-height: 0; }
+  .faq-expand-enter-to,
+  .faq-expand-leave-from { opacity: 1; max-height: 400px; }
+}
+
+/* ============================================
+   STATUS INDICATORS
+   ============================================ */
+
+@layer utilities {
+  .bg-code {
+    background-color: hsl(var(--code-bg));
+  }
+
+  .bg-code-header {
+    background-color: hsl(var(--code-header-bg));
+  }
+
+  .text-code {
+    color: hsl(var(--code-text));
+  }
+
+  .status-dot {
+    @apply relative inline-flex h-2.5 w-2.5 rounded-full;
+  }
+
+  .status-dot-ping {
+    @apply absolute inline-flex h-full w-full animate-ping rounded-full opacity-75;
+  }
+
+  .status-connected {
+    @apply bg-emerald-500;
+  }
+
+  .status-connecting {
+    @apply bg-amber-500;
+  }
+
+  .status-disconnected {
+    @apply bg-slate-400 dark:bg-slate-600;
+  }
+
+  .status-error {
+    @apply bg-red-500;
+  }
+}
+
+/* ============================================
+   VUE TRANSITIONS
+   ============================================ */
+
+/* Fade */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide up */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* Scale */
+.scale-enter-active,
+.scale-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* List */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.list-move {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Stagger children animation */
+.stagger-children > * {
+  opacity: 0;
+}
+
+.stagger-children.animate > *:nth-child(1) { animation: fade-in-up 0.6s ease-out 0.1s forwards; }
+.stagger-children.animate > *:nth-child(2) { animation: fade-in-up 0.6s ease-out 0.2s forwards; }
+.stagger-children.animate > *:nth-child(3) { animation: fade-in-up 0.6s ease-out 0.3s forwards; }
+.stagger-children.animate > *:nth-child(4) { animation: fade-in-up 0.6s ease-out 0.4s forwards; }
+.stagger-children.animate > *:nth-child(5) { animation: fade-in-up 0.6s ease-out 0.5s forwards; }
+.stagger-children.animate > *:nth-child(6) { animation: fade-in-up 0.6s ease-out 0.6s forwards; }
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   FORM & UI COMPONENTS (existing)
+   ============================================ */
+
+.tab-button {
+  @apply relative px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200;
+}
+
+.tab-button:not(.tab-active) {
+  @apply text-muted-foreground hover:text-foreground hover:bg-muted/50;
+}
+
+.tab-active {
+  @apply bg-primary text-primary-foreground shadow-md;
+}
+
+.copy-button {
+  @apply absolute top-3 right-3 p-2 rounded-md bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200;
+}
+
+.copy-button:active {
+  @apply scale-95;
+}
+
+/* Code block */
+.code-block {
+  @apply bg-surface border border-border rounded-xl p-4 font-mono text-sm overflow-x-auto;
+}
+
+.code-block code {
+  @apply text-foreground;
+}
+
+/* Sections below the first screen.
+ *
+ * Tried content-visibility: auto here to skip laying them out until scrolled
+ * to. It did cut style and layout work, but the placeholder height never
+ * matched the real one: the page jumped as each section came in (0.13 of
+ * layout shift) and scrolling showed blank screens while they rendered.
+ * Not worth it — the wrapper stays so the sections are still addressable.
+ */
+.below-fold {
+  /* deliberately empty */
+}

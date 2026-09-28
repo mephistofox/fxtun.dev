@@ -1,0 +1,62 @@
+{{ define "main" }}
+{{- $r := partial "rubric.html" . -}}
+{{- $main := .Site.Params.mainSiteURL -}}
+<article class="page">
+  {{- if in .TableOfContents "<li" }}
+  <aside class="rail"><div class="toc"><b>В ЭТОЙ СТАТЬЕ</b>{{ .TableOfContents }}
+    <div class="help">Вопрос по статье? Напишите автору в <a href="{{ .Site.Params.authorURL }}">Telegram</a></div></div></aside>
+  {{- end }}
+  <div class="crumbs"><a href="/blog/">Блог</a> ›
+    {{ if eq $r.slug "diary" }}<a href="/blog/diary/">Дневник</a>{{ else if eq $r.slug "changelog" }}<a href="/blog/changelog/">Что нового</a>{{ else }}<a href="/blog/rubric/{{ $r.slug }}/">{{ $r.name }}</a>{{ end }}</div>
+  {{- with .Params.part }}<div class="series-tag">{{ $.Params.series }} · часть {{ . }} из {{ len (where site.RegularPages "Section" "diary") }}</div>{{ end }}
+  <span class="rub {{ $r.css }}">{{ $r.name }}</span>
+  <h1>{{ .Title }}</h1>
+  {{- if eq $r.slug "changelog" }}{{ partial "pills.html" . }}{{ end }}
+  {{- with (.Params.lead | default .Description) }}<p class="lead">{{ . }}</p>{{ end }}
+  <div class="byline">
+    {{ partial "avatar.html" (dict "site" .Site "size" 44) }}
+    <div><b><a href="{{ .Site.Params.authorURL }}">@{{ .Site.Params.author }}</a></b>автор fxTunnel</div>
+    <div class="when"><time datetime="{{ .Date.Format "2006-01-02" }}">{{ partial "ru-date.html" .Date }}</time>
+      {{- /* updated is set by hand when an article is really revised; .Lastmod comes from git and moves on any commit. */ -}}
+      {{- with .Params.updated }}
+      {{- $u := . }}
+      {{- if eq (printf "%T" .) "string" }}{{ $u = time.AsTime . }}{{ end }}
+      {{- if gt ($u.Sub $.Date).Hours 168.0 }}<br>обновлено {{ partial "ru-date.html" $u }}{{ end }}
+      {{- end }}
+      <br>{{ .ReadingTime }} мин чтения</div>
+  </div>
+  {{- if in .TableOfContents "<li" }}
+  <div class="chips">{{ replace .TableOfContents "id=\"TableOfContents\"" "id=\"toc-chips\" aria-label=\"Оглавление\"" | safeHTML }}</div>
+  {{- end }}
+
+  <div class="body">{{ .Content }}</div>
+
+  {{- if ne $r.slug "changelog" }}
+  {{- $try := .Params.try | default dict }}
+  {{- $need := index hugo.Data.needs (.Params.need | default "free") | default (index hugo.Data.needs "free") }}
+  <div class="try">
+    <h3>{{ $need.title }}</h3>
+    <p>{{ $need.text }}</p>
+    <div class="cmd"><span class="t-p">$</span> {{ $try.cmd | default "curl -fsSL https://fxtun.ru/install.sh | sh" }}</div>
+    <div class="acts"><a class="btn p" href="{{ $main }}{{ $need.url }}" data-goal="blog_cta">{{ $need.button }}</a>
+      <a class="btn g" href="{{ $main }}{{ $try.docs | default "/docs/quick-start" }}">Документация</a></div>
+  </div>
+  {{- end }}
+
+  {{- if eq $r.slug "diary" }}
+  {{- $all := (where site.RegularPages "Section" "diary").ByParam "part" }}
+  <nav class="series-nav" aria-label="Части серии">
+    {{- with first 1 (where $all "Params.part" (sub .Params.part 1)) }}{{ with index . 0 }}<a class="prev" href="{{ partial "localurl.html" . }}"><small>← часть {{ .Params.part }}</small>{{ .Title }}</a>{{ end }}{{ end }}
+    {{- with first 1 (where $all "Params.part" (add .Params.part 1)) }}{{ with index . 0 }}<a class="next" href="{{ partial "localurl.html" . }}"><small>часть {{ .Params.part }} →</small>{{ .Title }}</a>{{ end }}{{ end }}
+  </nav>
+  {{- end }}
+
+  <div class="author">{{ partial "avatar.html" (dict "site" .Site "size" 56) }}
+    <div><b>@{{ .Site.Params.author }}</b><p>Пишу fxTunnel — туннели для разработчиков без белого IP. Рассказываю, как это устроено изнутри.</p>
+    <a class="tg" href="{{ .Site.Params.authorURL }}">Написать в Telegram →</a></div></div>
+
+  {{- with first 3 (.Site.RegularPages.Related .) }}
+  <section class="rel"><h2>Читайте дальше</h2><div class="cards">{{ range . }}{{ partial "card.html" (dict "page" .) }}{{ end }}</div></section>
+  {{- end }}
+</article>
+{{ end }}

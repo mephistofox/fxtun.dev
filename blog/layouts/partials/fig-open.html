@@ -1,0 +1,3 @@
+{{- $n := add (.Page.Store.Get "fig" | default 0) 1 -}}
+{{- .Page.Store.Set "fig" $n -}}
+{{- return $n -}}

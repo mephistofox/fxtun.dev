@@ -1,0 +1,17 @@
+[
+  { "slug": "", "group": "Начало работы", "nav": "Обзор", "lastmod": "2026-09-23" },
+  { "slug": "install", "group": "Начало работы", "nav": "Установка", "lastmod": "2026-09-23" },
+  { "slug": "auth", "group": "Начало работы", "nav": "Аутентификация", "lastmod": "2026-09-23" },
+  { "slug": "quick-start", "group": "Начало работы", "nav": "Быстрый старт", "lastmod": "2026-09-23" },
+  { "slug": "http", "group": "Туннели", "nav": "HTTP-туннели", "tag": "http", "lastmod": "2026-09-23" },
+  { "slug": "tcp", "group": "Туннели", "nav": "TCP-туннели", "tag": "tcp", "lastmod": "2026-09-23" },
+  { "slug": "udp", "group": "Туннели", "nav": "UDP-туннели", "tag": "udp", "lastmod": "2026-09-23" },
+  { "slug": "inspector", "group": "Туннели", "nav": "Инспектор трафика", "lastmod": "2026-09-23" },
+  { "slug": "subdomains", "group": "Домены", "nav": "Поддомены", "lastmod": "2026-09-23" },
+  { "slug": "custom-domains", "group": "Домены", "nav": "Свои домены", "lastmod": "2026-09-23" },
+  { "slug": "config", "group": "Настройка", "nav": "Конфигурационный файл", "lastmod": "2026-09-23" },
+  { "slug": "daemon", "group": "Настройка", "nav": "Daemon-режим", "lastmod": "2026-09-23" },
+  { "slug": "cli", "group": "Настройка", "nav": "Справочник CLI", "lastmod": "2026-09-23" },
+  { "slug": "limits", "group": "Настройка", "nav": "Лимиты", "lastmod": "2026-09-23" },
+  { "slug": "faq", "group": "Настройка", "nav": "FAQ", "lastmod": "2026-09-23" }
+]

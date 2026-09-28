@@ -1,0 +1,35 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  # Lint against Go 1.24: the golangci-lint release binary is built with 1.24,
+  # so reading go.mod's 1.25.0 as the target errors out. The code uses no
+  # 1.25-only language features, so analysing as 1.24 is equivalent.
+  go: "1.24"
+
+linters:
+  enable:
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - errcheck
+    - bodyclose
+    - gosec
+
+issues:
+  exclude-dirs:
+    - gui
+  exclude-rules:
+    # Ignore unused in GUI bindings (used by Wails)
+    - path: internal/gui/
+      linters:
+        - unused
+    # G115 flags every int -> int32/uint16/... conversion regardless of actual
+    # overflow risk. The conversions here are bounded (counts, lengths, ports),
+    # and it is too noisy to annotate each site individually.
+    - linters:
+        - gosec
+      text: "integer overflow conversion"
+  max-issues-per-linter: 50
+  max-same-issues: 10

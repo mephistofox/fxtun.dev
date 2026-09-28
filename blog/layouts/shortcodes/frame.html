@@ -1,0 +1,16 @@
+{{- $name := printf "_sc/%s/%s-%d.yaml" .Page.File.Path .Name .Ordinal -}}
+{{- $d := resources.FromString $name .Inner | transform.Unmarshal -}}
+{{- if not (reflect.IsSlice $d) }}{{ errorf "%s: %s: body must be a YAML list" .Name .Page.File.Path }}{{ end -}}
+{{- $n := partial "fig-open.html" . -}}
+{{- $total := 0 }}{{ range $d }}{{ partial "sc-keys.html" (dict "page" $.Page "name" "frame" "map" . "allowed" (slice "name" "bytes" "hl")) }}{{ $total = add $total (int .bytes) }}{{ end -}}
+{{- if eq $total 0 }}{{ errorf "frame: %s: fields need bytes" .Page.File.Path }}{{ end -}}
+<figure><div class="panel">
+  <div class="d-frame" style="grid-template-columns:repeat({{ $total }},1fr)">
+  {{- range $d }}<div style="grid-column:span {{ .bytes }}"{{ if .hl }} class="hl"{{ end }}><b>{{ .name }}</b><small>{{ .bytes }} {{ if eq (int .bytes) 1 }}байт{{ else if lt (int .bytes) 5 }}байта{{ else }}байт{{ end }}</small></div>{{ end }}
+  </div>
+  <div class="d-ruler" style="grid-template-columns:repeat({{ $total }},1fr)">
+  {{- $off := 0 }}{{ range $d }}<span style="grid-column:span {{ .bytes }}">{{ $off }}</span>{{ $off = add $off (int .bytes) }}{{ end }}<span class="end">{{ $total }}</span>
+  </div>
+  {{- with $.Get "payload" }}<div class="d-payload">{{ . }}</div>{{ end }}
+</div>
+{{- with .Get "caption" }}<figcaption><b>Рис. {{ $n }}.</b> {{ . }}</figcaption>{{ end }}</figure>

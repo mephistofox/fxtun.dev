@@ -1,0 +1,6 @@
+{{- $lang := .Type | default "text" -}}
+<div class="term">
+  <div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>{{ upper $lang }}</span><button type="button" data-copy aria-live="polite">Копировать</button></div>
+  {{- $hl := transform.Highlight .Inner $lang (dict "noClasses" false "lineNos" false) -}}
+  {{ $hl | replaceRE `(<span class="line"><span class="cl">)\$ ` `$1<span class="t-p">$</span> ` | safeHTML }}
+</div>

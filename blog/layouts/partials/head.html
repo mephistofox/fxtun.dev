@@ -1,0 +1,104 @@
+  {{- /* Cross-domain URL mapping: EN=fxtun.dev, RU=fxtun.ru */ -}}
+  {{- $cleanPath := .RelPermalink }}
+  {{- $cleanPath = replaceRE "^/blog/ru/" "/blog/" $cleanPath }}
+  {{- $cleanPath = replaceRE "/index\\.html$" "/" $cleanPath }}
+  {{- $cleanPath = replaceRE "\\.html$" "" $cleanPath }}
+  {{- $enURL := printf "https://fxtun.dev%s" $cleanPath }}
+  {{- $ruURL := printf "https://fxtun.ru%s" $cleanPath }}
+  {{- $canonical := cond (eq .Language.Lang "ru") $ruURL $enURL }}
+
+  {{- if and (in (slice "taxonomy" "term") .Kind) (eq .Data.Plural "tags") }}
+  <meta name="robots" content="noindex, follow">
+  {{- end }}
+
+  {{- /* Rubric term/taxonomy pages don't carry front matter, so title and
+       description fall back to the Russian names/descriptions in data/rubrics.toml. */ -}}
+  {{- $pageTitle := .Title -}}
+  {{- $pageDesc := .Description -}}
+  {{- if eq .Data.Plural "rubrics" -}}
+    {{- if eq .Kind "term" -}}
+      {{- with index hugo.Data.rubrics .Data.Term -}}{{- $pageTitle = .name -}}{{- $pageDesc = .desc -}}{{- end -}}
+    {{- else -}}
+      {{- $pageTitle = "Рубрики" -}}
+      {{- $pageDesc = "Все рубрики блога fxTunnel: гайды, протоколы, сравнения инструментов и безопасность туннелей." -}}
+    {{- end -}}
+  {{- end -}}
+
+  <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ $pageTitle }} — {{ .Site.Title }}{{ end }}</title>
+  <meta name="description" content="{{ with $pageDesc }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta name="author" content="{{ .Site.Params.author }}">
+
+  {{- with .Params.tags }}
+  <meta name="keywords" content="{{ delimit . ", " }}">
+  {{- end }}
+
+  <!-- Open Graph -->
+  {{- $ogImage := "android-chrome-512x512.png" | absURL }}
+  {{- with .Params.image }}{{ $ogImage = . | absURL }}{{ end }}
+  <meta property="og:title" content="{{ $pageTitle }}">
+  <meta property="og:description" content="{{ with $pageDesc }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+  <meta property="og:url" content="{{ $canonical }}">
+  <meta property="og:site_name" content="{{ .Site.Title }}">
+  <meta property="og:locale" content="{{ if eq .Language.Lang "ru" }}ru_RU{{ else }}en_US{{ end }}">
+  <meta property="og:image" content="{{ $ogImage }}">
+
+  {{- if .IsPage }}
+  <!-- Article meta -->
+  <meta property="article:published_time" content="{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}">
+  <meta property="article:modified_time" content="{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }}">
+  {{- range .Params.tags }}
+  <meta property="article:tag" content="{{ . }}">
+  {{- end }}
+  {{- end }}
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="{{ if .Params.image }}summary_large_image{{ else }}summary{{ end }}">
+  <meta name="twitter:title" content="{{ $pageTitle }}">
+  <meta name="twitter:description" content="{{ with $pageDesc }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta name="twitter:image" content="{{ $ogImage }}">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="{{ "favicon.ico" | absURL }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ "favicon-32x32.png" | absURL }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ "favicon-16x16.png" | absURL }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ "apple-touch-icon.png" | absURL }}">
+
+  {{- if eq .Language.Lang "ru" }}
+  {{- end }}
+
+  <!-- Preload key fonts -->
+  <link rel="preload" href="{{ "fonts/onest-latin-wght-normal.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ "fonts/onest-cyrillic-wght-normal.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ "fonts/unbounded-latin-wght-normal.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ "fonts/unbounded-cyrillic-wght-normal.woff2" | absURL }}" as="font" type="font/woff2" crossorigin>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ "css/main.css" | absURL }}">
+
+  <!-- Canonical. No hreflang: only the Russian blog is published, and the
+       alternates pointed at fxtun.dev, which now redirects here — an hreflang
+       target that redirects is worse than none. -->
+  <link rel="canonical" href="{{ $canonical }}">
+
+  <!-- RSS -->
+  {{- $rssURL := "https://fxtun.ru/blog/index.xml" -}}
+  <link rel="alternate" type="application/rss+xml" title="{{ .Site.Title }}" href="{{ $rssURL }}">
+
+  <!-- Structured Data -->
+  {{ partial "schema.html" . }}
+
+  <!-- Analytics: the main site's loader (Metrika 108256538 + GA, fxtun.ru only,
+       deferred until the first interaction). The blog is static pages, so one
+       GA page_view per load; Metrika counts the hit on init. Links with
+       data-goal="<name>" report that Metrika goal on click. -->
+  <script src="/analytics.js" defer></script>
+  <script>
+    addEventListener('DOMContentLoaded', function () {
+      if (window.gtag) gtag('event', 'page_view', { page_path: location.pathname, page_title: document.title });
+    });
+    addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('[data-goal]');
+      if (a && window.ym) ym(108256538, 'reachGoal', a.getAttribute('data-goal'));
+    });
+  </script>

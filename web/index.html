@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Paint the right canvas on the very first frame.
+         The stylesheet is a second round trip — about half a second on a real
+         connection — and until it lands the browser paints its default white,
+         which on a dark site reads as a flash. color-scheme tells the browser
+         what to paint before any CSS exists; the inline script and the two
+         rules below then settle light vs dark without waiting for the bundle. -->
+    <meta name="color-scheme" content="dark light" />
+    <script>(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()</script>
+    <style>html{background:#edeff3}html.dark{background:#080a0c}</style>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d1117" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="dns-prefetch" href="https://mc.yandex.ru" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <meta name="description" content="Free ngrok alternative with no request limits and no session timeout. Expose localhost via HTTP, TCP & UDP tunnels with custom subdomains, desktop GUI, and traffic inspector. Self-hostable." />
+    <meta name="keywords" content="" />
+    <title>fxTunnel — Free ngrok Alternative | HTTP, TCP & UDP Tunneling</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="fxTunnel" />
+    <meta property="og:title" content="fxTunnel — Free ngrok Alternative | Localhost Tunneling" />
+    <meta property="og:description" content="Free ngrok alternative with no limits. HTTP, TCP & UDP tunnels, custom subdomains, desktop app, traffic inspector. Self-hostable." />
+    <meta property="og:image" content="/og-image.jpg" />
+    <meta property="og:url" content="https://fxtun.ru" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="fxTunnel — Free ngrok Alternative | Localhost Tunneling" />
+    <meta name="twitter:description" content="Free ngrok alternative with no limits. HTTP, TCP & UDP tunnels, custom subdomains, desktop app, traffic inspector. Self-hostable." />
+    <meta name="twitter:image" content="/og-image.jpg" />
+
+    <!-- Font preloads: cyrillic (RU primary) + latin (EN fallback) for body + display fonts -->
+    <link rel="preload" href="/fonts/onest-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/onest-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/unbounded-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/unbounded-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The rest of the faces the first screen renders. Left to be found
+         in the stylesheet they arrived after the text had already been
+         painted in a fallback, and the swap moved the layout: 0.15 of
+         cumulative shift, which is also the check agentic browsing fails on. -->
+    <link rel="preload" href="/fonts/jetbrains-mono-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/onest-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Analytics (GA4 + Yandex.Metrika) -->
+    <script src="/analytics.js" defer></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+    <!-- Yandex.Metrika noscript (fxtun.ru only) -->
+    <noscript><div><img src="https://mc.yandex.ru/watch/108256538" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+  </body>
+</html>

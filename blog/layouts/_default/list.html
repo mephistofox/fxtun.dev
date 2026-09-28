@@ -1,0 +1,11 @@
+{{ define "main" }}
+{{- $pages := .Pages.ByDate.Reverse -}}
+{{- if eq .Section "diary" -}}{{- $pages = .Pages.ByParam "part" -}}{{- end -}}
+{{- $pager := .Paginate $pages -}}
+<div class="wrap">
+  {{ partial "intro.html" (dict "title" .Title "desc" .Description) }}
+  {{ partial "tabs.html" (dict "active" .Section) }}
+  <section class="grid">{{ range $pager.Pages }}{{ partial "card.html" (dict "page" .) }}{{ end }}</section>
+  {{- with $pager.Next }}<div class="more"><a href="{{ .URL | replaceRE "/index\\.html$" "/" }}">Показать ещё</a></div>{{ end }}
+</div>
+{{ end }}

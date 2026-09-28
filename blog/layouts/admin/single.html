@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Dashboard — {{ .Site.Title }}</title>
+  <link rel="stylesheet" href="{{ "css/main.css" | absURL }}">
+  <style>
+    .dash { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .dash h1 { font-family: 'Unbounded', sans-serif; font-size: 1.6rem; margin-bottom: .5rem; }
+    .dash-sub { color: var(--text-muted); margin-bottom: 2rem; font-size: .95rem; }
+
+    /* Stats row */
+    .dash-stats { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .dash-stat {
+      flex: 1; min-width: 140px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.2rem;
+    }
+    .dash-stat-num { font-family: 'Unbounded', sans-serif; font-size: 1.8rem; font-weight: 700; }
+    .dash-stat-label { font-size: .82rem; color: var(--text-muted); margin-top: .25rem; }
+
+    /* Calendar */
+    .dash-section { margin-bottom: 2.5rem; }
+    .dash-section h2 {
+      font-family: 'Unbounded', sans-serif; font-size: 1.1rem;
+      margin-bottom: 1rem; padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Table */
+    .dash-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .dash-table th {
+      text-align: left; padding: .6rem .8rem;
+      background: var(--card-bg); border-bottom: 2px solid var(--border);
+      font-weight: 600; font-size: .8rem; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--text-muted);
+    }
+    .dash-table td {
+      padding: .7rem .8rem; border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .dash-table tr:hover td { background: var(--card-bg); }
+    .dash-table a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    .dash-table a:hover { text-decoration: underline; }
+
+    /* Badges */
+    .badge {
+      display: inline-block; padding: .15rem .55rem; border-radius: 6px;
+      font-size: .75rem; font-weight: 600; letter-spacing: .02em;
+    }
+    .badge-published { background: #10b98120; color: #10b981; }
+    .badge-draft { background: #f59e0b20; color: #f59e0b; }
+    .badge-scheduled { background: #6366f120; color: #6366f1; }
+    .badge-lang { background: var(--border); color: var(--text-muted); font-size: .7rem; }
+
+    /* Tags */
+    .dash-tags { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .dash-tag {
+      font-size: .7rem; padding: .1rem .4rem; border-radius: 4px;
+      background: var(--border); color: var(--text-muted);
+    }
+
+    /* Word count bar */
+    .wc-bar { display: flex; align-items: center; gap: .5rem; }
+    .wc-bar-fill {
+      height: 6px; border-radius: 3px; background: var(--accent);
+      min-width: 4px; transition: width .3s;
+    }
+    .wc-bar-num { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 2rem; }
+    .timeline::before {
+      content: ''; position: absolute; left: 8px; top: 0; bottom: 0;
+      width: 2px; background: var(--border);
+    }
+    .tl-item { position: relative; margin-bottom: 1.5rem; }
+    .tl-dot {
+      position: absolute; left: -2rem; top: .35rem;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--border); background: var(--bg);
+    }
+    .tl-dot.published { background: #10b981; border-color: #10b981; }
+    .tl-dot.draft { background: #f59e0b; border-color: #f59e0b; }
+    .tl-dot.scheduled { background: #6366f1; border-color: #6366f1; }
+    .tl-date { font-size: .8rem; color: var(--text-muted); margin-bottom: .2rem; }
+    .tl-title { font-weight: 600; }
+    .tl-title a { color: var(--text); text-decoration: none; }
+    .tl-title a:hover { color: var(--accent); }
+    .tl-meta { font-size: .82rem; color: var(--text-muted); margin-top: .2rem; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .dash-table { font-size: .8rem; }
+      .dash-table th:nth-child(4),
+      .dash-table td:nth-child(4),
+      .dash-table th:nth-child(5),
+      .dash-table td:nth-child(5) { display: none; }
+    }
+  </style>
+  <script>
+    (function(){
+      var t;
+      try { t = localStorage.getItem('theme'); } catch(e){}
+      var dark = t === 'dark' || (!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body class="page-wrapper">
+  <div class="dash">
+    <h1>Content Dashboard</h1>
+    <p class="dash-sub">Контент-план и статус публикаций блога fxTunnel. Запускай с <code>hugo server -D --buildFuture</code></p>
+
+    {{/* Collect all pages across all languages */}}
+    {{- $ruPages := where (where .Site.Pages "Kind" "page") "File.ContentBaseName" "!=" "admin" }}
+    {{- $enCount := 0 }}
+    {{- range .Sites }}
+      {{- if eq .Language.Lang "en" }}
+        {{- $enCount = len (where .Pages "Kind" "page") }}
+      {{- end }}
+    {{- end }}
+    {{- $published := where $ruPages "Draft" false }}
+    {{- $drafts := where $ruPages "Draft" true }}
+
+    {{/* Stats */}}
+    <div class="dash-stats">
+      <div class="dash-stat">
+        <div class="dash-stat-num">{{ len $ruPages }}</div>
+        <div class="dash-stat-label">Статей (RU)</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-num">{{ $enCount }}</div>
+        <div class="dash-stat-label">Статей (EN)</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-num">{{ len $published }}</div>
+        <div class="dash-stat-label">Опубликовано</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-stat-num">{{ len $drafts }}</div>
+        <div class="dash-stat-label">Черновики</div>
+      </div>
+    </div>
+
+    {{/* Timeline */}}
+    <div class="dash-section">
+      <h2>Контент-план</h2>
+      <div class="timeline">
+        {{- range $ruPages.ByDate }}
+        {{- $status := "published" }}
+        {{- if .Draft }}
+          {{- $status = "draft" }}
+        {{- end }}
+        <div class="tl-item">
+          <div class="tl-dot {{ $status }}"></div>
+          <div class="tl-date">
+            {{ .Date.Format "02.01.2006" }}
+            <span class="badge badge-{{ $status }}">
+              {{- if eq $status "published" }}Опубликовано{{ else }}Черновик{{ end -}}
+            </span>
+          </div>
+          <div class="tl-title"><a href="{{ .Permalink }}">{{ .Title }}</a></div>
+          <div class="tl-meta">
+            {{ math.Round (div (countwords .Content) 200.0) }} мин чтения
+            · {{ countwords .Content }} слов
+            {{- with .Params.tags }} · {{ delimit . ", " }}{{ end }}
+          </div>
+        </div>
+        {{- end }}
+      </div>
+    </div>
+
+    {{/* Full table */}}
+    <div class="dash-section">
+      <h2>Все статьи</h2>
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Статья</th>
+            <th>Дата</th>
+            <th>Статус</th>
+            <th>Языки</th>
+            <th>Слов</th>
+            <th>Теги</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{- range $ruPages.ByDate }}
+          {{- $status := "published" }}
+          {{- if .Draft }}
+            {{- $status = "draft" }}
+          {{- end }}
+          {{- $wc := countwords .Content }}
+          <tr>
+            <td><a href="{{ .Permalink }}">{{ .Title }}</a></td>
+            <td style="white-space:nowrap">{{ .Date.Format "02.01.2006" }}</td>
+            <td>
+              <span class="badge badge-{{ $status }}">
+                {{- if eq $status "published" }}Опубликовано{{ else }}Черновик{{ end -}}
+              </span>
+            </td>
+            <td>
+              <span class="badge badge-lang">RU</span>
+              {{- range .Translations }}
+              <span class="badge badge-lang">{{ upper .Language.Lang }}</span>
+              {{- end }}
+            </td>
+            <td>
+              <div class="wc-bar">
+                <div class="wc-bar-fill" style="width: {{ div $wc 25 }}px"></div>
+                <span class="wc-bar-num">{{ $wc }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="dash-tags">
+                {{- range .Params.tags }}
+                <span class="dash-tag">{{ . }}</span>
+                {{- end }}
+              </div>
+            </td>
+          </tr>
+          {{- end }}
+        </tbody>
+      </table>
+    </div>
+
+    {{/* SEO check */}}
+    <div class="dash-section">
+      <h2>SEO-чеклист</h2>
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Статья</th>
+            <th>Description</th>
+            <th>Image</th>
+            <th>FAQ</th>
+            <th>Tags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{- range $ruPages.ByDate }}
+          <tr>
+            <td><a href="{{ .Permalink }}">{{ truncate 40 .Title }}</a></td>
+            <td>
+              {{- if .Description }}
+              <span style="color:#10b981">{{ len .Description }} sym</span>
+              {{- else }}
+              <span style="color:#ef4444">Missing</span>
+              {{- end }}
+            </td>
+            <td>
+              {{- with .Params.image }}
+              <span style="color:#10b981">OK</span>
+              {{- else }}
+              <span style="color:#f59e0b">--</span>
+              {{- end }}
+            </td>
+            <td>
+              {{- with .Params.faq }}
+              <span style="color:#10b981">{{ len . }} Q</span>
+              {{- else }}
+              <span style="color:#f59e0b">--</span>
+              {{- end }}
+            </td>
+            <td>
+              {{- with .Params.tags }}
+              <span style="color:#10b981">{{ len . }}</span>
+              {{- else }}
+              <span style="color:#ef4444">0</span>
+              {{- end }}
+            </td>
+          </tr>
+          {{- end }}
+        </tbody>
+      </table>
+    </div>
+
+    <p style="text-align:center; color:var(--text-muted); font-size:.8rem; margin-top:3rem">
+      Dashboard доступен только при сборке с <code>-D</code> (drafts). Не индексируется поисковиками.
+    </p>
+  </div>
+  <script src="{{ "js/theme.js" | absURL }}"></script>
+</body>
+</html>

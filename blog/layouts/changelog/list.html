@@ -1,0 +1,17 @@
+{{ define "main" }}
+{{- $rss := "" -}}
+{{- with .OutputFormats.Get "rss" }}{{ $rss = .RelPermalink }}{{ end -}}
+<div class="wrap">
+  {{ partial "intro.html" (dict "title" .Title "desc" .Description "rss" $rss) }}
+  {{ partial "tabs.html" (dict "active" "changelog") }}
+  <section class="log">
+    {{- range .Pages.ByDate.Reverse }}
+    <article>
+      <div class="log-h"><time datetime="{{ .Date.Format "2006-01-02" }}">{{ partial "ru-date.html" .Date }}</time><span class="ver">v{{ .Params.version }}</span>{{ partial "pills.html" . }}</div>
+      <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+      <p>{{ .Params.lead | default .Description }}</p>
+    </article>
+    {{- end }}
+  </section>
+</div>
+{{ end }}

@@ -1,0 +1,50 @@
+{
+  "name": "fxtunnel-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "bash scripts/fetch-plans.sh",
+    "build": "vue-tsc && vite-ssg build",
+    "postbuild": "python3 scripts/check-landings.py",
+    "test:docs": "node --test plugins/docs-md.test.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@unhead/vue": "^2.1.17",
+    "@vueuse/core": "^10.9.0",
+    "axios": "^1.18.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-vue-next": "^0.359.0",
+    "pinia": "^2.1.7",
+    "radix-vue": "^1.5.3",
+    "simple-icons": "^16.2.0",
+    "tailwind-merge": "^2.2.2",
+    "tailwindcss-animate": "^1.0.7",
+    "vue": "^3.4.21",
+    "vue-i18n": "^9.10.2",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@intlify/unplugin-vue-i18n": "^11.0.3",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^20.11.30",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "beasties": "^0.4.1",
+    "javascript-obfuscator": "^5.4.1",
+    "lightningcss": "^1.32.0",
+    "markdown-it": "^15.0.2",
+    "postcss": "^8.5.23",
+    "tailwindcss": "^3.4.1",
+    "terser": "^5.46.1",
+    "typescript": "^5.4.3",
+    "vite": "^6.4.3",
+    "vite-plugin-minify": "^2.1.0",
+    "vite-plugin-sitemap": "^0.8.2",
+    "vite-ssg": "^28.3.0",
+    "vue-tsc": "^2.0.7"
+  }
+}

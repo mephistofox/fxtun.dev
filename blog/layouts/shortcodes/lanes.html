@@ -1,0 +1,24 @@
+{{- $name := printf "_sc/%s/%s-%d.yaml" .Page.File.Path .Name .Ordinal -}}
+{{- $d := resources.FromString $name .Inner | transform.Unmarshal -}}
+{{- if not (reflect.IsSlice $d) }}{{ errorf "%s: %s: body must be a YAML list" .Name .Page.File.Path }}{{ end -}}
+{{- $n := partial "fig-open.html" . -}}
+<figure><div class="panel"><div class="d-lanes{{ if eq (len $d) 1 }} one{{ end }}">
+{{- range $d }}
+  {{- partial "sc-keys.html" (dict "page" $.Page "name" "lanes" "map" . "allowed" (slice "title" "tag" "rows" "result")) -}}
+  {{- with .result }}{{ partial "sc-keys.html" (dict "page" $.Page "name" "lanes" "map" . "allowed" (slice "bad" "good")) }}{{ end -}}
+  <div class="lane-g"><h4>{{ .title }}{{ with .tag }} <span>{{ . }}</span>{{ end }}</h4>
+  {{/* range по map .rows идёт в алфавитном порядке ключей — для подписей вида
+       «поток 1, поток 2, поток 3» порядок совпадает с нужным; для произвольных
+       подписей порядок дорожек так не задать */}}
+  {{- range $label, $cells := .rows }}
+    <div class="lane" style="--n:{{ len $cells }}"><span>{{ $label }}</span>
+    {{- range split $cells "" }}
+      {{- if not (in (slice "#" "x" "." "~") .) }}{{ errorf "lanes: %s: unknown cell symbol %q" $.Page.File.Path . }}{{ end }}
+      <i class="{{ index (dict "#" "" "x" "lost" "." "wait" "~" "late") . }}"></i>
+    {{- end }}</div>
+  {{- end }}
+  {{- with .result }}{{ with .bad }}<div class="res bad">{{ . }}</div>{{ end }}{{ with .good }}<div class="res good">{{ . }}</div>{{ end }}{{ end }}
+  </div>
+{{- end }}
+</div></div>
+{{- with .Get "caption" }}<figcaption><b>Рис. {{ $n }}.</b> {{ . }}</figcaption>{{ end }}</figure>

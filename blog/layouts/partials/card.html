@@ -1,0 +1,11 @@
+{{- $p := .page -}}
+{{- $r := partial "rubric.html" $p -}}
+<a class="card {{ $r.css }}{{ if .big }} big{{ end }}" href="{{ partial "localurl.html" $p }}">
+  {{ partial "cover.html" $p }}
+  <div class="body">
+    <span class="rub">{{ $r.name }}{{ with $p.Params.part }} · часть {{ . }}{{ end }}</span>
+    <h3>{{ $p.Title }}</h3>
+    <p>{{ $p.Params.lead | default $p.Description }}</p>
+    <span class="m">{{ $p.ReadingTime }} мин · {{ partial "ru-date.html" $p.Date }}</span>
+  </div>
+</a>

@@ -1,0 +1,175 @@
+package core
+
+import (
+	"fmt"
+	"io"
+	"net"
+	"time"
+
+	"github.com/rs/zerolog"
+
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
+)
+
+// TCPManager manages TCP tunnel ports
+type TCPManager struct {
+	server *Server
+	log    zerolog.Logger
+	ports  *PortAllocator
+}
+
+// NewTCPManager creates a new TCP manager
+func NewTCPManager(server *Server, log zerolog.Logger) *TCPManager {
+	return &TCPManager{
+		server: server,
+		log:    log.With().Str("component", "tcp_manager").Logger(),
+		ports:  NewPortAllocator(server.cfg.Server.TCPPortRange),
+	}
+}
+
+// AllocatePort allocates a port for a TCP tunnel
+func (m *TCPManager) AllocatePort(requestedPort int) (int, net.Listener, error) {
+	var listener net.Listener
+	port, err := m.ports.AllocateAndBind(requestedPort, func(p int) error {
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", p))
+		if err != nil {
+			return err
+		}
+		listener = l
+		return nil
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return port, listener, nil
+}
+
+// ReleasePort releases a previously allocated port
+func (m *TCPManager) ReleasePort(port int) {
+	m.ports.Release(port)
+}
+
+// AcceptConnections accepts connections on a tunnel listener
+func (m *TCPManager) AcceptConnections(tunnel *Tunnel, client *Client) {
+	defer func() {
+		m.ReleasePort(tunnel.RemotePort)
+		if tunnel.listener != nil {
+			tunnel.listener.Close()
+		}
+	}()
+
+	const maxTempErrors = 10
+	tempErrors := 0
+
+	for {
+		conn, err := tunnel.listener.Accept()
+		if err != nil {
+			select {
+			case <-client.ctx.Done():
+				return
+			default:
+			}
+
+			// Check for temporary errors (e.g. EMFILE, ENFILE)
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				tempErrors++
+				m.log.Warn().Err(err).Int("port", tunnel.RemotePort).Int("consecutive_temp_errors", tempErrors).Msg("Temporary accept error, retrying")
+				if tempErrors >= maxTempErrors {
+					m.log.Error().Int("port", tunnel.RemotePort).Msg("Too many consecutive temporary accept errors, stopping")
+					return
+				}
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			m.log.Debug().Err(err).Int("port", tunnel.RemotePort).Msg("Accept failed")
+			return
+		}
+
+		tempErrors = 0
+		go m.handleConnection(conn, tunnel, client)
+	}
+}
+
+func (m *TCPManager) handleConnection(conn net.Conn, tunnel *Tunnel, client *Client) {
+	m.server.activeConns.Add(1)
+	defer m.server.activeConns.Done()
+	defer conn.Close()
+
+	// Enforce IP allowlist
+	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+	if clientIP := net.ParseIP(host); clientIP != nil {
+		if !isIPAllowed(clientIP, tunnel) {
+			m.log.Warn().Str("remote_addr", conn.RemoteAddr().String()).
+				Str("tunnel_id", tunnel.ID).Msg("TCP connection blocked by IP allowlist")
+			return
+		}
+	}
+
+	// Rate limiting (tunnel-level + per-IP)
+	if !m.server.monitor.AllowTCPConnection(tunnel.ID, conn.RemoteAddr().String()) {
+		return
+	}
+
+	tuneTCPConn(conn)
+
+	// Open stream to client
+	stream, err := client.OpenStream()
+	if err != nil {
+		m.log.Error().Err(err).Msg("Failed to open stream to client")
+		return
+	}
+	defer stream.Close()
+
+	// Send binary stream header
+	if err := protocol.WriteStreamHeader(stream, tunnel.ID, conn.RemoteAddr().String()); err != nil {
+		m.log.Error().Err(err).Msg("Failed to send connection info")
+		return
+	}
+
+	// Copy both ways and pass half-closes through: when one side finishes
+	// sending, the other learns it via FIN but can still reply. The conn is
+	// closed only after both directions are done. A half-closed transfer is
+	// limited by yamux's StreamCloseTimeout (5 min in DefaultConfig).
+	done := make(chan struct{}, 2)
+
+	go func() {
+		bp := proxyBufPool.Get().(*[]byte)
+		_, _ = io.CopyBuffer(stream, conn, *bp)
+		proxyBufPool.Put(bp)
+		_ = stream.Close() // yamux Close sends FIN; reading stays open
+		done <- struct{}{}
+	}()
+
+	go func() {
+		bp := proxyBufPool.Get().(*[]byte)
+		_, _ = io.CopyBuffer(conn, stream, *bp)
+		proxyBufPool.Put(bp)
+		if tc, ok := conn.(*net.TCPConn); ok {
+			_ = tc.CloseWrite()
+		}
+		done <- struct{}{}
+	}()
+
+	<-done
+	// If the app finished first, nothing else frees a visitor that stays silent
+	// and open, so give it a fixed grace to finish sending. If the visitor
+	// finished first, yamux's StreamCloseTimeout bounds the stream side.
+	_ = conn.SetReadDeadline(time.Now().Add(HTTPIdleTimeout))
+	<-done
+	_ = conn.Close()
+
+	// Update LastActivity timestamp for auto-close tracking
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
+	m.log.Debug().
+		Str("tunnel_id", tunnel.ID).
+		Str("remote", conn.RemoteAddr().String()).
+		Msg("TCP connection completed")
+}
+
+// Stop stops the TCP manager
+func (m *TCPManager) Stop() {
+	// Ports are released when tunnels are closed
+}

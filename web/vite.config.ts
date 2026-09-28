@@ -1,0 +1,176 @@
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import Sitemap from "vite-plugin-sitemap";
+import { ViteMinifyPlugin } from "vite-plugin-minify";
+import path from "path";
+import docsManifest from "./src/docs/manifest.json";
+import { docsMarkdown } from "./plugins/docs-md";
+
+const docsPaths = docsManifest.map((d) => (d.slug ? `/docs/${d.slug}` : "/docs"));
+
+export default defineConfig({
+  plugins: [
+    docsMarkdown(path.resolve(__dirname, "src/docs")),
+    vue(),
+    ViteMinifyPlugin({
+      collapseWhitespace: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      minifyCSS: true,
+      minifyJS: true,
+    }),
+    Sitemap({
+      hostname: "https://fxtun.ru",
+      // Its own outDir option, independent of build.outDir — must follow FXTUN_WEB_OUT too.
+      outDir: process.env.FXTUN_WEB_OUT || "dist",
+      dynamicRoutes: ["/pricing", "/offer", "/terms", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel", "/minecraft-server", "/bez-belogo-ip", "/probros-portov", "/udalennyy-dostup", "/analog-hamachi", ...docsPaths],
+      exclude: ["/docs/offer", "/ru", "/ru/*", "/en", "/en/*", "/login", "/register"],
+      generateRobotsTxt: false,
+      robots: [{ userAgent: "*", allow: "/" }],
+      changefreq: {
+        "/": "weekly",
+        "/pricing": "weekly",
+        "/ngrok-alternative": "monthly",
+        "/features": "monthly",
+        "/compare/*": "monthly",
+        "/about": "monthly",
+        "/downloads": "monthly",
+        "/offer": "yearly",
+        "/terms": "yearly",
+        "/privacy": "yearly",
+        "/abuse": "yearly",
+        "/aup": "yearly",
+        "/disclaimer": "yearly",
+        "/probros-portov": "monthly",
+        "/udalennyy-dostup": "monthly",
+        "/analog-hamachi": "monthly",
+        ...Object.fromEntries(docsPaths.map((p) => [p, "monthly"])),
+      },
+      priority: {
+        "/": 1.0,
+        "/pricing": 0.9,
+        "/ngrok-alternative": 0.8,
+        "/features": 0.8,
+        "/compare/*": 0.8,
+        "/about": 0.7,
+        "/downloads": 0.8,
+        "/offer": 0.3,
+        "/terms": 0.3,
+        "/privacy": 0.3,
+        "/abuse": 0.2,
+        "/aup": 0.2,
+        "/disclaimer": 0.2,
+        "/probros-portov": 0.8,
+        "/udalennyy-dostup": 0.8,
+        "/analog-hamachi": 0.7,
+        ...Object.fromEntries(docsPaths.map((p) => [p, 0.6])),
+      },
+      lastmod: {
+        "/": new Date("2026-03-28"),
+        "/pricing": new Date("2026-03-27"),
+        "/ngrok-alternative": new Date("2026-07-15"),
+        "/features": new Date("2026-07-15"),
+        "/about": new Date("2026-03-20"),
+        "/downloads": new Date("2026-03-28"),
+        "/compare/ngrok": new Date("2026-03-27"),
+        "/compare/cloudflare": new Date("2026-03-27"),
+        "/compare/tuna": new Date("2026-03-27"),
+        "/compare/xtunnel": new Date("2026-03-27"),
+        "/offer": new Date("2026-02-15"),
+        "/terms": new Date("2026-02-15"),
+        "/privacy": new Date("2026-02-15"),
+        "/probros-portov": new Date("2026-09-20"),
+        "/udalennyy-dostup": new Date("2026-09-20"),
+        "/analog-hamachi": new Date("2026-09-20"),
+        ...Object.fromEntries(docsManifest.map((d, i) => [docsPaths[i], new Date(d.lastmod)])),
+      },
+    }),
+  ],
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_JIT_COMPILATION__: true,
+    __INTLIFY_DROP_MESSAGE_COMPILER__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false,
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+    __VUE_PROD_DEVTOOLS__: false,
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    // FXTUN_WEB_OUT lets a local check build somewhere other than web/dist.
+    outDir: process.env.FXTUN_WEB_OUT || "dist",
+    emptyOutDir: true,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        passes: 2,
+        pure_funcs: ["console.log", "console.info", "console.debug"],
+      },
+      mangle: {
+        toplevel: true,
+      },
+      format: {
+        comments: false,
+      },
+    },
+    cssMinify: "lightningcss",
+  },
+  ssgOptions: {
+    script: "async",
+    formatting: "minify",
+    // reduceInlineStyles: beasties folds any <style> already in index.html into
+    // its critical CSS and drops the selectors that do not match the static
+    // markup. That killed the html.dark background rule — the class only
+    // appears at runtime — and dark-mode visitors got a white flash.
+    // allowRules: the .dark block holds every colour variable for the dark
+    // theme, and body reads --background from it. Beasties drops it because the
+    // prerendered markup never carries the class — the inline script adds it —
+    // so dark visitors got a white page until the external CSS landed.
+    beastiesOptions: {
+      fonts: false,
+      preloadFonts: false,
+      reduceInlineStyles: false,
+      allowRules: [/^\.dark$/],
+      // Inline the whole stylesheet — 13 KiB over the wire — instead of a
+      // critical subset plus an asynchronous rest. The subset left out the
+      // wide-screen rules, so the header rendered 64 px tall and grew to 80 px
+      // when the rest arrived, dropping the whole page by that much: 0.13 of
+      // layout shift, which is also the check agentic browsing fails on.
+      inlineThreshold: 120000,
+      // Not preload: 'swap'. Measured on PageSpeed: it cuts FCP from 3.3 s to
+      // 0.9 s, but the swap reflows the page and CLS goes 0 -> 0.185, past the
+      // 0.1 threshold, taking the score 68 -> 64. The blocking stylesheet is
+      // what keeps the layout still; worth revisiting only once the critical
+      // CSS covers enough of the page that the swap changes nothing.
+    },
+    includedRoutes() {
+      const pages = ["/", "/login", "/register", "/offer", "/terms", "/pricing", "/privacy", "/about", "/downloads", "/abuse", "/aup", "/disclaimer", "/ngrok-alternative", "/features", "/compare/ngrok", "/compare/cloudflare", "/compare/tuna", "/compare/cloudpub", "/compare/xtunnel"];
+      // Russian-only landings: no /en copy, because the intent is local.
+      const ruOnly = ["/minecraft-server", "/bez-belogo-ip", "/probros-portov", "/udalennyy-dostup", "/analog-hamachi", ...docsPaths];
+      const ruPages = [...pages, ...ruOnly].map((p) => `/ru${p === "/" ? "" : p}`);
+      const enPages = pages.map((p) => `/en${p === "/" ? "" : p}`);
+      return [...pages, ...ruOnly, ...ruPages, ...enPages];
+    },
+  },
+  server: {
+    allowedHosts: [
+      "fxtun.dev",
+      "test.fxtun.dev",
+    ],
+    proxy: {
+      "/api": {
+        target: "https://fxtun.dev",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
+});

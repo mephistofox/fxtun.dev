@@ -1,0 +1,293 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func validClientConfig() *ClientConfig {
+	return &ClientConfig{
+		Server: ClientServerSettings{Address: "127.0.0.1:4443"},
+		Tunnels: []TunnelConfig{
+			{Type: "http", LocalPort: 3000},
+		},
+	}
+}
+
+func TestClientConfigValidate_Valid(t *testing.T) {
+	assert.NoError(t, validClientConfig().Validate())
+}
+
+func TestClientConfigValidate_EmptyAddress(t *testing.T) {
+	cfg := validClientConfig()
+	cfg.Server.Address = ""
+	assert.Error(t, cfg.Validate())
+}
+
+func TestClientConfigValidate_InvalidTunnelType(t *testing.T) {
+	cfg := validClientConfig()
+	cfg.Tunnels = []TunnelConfig{{Type: "invalid", LocalPort: 3000}}
+	assert.Error(t, cfg.Validate())
+}
+
+func TestClientConfigValidate_InvalidPort(t *testing.T) {
+	for _, port := range []int{0, 70000} {
+		cfg := validClientConfig()
+		cfg.Tunnels = []TunnelConfig{{Type: "http", LocalPort: port}}
+		assert.Error(t, cfg.Validate(), "port %d should be invalid", port)
+	}
+}
+
+func TestClientConfigValidate_MissingType(t *testing.T) {
+	cfg := validClientConfig()
+	cfg.Tunnels = []TunnelConfig{{LocalPort: 3000}}
+	assert.Error(t, cfg.Validate())
+}
+
+func TestClientConfigValidate_TCPUDPTunnels(t *testing.T) {
+	cfg := validClientConfig()
+	cfg.Tunnels = []TunnelConfig{
+		{Type: "tcp", LocalPort: 22},
+		{Type: "udp", LocalPort: 53},
+	}
+	assert.NoError(t, cfg.Validate())
+}
+
+func TestTunnelConfigGetLocalAddress(t *testing.T) {
+	tc := &TunnelConfig{LocalPort: 3000}
+	assert.Equal(t, "127.0.0.1:3000", tc.GetLocalAddress())
+
+	tc2 := &TunnelConfig{LocalAddr: "192.168.1.1", LocalPort: 8080}
+	assert.Equal(t, "192.168.1.1:8080", tc2.GetLocalAddress())
+}
+
+func TestLoadClientConfig_Defaults(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(orig) }()
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	// Default primary endpoint is the TLS endpoint on :443, with
+	// the legacy plaintext :4443 as automatic fallback.
+	assert.Equal(t, "tunnel.fxtun.ru:443", cfg.Server.Address)
+	assert.False(t, cfg.Server.Insecure)
+	assert.True(t, cfg.Server.TLSVerify)
+	// With the stock SaaS address, the legacy plaintext endpoint is filled in
+	// automatically so the client still connects while tunnel.fxtun.ru:443 is
+	// unavailable.
+	assert.Equal(t, "fxtun.ru:4443", cfg.Server.FallbackAddress)
+	assert.True(t, cfg.Server.FallbackInsecure)
+	assert.True(t, cfg.Reconnect.Enabled)
+}
+
+func TestLoadClientConfig_FxtunnelYamlPriority(t *testing.T) {
+	dir := t.TempDir()
+
+	clientYaml := filepath.Join(dir, "client.yaml")
+	err := os.WriteFile(clientYaml, []byte(`
+server:
+  address: "server1:4443"
+tunnels:
+  - name: "from-client"
+    type: "http"
+    local_port: 1111
+`), 0600)
+	require.NoError(t, err)
+
+	fxtunnelYaml := filepath.Join(dir, "fxtunnel.yaml")
+	err = os.WriteFile(fxtunnelYaml, []byte(`
+tunnels:
+  - name: "from-fxtunnel"
+    type: "http"
+    local_port: 2222
+`), 0600)
+	require.NoError(t, err)
+
+	t.Chdir(dir)
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, 2222, cfg.Tunnels[0].LocalPort)
+	assert.Equal(t, "from-fxtunnel", cfg.Tunnels[0].Name)
+}
+
+func TestInspectConfigDefaults(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "client.yaml")
+	yaml := `
+server:
+  address: "localhost:4443"
+`
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
+
+	cfg, err := LoadClientConfig(cfgFile)
+	require.NoError(t, err)
+	assert.True(t, cfg.Inspect.Enabled)
+	assert.Equal(t, "127.0.0.1:4040", cfg.Inspect.Addr)
+	assert.Equal(t, 262144, cfg.Inspect.MaxBodySize)
+	assert.Equal(t, 1000, cfg.Inspect.MaxEntries)
+}
+
+func TestInspectConfigOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "client.yaml")
+	yaml := `
+server:
+  address: "localhost:4443"
+inspect:
+  enabled: false
+  addr: "0.0.0.0:9090"
+  max_body_size: 1048576
+  max_entries: 500
+`
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
+
+	cfg, err := LoadClientConfig(cfgFile)
+	require.NoError(t, err)
+	assert.False(t, cfg.Inspect.Enabled)
+	assert.Equal(t, "0.0.0.0:9090", cfg.Inspect.Addr)
+	assert.Equal(t, 1048576, cfg.Inspect.MaxBodySize)
+	assert.Equal(t, 500, cfg.Inspect.MaxEntries)
+}
+
+func TestLoadClientConfig_FromFile(t *testing.T) {
+	dir := t.TempDir()
+	cfgFile := filepath.Join(dir, "client.yaml")
+	yaml := `
+server:
+  address: "myserver.com:5555"
+  token: "sk_test123"
+tunnels:
+  - name: web
+    type: http
+    local_port: 8080
+    subdomain: myapp
+  - name: ssh
+    type: tcp
+    local_port: 22
+reconnect:
+  enabled: false
+`
+	require.NoError(t, os.WriteFile(cfgFile, []byte(yaml), 0600))
+
+	cfg, err := LoadClientConfig(cfgFile)
+	require.NoError(t, err)
+	assert.Equal(t, "myserver.com:5555", cfg.Server.Address)
+	assert.Equal(t, "sk_test123", cfg.Server.Token)
+	require.Len(t, cfg.Tunnels, 2)
+	assert.Equal(t, "http", cfg.Tunnels[0].Type)
+	assert.Equal(t, 8080, cfg.Tunnels[0].LocalPort)
+	assert.Equal(t, "myapp", cfg.Tunnels[0].Subdomain)
+	assert.Equal(t, "tcp", cfg.Tunnels[1].Type)
+	assert.False(t, cfg.Reconnect.Enabled)
+}
+
+// A self-hosted config that overrides server.address must NOT inherit the
+// public fallback: a transient failure would replay the token to fxtun.ru.
+func TestLoadClientConfig_SelfHostedGetsNoPublicFallback(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "fxtunnel.yaml"),
+		[]byte("server:\n  address: \"tunnel.example.org:443\"\n"), 0o600))
+	orig, _ := os.Getwd()
+	_ = os.Chdir(dir)
+	defer func() { _ = os.Chdir(orig) }()
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "tunnel.example.org:443", cfg.Server.Address)
+	assert.Empty(t, cfg.Server.FallbackAddress)
+}
+
+func TestApplyDefaultFallback(t *testing.T) {
+	// Stock SaaS address gets the plaintext fallback.
+	s := ClientServerSettings{Address: "tunnel.fxtun.ru:443"}
+	ApplyDefaultFallback(&s)
+	assert.Equal(t, "fxtun.ru:4443", s.FallbackAddress)
+	assert.True(t, s.FallbackInsecure)
+
+	// Self-hosted address gets nothing.
+	s = ClientServerSettings{Address: "tunnel.example.org:443"}
+	ApplyDefaultFallback(&s)
+	assert.Empty(t, s.FallbackAddress)
+
+	// An explicit fallback is never overwritten.
+	s = ClientServerSettings{Address: "tunnel.fxtun.ru:443", FallbackAddress: "backup.example.org:4443"}
+	ApplyDefaultFallback(&s)
+	assert.Equal(t, "backup.example.org:4443", s.FallbackAddress)
+	assert.False(t, s.FallbackInsecure)
+}
+
+// Fix round 1, task 7: only the public SaaS server (either address) always
+// requires a token up front; a self-hosted address may run with
+// auth.enabled: false and must be allowed to try connecting token-less.
+func TestIsPublicAddress(t *testing.T) {
+	assert.True(t, IsPublicAddress(DefaultServerAddress))
+	assert.True(t, IsPublicAddress("fxtun.ru:4443")) // legacy plaintext fallback
+	assert.False(t, IsPublicAddress("127.0.0.1:7000"))
+	assert.False(t, IsPublicAddress("tunnel.example.org:443"))
+	assert.False(t, IsPublicAddress(""))
+}
+
+// B4: FXTUNNEL_SERVER_TOKEN must reach the config even when no file sets a token.
+func TestLoadClientConfig_TokenFromEnv(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+	t.Setenv("FXTUNNEL_SERVER_TOKEN", "sk_from_env")
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "sk_from_env", cfg.Server.Token)
+}
+
+// A file that just happens to be named "client" (no extension) in the cwd —
+// e.g. a stray `go build -o client ./cmd/client` binary — must not be picked
+// up as the config: viper's SetConfigType("yaml") makes it also match the
+// config name with no extension at all, not just "client.yaml".
+func TestLoadClientConfig_IgnoresExtensionlessNamesake(t *testing.T) {
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.WriteFile("client", []byte{0x7f, 'E', 'L', 'F', 0x00, 0x01}, 0o600))
+
+	cfg, err := LoadClientConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, DefaultServerAddress, cfg.Server.Address)
+}
+
+// B9: auto_close / max_lifetime from a file get the same range check as the flags.
+func TestLoadClientConfig_ValidatesTunnelDurations(t *testing.T) {
+	for _, tc := range []struct{ field, want string }{
+		{"auto_close: 2s", "auto-close minimum is 1m"},
+		{"max_lifetime: 30d", "max-lifetime maximum is 7d"},
+	} {
+		path := filepath.Join(t.TempDir(), "client.yaml")
+		require.NoError(t, os.WriteFile(path, []byte(
+			"tunnels:\n  - name: w\n    type: http\n    local_port: 8080\n    "+tc.field+"\n"), 0o600))
+
+		_, err := LoadClientConfig(path)
+		require.Error(t, err, tc.field)
+		assert.Contains(t, err.Error(), tc.want)
+	}
+}
+
+// Final review #2: a caller bringing its own tunnels (a quick http/tcp/udp
+// command) reads only ./fxtunnel.yaml, not an unrelated client.yaml found by
+// the generic search. The full search stays for the config-file run.
+func TestLoadClientConfigLayered_QuickIgnoresForeignClientYAML(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.WriteFile("client.yaml", []byte("server: http://localhost:8080\nretries: 3\n"), 0600))
+
+	quick := []TunnelConfig{{Name: "q", Type: "http", LocalPort: 3000}}
+	_, err := LoadClientConfigLayered("", map[string]any{"tunnels": quick}, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile("fxtunnel.yaml", []byte("server:\n  address: proj.example:4443\n"), 0600))
+	cfg, err := LoadClientConfigLayered("", map[string]any{"tunnels": quick}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "proj.example:4443", cfg.Server.Address)
+}

@@ -1,0 +1,9 @@
+{{- $main := .Site.Params.mainSiteURL -}}
+<footer class="wrap foot">
+  <span>© {{ now.Year }} fxTunnel</span>
+  <nav aria-label="Ссылки подвала">
+    <a href="/blog/">Блог</a> · <a href="{{ $main }}/docs">Документация</a> ·
+    <a href="{{ $main }}/pricing">Тарифы</a> · <a href="{{ $main }}/downloads">Скачать</a> ·
+    <a href="/blog/index.xml">RSS</a>
+  </nav>
+</footer>

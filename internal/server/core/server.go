@@ -1,0 +1,1898 @@
+package core
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"crypto/tls"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/hashicorp/yamux"
+	"github.com/rs/zerolog"
+	"golang.org/x/mod/semver"
+
+	"github.com/mephistofox/fxtun.dev/internal/config"
+	"github.com/mephistofox/fxtun.dev/internal/inspect"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/mephistofox/fxtun.dev/internal/protocol"
+	"github.com/mephistofox/fxtun.dev/internal/server/auth"
+	"github.com/mephistofox/fxtun.dev/internal/server/database"
+	"github.com/mephistofox/fxtun.dev/internal/server/geoip"
+	"github.com/mephistofox/fxtun.dev/internal/server/monitor"
+	"github.com/mephistofox/fxtun.dev/internal/server/reserved"
+	"github.com/mephistofox/fxtun.dev/internal/server/store"
+	fxtls "github.com/mephistofox/fxtun.dev/internal/server/tls"
+)
+
+var (
+	// subdomainRegex validates subdomain format
+	subdomainRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
+)
+
+const (
+	// yamuxMaxStreamWindowSize is the yamux stream window size for high throughput.
+	yamuxMaxStreamWindowSize = 16 * 1024 * 1024 // 16MB
+
+	// yamuxKeepAliveInterval is the interval between yamux keepalive probes.
+	yamuxKeepAliveInterval = 10 * time.Second
+
+	// yamuxConnectionWriteTimeout is the timeout for writing to a yamux connection.
+	yamuxConnectionWriteTimeout = 30 * time.Second
+
+	// authTimeout is the maximum time to wait for an authentication message.
+	authTimeout = 30 * time.Second
+
+	// keepaliveInterval is the interval between server-side keepalive checks.
+	keepaliveInterval = 30 * time.Second
+
+	// clientTimeout is the duration after which a client is considered unresponsive.
+	clientTimeout = 90 * time.Second
+
+	// drainTimeout is the maximum time to wait for active connections to drain during shutdown.
+	drainTimeout = 10 * time.Second
+
+	// defaultMaxTunnels is the default maximum number of tunnels per client.
+	defaultMaxTunnels = 10
+
+	// defaultInspectMaxEntries is the default capacity for the inspect buffer.
+	defaultInspectMaxEntries = 1000
+)
+
+// blockedTCPPorts prevents SSRF via TCP tunnels to sensitive local services.
+// Admin users bypass this check.
+var blockedTCPPorts = map[int]bool{
+	22:    true, // SSH
+	25:    true, // SMTP
+	53:    true, // DNS
+	135:   true, // MSRPC
+	139:   true, // NetBIOS
+	445:   true, // SMB
+	3306:  true, // MySQL
+	5432:  true, // PostgreSQL
+	6379:  true, // Redis
+	11211: true, // Memcached
+	27017: true, // MongoDB
+}
+
+// blockedUDPPorts prevents SSRF / service shadowing via UDP tunnels to
+// sensitive local services. The UDP profile differs from TCP — most notably
+// port 53, which is the server's own built-in DNS used for ACME/wildcard.
+// Admin users bypass this check.
+var blockedUDPPorts = map[int]bool{
+	53:   true, // DNS (server's built-in resolver — ACME/wildcard)
+	123:  true, // NTP
+	161:  true, // SNMP
+	389:  true, // LDAP
+	1900: true, // SSDP
+	5353: true, // mDNS
+}
+
+// portBlocked reports whether a non-admin client may not bind the given
+// remote port. Port 0 means "auto-allocate" and is always allowed; admins
+// bypass the block list entirely.
+func portBlocked(port int, isAdmin bool, blocked map[int]bool) bool {
+	return port > 0 && !isAdmin && blocked[port]
+}
+
+// Server is the main tunnel server
+type Server struct {
+	cfg *config.ServerConfig
+	log zerolog.Logger
+
+	// unauthSlots caps how many control connections may sit in the pre-auth
+	// stage at once. Compression negotiation allocates a zstd encoder+decoder
+	// (~2 MB) before any credential is seen, so without this an unauthenticated
+	// peer could exhaust memory by opening connections and never authenticating.
+	unauthSlots chan struct{}
+
+	// unauthPerIP counts pre-auth control connections per source IP. The global
+	// cap alone lets one host hold every slot and lock everybody else out, since
+	// a peer can sit in the pre-auth stage for tens of seconds for free and the
+	// auth rate limiter only runs after the auth message arrives.
+	unauthIPMu sync.Mutex
+	unauthIP   map[string]int
+
+	// Listeners
+	controlListener     net.Listener
+	controlTLSListeners []net.Listener
+	httpListener        net.Listener
+	httpsListener       net.Listener
+	httpsServer         *http.Server
+
+	// Client manager
+	clientMgr *ClientManager
+
+	// Tunnel managers
+	httpRouter *HTTPRouter
+	httpServer *http.Server
+	tcpManager *TCPManager
+	udpManager *UDPManager
+	inspectMgr *inspect.Manager
+
+	// Traffic monitor
+	monitor *monitor.Monitor
+
+	// Database integration
+	db          *database.Database
+	authService *auth.Service
+
+	// Telegram admin notifications
+	telegramNotifier interface {
+		NotifyFirstTunnel(userID int64, displayName, tunnelType, address string, registeredAt time.Time)
+	}
+
+	// Cross-server tunnel registry (optional)
+	tunnelRegistry store.TunnelRegistry
+
+	// Edge node system
+	mode         config.ServerMode
+	nodeRegistry store.NodeRegistry
+	hubClient    HubAuthVerifier
+	localNodeID  string
+	proxyPool    *remoteProxyPool
+	geoIP        *geoip.Lookup
+
+	// Custom domains
+	certManager    *fxtls.CertManager
+	customDomains  map[string]*database.CustomDomain // domain -> entry
+	customDomainMu sync.RWMutex
+
+	// Trusted reverse-proxy IPs whose forwarded headers may be believed
+	// (data-plane equivalent of the API's trustedRealIPMiddleware).
+	trustedProxies map[string]struct{}
+
+	// Auth rate limiting per IP
+	authLimiters sync.Map // remoteIP -> *monitor.SlidingWindow
+
+	// Active connections tracking for graceful drain
+	activeConns sync.WaitGroup
+
+	// Shutdown
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+}
+
+// Client represents a connected client
+type Client struct {
+	ID           string
+	RemoteAddr   string
+	Token        *config.TokenConfig
+	Session      *yamux.Session
+	ControlCodec *protocol.Codec
+	ControlConn  net.Conn
+	Tunnels      map[string]*Tunnel
+	TunnelsMu    sync.RWMutex
+	Connected    time.Time
+	lastPing     atomic.Int64
+
+	// Multi-session pool: additional data connections for parallelism
+	DataSessions        []*yamux.Session
+	DataConns           []net.Conn // underlying TCP connections for data sessions
+	DataMu              sync.RWMutex
+	SessionSecret       string    // secret for joining additional connections
+	SessionSecretExpiry time.Time // secret valid until this time
+
+	// Database integration
+	UserID     int64              // 0 if legacy token
+	APITokenID int64              // 0 if legacy token
+	DBToken    *database.APIToken // nil if legacy token
+	IsAdmin    bool               // true if user is admin
+	Plan       *database.Plan     // user's plan (nil if none)
+
+	server    *Server
+	conn      net.Conn
+	log       zerolog.Logger
+	ctx       context.Context
+	cancel    context.CancelFunc
+	mu        sync.Mutex // for writing to control stream
+	closeOnce sync.Once
+}
+
+// Tunnel represents an active tunnel
+type Tunnel struct {
+	ID         string
+	ClientID   string
+	Type       protocol.TunnelType
+	Name       string
+	Subdomain  string // For HTTP
+	RemotePort int    // For TCP/UDP
+	LocalPort  int
+	Created    time.Time
+
+	// Security features
+	BasicAuthHash string        // bcrypt hash
+	AllowedNets   []*net.IPNet  // parsed CIDRs
+	AllowedIPs    []net.IP      // exact IPs (no CIDR)
+	AutoClose     time.Duration // idle timeout
+	MaxLifetime   time.Duration // max tunnel lifetime
+	LastActivity  atomic.Int64  // UnixNano timestamp
+
+	// For TCP/UDP
+	listener net.Listener
+	udpConn  *net.UDPConn
+}
+
+// New creates a new server
+func New(cfg *config.ServerConfig, log zerolog.Logger) *Server {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s := &Server{
+		cfg:            cfg,
+		unauthSlots:    make(chan struct{}, maxUnauthControlConns),
+		unauthIP:       make(map[string]int),
+		log:            log.With().Str("component", "server").Logger(),
+		clientMgr:      NewClientManager(log.With().Str("component", "server").Logger()),
+		customDomains:  make(map[string]*database.CustomDomain),
+		proxyPool:      newRemoteProxyPool(),
+		trustedProxies: buildTrustedProxySet(cfg.Auth.TrustedProxies),
+		ctx:            ctx,
+		cancel:         cancel,
+	}
+
+	s.httpRouter = NewHTTPRouter(s, log)
+	s.tcpManager = NewTCPManager(s, log)
+	s.udpManager = NewUDPManager(s, log)
+
+	monCfg := monitor.Config{
+		Enabled:           cfg.Server.Monitor.Enabled,
+		DetectionInterval: cfg.Server.Monitor.DetectionInterval,
+		Detection: monitor.DetectionConfig{
+			UniqueIPsThreshold:     cfg.Server.Monitor.UniqueIPsThreshold,
+			ShortConnRatio:         cfg.Server.Monitor.ShortConnRatio,
+			UDPAmplificationFactor: cfg.Server.Monitor.UDPAmplificationFactor,
+		},
+	}
+	s.monitor = monitor.New(monCfg, s.handleMonitorAlert)
+
+	capacity := 0
+	if cfg.Inspect.Enabled {
+		capacity = cfg.Inspect.MaxEntries
+		if capacity == 0 {
+			capacity = defaultInspectMaxEntries
+		}
+	}
+	maxBody := cfg.Inspect.MaxBodySize
+	if maxBody == 0 {
+		maxBody = inspect.MaxBodySize
+	}
+	s.inspectMgr = inspect.NewManager(capacity, maxBody)
+
+	return s
+}
+
+func (s *Server) handleMonitorAlert(alert monitor.Alert) {
+	if alert.Severity == monitor.SeverityCritical {
+		s.log.Error().
+			Str("tunnel", alert.TunnelID).
+			Str("alert", string(alert.Type)).
+			Msg("critical security alert: " + alert.Message)
+	}
+}
+
+// SetDatabase sets the database for the server
+func (s *Server) SetDatabase(db *database.Database) {
+	s.db = db
+}
+
+// SetAuthService sets the auth service for JWT validation
+func (s *Server) SetAuthService(authService *auth.Service) {
+	s.authService = authService
+}
+
+// SetTunnelRegistry sets the cross-server tunnel discovery registry.
+func (s *Server) SetTunnelRegistry(r store.TunnelRegistry) {
+	s.tunnelRegistry = r
+}
+
+// TunnelRegistry returns the tunnel registry (may be nil).
+func (s *Server) TunnelRegistry() store.TunnelRegistry {
+	return s.tunnelRegistry
+}
+
+// HubAuthInfo holds the result of a hub token verification.
+type HubAuthInfo struct {
+	Valid            bool
+	UserID           int64
+	MaxTunnels       int
+	MaxDataSessions  int
+	IsAdmin          bool
+	InspectorEnabled bool
+}
+
+// HubAuthVerifier verifies client tokens against the hub.
+type HubAuthVerifier interface {
+	VerifyClientToken(token string) (*HubAuthInfo, error)
+}
+
+// SetMode sets the server operating mode.
+func (s *Server) SetMode(mode config.ServerMode) {
+	s.mode = mode
+}
+
+// SetNodeRegistry sets the node registry for edge node discovery.
+func (s *Server) SetNodeRegistry(r store.NodeRegistry) {
+	s.nodeRegistry = r
+}
+
+// SetHubClient sets the hub client for node mode auth delegation.
+func (s *Server) SetHubClient(h HubAuthVerifier) {
+	s.hubClient = h
+}
+
+// SetGeoIP sets the GeoIP lookup for region-based edge node selection.
+func (s *Server) SetGeoIP(g *geoip.Lookup) {
+	s.geoIP = g
+}
+
+// SetLocalNodeID sets this server's node identifier.
+func (s *Server) SetLocalNodeID(id string) {
+	s.localNodeID = id
+}
+
+// LocalNodeID returns the server's node identifier.
+func (s *Server) LocalNodeID() string {
+	if s.localNodeID != "" {
+		return s.localNodeID
+	}
+	h, _ := os.Hostname()
+	return h
+}
+
+// NodeName returns a human-readable name for this server node.
+func (s *Server) NodeName() string {
+	if s.mode == config.ModeNode && s.cfg.Node.Name != "" {
+		return s.cfg.Node.Name
+	}
+	h, _ := os.Hostname()
+	return h
+}
+
+// NodePublicHost returns the public host for tunnel URLs.
+// In node mode, returns the node's public address host.
+// In other modes, returns the base domain.
+func (s *Server) NodePublicHost() string {
+	if s.mode == config.ModeNode && s.cfg.Node.PublicAddr != "" {
+		host, _, err := net.SplitHostPort(s.cfg.Node.PublicAddr)
+		if err == nil {
+			return host
+		}
+		return s.cfg.Node.PublicAddr
+	}
+	return s.cfg.Domain.Base
+}
+
+// SetTelegramNotifier sets the Telegram admin notifier for first-tunnel notifications.
+func (s *Server) SetTelegramNotifier(n interface {
+	NotifyFirstTunnel(userID int64, displayName, tunnelType, address string, registeredAt time.Time)
+}) {
+	s.telegramNotifier = n
+}
+
+// GetDatabase returns the database
+func (s *Server) GetDatabase() *database.Database {
+	return s.db
+}
+
+// GetConfig returns the server configuration
+func (s *Server) GetConfig() *config.ServerConfig {
+	return s.cfg
+}
+
+// InspectManager returns the inspect manager
+func (s *Server) InspectManager() *inspect.Manager {
+	return s.inspectMgr
+}
+
+// HTTPRouter returns the HTTP router for replay support.
+func (s *Server) HTTPRouter() *HTTPRouter {
+	return s.httpRouter
+}
+
+// CertManager returns the TLS certificate manager (may be nil).
+func (s *Server) CertManager() *fxtls.CertManager {
+	return s.certManager
+}
+
+// LoadCustomDomains loads verified custom domains from DB into memory.
+func (s *Server) LoadCustomDomains() error {
+	if s.db == nil {
+		return nil
+	}
+	domains, err := s.db.CustomDomains.GetAllVerified()
+	if err != nil {
+		return err
+	}
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	for _, d := range domains {
+		s.customDomains[strings.ToLower(d.Domain)] = d
+	}
+	s.log.Info().Int("count", len(domains)).Msg("Loaded custom domains")
+	return nil
+}
+
+// LookupCustomDomain looks up a custom domain by host.
+func (s *Server) LookupCustomDomain(host string) *database.CustomDomain {
+	host = strings.ToLower(host)
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	s.customDomainMu.RLock()
+	defer s.customDomainMu.RUnlock()
+	return s.customDomains[host]
+}
+
+// AddCustomDomain adds a custom domain to the in-memory cache.
+func (s *Server) AddCustomDomain(d *database.CustomDomain) {
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	s.customDomains[strings.ToLower(d.Domain)] = d
+}
+
+// RemoveCustomDomain removes a custom domain from the in-memory cache.
+func (s *Server) RemoveCustomDomain(domain string) {
+	s.customDomainMu.Lock()
+	defer s.customDomainMu.Unlock()
+	delete(s.customDomains, strings.ToLower(domain))
+}
+
+// InitCustomDomains initializes custom domains and TLS cert manager.
+func (s *Server) InitCustomDomains() error {
+	if s.db == nil || !s.cfg.CustomDomains.Enabled {
+		return nil
+	}
+
+	if err := s.LoadCustomDomains(); err != nil {
+		return fmt.Errorf("load custom domains: %w", err)
+	}
+
+	s.certManager = fxtls.NewCertManager(s.cfg.TLS, s.db, s.log)
+	// Drop the domain from the routing table the moment it loses verification.
+	s.certManager.SetOnUnverify(s.RemoveCustomDomain)
+	if err := s.certManager.LoadFromDB(); err != nil {
+		s.log.Warn().Err(err).Msg("Failed to load TLS certs from DB")
+	}
+	s.certManager.StartRenewal()
+
+	return nil
+}
+
+// Start starts the server
+func (s *Server) Start() error {
+	// Start control plane listener
+	controlAddr := fmt.Sprintf(":%d", s.cfg.Server.ControlPort)
+	var err error
+
+	if s.cfg.TLS.Enabled {
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(s.cfg.TLS.CertFile, s.cfg.TLS.KeyFile)
+		if err != nil {
+			return fmt.Errorf("load TLS certificate: %w", err)
+		}
+		tlsCfg := controlTLSConfig(cert)
+		s.controlListener, err = listenSessionTLS(controlAddr, tlsCfg)
+	} else {
+		s.controlListener, err = newReusePortListener(s.ctx, controlAddr)
+	}
+	if err != nil {
+		return fmt.Errorf("listen control: %w", err)
+	}
+	s.log.Info().Str("addr", controlAddr).Msg("Control plane listening")
+
+	// Start HTTP listener. Empty bind = all interfaces (legacy). In production
+	// it should be "127.0.0.1" so external clients can only reach the HTTP
+	// tunnel proxy through nginx (which sets X-Real-IP and terminates TLS).
+	httpAddr := fmt.Sprintf("%s:%d", s.cfg.Server.HTTPBind, s.cfg.Server.HTTPPort)
+	s.httpListener, err = newReusePortListener(s.ctx, httpAddr)
+	if err != nil {
+		s.controlListener.Close()
+		return fmt.Errorf("listen http: %w", err)
+	}
+	s.log.Info().Str("addr", httpAddr).Msg("HTTP listener started")
+
+	// Start HTTPS listener for custom domains (if CertManager is available)
+	if s.certManager != nil && s.cfg.TLS.HTTPSPort > 0 {
+		httpsAddr := fmt.Sprintf(":%d", s.cfg.TLS.HTTPSPort)
+		tlsListener, err := newReusePortListener(s.ctx, httpsAddr)
+		if err != nil {
+			s.log.Warn().Err(err).Str("addr", httpsAddr).Msg("Failed to start HTTPS listener for custom domains")
+		} else {
+			s.httpsListener = tls.NewListener(tlsListener, s.certManager.TLSConfig())
+			s.httpsServer = &http.Server{
+				Handler: s.httpRouter,
+				// Only the headers get a hard limit (slowloris). Bodies and streams are
+				// bounded by HTTPIdleTimeout in the router, not by total duration.
+				ReadHeaderTimeout: 10 * time.Second,
+				IdleTimeout:       120 * time.Second,
+			}
+			s.wg.Add(1)
+			go func() {
+				defer s.wg.Done()
+				if err := s.httpsServer.Serve(s.httpsListener); err != nil && err != http.ErrServerClosed {
+					s.log.Error().Err(err).Msg("HTTPS server error")
+				}
+			}()
+			s.log.Info().Str("addr", httpsAddr).Msg("HTTPS listener started for custom domains")
+		}
+	}
+
+	// Periodic cleanup of idle auth rate limiters to prevent memory leaks
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				s.cleanupAuthLimiters()
+			case <-s.ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Additional TLS control listeners (TLS control endpoint on :443,
+	// e.g. a second IP on :443). Optional; legacy plaintext 4443 keeps running.
+	if s.cfg.Server.ControlTLS.Enabled {
+		if err := s.startControlTLSListeners(); err != nil {
+			s.controlListener.Close()
+			s.httpListener.Close()
+			return fmt.Errorf("listen control tls: %w", err)
+		}
+	}
+
+	// Accept control connections (plaintext + any TLS listeners)
+	s.wg.Add(1)
+	go s.acceptControlConnections(s.controlListener)
+	for _, l := range s.controlTLSListeners {
+		s.wg.Add(1)
+		go s.acceptControlConnections(l)
+	}
+
+	// Start HTTP server with keep-alive support
+	s.httpServer = &http.Server{
+		Handler: s.httpRouter,
+		// Only the headers get a hard limit (slowloris). Bodies and streams are
+		// bounded by HTTPIdleTimeout in the router, not by total duration.
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		if err := s.httpServer.Serve(s.httpListener); err != nil && err != http.ErrServerClosed {
+			s.log.Error().Err(err).Msg("HTTP server error")
+		}
+	}()
+
+	return nil
+}
+
+// Stop stops the server gracefully
+func (s *Server) Stop() error {
+	s.log.Info().Msg("Shutting down server...")
+
+	// Phase 1: stop accepting new connections
+	if s.controlListener != nil {
+		s.controlListener.Close()
+	}
+	for _, l := range s.controlTLSListeners {
+		l.Close()
+	}
+	if s.httpListener != nil {
+		s.httpListener.Close()
+	}
+	if s.httpsListener != nil {
+		s.httpsListener.Close()
+	}
+
+	// Phase 2: drain in-flight connections (max 10s)
+	s.log.Info().Msg("Draining active connections...")
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), drainTimeout)
+	defer drainCancel()
+
+	// Gracefully shutdown HTTP/HTTPS servers (drains keep-alive connections)
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(drainCtx); err != nil {
+			s.log.Warn().Err(err).Msg("HTTP server shutdown error")
+		}
+	}
+	if s.httpsServer != nil {
+		if err := s.httpsServer.Shutdown(drainCtx); err != nil {
+			s.log.Warn().Err(err).Msg("HTTPS server shutdown error")
+		}
+	}
+
+	drainDone := make(chan struct{})
+	go func() {
+		s.activeConns.Wait()
+		close(drainDone)
+	}()
+	select {
+	case <-drainDone:
+		s.log.Info().Msg("All connections drained")
+	case <-drainCtx.Done():
+		s.log.Warn().Msg("Drain timeout, forcing shutdown")
+	}
+
+	// Phase 3: notify clients and gracefully close sessions
+	clients := s.clientMgr.allClients()
+
+	// Send shutdown notification and GoAway to all clients
+	for _, c := range clients {
+		shutdownMsg := &protocol.ServerShutdownMessage{
+			Message: protocol.NewMessage(protocol.MsgServerShutdown),
+			Reason:  "server shutting down",
+		}
+		_ = c.sendControl(shutdownMsg)
+		if c.Session != nil {
+			_ = c.Session.GoAway()
+		}
+		c.DataMu.RLock()
+		for _, ds := range c.DataSessions {
+			_ = ds.GoAway()
+		}
+		c.DataMu.RUnlock()
+	}
+
+	// Allow in-flight streams to finish
+	if len(clients) > 0 {
+		time.Sleep(2 * time.Second)
+	}
+
+	s.cancel()
+
+	for _, c := range clients {
+		c.Close()
+	}
+
+	// Stop managers
+	s.tcpManager.Stop()
+	s.udpManager.Stop()
+	s.monitor.Stop()
+
+	s.inspectMgr.Close()
+
+	if s.certManager != nil {
+		s.certManager.Stop()
+	}
+
+	s.wg.Wait()
+	s.log.Info().Msg("Server stopped")
+	return nil
+}
+
+// startControlTLSListeners opens a TLS listener on each configured address.
+// These present a real TLS handshake so the control plane is reachable on :443
+// and indistinguishable from HTTPS to middleboxes. The shared certificate is
+// selected by SNI automatically when it carries multiple names (SAN).
+func (s *Server) startControlTLSListeners() error {
+	cert, err := tls.LoadX509KeyPair(s.cfg.Server.ControlTLS.CertFile, s.cfg.Server.ControlTLS.KeyFile)
+	if err != nil {
+		return fmt.Errorf("load control TLS certificate: %w", err)
+	}
+	tlsCfg := controlTLSConfig(cert)
+
+	for _, addr := range s.cfg.Server.ControlTLS.Listen {
+		l, err := listenSessionTLS(addr, tlsCfg)
+		if err != nil {
+			// Close any TLS listeners already opened before failing.
+			for _, opened := range s.controlTLSListeners {
+				opened.Close()
+			}
+			s.controlTLSListeners = nil
+			return fmt.Errorf("listen %s: %w", addr, err)
+		}
+		s.controlTLSListeners = append(s.controlTLSListeners, l)
+		s.log.Info().Str("addr", addr).Msg("Control plane TLS listening")
+	}
+	return nil
+}
+
+func (s *Server) acceptControlConnections(l net.Listener) {
+	defer s.wg.Done()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			// Listener closed on shutdown — exit quietly instead of spinning
+			// the loop and flooding the log with "use of closed connection".
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				s.log.Error().Err(err).Msg("Accept control connection failed")
+				continue
+			}
+		}
+
+		s.wg.Add(1)
+		go s.handleControlConnection(conn)
+	}
+}
+
+// maxUnauthControlConns bounds concurrent pre-auth control connections.
+const maxUnauthControlConns = 256
+
+// maxUnauthPerIP bounds how much of that budget a single source IP may hold.
+// Sized for a NAT shared by many users reconnecting at once; a normal peer
+// leaves the pre-auth stage in well under a second.
+const maxUnauthPerIP = 32
+
+// acquireUnauthIP reserves a pre-auth slot for host, returning false when that
+// host already holds its share. The release func is safe to call once.
+func (s *Server) acquireUnauthIP(host string) (func(), bool) {
+	s.unauthIPMu.Lock()
+	if s.unauthIP[host] >= maxUnauthPerIP {
+		s.unauthIPMu.Unlock()
+		return nil, false
+	}
+	s.unauthIP[host]++
+	s.unauthIPMu.Unlock()
+
+	return func() {
+		s.unauthIPMu.Lock()
+		if s.unauthIP[host] <= 1 {
+			delete(s.unauthIP, host)
+		} else {
+			s.unauthIP[host]--
+		}
+		s.unauthIPMu.Unlock()
+	}, true
+}
+
+// maxBasicAuthCost caps the bcrypt cost a client may attach to a tunnel.
+const maxBasicAuthCost = 12
+
+func (s *Server) handleControlConnection(conn net.Conn) {
+	defer s.wg.Done()
+
+	tuneSessionConn(conn)
+
+	// Hold a pre-auth slot until the peer authenticates (or gives up), so the
+	// memory spent on compression state stays bounded for unauthenticated
+	// peers.
+	select {
+	case s.unauthSlots <- struct{}{}:
+	default:
+		s.log.Warn().Str("remote", conn.RemoteAddr().String()).Msg("Too many unauthenticated control connections, rejecting")
+		conn.Close()
+		return
+	}
+
+	remoteAddr := conn.RemoteAddr().String()
+	unauthHost, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		unauthHost = remoteAddr
+	}
+	releaseIP, ok := s.acquireUnauthIP(unauthHost)
+	if !ok {
+		<-s.unauthSlots
+		s.log.Warn().Str("remote", remoteAddr).Msg("Too many unauthenticated control connections from this IP, rejecting")
+		conn.Close()
+		return
+	}
+
+	var releaseOnce sync.Once
+	releaseSlot := func() {
+		releaseOnce.Do(func() {
+			releaseIP()
+			<-s.unauthSlots
+		})
+	}
+	defer releaseSlot()
+
+	log := s.log.With().Str("remote", remoteAddr).Logger()
+	log.Debug().Msg("New control connection")
+
+	// Negotiate compression before yamux
+	rwc, compressed, err := protocol.NegotiateCompression(conn, s.cfg.Server.CompressionEnabled, true)
+	if err != nil {
+		log.Error().Err(err).Msg("Compression negotiation failed")
+		conn.Close()
+		return
+	}
+	if compressed {
+		log.Debug().Msg("Compression enabled (zstd)")
+	}
+
+	// Create yamux session FIRST (server mode) with optimized config
+	yamuxCfg := yamux.DefaultConfig()
+	yamuxCfg.EnableKeepAlive = true
+	yamuxCfg.KeepAliveInterval = yamuxKeepAliveInterval
+	yamuxCfg.MaxStreamWindowSize = yamuxMaxStreamWindowSize
+	yamuxCfg.ConnectionWriteTimeout = yamuxConnectionWriteTimeout
+	session, err := yamux.Server(rwc, yamuxCfg)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create yamux session")
+		conn.Close()
+		return
+	}
+
+	// Accept the control stream (first stream from client). A real client opens
+	// it immediately; a peer that just sits there would otherwise keep this
+	// goroutine and its pre-auth slot until yamux keepalive gives up, which also
+	// made shutdown wait ~40s for the same goroutines.
+	type acceptResult struct {
+		stream net.Conn
+		err    error
+	}
+	acceptCh := make(chan acceptResult, 1)
+	go func() {
+		stream, aerr := session.Accept()
+		acceptCh <- acceptResult{stream: stream, err: aerr}
+	}()
+
+	var controlStream net.Conn
+	select {
+	case res := <-acceptCh:
+		if res.err != nil {
+			log.Error().Err(res.err).Msg("Failed to accept control stream")
+			session.Close()
+			return
+		}
+		controlStream = res.stream
+	case <-time.After(authTimeout):
+		log.Warn().Msg("Timed out waiting for control stream")
+		session.Close()
+		return
+	case <-s.ctx.Done():
+		session.Close()
+		return
+	}
+
+	// Create codec for the control stream
+	codec := protocol.NewCodec(controlStream, controlStream)
+
+	// Wait for authentication with timeout
+	_ = controlStream.SetReadDeadline(time.Now().Add(authTimeout))
+
+	// Read auth message
+	data, baseMsg, err := codec.DecodeRaw()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read auth message")
+		session.Close()
+		return
+	}
+
+	_ = controlStream.SetReadDeadline(time.Time{}) // Clear deadline
+
+	switch baseMsg.Type {
+	case protocol.MsgJoinSession:
+		// Additional data connection joining an existing client
+		s.handleJoinSession(conn, session, controlStream, codec, data, log)
+		return
+
+	case protocol.MsgAuth:
+		// Rate limit only actual auth attempts (not data connections / JoinSession)
+		if !s.allowAuth(remoteAddr) {
+			log.Warn().Msg("Auth rate limited")
+			session.Close()
+			return
+		}
+
+		parsed, err := protocol.ParseMessage(data, protocol.MsgAuth)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to parse auth message")
+			session.Close()
+			return
+		}
+
+		authMsg := parsed.(*protocol.AuthMessage)
+
+		// Check client version against minimum required
+		if s.cfg.Server.MinVersion != "" && authMsg.Version != "" {
+			if clientVersionBelowMinimum(authMsg.Version, s.cfg.Server.MinVersion) {
+				log.Warn().Str("client_version", authMsg.Version).Str("min_version", s.cfg.Server.MinVersion).
+					Msg("Client version too old")
+				result := &protocol.AuthResultMessage{
+					Message: protocol.NewMessage(protocol.MsgAuthResult),
+					Success: false,
+					Error:   fmt.Sprintf("client version %s is below minimum %s, please upgrade", authMsg.Version, s.cfg.Server.MinVersion),
+					Code:    protocol.ErrCodeProtocolError,
+				}
+				_ = codec.Encode(result)
+				session.Close()
+				return
+			}
+		}
+
+		// Authenticate
+		client, err := s.authenticate(conn, session, controlStream, codec, authMsg, log)
+		if err != nil {
+			if errors.Is(err, errRedirected) {
+				// Client was redirected to an edge node — clean up silently
+				session.Close()
+				return
+			}
+			log.Warn().Err(err).Msg("Authentication failed")
+			session.Close()
+			return
+		}
+
+		log = log.With().Str("client_id", client.ID).Logger()
+		log.Info().Msg("Client authenticated")
+
+		releaseSlot()
+
+		// Handle client messages
+		client.handle()
+
+	default:
+		log.Error().Str("type", string(baseMsg.Type)).Msg("Expected auth or join_session message")
+		s.sendError(codec, protocol.ErrCodeProtocolError, "expected auth or join_session message", true)
+		session.Close()
+	}
+}
+
+func (s *Server) handleJoinSession(conn net.Conn, session *yamux.Session, controlStream net.Conn, codec *protocol.Codec, data []byte, log zerolog.Logger) {
+	parsed, err := protocol.ParseMessage(data, protocol.MsgJoinSession)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse join_session message")
+		session.Close()
+		return
+	}
+	joinMsg := parsed.(*protocol.JoinSessionMessage)
+
+	client := s.findClientBySecret(joinMsg.ClientID, joinMsg.Secret)
+	if client == nil {
+		log.Warn().Str("client_id", joinMsg.ClientID).Msg("Join session failed: invalid client or secret")
+		result := &protocol.JoinSessionResult{
+			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+			Success: false,
+			Error:   "invalid client_id or secret",
+		}
+		_ = codec.Encode(result)
+		session.Close()
+		return
+	}
+
+	// Enforce data session limit
+	client.DataMu.Lock()
+	maxDS := 0 // unlimited by default
+	if client.Plan != nil && !IsUnlimited(client.Plan.MaxDataSessions) {
+		maxDS = client.Plan.MaxDataSessions
+		if maxDS == 0 {
+			maxDS = defaultMaxDataSessions
+		}
+	}
+	if maxDS > 0 && len(client.DataSessions) >= maxDS {
+		client.DataMu.Unlock()
+		log.Warn().Str("client_id", client.ID).Int("current", len(client.DataSessions)).Int("max", maxDS).
+			Msg("Data session limit reached")
+		result := &protocol.JoinSessionResult{
+			Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+			Success: false,
+			Error:   "data session limit reached",
+		}
+		_ = codec.Encode(result)
+		session.Close()
+		return
+	}
+	client.DataSessions = append(client.DataSessions, session)
+	client.DataConns = append(client.DataConns, conn)
+	dataCount := len(client.DataSessions)
+	client.DataMu.Unlock()
+
+	// Send success
+	result := &protocol.JoinSessionResult{
+		Message: protocol.NewMessage(protocol.MsgJoinSessionResult),
+		Success: true,
+	}
+	_ = codec.Encode(result)
+
+	// Close the control stream — server will use session.Open() for data streams
+	controlStream.Close()
+
+	log.Info().Str("client_id", client.ID).Int("data_sessions", dataCount).Msg("Data session joined")
+}
+
+func (s *Server) findClientBySecret(clientID, secret string) *Client {
+	client := s.clientMgr.GetClient(clientID)
+	if client == nil {
+		return nil
+	}
+	if client.SessionSecret == "" ||
+		subtle.ConstantTimeCompare([]byte(client.SessionSecret), []byte(secret)) != 1 {
+		return nil
+	}
+	// Check session secret TTL
+	if !client.SessionSecretExpiry.IsZero() && time.Now().After(client.SessionSecretExpiry) {
+		return nil
+	}
+	return client
+}
+
+func (s *Server) removeClient(clientID string) {
+	s.clientMgr.removeClient(clientID)
+}
+
+const authRateLimitPerMin = 30
+
+func (s *Server) allowAuth(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	v, _ := s.authLimiters.LoadOrStore(host, monitor.NewSlidingWindow(authRateLimitPerMin, time.Minute))
+	return v.(*monitor.SlidingWindow).Allow()
+}
+
+// cleanupAuthLimiters removes idle auth rate limiters to prevent unbounded memory growth.
+func (s *Server) cleanupAuthLimiters() {
+	s.authLimiters.Range(func(key, value any) bool {
+		sw := value.(*monitor.SlidingWindow)
+		if sw.IsIdle(5 * time.Minute) {
+			s.authLimiters.Delete(key)
+		}
+		return true
+	})
+}
+
+func (s *Server) sendError(codec *protocol.Codec, code, message string, fatal bool) {
+	msg := &protocol.ErrorMessage{
+		Message: protocol.NewMessage(protocol.MsgError),
+		Error:   message,
+		Code:    code,
+		Fatal:   fatal,
+	}
+	_ = codec.Encode(msg)
+}
+
+func (s *Server) GetClient(clientID string) *Client {
+	return s.clientMgr.GetClient(clientID)
+}
+
+// Client methods
+
+func (c *Client) handle() {
+	defer c.Close()
+
+	// Start keepalive
+	go c.keepalive()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+		}
+
+		data, baseMsg, err := c.ControlCodec.DecodeRaw()
+		if err != nil {
+			c.log.Debug().Err(err).Msg("Read error, closing client")
+			return
+		}
+
+		c.lastPing.Store(time.Now().UnixNano())
+
+		switch baseMsg.Type {
+		case protocol.MsgTunnelRequest:
+			c.handleTunnelRequest(data)
+		case protocol.MsgTunnelClose:
+			c.handleTunnelClose(data)
+		case protocol.MsgConnectionAccept:
+			c.handleConnectionAccept(data)
+		case protocol.MsgPing:
+			c.handlePing()
+		case protocol.MsgPong:
+			// Keepalive response, just update LastPing (already done above)
+		default:
+			c.log.Warn().Str("type", string(baseMsg.Type)).Msg("Unknown message type")
+		}
+	}
+}
+
+func (c *Client) handleTunnelRequest(data []byte) {
+	parsed, err := protocol.ParseMessage(data, protocol.MsgTunnelRequest)
+	if err != nil {
+		c.log.Error().Err(err).Msg("Failed to parse tunnel request")
+		return
+	}
+	req := parsed.(*protocol.TunnelRequestMessage)
+
+	// Serialize tunnel creation per user to prevent race condition on count check
+	if c.UserID > 0 {
+		mu := c.server.clientMgr.GetTunnelCreateMu(c.UserID)
+		mu.Lock()
+		defer mu.Unlock()
+	}
+
+	// Global limit from plan
+	globalMax := defaultMaxTunnels
+	if c.Plan != nil {
+		if IsUnlimited(c.Plan.MaxTunnels) {
+			globalMax = 0 // no global limit
+		} else {
+			globalMax = c.Plan.MaxTunnels
+		}
+	}
+
+	// Per-token limit
+	tokenMax := 0
+	if c.Token != nil && c.Token.MaxTunnels > 0 {
+		tokenMax = c.Token.MaxTunnels
+	}
+	if c.DBToken != nil && c.DBToken.MaxTunnels > 0 {
+		tokenMax = c.DBToken.MaxTunnels
+	}
+
+	var tunnelCount int
+	if c.UserID > 0 {
+		tunnelCount = c.server.clientMgr.CountTunnelsByUserID(c.UserID)
+	} else {
+		c.TunnelsMu.RLock()
+		tunnelCount = len(c.Tunnels)
+		c.TunnelsMu.RUnlock()
+	}
+
+	if globalMax > 0 && tunnelCount >= globalMax {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeTunnelLimit, "tunnel limit reached")
+		return
+	}
+
+	// Also check per-token limit
+	if tokenMax > 0 {
+		c.TunnelsMu.RLock()
+		clientTunnels := len(c.Tunnels)
+		c.TunnelsMu.RUnlock()
+		if clientTunnels >= tokenMax {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeTunnelLimit, "token tunnel limit reached")
+			return
+		}
+	}
+
+	switch req.TunnelType {
+	case protocol.TunnelHTTP:
+		c.createHTTPTunnel(req)
+	case protocol.TunnelTCP:
+		c.createTCPTunnel(req)
+	case protocol.TunnelUDP:
+		// Gate UDP behind the plan flag — Free has udp_enabled=false.
+		// Admins (no plan, or unlimited) are allowed unconditionally.
+		if c.Plan != nil && !c.Plan.UDPEnabled {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodePlanLimit,
+				"UDP tunnels are not available on your plan — upgrade to enable UDP")
+			return
+		}
+		c.createUDPTunnel(req)
+	default:
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, "unknown tunnel type")
+	}
+}
+
+func (c *Client) createHTTPTunnel(req *protocol.TunnelRequestMessage) {
+	subdomain := req.Subdomain
+	subdomain = strings.ToLower(subdomain)
+	if subdomain == "" {
+		subdomain = c.server.generateUniqueSubdomain()
+	}
+
+	// Validate subdomain format
+	if !subdomainRegex.MatchString(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "invalid subdomain format")
+		return
+	}
+
+	// Block reserved subdomains
+	if reserved.IsReserved(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainInvalid, "subdomain is reserved")
+		return
+	}
+
+	// Check subdomain permission
+	if c.Token != nil && !c.Token.CanUseSubdomain(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePermissionDenied, "subdomain not allowed")
+		return
+	}
+	if c.DBToken != nil && !c.DBToken.CanUseSubdomain(subdomain) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePermissionDenied, "subdomain not allowed by token")
+		return
+	}
+
+	// Check reserved domains in database
+	if c.server.db != nil && c.UserID > 0 {
+		owned, _ := c.server.db.Domains.IsOwnedByUser(subdomain, c.UserID)
+		available, _ := c.server.db.Domains.IsAvailable(subdomain)
+		if !available && !owned {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain is reserved by another user")
+			return
+		}
+	}
+
+	// Register with HTTP router
+	tunnelID := generateID()
+	tunnel := &Tunnel{
+		ID:            tunnelID,
+		ClientID:      c.ID,
+		Type:          protocol.TunnelHTTP,
+		Name:          req.Name,
+		Subdomain:     subdomain,
+		LocalPort:     req.LocalPort,
+		Created:       time.Now(),
+		BasicAuthHash: req.BasicAuthHash,
+	}
+
+	// The hash comes from the client, and every request to this subdomain pays
+	// its cost. A cost-31 hash would burn minutes of CPU per request.
+	if req.BasicAuthHash != "" {
+		cost, err := bcrypt.Cost([]byte(req.BasicAuthHash))
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, "invalid basic auth hash")
+			return
+		}
+		if cost > maxBasicAuthCost {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError,
+				fmt.Sprintf("basic auth hash cost %d exceeds maximum %d", cost, maxBasicAuthCost))
+			return
+		}
+	}
+
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
+	c.server.inspectMgr.GetOrCreateWithUser(tunnelID, c.UserID)
+
+	// Claim the subdomain cluster-wide BEFORE serving it locally: the local
+	// router only knows this node, so without the claim two users on two nodes
+	// both answer for the same name and traffic lands in whichever node the
+	// request reaches.
+	if err := c.registerTunnelInRegistry(tunnel); err != nil {
+		c.server.inspectMgr.Remove(tunnelID)
+		if errors.Is(err, store.ErrSubdomainTaken) {
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, "subdomain is in use on another node")
+			return
+		}
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeInternalError, "failed to claim subdomain")
+		return
+	}
+
+	if err := c.server.httpRouter.RegisterTunnel(subdomain, tunnel); err != nil {
+		c.server.inspectMgr.Remove(tunnelID)
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodeSubdomainTaken, err.Error())
+		return
+	}
+
+	c.TunnelsMu.Lock()
+	c.Tunnels[tunnelID] = tunnel
+	c.TunnelsMu.Unlock()
+
+	c.registerTunnelMonitor(tunnel)
+
+	url := fmt.Sprintf("http://%s.%s", subdomain, c.server.cfg.Domain.Base)
+	httpsURL := fmt.Sprintf("https://%s.%s", subdomain, c.server.cfg.Domain.Base)
+
+	resp := &protocol.TunnelCreatedMessage{
+		Message:          protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:         tunnelID,
+		TunnelType:       protocol.TunnelHTTP,
+		Name:             req.Name,
+		URL:              url,
+		HTTPSURL:         httpsURL,
+		Subdomain:        subdomain,
+		BasicAuthEnabled: tunnel.BasicAuthHash != "",
+		AllowIPsCount:    len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:        req.AutoClose,
+		MaxLifetime:      req.MaxLifetime,
+	}
+	resp.RequestID = req.RequestID
+
+	_ = c.sendControl(resp)
+	c.log.Info().Str("tunnel_id", tunnelID).Str("url", url).Msg("HTTP tunnel created")
+	c.notifyFirstTunnel("HTTP", url)
+}
+
+func (c *Client) createTCPTunnel(req *protocol.TunnelRequestMessage) {
+	// SSRF prevention: block sensitive ports for non-admin users
+	if portBlocked(req.RemotePort, c.IsAdmin, blockedTCPPorts) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable,
+			fmt.Sprintf("port %d is blocked for security reasons", req.RemotePort))
+		return
+	}
+
+	port, listener, err := c.server.tcpManager.AllocatePort(req.RemotePort)
+	if err != nil {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
+		return
+	}
+
+	tunnelID := generateID()
+	tunnel := &Tunnel{
+		ID:         tunnelID,
+		ClientID:   c.ID,
+		Type:       protocol.TunnelTCP,
+		Name:       req.Name,
+		RemotePort: port,
+		LocalPort:  req.LocalPort,
+		Created:    time.Now(),
+		listener:   listener,
+	}
+
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			listener.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
+	c.TunnelsMu.Lock()
+	c.Tunnels[tunnelID] = tunnel
+	c.TunnelsMu.Unlock()
+
+	c.registerTunnelMonitor(tunnel)
+
+	// Start accepting connections
+	go c.server.tcpManager.AcceptConnections(tunnel, c)
+
+	remoteAddr := fmt.Sprintf("%s:%d", c.server.NodePublicHost(), port)
+
+	resp := &protocol.TunnelCreatedMessage{
+		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:      tunnelID,
+		TunnelType:    protocol.TunnelTCP,
+		Name:          req.Name,
+		RemotePort:    port,
+		RemoteAddr:    remoteAddr,
+		AllowIPsCount: len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:     req.AutoClose,
+		MaxLifetime:   req.MaxLifetime,
+	}
+	resp.RequestID = req.RequestID
+
+	_ = c.sendControl(resp)
+	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("TCP tunnel created")
+	_ = c.registerTunnelInRegistry(tunnel)
+	c.notifyFirstTunnel("TCP", remoteAddr)
+}
+
+func (c *Client) createUDPTunnel(req *protocol.TunnelRequestMessage) {
+	// SSRF prevention: block sensitive ports for non-admin users.
+	if portBlocked(req.RemotePort, c.IsAdmin, blockedUDPPorts) {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable,
+			fmt.Sprintf("port %d is blocked for security reasons", req.RemotePort))
+		return
+	}
+
+	port, udpConn, err := c.server.udpManager.AllocatePort(req.RemotePort)
+	if err != nil {
+		c.sendTunnelError(req.RequestID, "", protocol.ErrCodePortUnavailable, err.Error())
+		return
+	}
+
+	tunnelID := generateID()
+	tunnel := &Tunnel{
+		ID:         tunnelID,
+		ClientID:   c.ID,
+		Type:       protocol.TunnelUDP,
+		Name:       req.Name,
+		RemotePort: port,
+		LocalPort:  req.LocalPort,
+		Created:    time.Now(),
+		udpConn:    udpConn,
+	}
+
+	// Parse IP allowlist
+	if len(req.AllowIPs) > 0 {
+		ips, nets, err := parseAllowIPs(req.AllowIPs)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid allow_ips: %v", err))
+			return
+		}
+		tunnel.AllowedIPs = ips
+		tunnel.AllowedNets = nets
+	}
+
+	// Parse auto-close duration
+	if req.AutoClose != "" {
+		d, err := parseTunnelDuration(req.AutoClose)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid auto_close: %v", err))
+			return
+		}
+		tunnel.AutoClose = d
+	}
+
+	// Parse max-lifetime duration
+	if req.MaxLifetime != "" {
+		d, err := parseTunnelDuration(req.MaxLifetime)
+		if err != nil {
+			udpConn.Close()
+			c.sendTunnelError(req.RequestID, "", protocol.ErrCodeProtocolError, fmt.Sprintf("invalid max_lifetime: %v", err))
+			return
+		}
+		tunnel.MaxLifetime = d
+	}
+
+	// Initialize LastActivity to creation time
+	tunnel.LastActivity.Store(time.Now().UnixNano())
+
+	c.TunnelsMu.Lock()
+	c.Tunnels[tunnelID] = tunnel
+	c.TunnelsMu.Unlock()
+
+	c.registerTunnelMonitor(tunnel)
+
+	// Start handling UDP packets
+	go c.server.udpManager.HandlePackets(tunnel, c)
+
+	remoteAddr := fmt.Sprintf("%s:%d", c.server.NodePublicHost(), port)
+
+	resp := &protocol.TunnelCreatedMessage{
+		Message:       protocol.NewMessage(protocol.MsgTunnelCreated),
+		TunnelID:      tunnelID,
+		TunnelType:    protocol.TunnelUDP,
+		Name:          req.Name,
+		RemotePort:    port,
+		RemoteAddr:    remoteAddr,
+		AllowIPsCount: len(tunnel.AllowedIPs) + len(tunnel.AllowedNets),
+		AutoClose:     req.AutoClose,
+		MaxLifetime:   req.MaxLifetime,
+	}
+	resp.RequestID = req.RequestID
+
+	_ = c.sendControl(resp)
+	c.log.Info().Str("tunnel_id", tunnelID).Int("port", port).Msg("UDP tunnel created")
+	_ = c.registerTunnelInRegistry(tunnel)
+	c.notifyFirstTunnel("UDP", remoteAddr)
+}
+
+func (c *Client) handleTunnelClose(data []byte) {
+	parsed, err := protocol.ParseMessage(data, protocol.MsgTunnelClose)
+	if err != nil {
+		c.log.Error().Err(err).Msg("Failed to parse tunnel close")
+		return
+	}
+	closeMsg := parsed.(*protocol.TunnelCloseMessage)
+
+	c.closeTunnel(closeMsg.TunnelID)
+}
+
+func (c *Client) registerTunnelMonitor(tunnel *Tunnel) {
+	var limits monitor.TunnelLimits
+	if c.Plan != nil {
+		limits = monitor.TunnelLimits{
+			TCPConnPerMin:    c.Plan.RateLimitTCP,
+			UDPPacketsPerSec: c.Plan.RateLimitUDP,
+			HTTPReqPerMin:    c.Plan.RateLimitHTTP,
+		}
+	}
+	c.server.monitor.RegisterTunnel(tunnel.ID, string(tunnel.Type), limits)
+}
+
+func (c *Client) closeTunnel(tunnelID string) {
+	c.TunnelsMu.Lock()
+	tunnel, exists := c.Tunnels[tunnelID]
+	if exists {
+		delete(c.Tunnels, tunnelID)
+	}
+	c.TunnelsMu.Unlock()
+
+	if !exists {
+		return
+	}
+
+	c.server.monitor.RemoveTunnel(tunnelID)
+
+	// Remove from cross-server registry
+	if c.server.tunnelRegistry != nil {
+		_ = c.server.tunnelRegistry.Unregister(tunnelID)
+	}
+
+	switch tunnel.Type {
+	case protocol.TunnelHTTP:
+		c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
+		c.server.inspectMgr.Remove(tunnelID)
+	case protocol.TunnelTCP:
+		if tunnel.listener != nil {
+			tunnel.listener.Close()
+		}
+	case protocol.TunnelUDP:
+		if tunnel.udpConn != nil {
+			tunnel.udpConn.Close()
+		}
+	}
+
+	resp := &protocol.TunnelClosedMessage{
+		Message:  protocol.NewMessage(protocol.MsgTunnelClosed),
+		TunnelID: tunnelID,
+	}
+	_ = c.sendControl(resp)
+
+	c.log.Info().Str("tunnel_id", tunnelID).Msg("Tunnel closed")
+}
+
+// registerTunnelInRegistry claims the tunnel in the cross-server Redis registry
+// and starts a heartbeat goroutine that refreshes the TTL every 30 seconds.
+// It returns store.ErrSubdomainTaken when another user already holds the
+// subdomain on a different node, so the caller can refuse the tunnel instead
+// of serving a name that belongs to someone else.
+func (c *Client) registerTunnelInRegistry(tunnel *Tunnel) error {
+	reg := c.server.tunnelRegistry
+	if reg == nil {
+		return nil
+	}
+
+	entry := store.TunnelEntry{
+		TunnelID:   tunnel.ID,
+		Type:       string(tunnel.Type),
+		Name:       tunnel.Name,
+		Subdomain:  tunnel.Subdomain,
+		RemotePort: tunnel.RemotePort,
+		LocalPort:  tunnel.LocalPort,
+		ClientID:   c.ID,
+		UserID:     c.UserID,
+		ServerID:   "", // set by registry
+		CreatedAt:  tunnel.Created,
+	}
+
+	if err := reg.Register(entry); err != nil {
+		c.log.Warn().Err(err).Str("tunnel_id", tunnel.ID).Msg("Failed to register tunnel in Redis")
+		return err
+	}
+
+	// Heartbeat goroutine — refreshes TTL every 30s, stops when client context is done
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-c.ctx.Done():
+				return
+			case <-ticker.C:
+				// Check if tunnel still exists
+				c.TunnelsMu.RLock()
+				_, exists := c.Tunnels[tunnel.ID]
+				c.TunnelsMu.RUnlock()
+				if !exists {
+					return
+				}
+				_ = reg.Heartbeat(tunnel.ID)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (c *Client) handleConnectionAccept(data []byte) {
+	// This is handled via yamux streams directly
+}
+
+func (c *Client) handlePing() {
+	pong := &protocol.PongMessage{
+		Message: protocol.NewMessage(protocol.MsgPong),
+	}
+	_ = c.sendControl(pong)
+}
+
+func (c *Client) keepalive() {
+	ticker := time.NewTicker(keepaliveInterval)
+	defer ticker.Stop()
+
+	tickCount := 0
+	const tokenCheckInterval = 10 // every 10 ticks (~5 min at 30s interval)
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-ticker.C:
+			if time.Since(time.Unix(0, c.lastPing.Load())) > clientTimeout {
+				c.log.Warn().Msg("Client timeout, closing")
+				c.Close()
+				return
+			}
+
+			// Periodic token revocation check
+			tickCount++
+			if tickCount%tokenCheckInterval == 0 && c.APITokenID > 0 && c.server.db != nil {
+				if _, err := c.server.db.Tokens.GetByID(c.APITokenID); err != nil {
+					c.log.Warn().Int64("token_id", c.APITokenID).Msg("Token revoked or deleted, closing connection")
+					c.Close()
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *Client) sendControl(msg any) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ControlCodec.Encode(msg)
+}
+
+func (c *Client) sendTunnelError(requestID, tunnelID, code, message string) {
+	msg := &protocol.TunnelErrorMessage{
+		Message:  protocol.NewMessage(protocol.MsgTunnelError),
+		TunnelID: tunnelID,
+		Error:    message,
+		Code:     code,
+	}
+	msg.RequestID = requestID
+	_ = c.sendControl(msg)
+}
+
+// notifyFirstTunnel checks if this is the user's first-ever tunnel and notifies admin.
+func (c *Client) notifyFirstTunnel(tunnelType, address string) {
+	if c.server.telegramNotifier == nil || c.server.db == nil || c.UserID <= 0 {
+		return
+	}
+
+	isFirst, err := c.server.db.Users.SetFirstTunnelAt(c.UserID)
+	if err != nil {
+		c.log.Error().Err(err).Msg("Failed to check first tunnel")
+		return
+	}
+	if !isFirst {
+		return
+	}
+
+	user, err := c.server.db.Users.GetByID(c.UserID)
+	if err != nil {
+		return
+	}
+	c.server.telegramNotifier.NotifyFirstTunnel(c.UserID, user.DisplayName, tunnelType, address, user.CreatedAt)
+}
+
+// Close closes the client connection
+func (c *Client) Close() {
+	c.closeOnce.Do(func() {
+		c.cancel()
+
+		// Close all tunnels
+		c.TunnelsMu.Lock()
+		for tunnelID, tunnel := range c.Tunnels {
+			c.server.monitor.RemoveTunnel(tunnelID)
+
+			// Unregister from cross-server registry
+			if c.server.tunnelRegistry != nil {
+				_ = c.server.tunnelRegistry.Unregister(tunnelID)
+			}
+
+			switch tunnel.Type {
+			case protocol.TunnelHTTP:
+				c.server.httpRouter.UnregisterTunnel(tunnel.Subdomain)
+				c.server.inspectMgr.Remove(tunnelID)
+			case protocol.TunnelTCP:
+				if tunnel.listener != nil {
+					tunnel.listener.Close()
+				}
+			case protocol.TunnelUDP:
+				if tunnel.udpConn != nil {
+					tunnel.udpConn.Close()
+				}
+			}
+			delete(c.Tunnels, tunnelID)
+		}
+		c.TunnelsMu.Unlock()
+
+		if c.ControlConn != nil {
+			c.ControlConn.Close()
+		}
+		if c.Session != nil {
+			c.Session.Close()
+		}
+		if c.conn != nil {
+			c.conn.Close()
+		}
+
+		// Close all data sessions
+		c.DataMu.Lock()
+		for _, ds := range c.DataSessions {
+			ds.Close()
+		}
+		for _, dc := range c.DataConns {
+			dc.Close()
+		}
+		c.DataSessions = nil
+		c.DataConns = nil
+		c.DataMu.Unlock()
+
+		// Unlink user from client
+		c.server.clientMgr.unlinkUserClient(c.UserID, c.ID)
+
+		c.server.removeClient(c.ID)
+		c.log.Info().Msg("Client disconnected")
+	})
+}
+
+// Helper functions
+
+func generateID() string {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+	const idLen = 12
+	out := make([]byte, idLen)
+	for i := range out {
+		for {
+			var b [1]byte
+			if _, err := rand.Read(b[:]); err != nil {
+				panic("crypto/rand failed: " + err.Error())
+			}
+			// Reject values >= 252 (252 = 36*7) to eliminate modular bias
+			if b[0] < 252 {
+				out[i] = alphabet[b[0]%36]
+				break
+			}
+		}
+	}
+	return string(out)
+}
+
+func generateShortID() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	return hex.EncodeToString(b)
+}
+
+// API Integration methods
+
+// TunnelInfo represents tunnel information for the API
+type TunnelInfo struct {
+	ID         string
+	Type       string
+	Name       string
+	Subdomain  string
+	RemotePort int
+	LocalPort  int
+	ClientID   string
+	UserID     int64
+	CreatedAt  time.Time
+}
+
+// Stats represents server statistics
+type Stats struct {
+	ActiveClients int
+	ActiveTunnels int
+	HTTPTunnels   int
+	TCPTunnels    int
+	UDPTunnels    int
+}
+
+// GetTunnelsByUserID returns all tunnels for a user
+func (s *Server) GetTunnelsByUserID(userID int64) []TunnelInfo {
+	return s.clientMgr.GetTunnelsByUserID(userID)
+}
+
+// GetAllTunnels returns all tunnels from all clients (for admin)
+func (s *Server) GetAllTunnels() []TunnelInfo {
+	return s.clientMgr.GetAllTunnels()
+}
+
+// AdminCloseTunnel closes any tunnel by ID (admin only, no user check)
+func (s *Server) AdminCloseTunnel(tunnelID string) error {
+	return s.clientMgr.AdminCloseTunnel(tunnelID)
+}
+
+// CloseTunnelByID closes a tunnel by ID for a specific user
+func (s *Server) CloseTunnelByID(tunnelID string, userID int64) error {
+	return s.clientMgr.CloseTunnelByID(tunnelID, userID)
+}
+
+// GetStats returns server statistics
+func (s *Server) GetStats() Stats {
+	return s.clientMgr.GetStats()
+}
+
+// clientVersionBelowMinimum reports whether a client is older than the
+// configured minimum.
+//
+// Both sides are normalised to exactly one "v": clients report "v3.16.1"
+// (release.yml bakes the tag in verbatim) while min_version in server.yaml may
+// be written either way. Blindly prefixing produced "vv3.16.1", which is not
+// valid semver — and an invalid version sorts BELOW every valid one, so the
+// check rejected every client in existence, the newest included.
+//
+// A version neither side can parse — a local "dev" build, anything unexpected —
+// is never treated as too old: locking someone out over a string we cannot
+// reason about is worse than letting an unknown build through, and it matches
+// what the client's own IsVersionIncompatible does.
+func clientVersionBelowMinimum(clientVer, minVer string) bool {
+	client := "v" + strings.TrimPrefix(clientVer, "v")
+	minimum := "v" + strings.TrimPrefix(minVer, "v")
+	if !semver.IsValid(client) || !semver.IsValid(minimum) {
+		return false
+	}
+	return semver.Compare(client, minimum) < 0
+}

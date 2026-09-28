@@ -1,0 +1,13 @@
+{{ define "main" }}
+{{- $title := "Теги" -}}
+{{- if eq .Data.Plural "rubrics" }}{{ $title = "Рубрики" }}{{ end -}}
+<div class="wrap">
+  {{ partial "intro.html" (dict "title" $title) }}
+  {{ partial "tabs.html" (dict "active" "all") }}
+  <section class="grid">
+    {{- range .Data.Terms.Alphabetical }}
+    <a class="card" href="{{ partial "localurl.html" .Page }}"><div class="body"><h3>{{ .Page.Title }}</h3><span class="m">{{ .Count }}</span></div></a>
+    {{- end }}
+  </section>
+</div>
+{{ end }}

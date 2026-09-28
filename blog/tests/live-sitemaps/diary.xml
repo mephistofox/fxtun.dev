@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://fxtun.ru/blog/diary/</loc><lastmod>2026-02-12</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/01-idea-and-prototype</loc><lastmod>2025-12-24</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/02-console-to-product</loc><lastmod>2025-12-25</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/03-first-deploy</loc><lastmod>2026-01-26</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/04-auto-refresh-and-404</loc><lastmod>2026-01-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/05-gui-redesign</loc><lastmod>2026-01-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/06-security</loc><lastmod>2026-01-29</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/07-tests-races-panics</loc><lastmod>2026-01-29</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/08-performance</loc><lastmod>2026-01-30</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/09-traffic-inspection</loc><lastmod>2026-01-30</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/10-retrospective</loc><lastmod>2026-01-30</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/11-custom-domains</loc><lastmod>2026-01-30</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/12-refactoring</loc><lastmod>2026-01-30</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/13-polish</loc><lastmod>2026-01-31</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/14-cli-ux</loc><lastmod>2026-02-01</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/15-oauth</loc><lastmod>2026-02-01</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/16-quic-and-pooling</loc><lastmod>2026-02-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/17-plans-and-admin</loc><lastmod>2026-02-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/18-daemon-mode</loc><lastmod>2026-02-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/19-payments</loc><lastmod>2026-02-04</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/20-ssg-seo</loc><lastmod>2026-02-08</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://fxtun.ru/blog/diary/21-i18n-ddos</loc><lastmod>2026-02-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+</urlset>

@@ -1,0 +1,8 @@
+{{- $nodes := .Params.cover | default slice -}}
+{{- $hl := .Params.coverHL | default (div (len $nodes) 2) -}}
+<div class="cover" aria-hidden="true"><div class="art">
+  {{- range $i, $n := $nodes -}}
+    {{- if $i }}<i></i>{{ end -}}
+    <b{{ if eq $i $hl }} class="hl"{{ end }}>{{ $n }}</b>
+  {{- end -}}
+</div></div>

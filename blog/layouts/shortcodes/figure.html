@@ -1,0 +1,3 @@
+{{- $n := partial "fig-open.html" . -}}
+<figure><div class="panel">{{ .Inner | .Page.RenderString (dict "display" "block") }}</div>
+{{- with .Get "caption" }}<figcaption><b>Рис. {{ $n }}.</b> {{ . }}</figcaption>{{ end }}</figure>

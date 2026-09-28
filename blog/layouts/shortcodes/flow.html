@@ -1,0 +1,17 @@
+{{- $name := printf "_sc/%s/%s-%d.yaml" .Page.File.Path .Name .Ordinal -}}
+{{- $d := resources.FromString $name .Inner | transform.Unmarshal -}}
+{{- if not (reflect.IsSlice $d) }}{{ errorf "%s: %s: body must be a YAML list" .Name .Page.File.Path }}{{ end -}}
+{{- $n := partial "fig-open.html" . -}}
+<figure><div class="panel"><div class="d-flow">
+{{- range $d }}
+  {{- partial "sc-keys.html" (dict "page" $.Page "name" "flow" "map" . "allowed" (slice "label" "title" "sub" "me" "link" "kind" "note")) -}}
+  {{- if .link }}
+    {{- $k := .kind | default "tls" }}
+    {{- if not (in (slice "tcp" "udp" "http" "tls") $k) }}{{ errorf "flow: %s: unknown kind %q" $.Page.File.Path $k }}{{ end }}
+    <div class="d-link {{ $k }}"><em>{{ .link }}</em>{{ .note }}</div>
+  {{- else }}
+    <div class="d-node{{ if .me }} me{{ end }}">{{ with .label }}<span class="lbl">{{ . }}</span>{{ end }}{{ with .title }}<b>{{ . }}</b>{{ end }}{{ with .sub }}{{ $wb := htmlEscape . }}{{ $wb = replace $wb "." ".<wbr>" }}{{ $wb = replace $wb ":" ":<wbr>" }}{{ $wb = replace $wb "/" "/<wbr>" }}<code>{{ $wb | safeHTML }}</code>{{ end }}</div>
+  {{- end }}
+{{- end }}
+</div></div>
+{{- with .Get "caption" }}<figcaption><b>Рис. {{ $n }}.</b> {{ . }}</figcaption>{{ end }}</figure>

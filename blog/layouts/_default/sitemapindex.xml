@@ -1,0 +1,13 @@
+{{- /* Custom sitemap index with cross-domain URLs */ -}}
+{{- $lastmod := now.Format "2006-01-02T15:04:05-07:00" -}}
+{{ "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://fxtun.dev/blog/en/sitemap.xml</loc>
+    <lastmod>{{ $lastmod }}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://fxtun.ru/blog/sitemap.xml</loc>
+    <lastmod>{{ $lastmod }}</lastmod>
+  </sitemap>
+</sitemapindex>

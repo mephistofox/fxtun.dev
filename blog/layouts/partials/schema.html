@@ -1,0 +1,135 @@
+{{- /* Cross-domain URL mapping */ -}}
+{{- $cleanPath := .RelPermalink }}
+{{- $cleanPath = replaceRE "^/blog/ru/" "/blog/" $cleanPath }}
+{{- $cleanPath = replaceRE "/index\\.html$" "/" $cleanPath }}
+{{- $cleanPath = replaceRE "\\.html$" "" $cleanPath }}
+{{- $enURL := printf "https://fxtun.dev%s" $cleanPath }}
+{{- $ruURL := printf "https://fxtun.ru%s" $cleanPath }}
+{{- $canonical := cond (eq .Language.Lang "ru") $ruURL $enURL }}
+{{- $siteURL := cond (eq .Language.Lang "ru") "https://fxtun.ru" "https://fxtun.dev" }}
+{{- $blogBase := cond (eq .Language.Lang "ru") "https://fxtun.ru/blog/" "https://fxtun.dev/blog/" }}
+
+{{- /* BreadcrumbList schema — all pages */ -}}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "{{ cond (eq .Language.Lang "ru") "https://fxtun.ru" "https://fxtun.dev" }}"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "{{ $blogBase }}"
+    }
+    {{- if .IsPage }},
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "{{ .Title }}",
+      "item": "{{ $canonical }}"
+    }
+    {{- else if eq .Kind "taxonomy" }},
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "{{ .Title }}",
+      "item": "{{ $canonical }}"
+    }
+    {{- end }}
+  ]
+}
+</script>
+
+{{- /* BlogPosting schema — article pages */ -}}
+{{- if .IsPage }}
+{{- $articleImage := "android-chrome-512x512.png" | absURL }}
+{{- with .Params.image }}{{ $articleImage = . | absURL }}{{ end }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "{{ .Title }}",
+  "description": "{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}",
+  "datePublished": "{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}",
+  "dateModified": "{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }}",
+  "wordCount": {{ .WordCount }},
+  "author": {
+    "@type": "Person",
+    "name": "{{ .Site.Params.author }}",
+    "url": "{{ .Site.Params.authorURL }}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "fxTunnel",
+    "url": "{{ $siteURL }}",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "{{ "android-chrome-512x512.png" | absURL }}"
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{{ $canonical }}"
+  },
+  "image": "{{ $articleImage }}",
+  "inLanguage": "{{ .Language.Lang }}"
+}
+</script>
+{{- end }}
+
+{{- /* Blog + Organization schema — homepage */ -}}
+{{- if .IsHome }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "{{ .Site.Title }}",
+  "url": "{{ $blogBase }}",
+  "description": "{{ .Site.Params.description }}",
+  "publisher": {
+    "@type": "Organization",
+    "name": "fxTunnel",
+    "url": "{{ .Site.Params.mainSiteURL | default "https://fxtun.dev" }}",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "{{ "android-chrome-512x512.png" | absURL }}"
+    },
+    "sameAs": [
+      "{{ .Site.Params.githubURL | default "https://github.com/mephistofox/fxtun.dev" }}"
+    ]
+  },
+  "inLanguage": "{{ .Language.Lang }}"
+}
+</script>
+{{- end }}
+
+{{- /* FAQPage schema — pages with faq front matter */ -}}
+{{- with .Params.faq }}
+{{- if gt (len .) 0 }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {{- range $i, $item := . }}
+    {{- if $i }},{{ end }}
+    {
+      "@type": "Question",
+      "name": "{{ $item.q }}",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "{{ $item.a }}"
+      }
+    }
+    {{- end }}
+  ]
+}
+</script>
+{{- end }}
+{{- end }}

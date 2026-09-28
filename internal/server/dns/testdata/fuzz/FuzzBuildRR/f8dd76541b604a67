@@ -1,0 +1,7 @@
+go test fuzz v1
+string("CNAME")
+string("\\")
+int(0)
+int(0)
+int(0)
+uint32(1)

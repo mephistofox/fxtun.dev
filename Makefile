@@ -1,0 +1,139 @@
+.PHONY: all build server client clean install test test-staging fmt lint web admin blog admin-dev build-clients build-all gui gui-dev gui-all wails-install sync-public indexnow
+
+BINARY_SERVER=fxtunnel-server
+BINARY_CLIENT=fxtunnel
+BINARY_GUI=fxtunnel-gui
+WAILS=$(shell go env GOPATH)/bin/wails
+
+VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+# Hex ed25519 public key baked into client builds for self-update verification.
+# Empty by default (verification disabled until release signing is provisioned).
+UPDATE_PUBKEY ?=
+UPDATE_KEY_FLAG=-X github.com/mephistofox/fxtunnel/internal/client/core.updatePublicKeyHex=$(UPDATE_PUBKEY)
+CLIENT_LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
+
+all: build
+
+build: server client
+
+server:
+	go build $(LDFLAGS) -o bin/$(BINARY_SERVER) ./cmd/server
+
+client:
+	go build $(CLIENT_LDFLAGS) -o bin/$(BINARY_CLIENT) ./cmd/client
+
+clean:
+	rm -rf bin/
+	rm -rf downloads/
+	rm -rf web/dist/
+	rm -rf admin/dist/
+	rm -rf gui/frontend/dist/
+
+install: build
+	cp bin/$(BINARY_SERVER) /usr/local/bin/
+	cp bin/$(BINARY_CLIENT) /usr/local/bin/
+
+test:
+	go test -v -race ./...
+
+test-e2e:
+	go test -v -race -count=1 -timeout 120s ./internal/e2e/...
+
+test-staging:
+	go run cmd/integration-test/main.go --server mfdev.ru:4443 --api-url https://mfdev.ru --admin-token $(ADMIN_TOKEN)
+
+fmt:
+	go fmt ./...
+
+GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
+
+lint:
+	@test -f $(GOLANGCI_LINT) || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+	$(GOLANGCI_LINT) run
+
+deps:
+	go mod download
+	go mod tidy
+
+# Build Vue3 server web frontend (standalone, deployed via nginx/CDN)
+web:
+	cd web && pnpm install && pnpm run build
+
+# Build admin panel (standalone, deployed via nginx/CDN)
+admin:
+	cd admin && pnpm install && pnpm run build
+
+# Build the Hugo blog (blog/, deployed by .github/workflows/blog.yml)
+blog:
+	cd blog && hugo --quiet
+
+# Development mode for admin panel (hot reload)
+admin-dev:
+	cd admin && pnpm install && pnpm dev
+
+# Build client binaries for all platforms (for downloads)
+build-clients:
+	@rm -rf downloads/fxtunnel-*
+	@mkdir -p downloads
+	GOOS=linux GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-linux-amd64 ./cmd/client
+	GOOS=linux GOARCH=arm64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-linux-arm64 ./cmd/client
+	GOOS=darwin GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-darwin-amd64 ./cmd/client
+	GOOS=darwin GOARCH=arm64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-darwin-arm64 ./cmd/client
+	GOOS=windows GOARCH=amd64 go build $(CLIENT_LDFLAGS) -o downloads/fxtunnel-windows-amd64.exe ./cmd/client
+
+# Build everything: client binaries for all platforms, server
+build-all: build-clients server
+	@echo "Build complete!"
+	@echo "Server binary: bin/$(BINARY_SERVER)"
+	@echo "Client binaries: downloads/"
+
+# Development: build and run server
+dev: build
+	./bin/$(BINARY_SERVER) --config configs/server.yaml
+
+# ============ GUI Client (Wails) ============
+
+# Install Wails CLI
+wails-install:
+	go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+# Build GUI frontend (Vue3)
+gui-frontend:
+	cd gui/frontend && pnpm install && pnpm run build
+
+# Development mode for GUI (hot reload)
+gui-dev:
+	cd gui && $(WAILS) dev -tags webkit2_41 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
+
+# Build GUI client for current platform
+gui: gui-frontend
+	@mkdir -p bin
+	cd gui && $(WAILS) build -o $(BINARY_GUI) -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
+
+# Build GUI client for all platforms (macOS requires building on macOS)
+gui-all: gui-frontend
+	@rm -rf downloads/fxtunnel-gui-*
+	@mkdir -p downloads
+	cd gui && $(WAILS) build -tags webkit2_41 -platform linux/amd64 -o $(BINARY_GUI)-linux-amd64 -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
+	mv gui/build/bin/$(BINARY_GUI)-linux-amd64 downloads/
+	cd gui && $(WAILS) build -platform windows/amd64 -o $(BINARY_GUI)-windows-amd64.exe -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME) $(UPDATE_KEY_FLAG)"
+	mv gui/build/bin/$(BINARY_GUI)-windows-amd64.exe downloads/
+	@echo "GUI builds complete in downloads/ (macOS builds require building on macOS)"
+
+# Submit URLs to IndexNow (Yandex + Bing)
+indexnow:
+	@bash scripts/indexnow.sh fxtun.ru
+	@bash scripts/indexnow.sh fxtun.dev
+
+# Sync cleaned copy to public GitHub repo
+sync-public:
+	@bash scripts/sync-public.sh
+
+# Full build: server, CLI clients, GUI clients, admin
+build-complete: web admin server build-clients gui-all
+	@echo "Complete build finished!"
+	@echo "Server: bin/$(BINARY_SERVER)"
+	@echo "CLI clients: downloads/fxtunnel-*"
+	@echo "GUI clients: downloads/$(BINARY_GUI)-*"

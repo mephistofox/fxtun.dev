@@ -1,0 +1,14 @@
+{{- $name := printf "_sc/%s/%s-%d.yaml" .Page.File.Path .Name .Ordinal -}}
+{{- $d := resources.FromString $name .Inner | transform.Unmarshal -}}
+{{- if not (reflect.IsSlice $d) }}{{ errorf "%s: %s: body must be a YAML list" .Name .Page.File.Path }}{{ end -}}
+{{- $n := partial "fig-open.html" . -}}
+<figure><div class="panel"><div class="d-arch{{ if eq (len $d) 1 }} one{{ end }}">
+{{- range $d }}
+  {{- partial "sc-keys.html" (dict "page" $.Page "name" "arch" "map" . "allowed" (slice "group" "me" "items")) -}}
+  <div class="d-box{{ if .me }} me{{ end }}"><span class="lbl">{{ .group }}</span>
+    <div class="d-mods">{{ range .items }}{{ partial "sc-keys.html" (dict "page" $.Page "name" "arch" "map" . "allowed" (slice "title" "sub")) }}<div class="d-mod">{{ .title }}{{ with .sub }}<small>{{ . }}</small>{{ end }}</div>{{ end }}</div>
+  </div>
+{{- end }}
+{{- with $.Get "bus" }}<div class="span">{{ . }}</div>{{ end }}
+</div></div>
+{{- with .Get "caption" }}<figcaption><b>Рис. {{ $n }}.</b> {{ . }}</figcaption>{{ end }}</figure>

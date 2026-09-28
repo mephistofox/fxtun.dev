@@ -1,0 +1,296 @@
+package core
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+)
+
+// allowedUpdateHosts is the list of trusted hosts for binary downloads.
+var allowedUpdateHosts = []string{
+	"github.com",
+	"api.github.com",
+	"objects.githubusercontent.com",
+}
+
+// UpdateInfo contains information about an available update
+type UpdateInfo struct {
+	ServerVersion string            `json:"server_version"`
+	ClientVersion string            `json:"client_version"`
+	MinVersion    string            `json:"min_version"`
+	Downloads     map[string]string `json:"downloads"`
+	DownloadURL   string            `json:"-"` // resolved for current platform
+	ServerHost    string            `json:"-"` // server host for URL validation
+}
+
+// CheckUpdate checks the server for available updates.
+// Returns nil if the client is up to date.
+func CheckUpdate(serverAddr, currentVersion string) (*UpdateInfo, error) {
+	// Resolve the web/API host: the API and downloads live on the base web host
+	// (e.g. fxtun.dev) over standard HTTPS, not on the control/tunnel endpoint
+	// (e.g. tunnel.fxtun.dev:443, which is a raw TLS+yamux listener, not HTTP).
+	host := WebHost(serverAddr)
+	scheme := "https"
+	url := fmt.Sprintf("%s://%s/api/version", scheme, host)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url) //nolint:gosec // URL is constructed from user-provided server address
+	if err != nil {
+		return nil, fmt.Errorf("check update: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("check update: server returned %d", resp.StatusCode)
+	}
+
+	var info UpdateInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("check update: decode: %w", err)
+	}
+
+	// Resolve download URL for current platform
+	info.ServerHost = host
+	platform := runtime.GOOS + "_" + runtime.GOARCH
+	if dlPath, ok := info.Downloads[platform]; ok {
+		info.DownloadURL = fmt.Sprintf("%s://%s%s", scheme, host, dlPath)
+	}
+
+	// Only a strictly newer release may be installed: an ed25519 signature
+	// proves a binary is genuine but carries no version, so without this an
+	// old, still validly signed release could be served again as an "update".
+	if info.DownloadURL != "" && isNewerVersion(info.ClientVersion, currentVersion) {
+		approveUpdate(info.DownloadURL)
+	}
+
+	// Return info if version is incompatible (forced update needed)
+	if IsVersionIncompatible(info.MinVersion, currentVersion) {
+		return &info, nil
+	}
+
+	// Return info if newer version available (optional update)
+	if isNewerVersion(info.ClientVersion, currentVersion) {
+		return &info, nil
+	}
+
+	return nil, nil // up to date
+}
+
+// approvedUpdate holds the download URL that the last CheckUpdate in this
+// process accepted as a strict upgrade. SelfUpdate installs only that URL,
+// which is what keeps a signed-but-older binary from being replayed at us.
+var approvedUpdate struct {
+	mu  sync.Mutex
+	url string
+}
+
+func approveUpdate(u string) {
+	approvedUpdate.mu.Lock()
+	defer approvedUpdate.mu.Unlock()
+	approvedUpdate.url = u
+}
+
+func updateApproved(u string) bool {
+	approvedUpdate.mu.Lock()
+	defer approvedUpdate.mu.Unlock()
+	return approvedUpdate.url != "" && approvedUpdate.url == u
+}
+
+func clearApprovedUpdate() { approveUpdate("") }
+
+// ValidateUpdateURL checks that the download URL uses HTTPS and comes from a trusted host.
+// extraHosts allows additional trusted hosts (e.g., the fxTunnel server the client connected to).
+func ValidateUpdateURL(downloadURL string, extraHosts ...string) error {
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return fmt.Errorf("invalid download URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("download URL must use HTTPS, got %s", u.Scheme)
+	}
+	allHosts := append(allowedUpdateHosts, extraHosts...)
+	for _, h := range allHosts {
+		if u.Host == h || strings.HasSuffix(u.Host, "."+h) {
+			return nil
+		}
+	}
+	return fmt.Errorf("download URL host not allowed: %s", u.Host)
+}
+
+// SelfUpdate downloads a new binary and replaces the current executable.
+// extraHosts allows additional trusted hosts for URL validation.
+func SelfUpdate(downloadURL string, extraHosts ...string) error {
+	if err := ValidateUpdateURL(downloadURL, extraHosts...); err != nil {
+		return err
+	}
+	if !updateApproved(downloadURL) {
+		return fmt.Errorf("refusing update: %s was not offered as a newer version", downloadURL)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(downloadURL) //nolint:gosec // URL validated above
+	if err != nil {
+		return fmt.Errorf("download update: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download update: server returned %d", resp.StatusCode)
+	}
+
+	// Get current executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+
+	// Write to temp file in the same directory as the executable to avoid cross-device rename
+	tmpFile, err := os.CreateTemp(filepath.Dir(execPath), "fxtunnel-update-*")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("write update: %w", err)
+	}
+	tmpFile.Close()
+
+	// Verify the binary's signature before trusting it. When an update public
+	// key is baked in, an update with a missing or invalid signature is rejected
+	// so a compromised download host cannot push a malicious binary. When no key
+	// is configured, verification is skipped (preserving prior behaviour).
+	if updateSignatureConfigured() {
+		sig, err := downloadUpdateSignature(downloadURL, extraHosts...)
+		if err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("fetch update signature: %w", err)
+		}
+		bin, err := os.ReadFile(tmpPath)
+		if err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("read update for verification: %w", err)
+		}
+		if err := verifyBinarySignature(bin, sig, updatePublicKeyHex); err != nil {
+			os.Remove(tmpPath)
+			return fmt.Errorf("verify update: %w", err)
+		}
+	}
+
+	// Make executable
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("chmod update: %w", err)
+	}
+
+	// Replace current binary
+	if err := os.Rename(tmpPath, execPath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("replace binary: %w", err)
+	}
+
+	return nil
+}
+
+// downloadUpdateSignature fetches the hex-encoded ed25519 signature published
+// next to the binary at <downloadURL>.sig. The signature URL is validated with
+// the same host allowlist as the binary.
+func downloadUpdateSignature(downloadURL string, extraHosts ...string) (string, error) {
+	sigURL := downloadURL + ".sig"
+	if err := ValidateUpdateURL(sigURL, extraHosts...); err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(sigURL) //nolint:gosec // URL validated above
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	sig, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(sig)), nil
+}
+
+// IsVersionIncompatible returns true if currentVersion is below minVersion.
+// Returns false if minVersion is empty or either version is "dev".
+func IsVersionIncompatible(minVersion, currentVersion string) bool {
+	minVersion = strings.TrimPrefix(minVersion, "v")
+	currentVersion = strings.TrimPrefix(currentVersion, "v")
+
+	if minVersion == "" || currentVersion == "" || currentVersion == "dev" || minVersion == "dev" {
+		return false
+	}
+
+	return compareVersions(currentVersion, minVersion) < 0
+}
+
+// SelfUpdateAndRestart downloads a new binary, replaces the current executable,
+// and restarts the process with the same arguments.
+// extraHosts allows additional trusted hosts for URL validation.
+func SelfUpdateAndRestart(downloadURL string, extraHosts ...string) error {
+	if err := SelfUpdate(downloadURL, extraHosts...); err != nil {
+		return err
+	}
+
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+
+	return restartProcess(execPath)
+}
+
+// isNewerVersion returns true if remote is newer than local.
+// Supports "vX.Y.Z" and "dev" formats.
+func isNewerVersion(remote, local string) bool {
+	remote = strings.TrimPrefix(remote, "v")
+	local = strings.TrimPrefix(local, "v")
+
+	if local == "dev" || local == "" {
+		return false // dev builds don't auto-update
+	}
+	if remote == "dev" || remote == "" {
+		return false
+	}
+
+	return remote != local && compareVersions(remote, local) > 0
+}
+
+// compareVersions compares two semver strings (without "v" prefix).
+// Returns >0 if a > b, <0 if a < b, 0 if equal.
+func compareVersions(a, b string) int {
+	aParts := strings.Split(a, ".")
+	bParts := strings.Split(b, ".")
+
+	for i := 0; i < 3; i++ {
+		var av, bv int
+		if i < len(aParts) {
+			_, _ = fmt.Sscanf(aParts[i], "%d", &av)
+		}
+		if i < len(bParts) {
+			_, _ = fmt.Sscanf(bParts[i], "%d", &bv)
+		}
+		if av != bv {
+			return av - bv
+		}
+	}
+	return 0
+}

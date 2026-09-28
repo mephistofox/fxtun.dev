@@ -1,0 +1,7 @@
+<section class="intro">
+  <div>
+    <h1>{{ .title }}{{ with .accent }} <span>{{ . }}</span>{{ end }}</h1>
+    {{ with .desc }}<p>{{ . }}</p>{{ end }}
+  </div>
+  <div class="subs"><a href="{{ .rss | default "/blog/index.xml" }}"><b>RSS</b>Подписаться</a><a href="{{ site.Params.authorURL }}"><b>TG</b>@{{ site.Params.author }}</a></div>
+</section>

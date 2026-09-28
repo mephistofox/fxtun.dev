@@ -1,0 +1,455 @@
+/* Import Fonts - Unbounded (display) + Onest (body) */
+@import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cyber-Industrial Noir - Light Theme (softer, less harsh) */
+    --background: 220 20% 95%;
+    --foreground: 220 25% 12%;
+    --card: 220 20% 98%;
+    --card-foreground: 220 25% 12%;
+    --popover: 220 20% 98%;
+    --popover-foreground: 220 25% 12%;
+
+    /* Primary - Electric Lime */
+    --primary: 75 85% 40%;
+    --primary-foreground: 220 20% 5%;
+    --primary-dim: 75 70% 32%;
+
+    --secondary: 220 18% 92%;
+    --secondary-foreground: 220 25% 12%;
+    --muted: 220 18% 92%;
+    --muted-foreground: 220 15% 40%;
+
+    /* Accent - Vivid Purple */
+    --accent: 280 80% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 18% 85%;
+    --input: 220 18% 88%;
+    --ring: 75 85% 40%;
+    --radius: 0.625rem;
+
+    /* Surface colors */
+    --surface: 220 18% 92%;
+    --surface-elevated: 220 20% 98%;
+
+    /* Status colors */
+    --success: 160 72% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 85% 48%;
+    --warning-foreground: 0 0% 0%;
+    --info: 217 80% 55%;
+    --info-foreground: 0 0% 100%;
+
+    /* Protocol type colors - slightly muted for light theme */
+    --type-http: 160 72% 36%;
+    --type-tcp: 217 80% 50%;
+    --type-udp: 280 70% 55%;
+
+    /* Glow effects */
+    --glow-primary: 75 85% 40%;
+    --glow-accent: 280 80% 55%;
+    --glow-success: 160 72% 36%;
+    --glow-warning: 38 85% 48%;
+    --glow-error: 0 72% 51%;
+    --glow-info: 217 80% 55%;
+
+    /* Glass effect */
+    --glass-bg: 220 20% 98% / 0.85;
+    --glass-border: 220 18% 80% / 0.6;
+    --glass-highlight: 0 0% 100% / 0.5;
+  }
+
+  .dark {
+    /* Cyber-Industrial Noir - Dark Theme */
+    --background: 220 20% 4%;
+    --foreground: 0 0% 95%;
+    --card: 220 15% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Primary - Electric Lime */
+    --primary: 75 100% 50%;
+    --primary-foreground: 220 20% 4%;
+    --primary-dim: 75 80% 35%;
+
+    --secondary: 220 15% 12%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+
+    /* Accent - Vivid Purple */
+    --accent: 280 100% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 220 15% 15%;
+    --input: 220 15% 15%;
+    --ring: 75 100% 50%;
+
+    /* Surface colors */
+    --surface: 220 15% 8%;
+    --surface-elevated: 220 15% 12%;
+
+    /* Status colors */
+    --success: 160 84% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 217 91% 65%;
+    --info-foreground: 0 0% 100%;
+
+    /* Protocol type colors - brighter for dark mode */
+    --type-http: 160 84% 45%;
+    --type-tcp: 217 91% 65%;
+    --type-udp: 280 100% 70%;
+
+    /* Glow effects */
+    --glow-primary: 75 100% 50%;
+    --glow-accent: 280 100% 65%;
+    --glow-success: 160 84% 45%;
+    --glow-warning: 38 92% 50%;
+    --glow-error: 0 63% 45%;
+    --glow-info: 217 91% 65%;
+
+    /* Glass effect */
+    --glass-bg: 220 15% 8% / 0.8;
+    --glass-border: 0 0% 95% / 0.1;
+    --glass-highlight: 0 0% 95% / 0.05;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Onest', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Display headings use Unbounded */
+  h1, h2, h3, .font-display {
+    font-family: 'Unbounded', system-ui, sans-serif;
+  }
+
+  /* Ensure inputs are visible and styled in WebView */
+  input, textarea, select {
+    @apply bg-background text-foreground;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    @apply outline-none;
+  }
+
+  /* Fix checkbox styling */
+  input[type="checkbox"] {
+    @apply h-4 w-4 rounded border-input bg-background;
+    -webkit-appearance: checkbox;
+    appearance: checkbox;
+  }
+}
+
+/* Wails drag region for window */
+.wails-drag {
+  --wails-draggable: drag;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* Glass card effect */
+@layer components {
+  .glass-card {
+    @apply backdrop-blur-xl border rounded-xl;
+    background: hsl(var(--glass-bg));
+    border-color: hsl(var(--glass-border));
+    box-shadow: 0 4px 30px hsl(var(--primary) / 0.05);
+  }
+
+  .glass-card-strong {
+    @apply backdrop-blur-2xl border rounded-xl;
+    background: hsl(var(--background) / 0.9);
+    border-color: hsl(var(--border) / 0.5);
+    box-shadow: 0 8px 32px hsl(var(--primary) / 0.08);
+  }
+
+  .glass-card-glow {
+    @apply backdrop-blur-xl border rounded-xl transition-all duration-300;
+    background: hsl(var(--glass-bg));
+    border-color: hsl(var(--glass-border));
+    box-shadow: 0 4px 30px hsl(var(--primary) / 0.05);
+  }
+
+  .glass-card-glow:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 8px 40px hsl(var(--primary) / 0.15),
+                0 0 0 1px hsl(var(--primary) / 0.1);
+  }
+
+  /* Cyber card with animated border */
+  .cyber-card {
+    @apply relative rounded-xl overflow-hidden;
+    background: hsl(var(--card));
+  }
+
+  .cyber-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.3),
+      transparent 40%,
+      transparent 60%,
+      hsl(var(--accent) / 0.3)
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Glow button effect */
+  .btn-glow {
+    @apply relative overflow-hidden rounded-lg font-medium;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(75 80% 35%) 100%);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .btn-glow:hover {
+    box-shadow: 0 6px 25px hsl(var(--primary) / 0.5),
+                0 0 0 2px hsl(var(--primary) / 0.2);
+    transform: translateY(-1px);
+  }
+
+  .btn-glow:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px hsl(var(--primary) / 0.3);
+  }
+
+  /* Accent button */
+  .btn-accent {
+    @apply relative overflow-hidden rounded-lg font-medium;
+    background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(280 80% 45%) 100%);
+    box-shadow: 0 4px 15px hsl(var(--accent) / 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .btn-accent:hover {
+    box-shadow: 0 6px 25px hsl(var(--accent) / 0.5),
+                0 0 0 2px hsl(var(--accent) / 0.2);
+    transform: translateY(-1px);
+  }
+
+  /* Protocol type badges */
+  .badge-http {
+    @apply px-2 py-0.5 rounded-full text-xs font-medium;
+    background: hsl(var(--type-http) / 0.15);
+    color: hsl(var(--type-http));
+    border: 1px solid hsl(var(--type-http) / 0.3);
+  }
+
+  .badge-tcp {
+    @apply px-2 py-0.5 rounded-full text-xs font-medium;
+    background: hsl(var(--type-tcp) / 0.15);
+    color: hsl(var(--type-tcp));
+    border: 1px solid hsl(var(--type-tcp) / 0.3);
+  }
+
+  .badge-udp {
+    @apply px-2 py-0.5 rounded-full text-xs font-medium;
+    background: hsl(var(--type-udp) / 0.15);
+    color: hsl(var(--type-udp));
+    border: 1px solid hsl(var(--type-udp) / 0.3);
+  }
+
+  /* Grid background pattern */
+  .grid-pattern {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Status indicator animations */
+@layer utilities {
+  .status-dot {
+    @apply relative inline-flex h-2.5 w-2.5 rounded-full;
+  }
+
+  .status-dot-ping {
+    @apply absolute inline-flex h-full w-full animate-ping rounded-full opacity-75;
+  }
+
+  .status-connected {
+    background: hsl(var(--success));
+    box-shadow: 0 0 8px hsl(var(--success) / 0.5);
+  }
+
+  .status-connecting {
+    background: hsl(var(--warning));
+    box-shadow: 0 0 8px hsl(var(--warning) / 0.5);
+  }
+
+  .status-disconnected {
+    @apply bg-muted-foreground/50;
+  }
+
+  .status-error {
+    background: hsl(var(--destructive));
+    box-shadow: 0 0 8px hsl(var(--destructive) / 0.5);
+  }
+}
+
+/* Fade transitions for Vue */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Slide transitions */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* Scale transitions */
+.scale-enter-active,
+.scale-leave-active {
+  transition: all 0.2s ease;
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* List transitions */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.list-move {
+  transition: transform 0.3s ease;
+}
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Pulse glow animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--glow-success) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px hsl(var(--glow-success) / 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Glow pulse for primary */
+@keyframes glow-pulse-primary {
+  0%, 100% {
+    box-shadow: 0 0 15px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px hsl(var(--primary) / 0.5);
+  }
+}
+
+.animate-glow-primary {
+  animation: glow-pulse-primary 3s ease-in-out infinite;
+}
+
+/* Scanline effect */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scanline-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent);
+  animation: scanline 4s linear infinite;
+  pointer-events: none;
+}

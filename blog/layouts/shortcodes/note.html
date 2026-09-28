@@ -1,0 +1,3 @@
+{{- $t := .Get "type" | default "info" -}}
+{{- if not (in (slice "info" "warn") $t) }}{{ errorf "note: %s: type must be info or warn, got %q" .Page.File.Path $t }}{{ end -}}
+<div class="note{{ if eq $t "warn" }} warn{{ end }}"><span class="ic" aria-hidden="true">{{ if eq $t "warn" }}!{{ else }}i{{ end }}</span><div>{{ .Inner | .Page.RenderString }}</div></div>

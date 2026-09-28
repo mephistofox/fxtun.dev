@@ -1,0 +1,77 @@
+# Claude Code — share team automations (agents/hooks/skills/settings.json),
+# keep personal config and prod/infra details local.
+.claude/settings.local.json
+.claude/memory/
+.claude/CLAUDE.md
+.claude/commands/deploy.md
+
+bin/
+configs/server.yaml
+configs/nginx-mfdev.conf
+node_modules/
+dist/
+.env
+
+# GUI
+gui/frontend/dist/
+gui/frontend/node_modules/
+gui/frontend/src/wailsjs/
+gui/build/bin/
+
+# Data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+downloads/
+coverage.out
+
+plan.txt
+docs/blog/
+docs/plans/
+blog/public/
+blog/public-local/
+blog/resources/
+blog/.hugo_build.lock
+data/tg/
+gui/build/windows/
+*.docx
+
+# Local binaries and configs
+/server
+/client
+client.yaml
+
+seo-promotion-checklist.md
+.vite-ssg-temp/
+.worktrees/
+todo.md
+docs/new-features.md
+2026-*.txt
+
+screenshots/backups/
+
+# Prod deploy — local secrets and large artifacts, never commit
+backups/
+deploy/server.yaml
+deploy/*.tgz
+admin/dist/
+web/dist/
+internal/web/dist/
+
+# Private keys — never commit (e.g. the self-update signing key)
+*.key
+fxtunnel-update.*
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc
+
+# Mailbox passwords — only the .example belongs in the repo
+mail-to-telegram.ini
+
+# S3 credentials for backups
+.s3.env
+
+# Test account token for CLI checks against prod
+.fxtunnel-test.env

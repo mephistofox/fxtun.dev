@@ -1,0 +1,18 @@
+{{- $root := where site.RegularPages "Section" "" -}}
+<nav class="tabs" aria-label="Рубрики">
+  <a href="/blog/"{{ if eq .active "all" }} class="on" aria-current="page"{{ end }}>Все <small>{{ len $root }}</small></a>
+  {{- range sort hugo.Data.rubrics "order" }}
+  {{- $n := len (where $root "Params.rubrics" "intersect" (slice .slug)) }}
+  {{- if $n }}
+  <a class="{{ .css }}{{ if eq $.active .slug }} on{{ end }}" href="/blog/rubric/{{ .slug }}/"><i></i>{{ .name }} <small>{{ $n }}</small></a>
+  {{- end }}
+  {{- end }}
+  <a class="c-diary{{ if eq .active "diary" }} on{{ end }}" href="/blog/diary/"><i></i>Дневник <small>{{ len (where site.RegularPages "Section" "diary") }}</small></a>
+  {{- with where site.RegularPages "Section" "changelog" }}
+  <a class="c-new{{ if eq $.active "changelog" }} on{{ end }}" href="/blog/changelog/"><i></i>Что нового <small>{{ len . }}</small></a>
+  {{- end }}
+  <div class="search"><span aria-hidden="true">⌕</span>
+    <input id="search-input" type="search" placeholder="Поиск по статьям" autocomplete="off" aria-label="Поиск по статьям">
+    <div id="search-results" class="search-results" hidden></div>
+  </div>
+</nav>

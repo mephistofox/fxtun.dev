@@ -1,0 +1,6 @@
+{{- $cleanPath := .RelPermalink -}}
+{{- $cleanPath = replaceRE "^/blog/ru/" "/blog/" $cleanPath -}}
+{{- /* Страницы дневника собираются в NN-slug.html, а опубликованы без расширения. */ -}}
+{{- $cleanPath = replaceRE "/index\\.html$" "/" $cleanPath -}}
+{{- $cleanPath = replaceRE "\\.html$" "" $cleanPath -}}
+{{- return printf "https://fxtun.ru%s" $cleanPath -}}

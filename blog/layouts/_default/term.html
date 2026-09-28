@@ -1,0 +1,16 @@
+{{ define "main" }}
+{{- $title := printf "Тег %s" .Title -}}
+{{- $desc := "" -}}
+{{- $active := "all" -}}
+{{- if eq .Data.Plural "rubrics" -}}
+  {{- $active = .Data.Term -}}
+  {{- with index hugo.Data.rubrics .Data.Term -}}{{- $title = .name -}}{{- $desc = .desc -}}{{- end -}}
+{{- end -}}
+{{- $pager := .Paginate .Pages -}}
+<div class="wrap">
+  {{ partial "intro.html" (dict "title" $title "desc" $desc) }}
+  {{ partial "tabs.html" (dict "active" $active) }}
+  <section class="grid">{{ range $pager.Pages }}{{ partial "card.html" (dict "page" .) }}{{ end }}</section>
+  {{- with $pager.Next }}<div class="more"><a href="{{ .URL | replaceRE "/index\\.html$" "/" }}">Показать ещё</a></div>{{ end }}
+</div>
+{{ end }}

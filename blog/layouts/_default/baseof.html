@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="{{ .Language.Lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{- partial "head.html" . -}}
+  <script>
+    // Inline theme detection — prevents FOUC
+    (function(){
+      var t;
+      try { t = localStorage.getItem('theme'); } catch(e){}
+      var dark = t === 'dark' || (!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body class="page-wrapper">
+  {{- partial "header.html" . -}}
+  <main class="page-main">
+    {{- block "main" . }}{{- end }}
+  </main>
+  {{- partial "footer.html" . -}}
+  <script src="{{ "js/theme.js" | absURL }}"></script>
+  <script src="{{ "js/search.js" | absURL }}"></script>
+  {{- if .IsPage }}<script src="{{ "js/article.js" | absURL }}" defer></script>{{ end }}
+</body>
+</html>

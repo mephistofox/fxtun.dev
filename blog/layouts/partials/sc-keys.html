@@ -1,0 +1,7 @@
+{{- /* Rejects unknown map keys, the usual sign of an unquoted comma in a YAML flow value. */ -}}
+{{- $page := .page -}}
+{{- $sc := .name -}}
+{{- $allowed := .allowed -}}
+{{- range $k, $v := .map }}
+  {{- if not (in $allowed $k) }}{{ errorf "%s: %s: unknown field %q (unquoted comma in a YAML value?)" $sc $page.File.Path $k }}{{ end -}}
+{{- end -}}

@@ -1,0 +1,40 @@
+{{- /* Cross-domain URL helper */ -}}
+{{- $isRU := eq .Language.Lang "ru" -}}
+{{- $blogDomain := "https://fxtun.ru" -}}
+{{- $altDomain := "https://fxtun.ru" -}}
+# {{ .Site.Title }}
+
+> {{ with .Site.Params.description }}{{ . }}.{{ end }}
+
+{{ if $isRU -}}
+## Темы
+- Туннелирование localhost (HTTP, TCP, UDP)
+- Сравнение инструментов для разработчиков
+- Безопасность и TLS в туннелировании
+- DevOps (CI/CD, Docker, IoT)
+- Тестирование вебхуков и отладка API
+
+## Статьи
+{{ else -}}
+## Topics Covered
+- Localhost tunneling (HTTP, TCP, UDP)
+- Developer tools comparison and reviews
+- Security and TLS in tunneling
+- DevOps workflows (CI/CD, Docker, IoT)
+- Webhook testing and API debugging
+
+## Articles
+{{ end -}}
+
+{{ range where .Site.RegularPages.ByDate.Reverse "Params.description" "!=" "" -}}
+{{- $url := partial "localurl.html" . -}}
+- [{{ .Title }}]({{ $url }}): {{ .Description }}
+{{ end }}
+## Optional
+
+- Blog RSS ({{ if $isRU }}RU{{ else }}EN{{ end }}): {{ $blogDomain }}/blog/index.xml
+- Blog RSS ({{ if $isRU }}EN{{ else }}RU{{ end }}): {{ $altDomain }}/blog/index.xml
+- Main site: https://fxtun.ru
+- Main site llms.txt: https://fxtun.ru/llms.txt
+- Main site llms-full.txt: https://fxtun.ru/llms-full.txt
+- GitHub: https://github.com/mephistofox/fxtun.dev

@@ -1,0 +1,6 @@
+{{- /* Labels of a changelog entry: kinds (what changed) and components (where). */ -}}
+{{- $k := dict "new" "новое" "improved" "улучшено" "fixed" "исправлено" -}}
+{{- $c := dict "client" "клиент" "server" "сервер" "gui" "GUI" "web" "сайт" -}}
+{{- if or .Params.kinds .Params.components -}}
+<div class="pills">{{ range .Params.kinds }}<span class="pill k-{{ . }}">{{ index $k . }}</span>{{ end }}{{ range .Params.components }}<span class="pill">{{ index $c . }}</span>{{ end }}</div>
+{{- end -}}

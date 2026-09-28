@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fxTunnel Inspector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+  <div class="header-left">
+    <span class="logo">fx<span class="logo-accent">Tunnel</span></span>
+    <span class="header-label" data-i18n="title">Inspector</span>
+  </div>
+  <div class="header-stats" id="header-stats">
+    <div class="stat">
+      <span class="stat-value" id="stat-total">0</span>
+      <span class="stat-label" data-i18n="total">Total</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value stat-error" id="stat-errors">0%</span>
+      <span class="stat-label" data-i18n="errors">Errors</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="stat-avg">0ms</span>
+      <span class="stat-label" data-i18n="avgTime">Avg Time</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="theme-toggle" title="Toggle theme">
+      <svg id="icon-sun" class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+      <svg id="icon-moon" class="icon hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+      </svg>
+    </button>
+    <button class="icon-btn" id="locale-toggle" title="Toggle language">
+      <span id="locale-label">EN</span>
+    </button>
+  </div>
+</header>
+
+<div class="filter-bar" id="filter-bar">
+  <select class="filter-select" id="filter-method">
+    <option value="" data-i18n="allMethods">All Methods</option>
+    <option value="GET">GET</option>
+    <option value="POST">POST</option>
+    <option value="PUT">PUT</option>
+    <option value="PATCH">PATCH</option>
+    <option value="DELETE">DELETE</option>
+    <option value="HEAD">HEAD</option>
+    <option value="OPTIONS">OPTIONS</option>
+  </select>
+  <select class="filter-select" id="filter-status">
+    <option value="" data-i18n="allStatuses">All Statuses</option>
+    <option value="2xx">2xx</option>
+    <option value="3xx">3xx</option>
+    <option value="4xx">4xx</option>
+    <option value="5xx">5xx</option>
+  </select>
+  <input class="filter-input" type="text" id="filter-path" data-i18n-placeholder="filter" placeholder="Filter...">
+  <button class="btn btn-sm btn-ghost" id="btn-clear" data-i18n="clear">Clear All</button>
+</div>
+
+<main class="main">
+  <div class="panel panel-list" id="panel-list">
+    <div class="exchange-list" id="exchange-list">
+      <div class="empty-state" id="empty-state">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <p data-i18n="noRequests">No requests captured yet</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel panel-detail" id="panel-detail">
+    <div class="detail-empty" id="detail-empty">
+      <p data-i18n="selectRequest">Select a request to view details</p>
+    </div>
+    <div class="detail-content hidden" id="detail-content">
+      <div class="detail-header" id="detail-header"></div>
+      <div class="detail-tabs">
+        <button class="tab active" data-tab="request" data-i18n="request">Request</button>
+        <button class="tab" data-tab="response" data-i18n="response">Response</button>
+        <button class="tab" data-tab="headers" data-i18n="headers">Headers</button>
+      </div>
+      <div class="detail-body" id="detail-body">
+        <div class="tab-pane active" id="tab-request"></div>
+        <div class="tab-pane" id="tab-response"></div>
+        <div class="tab-pane" id="tab-headers"></div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn btn-accent" id="btn-replay" data-i18n="replay">Replay</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

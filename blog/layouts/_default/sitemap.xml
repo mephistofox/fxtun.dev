@@ -1,0 +1,38 @@
+{{- /* Custom sitemap with cross-domain URL mapping: EN=fxtun.dev, RU=fxtun.ru */ -}}
+{{ "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>" | safeHTML }}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  {{- range .Data.Pages }}
+  {{- /* Skip thin tag pages with fewer than 3 posts */ -}}
+  {{- if and (eq .Kind "term") (lt (len .Pages) 3) }}{{ continue }}{{ end }}
+  {{- $cleanPath := .RelPermalink }}
+  {{- $cleanPath = replaceRE "^/blog/ru/" "/blog/" $cleanPath }}
+  {{- $cleanPath = replaceRE "/index\\.html$" "/" $cleanPath }}
+  {{- $cleanPath = replaceRE "\\.html$" "" $cleanPath }}
+  {{- $enURL := printf "https://fxtun.ru%s" $cleanPath }}
+  {{- $ruURL := printf "https://fxtun.ru%s" $cleanPath }}
+  {{- $canonical := cond (eq .Language.Lang "ru") $ruURL $enURL }}
+  {{- /* Priority: homepage 1.0, articles 0.8, tag listing 0.5, individual tags 0.3 */ -}}
+  {{- $priority := "0.5" }}
+  {{- if .IsHome }}{{ $priority = "1.0" }}
+  {{- else if .IsPage }}{{ $priority = "0.8" }}
+  {{- else if eq .Kind "term" }}{{ $priority = "0.3" }}
+  {{- else if eq .Kind "taxonomy" }}{{ $priority = "0.5" }}
+  {{- end }}
+  {{- $changefreq := "weekly" }}
+  {{- if .IsHome }}{{ $changefreq = "daily" }}{{ end }}
+  <url>
+    <loc>{{ $canonical }}</loc>
+    {{- with .Lastmod }}<lastmod>{{ .Format "2006-01-02T15:04:05-07:00" }}</lastmod>{{- end }}
+    <changefreq>{{ $changefreq }}</changefreq>
+    <priority>{{ $priority }}</priority>
+    {{- if .Translations }}
+    {{- range .Translations }}
+    {{- $tClean := .RelPermalink }}
+    {{- $tClean = replaceRE "^/blog/ru/" "/blog/" $tClean }}
+    {{- $tURL := cond (eq .Language.Lang "ru") (printf "https://fxtun.ru%s" $tClean) (printf "https://fxtun.ru%s" $tClean) }}
+    {{- end }}
+    {{- end }}
+  </url>
+  {{- end }}
+</urlset>

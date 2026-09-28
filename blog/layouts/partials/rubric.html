@@ -1,0 +1,12 @@
+{{- $r := dict "slug" "guides" "name" "Гайды" "css" "c-guide" -}}
+{{- if eq .Section "diary" -}}
+  {{- $r = dict "slug" "diary" "name" "Дневник" "css" "c-diary" -}}
+{{- else if eq .Section "changelog" -}}
+  {{- $r = dict "slug" "changelog" "name" "Что нового" "css" "c-new" -}}
+{{- else -}}
+  {{- with .Params.rubrics -}}
+    {{- $slug := index . 0 -}}
+    {{- with index hugo.Data.rubrics $slug -}}{{- $r = dict "slug" $slug "name" .name "css" .css -}}{{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- return $r -}}

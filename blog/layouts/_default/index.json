@@ -1,0 +1,14 @@
+{{- $pages := where site.RegularPages "Kind" "page" -}}
+[
+{{- range $i, $p := $pages }}
+  {{- if $i }},{{ end }}
+  {
+    "title": {{ $p.Title | jsonify }},
+    "url": {{ partial "localurl.html" $p | jsonify }},
+    "description": {{ (or $p.Description ($p.Summary | plainify | truncate 160)) | jsonify }},
+    "tags": {{ $p.Params.tags | default (slice) | jsonify }},
+    "date": {{ $p.Date.Format "2006-01-02" | jsonify }},
+    "content": {{ $p.Plain | truncate 500 | jsonify }}
+  }
+{{- end }}
+]

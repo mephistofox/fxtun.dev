@@ -1,0 +1,5 @@
+{{- with .site.Params.authorAvatar -}}
+<img class="ava" src="{{ . | absURL }}" alt="" width="{{ $.size }}" height="{{ $.size }}" loading="lazy">
+{{- else -}}
+<span class="ava" aria-hidden="true"></span>
+{{- end -}}

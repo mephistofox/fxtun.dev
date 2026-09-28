@@ -1,0 +1,88 @@
+baseURL = "https://fxtun.ru/blog/"
+defaultContentLanguage = "ru"
+title = "Блог fxTunnel"
+timeZone = "Europe/Moscow"
+# Статья с датой в будущем не собирается; ежедневная сборка в CI выпускает её,
+# когда дата наступила.
+buildFuture = false
+enableGitInfo = true
+
+[languages]
+  [languages.ru]
+    languageCode = "ru"
+    languageName = "RU"
+    weight = 1
+    title = "Блог fxTunnel"
+    [languages.ru.params]
+      description = "Блог проекта fxTunnel — туннелирование, DevOps, сети"
+
+[params]
+  author = "mephistofx"
+  authorURL = "https://t.me/mephistofx"
+  authorAvatar = ""
+  mainSiteURL = "https://fxtun.ru"
+  githubURL = "https://github.com/mephistofox/fxtun.dev"
+
+# Дневник жил по адресам /blog/diary/NN-slug — без слеша; nginx отдаёт их
+# через try_files $uri.html.
+[uglyURLs]
+  diary = true
+
+[taxonomies]
+  tag = "tags"
+  rubric = "rubrics"
+
+[permalinks.term]
+  rubrics = "/rubric/:slug/"
+[permalinks.taxonomy]
+  rubrics = "/rubric/"
+
+[related]
+  includeNewer = true
+  threshold = 80
+  toLower = true
+  [[related.indices]]
+    name = "tags"
+    weight = 100
+  [[related.indices]]
+    name = "date"
+    weight = 10
+
+[markup.highlight]
+  codeFences = true
+  noClasses = false
+  style = "monokai"
+
+[markup.goldmark.renderer]
+  unsafe = false
+
+# The embedded link hook resolves [text](01-idea) to the page's RelPermalink,
+# which carries .html in the ugly-URL diary. Keep links as written.
+[markup.goldmark.renderHooks.link]
+  useEmbedded = "never"
+
+[markup.tableOfContents]
+  startLevel = 2
+  endLevel = 2
+
+[pagination]
+  pagerSize = 12
+
+[sitemap]
+  changeFreq = "weekly"
+  priority = 0.5
+
+[outputFormats.LLMS]
+  mediaType = "text/plain"
+  baseName = "llms"
+  isPlainText = true
+  notAlternative = true
+
+[outputFormats.DiarySitemap]
+  mediaType = "application/xml"
+  baseName = "sitemap"
+  isPlainText = true
+  notAlternative = true
+
+[outputs]
+  home = ["HTML", "RSS", "JSON", "LLMS"]

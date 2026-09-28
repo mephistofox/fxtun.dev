@@ -1,0 +1,6 @@
+{{- /* Link to a post that may not be published yet (buildFuture=false):
+     a link once the page is in the build, plain text until then. The daily
+     CI build turns it into a link on the target's release day. */ -}}
+{{- $slug := .Get 0 -}}
+{{- with site.GetPage $slug -}}<a href="{{ .RelPermalink }}">{{ $.Inner }}</a>
+{{- else -}}{{ $.Inner }}{{- end -}}

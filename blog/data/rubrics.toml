@@ -1,0 +1,36 @@
+[guides]
+  slug = "guides"
+  order = 1
+  name = "Гайды"
+  css = "c-guide"
+  desc = "Пошаговые инструкции: открыть локальный сервис, базу, вебхук или игровой сервер в интернет."
+[games]
+  slug = "games"
+  order = 2
+  name = "Игры по сети"
+  css = "c-game"
+  desc = "Как открыть свой игровой сервер друзьям без белого IP и Хамачи: Minecraft, Valheim, Project Zomboid и другие."
+[home]
+  slug = "home"
+  order = 3
+  name = "Дом без белого IP"
+  css = "c-home"
+  desc = "Серый IP, проброс портов, домашний сервер и удалённый рабочий стол: доступ к своему из интернета."
+[protocols]
+  slug = "protocols"
+  order = 4
+  name = "Протоколы"
+  css = "c-proto"
+  desc = "Как устроены туннели изнутри: TCP, UDP, HTTP/2 и HTTP/3, TLS, мультиплексирование."
+[compare]
+  slug = "compare"
+  order = 5
+  name = "Сравнения"
+  css = "c-cmp"
+  desc = "fxTunnel рядом с ngrok, Cloudflare Tunnel, Tailscale и другими инструментами."
+[security]
+  slug = "security"
+  order = 6
+  name = "Безопасность"
+  css = "c-sec"
+  desc = "Что проверить, прежде чем открывать сервис наружу, и как туннели защищают трафик."

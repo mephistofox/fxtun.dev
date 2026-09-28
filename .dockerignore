@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+bin/
+downloads/
+node_modules/
+gui/
+web/
+*.db
+*.db-journal
+coverage.out
+screenshots/
+docs/
+assets/
