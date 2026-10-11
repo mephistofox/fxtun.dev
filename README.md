@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="fxTunnel" width="120" height="120">
+  <img src="assets/logo-portal-v1.png" alt="fxTunnel" width="120" height="120">
 </p>
 
 <h1 align="center">fxTunnel</h1>
