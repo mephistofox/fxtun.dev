@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.16.2](https://github.com/mephistofox/fxtun.dev/compare/v3.16.1...v3.16.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **brand:** use portal logo in README ([31342e6](https://github.com/mephistofox/fxtun.dev/commit/31342e64896ac775d377e82247eff2ea96f8337f))
+
 ## [3.16.1](https://github.com/mephistofox/fxTunnel/compare/v3.16.0...v3.16.1) (2026-09-27)
 
 
